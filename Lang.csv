@@ -3,3 +3,5 @@ MenuStart;Начать игру;Start
 MenuOption;Настройки;Options
 MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
+Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
+

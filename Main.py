@@ -3,7 +3,6 @@ import sys
 import os
 import random
 import csv
-import math
 
 # Initialize Pygame
 pygame.init()
@@ -211,183 +210,76 @@ class StartPage:
             self.clock.tick(FPS)
 
 
-def apply_y_axis_perspective(surface, rotation_percent):
-    """
-    Create perspective effect simulating rotation around Y axis.
-    rotation_percent: -1.0 to 1.0, where positive values rotate left edge toward viewer.
-    For 25% rotation, use 0.25.
-    """
-    if rotation_percent == 0:
-        return surface
-    
-    width, height = surface.get_size()
-
-    # Используем по одному пикселю в полосе, чтобы убрать видимые "ступеньки"
-    num_strips = width
-
-    result = pygame.Surface((width, height), pygame.SRCALPHA)
-
-    for i in range(num_strips):
-        # Позиция от -1 (левый край) до 1 (правый край)
-        x_pos = (i / (num_strips - 1)) * 2 - 1
-
-        # Линейная интерполяция масштаба по горизонтали:
-        # rotation_percent > 0: левый край шире (ближе), правый уже (дальше)
-        # при 0.25: левый ≈1.25x, правый ≈0.75x
-        scale = 1.0 - rotation_percent * x_pos
-
-        # Минимальная ширина полосы — 1 пиксель, чтобы не было дыр
-        dst_width = max(1, int(round(scale)))
-
-        # Берём вертикальную полоску шириной 1 пиксель
-        strip = surface.subsurface((i, 0, 1, height))
-
-        # Масштабируем по горизонтали
-        scaled_strip = pygame.transform.scale(strip, (dst_width, height))
-
-        # Центрируем полоску относительно исходной позиции
-        dst_x = i - dst_width // 2
-
-        result.blit(scaled_strip, (dst_x, 0))
-    
-    return result
-
-
-def darken_surface(surface, brightness_factor=0.5):
-    """
-    Darken a surface by reducing brightness while preserving all details.
-    brightness_factor: 0.0 (black) to 1.0 (original) - controls overall brightness
-    """
-    result = surface.copy()
-    result = result.convert_alpha()
-    
-    # Create a colored overlay that will multiply to reduce brightness
-    # This preserves all details and colors of the original image
-    darken_overlay = pygame.Surface(result.get_size(), pygame.SRCALPHA)
-    # Fill with brightness_factor value (0-255) for each RGB channel
-    # This will multiply the colors, reducing brightness proportionally
-    overlay_color = (int(255 * brightness_factor), int(255 * brightness_factor), int(255 * brightness_factor))
-    darken_overlay.fill(overlay_color + (255,))
-    
-    # Multiply blend mode: each pixel is multiplied by overlay color
-    # This reduces brightness while preserving all details
-    result.blit(darken_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    
-    return result
-
-
 class GameScreen:
     def __init__(self, screen, background, font_path):
         self.screen = screen
         self.clock = pygame.time.Clock()
         
-        # Load Back2.png from UI folder
-        back2_path = os.path.join("UI", "Back2.png")
-        if os.path.exists(back2_path):
-            self.background = pygame.image.load(back2_path).convert()
+        # Load Back3.png from UI folder
+        back3_path = os.path.join("UI", "Back3.png")
+        if os.path.exists(back3_path):
+            self.background = pygame.image.load(back3_path).convert()
             self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
-            print("WARNING: Back2.png not found:", back2_path)
+            print("WARNING: Back3.png not found:", back3_path)
             self.background = background if background else None
         
-        # Load fonts
-        self.font_large = pygame.font.Font(font_path, 72)
-        self.font_medium = pygame.font.Font(font_path, 48)
-        self.font_small = pygame.font.Font(font_path, 36)
-        self.font_icon = pygame.font.Font(font_path, 40)
-
-        # ------------------------------------
-        # LEVEL ICONS (from LevelPage folder)
-        # ------------------------------------
-        # Icons are actual images from LevelPage, slightly larger than old 80x80 squares
-        self.icon_size = 100
-        self.icon_spacing = 40
-        self.icons_per_row = 5
-
-        level_icons_dir = "LevelPage"
-        self.level_icons = []
-        self.level_icon_files = []  # Store original filenames for sorting
-
-        if os.path.isdir(level_icons_dir):
-            # Get all PNG files
-            icon_files = [f for f in os.listdir(level_icons_dir) if f.lower().endswith(".png")]
-            
-            # Sort by number at the beginning of filename (e.g., "1_Manufactura.png", "2_Factory.png")
-            def extract_number(filename):
-                # Extract number from beginning of filename
-                parts = filename.split('_', 1)
-                if parts and parts[0].isdigit():
-                    return int(parts[0])
-                # If no number found, try to extract from filename
-                num_str = ''
-                for char in filename:
-                    if char.isdigit():
-                        num_str += char
-                    elif num_str:
-                        break
-                return int(num_str) if num_str else 999  # Put files without numbers at the end
-            
-            icon_files.sort(key=extract_number)
-            
-            for fname in icon_files:
-                path = os.path.join(level_icons_dir, fname)
-                try:
-                    img = pygame.image.load(path).convert_alpha()
-                    img = pygame.transform.smoothscale(
-                        img, (self.icon_size, self.icon_size)
-                    )
-                    self.level_icons.append(img)
-                    self.level_icon_files.append(fname)
-                except Exception as e:
-                    print(f"ERROR loading level icon {path}: {e}")
-
-        # Fallback: if no images found, keep at least one placeholder icon
-        if not self.level_icons:
-            placeholder_surface = pygame.Surface(
-                (self.icon_size, self.icon_size), pygame.SRCALPHA
-            )
-            placeholder_surface.fill((220, 220, 220, 255))
-            self.level_icons.append(placeholder_surface)
-            self.level_icon_files.append("placeholder.png")
-
-        self.num_icons = len(self.level_icons)
+        # Load LevelCard image
+        levelcard_path = os.path.join("LevelPage", "LevelCard.jpg")
+        if os.path.exists(levelcard_path):
+            original_image = pygame.image.load(levelcard_path).convert_alpha()
+            # Reduce card size by 20% (scale to 80%)
+            original_width = original_image.get_width()
+            original_height = original_image.get_height()
+            new_width = int(original_width * 0.8)
+            new_height = int(original_height * 0.8)
+            self.levelcard_image = pygame.transform.scale(original_image, (new_width, new_height)).convert_alpha()
+        else:
+            print("WARNING: LevelCard.jpg not found:", levelcard_path)
+            self.levelcard_image = None
         
-        # ------------------------------------
-        # LEVEL UNLOCK SYSTEM
-        # ------------------------------------
-        # Initialize level unlock status (LevelOpen1-10)
-        # LevelOpen1 = 1 (open), others = 0 (locked)
-        self.level_open = {}
-        for i in range(1, 11):
-            # Support external LevelOpen1..LevelOpen10 flags if they exist; default: only level 1 open
-            default_open = 1 if i == 1 else 0
-            self.level_open[i] = globals().get(f"LevelOpen{i}", default_open)
-
-        # Calculate icon positions (centered grid)
-        self.icon_rects = []
-        total_row_width = (
-            min(self.icons_per_row, self.num_icons) * self.icon_size
-            + (min(self.icons_per_row, self.num_icons) - 1) * self.icon_spacing
-        )
-        start_x = (SCREEN_WIDTH - total_row_width) // 2
-        start_y = 300
-
-        for i in range(self.num_icons):
-            row = i // self.icons_per_row
-            col = i % self.icons_per_row
-            x = start_x + col * (self.icon_size + self.icon_spacing)
-            y = start_y + row * (self.icon_size + self.icon_spacing)
-            self.icon_rects.append(
-                pygame.Rect(x, y, self.icon_size, self.icon_size)
+        # Single card position in top left corner with padding to fit within frame on Back3
+        padding_x = 40  # Horizontal padding from frame edge
+        padding_y = 75  # Vertical padding from frame edge
+        self.card_position = (padding_x, padding_y)
+        
+        # Load fonts for card text
+        self.font_card = pygame.font.Font(font_path, 48)  # For title
+        self.font_card_desc = pygame.font.Font(font_path, 32)  # For description
+        
+        # Load StartArrow image
+        startarrow_path = os.path.join("LevelPage", "StartArrow.jpg")
+        if os.path.exists(startarrow_path):
+            original_arrow = pygame.image.load(startarrow_path).convert_alpha()
+            # Reduce arrow size to 50% to fit organically on the card
+            original_width = original_arrow.get_width()
+            original_height = original_arrow.get_height()
+            new_width = int(original_width * 0.5)
+            new_height = int(original_height * 0.5)
+            self.startarrow_image = pygame.transform.scale(original_arrow, (new_width, new_height)).convert_alpha()
+        else:
+            print("WARNING: StartArrow.jpg not found:", startarrow_path)
+            self.startarrow_image = None
+        
+        # Calculate StartArrow position in bottom right corner of card
+        if self.levelcard_image and self.startarrow_image:
+            card_width = self.levelcard_image.get_width()
+            card_height = self.levelcard_image.get_height()
+            arrow_width = self.startarrow_image.get_width()
+            arrow_height = self.startarrow_image.get_height()
+            # Position: bottom right corner with small padding
+            arrow_padding = 15
+            self.arrow_position = (
+                self.card_position[0] + card_width - arrow_width - arrow_padding,
+                self.card_position[1] + card_height - arrow_height - arrow_padding
             )
-
-        self.hovered_icon = None
-        self.hover_start_time = None
-        self.selected_icon = None
+            self.arrow_rect = pygame.Rect(self.arrow_position[0], self.arrow_position[1], arrow_width, arrow_height)
+        else:
+            self.arrow_position = (0, 0)
+            self.arrow_rect = None
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
-        prev_hovered = self.hovered_icon
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -397,29 +289,13 @@ class GameScreen:
                 if event.key == pygame.K_ESCAPE:
                     return "back"
             
-            # Mouse click detection (only for open levels)
+            # Handle StartArrow click
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
-                    for i, rect in enumerate(self.icon_rects):
-                        level_num = i + 1
-                        if rect.collidepoint(mouse_pos) and self.level_open.get(level_num, 0) == 1:
-                            self.selected_icon = i
-                            print(f"Level {level_num} selected")
-                            return f"icon_{level_num}"
-
-        # Mouse hover detection (only for open levels); persists while cursor stays put
-        new_hovered = None
-        for i, rect in enumerate(self.icon_rects):
-            level_num = i + 1
-            if rect.collidepoint(mouse_pos) and self.level_open.get(level_num, 0) == 1:
-                new_hovered = i
-                break
-
-        if new_hovered != prev_hovered:
-            self.hover_start_time = pygame.time.get_ticks() / 1000.0 if new_hovered is not None else None
-
-        self.hovered_icon = new_hovered
-
+                    if self.arrow_rect and self.arrow_rect.collidepoint(mouse_pos):
+                        # Navigate to boss page for level 1
+                        return "level_1"
+        
         return None
     
     def draw(self):
@@ -428,41 +304,57 @@ class GameScreen:
             self.screen.blit(self.background, (0, 0))
         else:
             self.screen.fill(BLACK)
-
-        # Draw level icons with hover animation (rotation around Y axis)
-        current_time = pygame.time.get_ticks() / 1000.0
-
-        for i, rect in enumerate(self.icon_rects):
-            level_num = i + 1
-            base_icon = self.level_icons[i % len(self.level_icons)]
+        
+        # Draw single level card in top left corner
+        if self.levelcard_image:
+            self.screen.blit(self.levelcard_image, self.card_position)
             
-            # Check if level is open
-            is_open = self.level_open.get(level_num, 0) == 1
+            # Draw card title "1815" in upper part, slightly shifted to the right
+            card_text = "1815"
+            text_surface = self.font_card.render(card_text, True, PAPER_COLOR)
+            # Position: card top + small offset, card left + right shift
+            text_x = self.card_position[0] + 390  # Shift 30px to the right from card left edge
+            text_y = self.card_position[1] + 8  # 20px from card top
+            self.screen.blit(text_surface, (text_x, text_y))
             
-            # Create a copy for processing (don't modify original)
-            icon_to_draw = base_icon.copy()
+            # Draw card description with Level1Cond key below the title
+            desc_text = get_text("Level1Cond", "Level1Cond")
+            # Split long text into multiple lines (max width ~400px for card)
+            max_width = 400
+            words = desc_text.split()
+            lines = []
+            current_line = []
+            current_width = 0
             
-            # Apply darkening if level is locked (reduce brightness to 50%)
-            if not is_open:
-                icon_to_draw = darken_surface(icon_to_draw, brightness_factor=0.5)
-
-            # Hover animation: rotation around Y axis, oscillating +/- 25% (only for open levels)
-            if i == self.hovered_icon and is_open:
-                # Start by leaning right edge toward the user, then oscillate left/right
-                if self.hover_start_time is None:
-                    self.hover_start_time = current_time
-
-                elapsed = current_time - self.hover_start_time
-                cycle_speed = (2 * math.pi) / 1.6  # ~1.6s for full left-right cycle
-                # Use cosine to begin at -25% (right edge toward user), then sweep to +25%
-                rotation = -0.25 * math.cos(cycle_speed * elapsed)
-                transformed = apply_y_axis_perspective(icon_to_draw, rotation)
-            else:
-                transformed = icon_to_draw
-
-            transformed_rect = transformed.get_rect(center=rect.center)
-            self.screen.blit(transformed, transformed_rect)
-
+            for word in words:
+                word_surface = self.font_card_desc.render(word + " ", True, PAPER_COLOR)
+                word_width = word_surface.get_width()
+                
+                if current_width + word_width <= max_width:
+                    current_line.append(word)
+                    current_width += word_width
+                else:
+                    if current_line:
+                        lines.append(" ".join(current_line))
+                    current_line = [word]
+                    current_width = word_width
+            
+            if current_line:
+                lines.append(" ".join(current_line))
+            
+            # Draw each line below the title
+            line_height = self.font_card_desc.get_height() + 5  # 5px spacing between lines
+            start_y = text_y + text_surface.get_height() + 20  # 20px below title
+            start_x = self.card_position[0] + 250  # Left margin for description
+            
+            for i, line in enumerate(lines):
+                line_surface = self.font_card_desc.render(line, True, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+            
+            # Draw StartArrow in bottom right corner
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow_position)
+        
         pygame.display.flip()
     
     def run(self):
@@ -476,8 +368,8 @@ class GameScreen:
             if result == "back":
                 return "back"
             
-            if result and result.startswith("icon_"):
-                # Icon selected, return to main loop
+            # Handle level selection - navigate to boss page
+            if result and result.startswith("level_"):
                 return result
             
             self.draw()
@@ -485,11 +377,10 @@ class GameScreen:
 
 
 class GameplayPage:
-    def __init__(self, screen, font_path, difficulty="e", level_number=1, goal=0):
+    def __init__(self, screen, font_path, difficulty="e"):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.difficulty = difficulty  # "e", "m", or "h"
-        self.level_number = level_number
         
         # Save font path for dynamic font creation
         self.font_path = font_path
@@ -781,7 +672,7 @@ class GameplayPage:
         self.StepC = 6
 
         # Initialize game state variables
-        self.Goal = goal  # Set from previous screen
+        self.Goal = 0  # Will be set from previous screen
         self.Money = 0  # Starts at 0
         self.Day = 1  # Current day/turn (starts at 1)
         self.MaxDays = 8  # Maximum number of days/turns
@@ -910,8 +801,8 @@ class GameplayPage:
         self.card_turns[17] = 1
         self.card_turns[18] = 2
         
-        # Initialize deck based on current level (level 1 has a minimal 7-card set)
-        self.deck = self._build_deck_for_level(level_number)
+        # Initialize deck: Card 0 (2x), Card 1 (2x), Card 2 (1x), Card 3 (2x), Card 4 (1x), Cards 11-14 (1x each), Cards 15-16 (1x each), Cards 17-18 (1x each)
+        self.deck = [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
         # Shuffle deck
         random.shuffle(self.deck)
         
@@ -969,20 +860,6 @@ class GameplayPage:
         self.hand_draw_anim = []  # [{'card_id', 'target_slot', 'target_pos', 'from_pos', 'progress'}]
         self.hand_draw_start_time = 0
         self.hand_draw_duration = 400  # ms
-    
-    def _build_deck_for_level(self, level_number):
-        """
-        Build a deck for the given level. Higher levels can extend this map with
-        larger card pools; default falls back to the full current deck.
-        """
-        level_decks = {
-            1: [0, 1, 3, 11, 12, 15, 16],
-        }
-        
-        deck = level_decks.get(level_number)
-        if deck is None:
-            deck = [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
-        return deck.copy()
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -2518,112 +2395,102 @@ class BossPage:
         self.clock = pygame.time.Clock()
         self.level_number = level_number
         
-        # Load Back2.png from UI folder (same as level selection screen)
-        back2_path = os.path.join("UI", "Back2.png")
-        if os.path.exists(back2_path):
-            self.background = pygame.image.load(back2_path).convert()
+        # Load Back3.png from UI folder (same as level selection screen)
+        back3_path = os.path.join("UI", "Back3.png")
+        if os.path.exists(back3_path):
+            self.background = pygame.image.load(back3_path).convert()
             self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
-            print("WARNING: Back2.png not found:", back2_path)
+            print("WARNING: Back3.png not found:", back3_path)
             self.background = None
         
-        # Load fonts
-        self.font_large = pygame.font.Font(font_path, 72)
-        self.font_medium = pygame.font.Font(font_path, 48)
-        self.font_small = pygame.font.Font(font_path, 36)
+        # Define bosses for each level
+        # Format: {level_number: [list of boss filenames]}
+        self.level_bosses = {
+            1: ["1_Watt.png"]
+            # Add more levels and their bosses here as needed
+        }
         
-        # Load boss images and animations
-        self.bosses = []
-        self.boss_animations = {}
-        self.load_bosses()
+        # Load bosses for current level
+        self.bosses = []  # Static images
+        self.boss_animations = []  # Animation frames for each boss
+        self.boss_rects = []
+        self.hovered_boss = None  # Track which boss is hovered
+        self.boss_animation_states = []  # Animation state for each boss
         
-        # Currently selected boss (for now, only one boss)
-        self.selected_boss_index = 0 if self.bosses else None
+        # Animation sequence: 0,1,2,3,2,1,0,4,5,6,5,4,0 and loop
+        self.animation_sequence = [0, 1, 2, 3, 2, 1, 0, 4, 5, 6, 5, 4, 0]
+        self.animation_speed = 100  # milliseconds per frame
         
-        # Animation state
-        self.animation_frame = 0
-        self.last_animation_time = pygame.time.get_ticks()
-        self.animation_speed = 150  # milliseconds per frame
-        
-        # Hover state
-        self.hovered_boss = None
-    
-    def load_bosses(self):
-        """Load boss images and animations from Bosses folder"""
-        bosses_dir = "Bosses"
-        
-        if not os.path.isdir(bosses_dir):
-            print(f"WARNING: Bosses directory not found: {bosses_dir}")
-            return
-        
-        # For now, load only Adam Smith
-        boss_name = "Adam Smith"
-        boss_main_path = os.path.join(bosses_dir, f"{boss_name}.png")
-        boss_anim_dir = os.path.join(bosses_dir, "AdamSmith")
-        
-        if os.path.exists(boss_main_path):
-            try:
-                # Load main boss image
-                boss_img = pygame.image.load(boss_main_path).convert_alpha()
-                # Scale boss image to reasonable size (e.g., 400x400 or maintain aspect ratio)
-                original_width = boss_img.get_width()
-                original_height = boss_img.get_height()
-                max_size = 400
-                if original_width > original_height:
-                    scale = max_size / original_width
+        if self.level_number in self.level_bosses:
+            for boss_filename in self.level_bosses[self.level_number]:
+                boss_path = os.path.join("Bosses", boss_filename)
+                if os.path.exists(boss_path):
+                    # Load static image
+                    boss_image = pygame.image.load(boss_path).convert_alpha()
+                    boss_image = pygame.transform.scale(boss_image, (100, 100)).convert_alpha()
+                    self.bosses.append(boss_image)
+                    
+                    # Load animation frames from boss folder
+                    # Get boss name without extension (e.g., "1_Watt" from "1_Watt.png")
+                    boss_name = os.path.splitext(boss_filename)[0]
+                    boss_folder = os.path.join("Bosses", boss_name)
+                    animation_frames = []
+                    
+                    if os.path.exists(boss_folder):
+                        # Load frames 0-6 (universal sequence)
+                        for frame_num in range(7):
+                            frame_filename = f"{boss_name}{frame_num}.png"
+                            frame_path = os.path.join(boss_folder, frame_filename)
+                            if os.path.exists(frame_path):
+                                frame_image = pygame.image.load(frame_path).convert_alpha()
+                                frame_image = pygame.transform.scale(frame_image, (100, 100)).convert_alpha()
+                                animation_frames.append(frame_image)
+                            else:
+                                print(f"WARNING: Animation frame not found: {frame_path}")
+                        
+                        if len(animation_frames) == 7:
+                            self.boss_animations.append(animation_frames)
+                        else:
+                            print(f"WARNING: Not all animation frames found for {boss_name}, using static image")
+                            self.boss_animations.append(None)
+                    else:
+                        print(f"WARNING: Animation folder not found: {boss_folder}")
+                        self.boss_animations.append(None)
+                    
+                    # Initialize animation state for this boss
+                    self.boss_animation_states.append({
+                        'sequence_index': 0,
+                        'last_update': pygame.time.get_ticks()
+                    })
                 else:
-                    scale = max_size / original_height
-                new_width = int(original_width * scale)
-                new_height = int(original_height * scale)
-                boss_img = pygame.transform.scale(boss_img, (new_width, new_height)).convert_alpha()
-                
-                # Load animation frames
-                # First, load all frames into a dictionary
-                frame_dict = {}
-                if os.path.isdir(boss_anim_dir):
-                    # Load all available frames
-                    frame_names = ["-3", "-2", "-1", "1", "2", "3", "4"]
-                    for frame_num in frame_names:
-                        frame_path = os.path.join(boss_anim_dir, f"{frame_num}.png")
-                        if os.path.exists(frame_path):
-                            try:
-                                frame_img = pygame.image.load(frame_path).convert_alpha()
-                                # Scale animation frames to same size as main image
-                                frame_img = pygame.transform.scale(frame_img, (new_width, new_height)).convert_alpha()
-                                frame_dict[frame_num] = frame_img
-                            except Exception as e:
-                                print(f"ERROR loading animation frame {frame_path}: {e}")
-                
-                # Create animation sequence: 1, 2, 3, 4, 3, 2, 1, -1, -2, -3, -2, -1, 1 (and repeat)
-                animation_sequence = ["1", "2", "3", "4", "3", "2", "1", "-1", "-2", "-3", "-2", "-1"]
-                animation_frames = []
-                for frame_name in animation_sequence:
-                    if frame_name in frame_dict:
-                        animation_frames.append(frame_dict[frame_name])
-                
-                # Store boss data
-                boss_data = {
-                    'name': boss_name,
-                    'main_image': boss_img,
-                    'rect': pygame.Rect(0, 0, new_width, new_height)
-                }
-                self.bosses.append(boss_data)
-                self.boss_animations[boss_name] = animation_frames if animation_frames else []
-                
-                print(f"Loaded boss: {boss_name} with {len(animation_frames)} animation frames")
-                
-            except Exception as e:
-                print(f"ERROR loading boss {boss_main_path}: {e}")
+                    print(f"WARNING: Boss file not found: {boss_path}")
+                    self.bosses.append(None)
+                    self.boss_animations.append(None)
+                    self.boss_animation_states.append(None)
+        
+        # Calculate boss positions in bottom left part of screen
+        boss_spacing = 60  # Spacing between bosses
+        start_x = 50  # Left margin
+        start_y = SCREEN_HEIGHT - 100  # Bottom margin (100px from bottom)
+        
+        for i, boss_image in enumerate(self.bosses):
+            if boss_image:
+                boss_x = start_x
+                boss_y = start_y - (i * boss_spacing)  # Stack bosses vertically
+                self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
+            else:
+                self.boss_rects.append(None)
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
         
         # Check which boss is hovered
         self.hovered_boss = None
-        if self.selected_boss_index is not None and self.selected_boss_index < len(self.bosses):
-            boss = self.bosses[self.selected_boss_index]
-            if boss['rect'].collidepoint(mouse_pos):
-                self.hovered_boss = self.selected_boss_index
+        for i, boss_rect in enumerate(self.boss_rects):
+            if boss_rect and boss_rect.collidepoint(mouse_pos):
+                self.hovered_boss = i
+                break
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -2633,27 +2500,34 @@ class BossPage:
                 if event.key == pygame.K_ESCAPE:
                     return "back"
             
+            # Handle boss click
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
-                    if self.selected_boss_index is not None and self.selected_boss_index < len(self.bosses):
-                        boss = self.bosses[self.selected_boss_index]
-                        if boss['rect'].collidepoint(mouse_pos):
-                            print(f"Boss {boss['name']} selected")
-                            return "boss_selected"
+                    for i, boss_rect in enumerate(self.boss_rects):
+                        if boss_rect and boss_rect.collidepoint(mouse_pos):
+                            # Return boss selection (level_number, boss_index)
+                            return f"boss_{self.level_number}_{i}"
         
         return None
     
     def update_animation(self):
-        """Update boss animation"""
-        if self.selected_boss_index is not None and self.selected_boss_index < len(self.bosses):
-            boss = self.bosses[self.selected_boss_index]
-            boss_name = boss['name']
+        """Update boss animation when hovered"""
+        current_time = pygame.time.get_ticks()
+        
+        for i, animation_state in enumerate(self.boss_animation_states):
+            if animation_state is None:
+                continue
             
-            if boss_name in self.boss_animations and len(self.boss_animations[boss_name]) > 0:
-                current_time = pygame.time.get_ticks()
-                if current_time - self.last_animation_time >= self.animation_speed:
-                    self.last_animation_time = current_time
-                    self.animation_frame = (self.animation_frame + 1) % len(self.boss_animations[boss_name])
+            # Only animate if this boss is hovered
+            if i == self.hovered_boss:
+                # Check if it's time to advance to next frame
+                if current_time - animation_state['last_update'] >= self.animation_speed:
+                    animation_state['sequence_index'] = (animation_state['sequence_index'] + 1) % len(self.animation_sequence)
+                    animation_state['last_update'] = current_time
+            else:
+                # Reset animation when not hovered
+                animation_state['sequence_index'] = 0
+                animation_state['last_update'] = current_time
     
     def draw(self):
         # Background
@@ -2662,39 +2536,20 @@ class BossPage:
         else:
             self.screen.fill(BLACK)
         
-        # Draw boss(es)
-        if self.selected_boss_index is not None and self.selected_boss_index < len(self.bosses):
-            boss = self.bosses[self.selected_boss_index]
-            boss_name = boss['name']
+        # Draw bosses in bottom left part of screen
+        for i, (boss_image, boss_rect) in enumerate(zip(self.bosses, self.boss_rects)):
+            if boss_rect is None or boss_image is None:
+                continue
             
-            # Get current animation frame or main image
-            if boss_name in self.boss_animations and len(self.boss_animations[boss_name]) > 0:
-                # Use animation frame
-                current_frame = self.boss_animations[boss_name][self.animation_frame]
-                boss_image = current_frame
+            # If boss is hovered and has animation, use animated frame
+            if i == self.hovered_boss and self.boss_animations[i] is not None:
+                animation_state = self.boss_animation_states[i]
+                frame_index = self.animation_sequence[animation_state['sequence_index']]
+                animated_frame = self.boss_animations[i][frame_index]
+                self.screen.blit(animated_frame, boss_rect.topleft)
             else:
-                # Use main image
-                boss_image = boss['main_image']
-            
-            # Center boss on screen
-            boss_rect = boss_image.get_rect()
-            boss_rect.centerx = SCREEN_WIDTH // 2
-            boss_rect.centery = SCREEN_HEIGHT // 2
-            
-            # Update boss rect for click detection
-            boss['rect'] = boss_rect
-            
-            # Draw boss with hover effect (slight scale up)
-            if self.hovered_boss == self.selected_boss_index:
-                # Scale up slightly when hovered
-                hover_scale = 1.1
-                hover_width = int(boss_rect.width * hover_scale)
-                hover_height = int(boss_rect.height * hover_scale)
-                hover_image = pygame.transform.scale(boss_image, (hover_width, hover_height))
-                hover_rect = hover_image.get_rect(center=boss_rect.center)
-                self.screen.blit(hover_image, hover_rect)
-            else:
-                self.screen.blit(boss_image, boss_rect)
+                # Use static image
+                self.screen.blit(boss_image, boss_rect.topleft)
         
         pygame.display.flip()
     
@@ -2709,9 +2564,8 @@ class BossPage:
             if result == "back":
                 return "back"
             
-            if result == "boss_selected":
-                # Boss selected, proceed to round selection
-                return "boss_selected"
+            if result and result.startswith("boss_"):
+                return result
             
             # Update animation
             self.update_animation()
@@ -2721,18 +2575,19 @@ class BossPage:
 
 
 class RoundPage:
-    def __init__(self, screen, font_path, level_number):
+    def __init__(self, screen, font_path, level_number, boss_index):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.level_number = level_number
+        self.boss_index = boss_index
         
-        # Load Back2.png from UI folder
-        back2_path = os.path.join("UI", "Back2.png")
-        if os.path.exists(back2_path):
-            self.background = pygame.image.load(back2_path).convert()
+        # Load Back3.png from UI folder (same as level selection screen)
+        back3_path = os.path.join("UI", "Back3.png")
+        if os.path.exists(back3_path):
+            self.background = pygame.image.load(back3_path).convert()
             self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
-            print("WARNING: Back2.png not found:", back2_path)
+            print("WARNING: Back3.png not found:", back3_path)
             self.background = None
         
         # Load buttons and scale down by 5x
@@ -2771,58 +2626,36 @@ class RoundPage:
             print("WARNING: LevelButtonH not found:", button_h_path)
             self.button_h = None
         
-        # For level 1, only show button M
-        if self.level_number == 1:
-            # Hide buttons E and H for level 1
-            self.button_e_rect = None
-            self.button_h_rect = None
-            
-            # Center button M on screen
-            if self.button_m:
-                button_m_height = self.button_m.get_height()
-                button_m_width = self.button_m.get_width()
-                button_m_x = 130  # Same x position as before
-                button_m_y = (SCREEN_HEIGHT - button_m_height) // 2  # Center vertically
-                self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
-            else:
-                self.button_m_rect = None
+        # Calculate button positions
+        if self.button_e:
+            button_e_height = self.button_e.get_height()
+            button_e_width = self.button_e.get_width()
+            button_e_x = 130  # 130px from left
+            button_e_y = SCREEN_HEIGHT - button_e_height - 120  # 120px up from bottom
+            self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
         else:
-            # Calculate button positions for other levels
-            # LevelButtonE (bottom): moved 40px left, then 30px more left from previous position (70 - 40 - 30 = 0)
-            # LevelButtonM (middle): 30px up from E
-            # LevelButtonH (upper): 30px up from M
-            if self.button_e:
-                button_e_height = self.button_e.get_height()
-                button_e_width = self.button_e.get_width()
-                # 130px from left (60 + 70), 120px up from bottom (70 + 50)
-                button_e_x = 130  # 130px from left
-                button_e_y = SCREEN_HEIGHT - button_e_height - 120  # 120px up from bottom
-                self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
-            else:
-                self.button_e_rect = None
-                button_e_y = SCREEN_HEIGHT - 120
-                button_e_x = 130
-            
-            if self.button_m:
-                button_m_height = self.button_m.get_height()
-                button_m_width = self.button_m.get_width()
-                # LevelButtonM (middle): 30px up from LevelButtonE (tied to bottom button)
-                button_m_y = button_e_y - 30 - button_m_height
-                button_m_x = button_e_x  # Same x position as LevelButtonE
-                self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
-            else:
-                self.button_m_rect = None
-                button_m_y = button_e_y - 30  # Fallback position
-            
-            if self.button_h:
-                button_h_height = self.button_h.get_height()
-                button_h_width = self.button_h.get_width()
-                # LevelButtonH (upper): 30px up from LevelButtonM (tied to bottom button)
-                button_h_y = button_m_y - 30 - button_h_height
-                button_h_x = button_e_x  # Same x position as LevelButtonE
-                self.button_h_rect = pygame.Rect(button_h_x, button_h_y, button_h_width, button_h_height)
-            else:
-                self.button_h_rect = None
+            self.button_e_rect = None
+            button_e_y = SCREEN_HEIGHT - 120
+            button_e_x = 130
+        
+        if self.button_m:
+            button_m_height = self.button_m.get_height()
+            button_m_width = self.button_m.get_width()
+            button_m_y = button_e_y - 30 - button_m_height
+            button_m_x = button_e_x  # Same x position as LevelButtonE
+            self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
+        else:
+            self.button_m_rect = None
+            button_m_y = button_e_y - 30  # Fallback position
+        
+        if self.button_h:
+            button_h_height = self.button_h.get_height()
+            button_h_width = self.button_h.get_width()
+            button_h_y = button_m_y - 30 - button_h_height
+            button_h_x = button_e_x  # Same x position as LevelButtonE
+            self.button_h_rect = pygame.Rect(button_h_x, button_h_y, button_h_width, button_h_height)
+        else:
+            self.button_h_rect = None
         
         # Rotation animation variables
         self.rotation_angle_e = 0.0
@@ -2991,6 +2824,10 @@ class RoundPage:
             
             self.draw()
             self.clock.tick(FPS)
+            self.update_rotation()
+            
+            self.draw()
+            self.clock.tick(FPS)
 
 
 def load_background():
@@ -3045,52 +2882,62 @@ if __name__ == "__main__":
         result = start_page.run()
         
         if result == "start":
-            # Game screen loop
+            # LevelPage loop
             while True:
-                game_screen = GameScreen(screen, background, font_path)
-                game_result = game_screen.run()
+                level_page = GameScreen(screen, background, font_path)  # LevelPage
+                level_result = level_page.run()
                 
-                if game_result == "back":
+                if level_result == "back":
                     break  # Return to start page
-                elif game_result and game_result.startswith("icon_"):
-                    # Level selected, go to Boss selection page
-                    level_num = int(game_result.split("_")[1])
-                    boss_page = BossPage(screen, font_path, level_num)
-                    boss_result = boss_page.run()
-                    
-                    if boss_result == "back":
-                        continue  # Return to game screen (stay in game screen loop)
-                    elif boss_result == "boss_selected":
-                        # Boss selected, go to Round page
-                        round_page = RoundPage(screen, font_path, level_num)
-                        round_result = round_page.run()
+                elif level_result and level_result.startswith("level_"):
+                    # Level selected, go to BossPage
+                    try:
+                        level_num = int(level_result.split("_")[1])
+                        boss_page = BossPage(screen, font_path, level_num)
+                        boss_result = boss_page.run()
                         
-                        if round_result == "back":
-                            # Return to boss page
-                            boss_page = BossPage(screen, font_path, level_num)
-                            boss_result = boss_page.run()
-                            if boss_result == "back":
-                                continue
-                        elif round_result in ("button_e", "button_m", "button_h"):
-                            # Navigate to gameplay page
-                            difficulty = round_result.split("_")[1]  # Extract "e", "m", or "h"
-                            # Set goal based on level and difficulty
-                            goal = 0
-                            if level_num == 1 and difficulty == "m":
-                                goal = 40
-                            gameplay_page = GameplayPage(screen, font_path, difficulty, level_num, goal)
-                            gameplay_result = gameplay_page.run()
+                        if boss_result == "back":
+                            continue  # Return to level page (stay in level page loop)
+                        elif boss_result == "quit":
+                            break  # Exit game
+                        elif boss_result and boss_result.startswith("boss_"):
+                            # Boss selected, go to RoundPage
+                            # Format: boss_level_bossIndex
+                            parts = boss_result.split("_")
+                            boss_level = int(parts[1])
+                            boss_index = int(parts[2])
                             
-                            if gameplay_result == "back":
-                                # Return to round page
-                                round_page = RoundPage(screen, font_path, level_num)
-                                round_result = round_page.run()
-                                if round_result == "back":
+                            round_page = RoundPage(screen, font_path, boss_level, boss_index)
+                            round_result = round_page.run()
+                            
+                            if round_result == "back":
+                                continue  # Return to boss page (stay in level page loop)
+                            elif round_result == "quit":
+                                break  # Exit game
+                            elif round_result in ("button_e", "button_m", "button_h"):
+                                # Round selected, go to GameplayPage
+                                difficulty = round_result.split("_")[1]  # Extract "e", "m", or "h"
+                                gameplay_page = GameplayPage(screen, font_path, difficulty)
+                                gameplay_result = gameplay_page.run()
+                                
+                                if gameplay_result == "back":
+                                    # Return to round page
+                                    round_page = RoundPage(screen, font_path, boss_level, boss_index)
+                                    round_result = round_page.run()
+                                    if round_result == "back":
+                                        continue
+                                elif gameplay_result == "game_over":
+                                    # Handle game over
+                                    print("Game Over!")
                                     continue
-                            elif gameplay_result == "game_over":
-                                # Handle game over
-                                print("Game Over!")
-                                continue
+                        else:
+                            # If BossPage returns something unexpected, return to level page
+                            continue
+                    except Exception as e:
+                        print(f"ERROR in navigation: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue  # Return to level page on error
         elif result == "quit":
             break
     
