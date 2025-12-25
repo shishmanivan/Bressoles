@@ -2404,6 +2404,15 @@ class BossPage:
             print("WARNING: Back3.png not found:", back3_path)
             self.background = None
         
+        # Load Koordinates.png from RoundPage folder
+        koordinates_path = os.path.join("RoundPage", "Koordinates.png")
+        if os.path.exists(koordinates_path):
+            self.koordinates = pygame.image.load(koordinates_path).convert_alpha()
+            self.koordinates = pygame.transform.scale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
+        else:
+            print("WARNING: Koordinates.png not found:", koordinates_path)
+            self.koordinates = None
+        
         # Define bosses for each level
         # Format: {level_number: [list of boss filenames]}
         self.level_bosses = {
@@ -2412,35 +2421,69 @@ class BossPage:
         }
         
         # Load bosses for current level
-        self.bosses = []  # Static images
-        self.boss_animations = []  # Animation frames for each boss
+        self.bosses = []  # Default boss images (non-animated)
         self.boss_rects = []
-        self.hovered_boss = None  # Track which boss is hovered
-        self.boss_animation_states = []  # Animation state for each boss
+        self.boss_animation_frames = []  # Animation frames for each boss
+        self.boss_base_names = []  # Base names for finding animation folders
         
         # Animation sequence: 0,1,2,3,2,1,0,4,5,6,5,4,0 and loop
-        self.animation_sequence = [0, 1, 2, 3, 2, 1, 0, 4, 5, 6, 5, 4, 0]
-        self.animation_speed = 100  # milliseconds per frame
+        self.animation_sequence = [0, 1, 2, 3, 2, 1, 0, 4, 5, 6, 5, 4]
+        self.animation_frame_duration = 100  # milliseconds per frame
+        self.boss_hover_states = {}  # Track which boss is hovered and animation state
+        
+        # Load PopUp.png
+        popup_path = os.path.join("Bosses", "PopUp.png")
+        if os.path.exists(popup_path):
+            popup_original = pygame.image.load(popup_path).convert_alpha()
+            # Scale to 250x375 pixels
+            self.popup_image = pygame.transform.scale(popup_original, (250, 375)).convert_alpha()
+        else:
+            print(f"WARNING: PopUp.png not found: {popup_path}")
+            self.popup_image = None
+        
+        # PopUp animation state
+        self.popup_y = -200  # Start above screen (hidden)
+        self.popup_x = 0
+        self.popup_target_y = -200  # Target Y position
+        self.popup_speed = 25  # Pixels per frame for smooth movement
+        self.current_hovered_boss_index = None  # Track which boss is hovered for PopUp
+        self.popup_boss_index = None  # Track which boss text to show (persists until PopUp hides)
+        
+        # Load font for PopUp text
+        self.popup_font = pygame.font.Font(font_path, 24)
+        
+        # Map boss indices to text keys in Lang.csv
+        # Format: {boss_index: "LangKey"}
+        self.boss_text_keys = {
+            0: "Boss1Text"  # Boss 1 (Watt)
+            # Add more bosses here as needed: 1: "Boss2Text", etc.
+        }
+        
+        # Store boss texts
+        self.boss_texts = {}
+        for boss_index, text_key in self.boss_text_keys.items():
+            self.boss_texts[boss_index] = get_text(text_key, text_key)
         
         if self.level_number in self.level_bosses:
             for boss_filename in self.level_bosses[self.level_number]:
                 boss_path = os.path.join("Bosses", boss_filename)
                 if os.path.exists(boss_path):
-                    # Load static image
                     boss_image = pygame.image.load(boss_path).convert_alpha()
+                    # Scale to 100x100
                     boss_image = pygame.transform.scale(boss_image, (100, 100)).convert_alpha()
                     self.bosses.append(boss_image)
                     
-                    # Load animation frames from boss folder
-                    # Get boss name without extension (e.g., "1_Watt" from "1_Watt.png")
-                    boss_name = os.path.splitext(boss_filename)[0]
-                    boss_folder = os.path.join("Bosses", boss_name)
-                    animation_frames = []
+                    # Extract base name (e.g., "1_Watt.png" -> "1_Watt")
+                    base_name = os.path.splitext(boss_filename)[0]
+                    self.boss_base_names.append(base_name)
                     
-                    if os.path.exists(boss_folder):
-                        # Load frames 0-6 (universal sequence)
+                    # Load animation frames from boss folder
+                    boss_folder = os.path.join("Bosses", base_name)
+                    animation_frames = []
+                    if os.path.exists(boss_folder) and os.path.isdir(boss_folder):
+                        # Load frames 0-6
                         for frame_num in range(7):
-                            frame_filename = f"{boss_name}{frame_num}.png"
+                            frame_filename = f"{base_name}{frame_num}.png"
                             frame_path = os.path.join(boss_folder, frame_filename)
                             if os.path.exists(frame_path):
                                 frame_image = pygame.image.load(frame_path).convert_alpha()
@@ -2448,49 +2491,63 @@ class BossPage:
                                 animation_frames.append(frame_image)
                             else:
                                 print(f"WARNING: Animation frame not found: {frame_path}")
-                        
-                        if len(animation_frames) == 7:
-                            self.boss_animations.append(animation_frames)
-                        else:
-                            print(f"WARNING: Not all animation frames found for {boss_name}, using static image")
-                            self.boss_animations.append(None)
                     else:
-                        print(f"WARNING: Animation folder not found: {boss_folder}")
-                        self.boss_animations.append(None)
+                        print(f"WARNING: Boss animation folder not found: {boss_folder}")
                     
-                    # Initialize animation state for this boss
-                    self.boss_animation_states.append({
-                        'sequence_index': 0,
-                        'last_update': pygame.time.get_ticks()
-                    })
+                    self.boss_animation_frames.append(animation_frames)
                 else:
                     print(f"WARNING: Boss file not found: {boss_path}")
                     self.bosses.append(None)
-                    self.boss_animations.append(None)
-                    self.boss_animation_states.append(None)
+                    self.boss_base_names.append(None)
+                    self.boss_animation_frames.append([])
         
-        # Calculate boss positions in bottom left part of screen
+        # Calculate First boss positions in bottom left part of screen
         boss_spacing = 60  # Spacing between bosses
-        start_x = 50  # Left margin
-        start_y = SCREEN_HEIGHT - 100  # Bottom margin (100px from bottom)
+        start_x = 350  # Left margin
+        start_y = SCREEN_HEIGHT - 400  # Bottom margin (100px from bottom)
         
         for i, boss_image in enumerate(self.bosses):
-            if boss_image:
-                boss_x = start_x
-                boss_y = start_y - (i * boss_spacing)  # Stack bosses vertically
-                self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
-            else:
-                self.boss_rects.append(None)
+            boss_x = start_x
+            boss_y = start_y - (i * boss_spacing)  # Stack bosses vertically
+            self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
         
-        # Check which boss is hovered
-        self.hovered_boss = None
+        # Check which boss is being hovered
+        hovered_boss = None
         for i, boss_rect in enumerate(self.boss_rects):
-            if boss_rect and boss_rect.collidepoint(mouse_pos):
-                self.hovered_boss = i
+            if boss_rect.collidepoint(mouse_pos):
+                hovered_boss = i
                 break
+        
+        # Update PopUp position based on hover
+        if hovered_boss is not None:
+            # Set target position for PopUp
+            boss_rect = self.boss_rects[hovered_boss]
+            self.popup_target_y = boss_rect.y-250  # Y coordinate of the boss
+            self.popup_x = boss_rect.x + 100  # X = boss.x + 70
+            self.current_hovered_boss_index = hovered_boss
+            self.popup_boss_index = hovered_boss  # Save boss index for text display
+        else:
+            # Move PopUp back above screen when not hovering
+            self.popup_target_y = -350
+            self.current_hovered_boss_index = None
+            # Don't clear popup_boss_index here - let it persist until PopUp is hidden
+        
+        # Update hover states
+        for i in range(len(self.boss_rects)):
+            if i == hovered_boss:
+                if i not in self.boss_hover_states:
+                    # Start animation for this boss
+                    self.boss_hover_states[i] = {
+                        'sequence_index': 0,
+                        'last_frame_time': pygame.time.get_ticks()
+                    }
+            else:
+                # Stop animation if not hovered
+                if i in self.boss_hover_states:
+                    del self.boss_hover_states[i]
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -2504,30 +2561,11 @@ class BossPage:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     for i, boss_rect in enumerate(self.boss_rects):
-                        if boss_rect and boss_rect.collidepoint(mouse_pos):
+                        if boss_rect.collidepoint(mouse_pos):
                             # Return boss selection (level_number, boss_index)
                             return f"boss_{self.level_number}_{i}"
         
         return None
-    
-    def update_animation(self):
-        """Update boss animation when hovered"""
-        current_time = pygame.time.get_ticks()
-        
-        for i, animation_state in enumerate(self.boss_animation_states):
-            if animation_state is None:
-                continue
-            
-            # Only animate if this boss is hovered
-            if i == self.hovered_boss:
-                # Check if it's time to advance to next frame
-                if current_time - animation_state['last_update'] >= self.animation_speed:
-                    animation_state['sequence_index'] = (animation_state['sequence_index'] + 1) % len(self.animation_sequence)
-                    animation_state['last_update'] = current_time
-            else:
-                # Reset animation when not hovered
-                animation_state['sequence_index'] = 0
-                animation_state['last_update'] = current_time
     
     def draw(self):
         # Background
@@ -2536,20 +2574,91 @@ class BossPage:
         else:
             self.screen.fill(BLACK)
         
-        # Draw bosses in bottom left part of screen
-        for i, (boss_image, boss_rect) in enumerate(zip(self.bosses, self.boss_rects)):
-            if boss_rect is None or boss_image is None:
-                continue
-            
-            # If boss is hovered and has animation, use animated frame
-            if i == self.hovered_boss and self.boss_animations[i] is not None:
-                animation_state = self.boss_animation_states[i]
-                frame_index = self.animation_sequence[animation_state['sequence_index']]
-                animated_frame = self.boss_animations[i][frame_index]
-                self.screen.blit(animated_frame, boss_rect.topleft)
+        # Draw Koordinates.png overlay (above background, below other objects)
+        if self.koordinates:
+            self.screen.blit(self.koordinates, (0, 0))
+        
+        # Update PopUp position with smooth animation
+        if abs(self.popup_y - self.popup_target_y) > 1:
+            # Smooth movement towards target
+            if self.popup_y < self.popup_target_y:
+                self.popup_y = min(self.popup_y + self.popup_speed, self.popup_target_y)
             else:
-                # Use static image
+                self.popup_y = max(self.popup_y - self.popup_speed, self.popup_target_y)
+        else:
+            self.popup_y = self.popup_target_y
+        
+        # Update animations and draw bosses
+        current_time = pygame.time.get_ticks()
+        
+        for i, (boss_image, boss_rect) in enumerate(zip(self.bosses, self.boss_rects)):
+            # Check if this boss is being hovered and has animation frames
+            if i in self.boss_hover_states and len(self.boss_animation_frames[i]) > 0:
+                # Update animation
+                hover_state = self.boss_hover_states[i]
+                time_since_last_frame = current_time - hover_state['last_frame_time']
+                
+                if time_since_last_frame >= self.animation_frame_duration:
+                    # Move to next frame in sequence
+                    hover_state['sequence_index'] = (hover_state['sequence_index'] + 1) % len(self.animation_sequence)
+                    hover_state['last_frame_time'] = current_time
+                
+                # Get current frame number from sequence
+                frame_index = self.animation_sequence[hover_state['sequence_index']]
+                
+                # Draw animated frame if available
+                if frame_index < len(self.boss_animation_frames[i]):
+                    self.screen.blit(self.boss_animation_frames[i][frame_index], boss_rect.topleft)
+                else:
+                    # Fallback to default image if frame not available
+                    self.screen.blit(boss_image, boss_rect.topleft)
+            else:
+                # Draw default boss image when not hovered
                 self.screen.blit(boss_image, boss_rect.topleft)
+        
+        # Draw PopUp if it's visible (not completely above screen)
+        if self.popup_image and self.popup_y > -self.popup_image.get_height():
+            self.screen.blit(self.popup_image, (self.popup_x, self.popup_y))
+            
+            # Draw text on PopUp if a boss text is available (persists until PopUp hides)
+            if self.popup_boss_index is not None and self.popup_boss_index in self.boss_texts:
+                text = self.boss_texts[self.popup_boss_index]
+                
+                # Split text into multiple lines to fit in PopUp (250px wide)
+                max_width = 220  # Leave some padding (250 - 30px total padding)
+                words = text.split()
+                lines = []
+                current_line = []
+                current_width = 0
+                
+                for word in words:
+                    word_surface = self.popup_font.render(word + " ", True, PAPER_COLOR)
+                    word_width = word_surface.get_width()
+                    
+                    if current_width + word_width <= max_width:
+                        current_line.append(word)
+                        current_width += word_width
+                    else:
+                        if current_line:
+                            lines.append(" ".join(current_line))
+                        current_line = [word]
+                        current_width = word_width
+                
+                if current_line:
+                    lines.append(" ".join(current_line))
+                
+                # Draw text lines on PopUp
+                text_start_x = self.popup_x + 15  # Left padding
+                text_start_y = self.popup_y + 120  # Top padding
+                line_height = self.popup_font.get_height() + 5  # 5px spacing between lines
+                
+                for i, line in enumerate(lines):
+                    text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                    self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
+        else:
+            # PopUp is completely hidden, clear the boss index for text
+            if self.popup_boss_index is not None:
+                self.popup_boss_index = None
         
         pygame.display.flip()
     
@@ -2566,9 +2675,6 @@ class BossPage:
             
             if result and result.startswith("boss_"):
                 return result
-            
-            # Update animation
-            self.update_animation()
             
             self.draw()
             self.clock.tick(FPS)
@@ -2589,6 +2695,15 @@ class RoundPage:
         else:
             print("WARNING: Back3.png not found:", back3_path)
             self.background = None
+        
+        # Load Koordinates.png from RoundPage folder
+        koordinates_path = os.path.join("RoundPage", "Koordinates.png")
+        if os.path.exists(koordinates_path):
+            self.koordinates = pygame.image.load(koordinates_path).convert_alpha()
+            self.koordinates = pygame.transform.scale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
+        else:
+            print("WARNING: Koordinates.png not found:", koordinates_path)
+            self.koordinates = None
         
         # Load buttons and scale down by 5x
         # E = bottom, M = middle, H = upper
@@ -2657,15 +2772,6 @@ class RoundPage:
         else:
             self.button_h_rect = None
         
-        # Rotation animation variables
-        self.rotation_angle_e = 0.0
-        self.rotation_angle_m = 0.0
-        self.rotation_angle_h = 0.0
-        self.rotation_speed = 2.0  # degrees per frame
-        self.max_rotation = 45.0  # maximum rotation in degrees
-        self.rotation_direction_e = 1  # 1 for forward, -1 for backward
-        self.rotation_direction_m = 1
-        self.rotation_direction_h = 1
         self.hovered_button = None  # Track which button is hovered
     
     def handle_input(self):
@@ -2702,59 +2808,6 @@ class RoundPage:
         
         return None
     
-    def update_rotation(self):
-        """Update rotation angles for hovered buttons"""
-        # Update button E rotation
-        if self.hovered_button == "e":
-            self.rotation_angle_e += self.rotation_speed * self.rotation_direction_e
-            if self.rotation_angle_e >= self.max_rotation:
-                self.rotation_angle_e = self.max_rotation
-                self.rotation_direction_e = -1
-            elif self.rotation_angle_e <= 0:
-                self.rotation_angle_e = 0
-                self.rotation_direction_e = 1
-        else:
-            # Reset rotation when not hovered
-            if self.rotation_angle_e != 0:
-                if self.rotation_angle_e > 0:
-                    self.rotation_angle_e = max(0, self.rotation_angle_e - self.rotation_speed)
-                else:
-                    self.rotation_angle_e = min(0, self.rotation_angle_e + self.rotation_speed)
-        
-        # Update button M rotation
-        if self.hovered_button == "m":
-            self.rotation_angle_m += self.rotation_speed * self.rotation_direction_m
-            if self.rotation_angle_m >= self.max_rotation:
-                self.rotation_angle_m = self.max_rotation
-                self.rotation_direction_m = -1
-            elif self.rotation_angle_m <= 0:
-                self.rotation_angle_m = 0
-                self.rotation_direction_m = 1
-        else:
-            # Reset rotation when not hovered
-            if self.rotation_angle_m != 0:
-                if self.rotation_angle_m > 0:
-                    self.rotation_angle_m = max(0, self.rotation_angle_m - self.rotation_speed)
-                else:
-                    self.rotation_angle_m = min(0, self.rotation_angle_m + self.rotation_speed)
-        
-        # Update button H rotation
-        if self.hovered_button == "h":
-            self.rotation_angle_h += self.rotation_speed * self.rotation_direction_h
-            if self.rotation_angle_h >= self.max_rotation:
-                self.rotation_angle_h = self.max_rotation
-                self.rotation_direction_h = -1
-            elif self.rotation_angle_h <= 0:
-                self.rotation_angle_h = 0
-                self.rotation_direction_h = 1
-        else:
-            # Reset rotation when not hovered
-            if self.rotation_angle_h != 0:
-                if self.rotation_angle_h > 0:
-                    self.rotation_angle_h = max(0, self.rotation_angle_h - self.rotation_speed)
-                else:
-                    self.rotation_angle_h = min(0, self.rotation_angle_h + self.rotation_speed)
-    
     def draw(self):
         # Background
         if self.background:
@@ -2762,45 +2815,19 @@ class RoundPage:
         else:
             self.screen.fill(BLACK)
         
-        # Draw buttons (from bottom to top: E, M, H) with rotation
+        # Draw Koordinates.png overlay (above background, below other objects)
+        if self.koordinates:
+            self.screen.blit(self.koordinates, (0, 0))
+        
+        # Draw buttons (from bottom to top: E, M, H)
         if self.button_e and self.button_e_rect:
-            if abs(self.rotation_angle_e) > 0.1:
-                # Rotate the button
-                rotated_e = pygame.transform.rotate(self.button_e, self.rotation_angle_e)
-                # Get the center of the original button
-                center_x = self.button_e_rect.centerx
-                center_y = self.button_e_rect.centery
-                # Get the rect of the rotated image and center it
-                rotated_rect = rotated_e.get_rect(center=(center_x, center_y))
-                self.screen.blit(rotated_e, rotated_rect.topleft)
-            else:
-                self.screen.blit(self.button_e, self.button_e_rect.topleft)
+            self.screen.blit(self.button_e, self.button_e_rect.topleft)
         
         if self.button_m and self.button_m_rect:
-            if abs(self.rotation_angle_m) > 0.1:
-                # Rotate the button
-                rotated_m = pygame.transform.rotate(self.button_m, self.rotation_angle_m)
-                # Get the center of the original button
-                center_x = self.button_m_rect.centerx
-                center_y = self.button_m_rect.centery
-                # Get the rect of the rotated image and center it
-                rotated_rect = rotated_m.get_rect(center=(center_x, center_y))
-                self.screen.blit(rotated_m, rotated_rect.topleft)
-            else:
-                self.screen.blit(self.button_m, self.button_m_rect.topleft)
+            self.screen.blit(self.button_m, self.button_m_rect.topleft)
         
         if self.button_h and self.button_h_rect:
-            if abs(self.rotation_angle_h) > 0.1:
-                # Rotate the button
-                rotated_h = pygame.transform.rotate(self.button_h, self.rotation_angle_h)
-                # Get the center of the original button
-                center_x = self.button_h_rect.centerx
-                center_y = self.button_h_rect.centery
-                # Get the rect of the rotated image and center it
-                rotated_rect = rotated_h.get_rect(center=(center_x, center_y))
-                self.screen.blit(rotated_h, rotated_rect.topleft)
-            else:
-                self.screen.blit(self.button_h, self.button_h_rect.topleft)
+            self.screen.blit(self.button_h, self.button_h_rect.topleft)
         
         pygame.display.flip()
     
@@ -2818,13 +2845,6 @@ class RoundPage:
             if result in ("button_e", "button_m", "button_h"):
                 # Button clicked, navigate to gameplay page
                 return result
-            
-            # Update rotation animation
-            self.update_rotation()
-            
-            self.draw()
-            self.clock.tick(FPS)
-            self.update_rotation()
             
             self.draw()
             self.clock.tick(FPS)
