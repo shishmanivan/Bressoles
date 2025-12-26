@@ -377,10 +377,11 @@ class GameScreen:
 
 
 class GameplayPage:
-    def __init__(self, screen, font_path, difficulty="e"):
+    def __init__(self, screen, font_path, difficulty="e", goal=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.difficulty = difficulty  # "e", "m", or "h"
+        self.Goal = goal  # Goal for this round
         
         # Save font path for dynamic font creation
         self.font_path = font_path
@@ -672,7 +673,7 @@ class GameplayPage:
         self.StepC = 6
 
         # Initialize game state variables
-        self.Goal = 0  # Will be set from previous screen
+        self.Goal = goal if goal is not None else 0  # Use passed goal or default to 0
         self.Money = 0  # Starts at 0
         self.Day = 1  # Current day/turn (starts at 1)
         self.MaxDays = 8  # Maximum number of days/turns
@@ -2464,6 +2465,21 @@ class BossPage:
         for boss_index, text_key in self.boss_text_keys.items():
             self.boss_texts[boss_index] = get_text(text_key, text_key)
         
+        # Load Pen sound
+        pen_sound_path = os.path.join("Sounds", "Pen.mp3")
+        if os.path.exists(pen_sound_path):
+            self.pen_sound = pygame.mixer.Sound(pen_sound_path)
+        else:
+            print(f"WARNING: Pen.mp3 not found at {pen_sound_path}")
+            self.pen_sound = None
+        
+        # Line drawing state
+        self.line_color = (110, 90, 70)
+        self.line_width = 10
+        self.current_line = None  # (start_x, start_y, end_x, end_y) when hovering
+        self.saved_line = None  # (start_x, start_y, end_x, end_y) when clicked
+        self.last_hovered_boss = None  # Track to play sound only once per hover
+        
         if self.level_number in self.level_bosses:
             for boss_filename in self.level_bosses[self.level_number]:
                 boss_path = os.path.join("Bosses", boss_filename)
@@ -2521,7 +2537,7 @@ class BossPage:
                 hovered_boss = i
                 break
         
-        # Update PopUp position based on hover
+        # Update PopUp position and line based on hover
         if hovered_boss is not None:
             # Set target position for PopUp
             boss_rect = self.boss_rects[hovered_boss]
@@ -2529,11 +2545,28 @@ class BossPage:
             self.popup_x = boss_rect.x + 100  # X = boss.x + 70
             self.current_hovered_boss_index = hovered_boss
             self.popup_boss_index = hovered_boss  # Save boss index for text display
+            
+            # Calculate line coordinates
+            # Start: boss coordinates -50 (x and y)
+            line_start_x = boss_rect.centerx - 165
+            line_start_y = boss_rect.centery + 132
+            # End: boss center coordinates
+            line_end_x = boss_rect.centerx
+            line_end_y = boss_rect.centery
+            self.current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
+            
+            # Play sound only once when starting to hover
+            if self.last_hovered_boss != hovered_boss:
+                if self.pen_sound:
+                    self.pen_sound.play()
+                self.last_hovered_boss = hovered_boss
         else:
             # Move PopUp back above screen when not hovering
             self.popup_target_y = -350
             self.current_hovered_boss_index = None
             # Don't clear popup_boss_index here - let it persist until PopUp is hidden
+            self.current_line = None  # Clear line when not hovering
+            self.last_hovered_boss = None
         
         # Update hover states
         for i in range(len(self.boss_rects)):
@@ -2562,6 +2595,9 @@ class BossPage:
                 if event.button == 1:  # Left click
                     for i, boss_rect in enumerate(self.boss_rects):
                         if boss_rect.collidepoint(mouse_pos):
+                            # Save line coordinates when clicking
+                            if self.current_line:
+                                self.saved_line = self.current_line
                             # Return boss selection (level_number, boss_index)
                             return f"boss_{self.level_number}_{i}"
         
@@ -2587,6 +2623,16 @@ class BossPage:
                 self.popup_y = max(self.popup_y - self.popup_speed, self.popup_target_y)
         else:
             self.popup_y = self.popup_target_y
+        
+        # Draw saved line (if boss was clicked)
+        if self.saved_line:
+            start_x, start_y, end_x, end_y = self.saved_line
+            pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
+        
+        # Draw current line (when hovering over boss) - UNDER the boss
+        if self.current_line:
+            start_x, start_y, end_x, end_y = self.current_line
+            pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
         
         # Update animations and draw bosses
         current_time = pygame.time.get_ticks()
@@ -2741,36 +2787,100 @@ class RoundPage:
             print("WARNING: LevelButtonH not found:", button_h_path)
             self.button_h = None
         
+        # Round goals: Roundx_y_zGoal = goal value
+        # Format: {(level, boss, round): goal}
+        self.round_goals = {
+            (1, 1, 1): 40  # Round1_1_1Goal = 40
+            # Add more round goals here as needed
+        }
+        
+        # Current goal (will be set when button is clicked)
+        self.Goal = None
+        
         # Calculate button positions
-        if self.button_e:
-            button_e_height = self.button_e.get_height()
-            button_e_width = self.button_e.get_width()
-            button_e_x = 130  # 130px from left
-            button_e_y = SCREEN_HEIGHT - button_e_height - 120  # 120px up from bottom
-            self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
-        else:
-            self.button_e_rect = None
-            button_e_y = SCREEN_HEIGHT - 120
-            button_e_x = 130
-        
-        if self.button_m:
-            button_m_height = self.button_m.get_height()
-            button_m_width = self.button_m.get_width()
-            button_m_y = button_e_y - 30 - button_m_height
-            button_m_x = button_e_x  # Same x position as LevelButtonE
-            self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
-        else:
+        # For level 1, show only button E at boss position
+        if self.level_number == 1:
+            # Position button E at first boss coordinates (350, SCREEN_HEIGHT - 400)
+            if self.button_e:
+                button_e_height = self.button_e.get_height()
+                button_e_width = self.button_e.get_width()
+                button_e_x = 350  # Same as first boss
+                button_e_y = SCREEN_HEIGHT - 400  # Same as first boss
+                self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
+            else:
+                self.button_e_rect = None
+            # Don't show M and H buttons for level 1
             self.button_m_rect = None
-            button_m_y = button_e_y - 30  # Fallback position
-        
-        if self.button_h:
-            button_h_height = self.button_h.get_height()
-            button_h_width = self.button_h.get_width()
-            button_h_y = button_m_y - 30 - button_h_height
-            button_h_x = button_e_x  # Same x position as LevelButtonE
-            self.button_h_rect = pygame.Rect(button_h_x, button_h_y, button_h_width, button_h_height)
-        else:
             self.button_h_rect = None
+        else:
+            # For other levels, use original positions
+            if self.button_e:
+                button_e_height = self.button_e.get_height()
+                button_e_width = self.button_e.get_width()
+                button_e_x = 130  # 130px from left
+                button_e_y = SCREEN_HEIGHT - button_e_height - 120  # 120px up from bottom
+                self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
+            else:
+                self.button_e_rect = None
+                button_e_y = SCREEN_HEIGHT - 120
+                button_e_x = 130
+        
+            if self.button_m:
+                button_m_height = self.button_m.get_height()
+                button_m_width = self.button_m.get_width()
+                button_m_y = button_e_y - 30 - button_m_height
+                button_m_x = button_e_x  # Same x position as LevelButtonE
+                self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
+            else:
+                self.button_m_rect = None
+                button_m_y = button_e_y - 30  # Fallback position
+            
+            if self.button_h:
+                button_h_height = self.button_h.get_height()
+                button_h_width = self.button_h.get_width()
+                button_h_y = button_m_y - 30 - button_h_height
+                button_h_x = button_e_x  # Same x position as LevelButtonE
+                self.button_h_rect = pygame.Rect(button_h_x, button_h_y, button_h_width, button_h_height)
+            else:
+                self.button_h_rect = None
+        
+        # Load PopUp.png (same as BossPage)
+        popup_path = os.path.join("Bosses", "PopUp.png")
+        if os.path.exists(popup_path):
+            popup_original = pygame.image.load(popup_path).convert_alpha()
+            # Scale to 250x375 pixels
+            self.popup_image = pygame.transform.scale(popup_original, (250, 375)).convert_alpha()
+        else:
+            print(f"WARNING: PopUp.png not found: {popup_path}")
+            self.popup_image = None
+        
+        # PopUp animation state
+        self.popup_y = -200  # Start above screen (hidden)
+        self.popup_x = 0
+        self.popup_target_y = -200  # Target Y position
+        self.popup_speed = 25  # Pixels per frame for smooth movement
+        self.popup_button = None  # Track which button text to show (persists until PopUp hides)
+        
+        # Load font for PopUp text
+        self.popup_font = pygame.font.Font(font_path, 24)
+        
+        # Load PopUpRound text from Lang.csv
+        self.popup_round_text = get_text("PopUpRound", "PopUpRound")
+        
+        # Load Pen sound
+        pen_sound_path = os.path.join("Sounds", "Pen.mp3")
+        if os.path.exists(pen_sound_path):
+            self.pen_sound = pygame.mixer.Sound(pen_sound_path)
+        else:
+            print(f"WARNING: Pen.mp3 not found at {pen_sound_path}")
+            self.pen_sound = None
+        
+        # Line drawing state
+        self.line_color = (100, 82, 64)  # Color as specified
+        self.line_width = 10
+        self.current_line = None  # (start_x, start_y, end_x, end_y) when hovering
+        self.saved_line = None  # (start_x, start_y, end_x, end_y) when clicked
+        self.last_hovered_button = None  # Track to play sound only once per hover
         
         self.hovered_button = None  # Track which button is hovered
     
@@ -2786,6 +2896,44 @@ class RoundPage:
         elif self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos):
             self.hovered_button = "h"
         
+        # Update PopUp position and line based on hover
+        if self.hovered_button is not None:
+            # Determine which button rect to use
+            button_rect = None
+            if self.hovered_button == "e" and self.button_e_rect:
+                button_rect = self.button_e_rect
+            elif self.hovered_button == "m" and self.button_m_rect:
+                button_rect = self.button_m_rect
+            elif self.hovered_button == "h" and self.button_h_rect:
+                button_rect = self.button_h_rect
+            
+            if button_rect:
+                # Set target position for PopUp
+                self.popup_target_y = button_rect.y - 250
+                self.popup_x = button_rect.x + 100
+                self.popup_button = self.hovered_button  # Save button for text display
+                
+                # Calculate line coordinates
+                # Start: x = 185, y = SCREEN_HEIGHT-268
+                line_start_x = 235
+                line_start_y = SCREEN_HEIGHT - 218
+                # End: button center coordinates
+                line_end_x = button_rect.centerx
+                line_end_y = button_rect.centery
+                self.current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
+                
+                # Play sound only once when starting to hover
+                if self.last_hovered_button != self.hovered_button:
+                    if self.pen_sound:
+                        self.pen_sound.play()
+                    self.last_hovered_button = self.hovered_button
+        else:
+            # Move PopUp back above screen when not hovering
+            self.popup_target_y = -350
+            # Don't clear popup_button here - let it persist until PopUp is hidden
+            self.current_line = None  # Clear line when not hovering
+            self.last_hovered_button = None
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return "quit"
@@ -2798,12 +2946,33 @@ class RoundPage:
                 if event.button == 1:  # Left click
                     if self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos):
                         print("LevelButtonE (bottom) clicked")
+                        # Save line coordinates when clicking
+                        if self.current_line:
+                            self.saved_line = self.current_line
+                        # Set goal for this round
+                        round_key = (self.level_number, self.boss_index + 1, 1)  # round 1 for E
+                        if round_key in self.round_goals:
+                            self.Goal = self.round_goals[round_key]
                         return "button_e"
                     if self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos):
                         print("LevelButtonM (middle) clicked")
+                        # Save line coordinates when clicking
+                        if self.current_line:
+                            self.saved_line = self.current_line
+                        # Set goal for this round
+                        round_key = (self.level_number, self.boss_index + 1, 2)  # round 2 for M
+                        if round_key in self.round_goals:
+                            self.Goal = self.round_goals[round_key]
                         return "button_m"
                     if self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos):
                         print("LevelButtonH (upper) clicked")
+                        # Save line coordinates when clicking
+                        if self.current_line:
+                            self.saved_line = self.current_line
+                        # Set goal for this round
+                        round_key = (self.level_number, self.boss_index + 1, 3)  # round 3 for H
+                        if round_key in self.round_goals:
+                            self.Goal = self.round_goals[round_key]
                         return "button_h"
         
         return None
@@ -2819,15 +2988,92 @@ class RoundPage:
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
         
+        # Update PopUp position with smooth animation
+        if abs(self.popup_y - self.popup_target_y) > 1:
+            # Smooth movement towards target
+            if self.popup_y < self.popup_target_y:
+                self.popup_y = min(self.popup_y + self.popup_speed, self.popup_target_y)
+            else:
+                self.popup_y = max(self.popup_y - self.popup_speed, self.popup_target_y)
+        else:
+            self.popup_y = self.popup_target_y
+        
+        # Draw saved line (if button was clicked)
+        if self.saved_line:
+            start_x, start_y, end_x, end_y = self.saved_line
+            pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
+        
+        # Draw current line (when hovering over button) - UNDER the buttons
+        if self.current_line:
+            start_x, start_y, end_x, end_y = self.current_line
+            pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
+        
         # Draw buttons (from bottom to top: E, M, H)
-        if self.button_e and self.button_e_rect:
-            self.screen.blit(self.button_e, self.button_e_rect.topleft)
+        # For level 1, only show button E
+        if self.level_number == 1:
+            if self.button_e and self.button_e_rect:
+                self.screen.blit(self.button_e, self.button_e_rect.topleft)
+        else:
+            if self.button_e and self.button_e_rect:
+                self.screen.blit(self.button_e, self.button_e_rect.topleft)
+            
+            if self.button_m and self.button_m_rect:
+                self.screen.blit(self.button_m, self.button_m_rect.topleft)
+            
+            if self.button_h and self.button_h_rect:
+                self.screen.blit(self.button_h, self.button_h_rect.topleft)
         
-        if self.button_m and self.button_m_rect:
-            self.screen.blit(self.button_m, self.button_m_rect.topleft)
-        
-        if self.button_h and self.button_h_rect:
-            self.screen.blit(self.button_h, self.button_h_rect.topleft)
+        # Draw PopUp if it's visible (not completely above screen)
+        if self.popup_image and self.popup_y > -self.popup_image.get_height():
+            self.screen.blit(self.popup_image, (self.popup_x, self.popup_y))
+            
+            # Draw text on PopUp if a button is hovered
+            if self.popup_button is not None:
+                # Determine round number based on button
+                round_num = 1 if self.popup_button == "e" else (2 if self.popup_button == "m" else 3)
+                round_key = (self.level_number, self.boss_index + 1, round_num)
+                
+                # Get goal value
+                goal_value = self.round_goals.get(round_key, 0)
+                
+                # Build text: PopUpRound text + goal + "$"
+                full_text = f"{self.popup_round_text} {goal_value}$"
+                
+                # Split text into multiple lines to fit in PopUp (250px wide)
+                max_width = 220  # Leave some padding (250 - 30px total padding)
+                words = full_text.split()
+                lines = []
+                current_line = []
+                current_width = 0
+                
+                for word in words:
+                    word_surface = self.popup_font.render(word + " ", True, PAPER_COLOR)
+                    word_width = word_surface.get_width()
+                    
+                    if current_width + word_width <= max_width:
+                        current_line.append(word)
+                        current_width += word_width
+                    else:
+                        if current_line:
+                            lines.append(" ".join(current_line))
+                        current_line = [word]
+                        current_width = word_width
+                
+                if current_line:
+                    lines.append(" ".join(current_line))
+                
+                # Draw text lines on PopUp on Round Page
+                text_start_x = self.popup_x + 15  # Left padding
+                text_start_y = self.popup_y + 110  # Top padding (lowered by 50px)
+                line_height = self.popup_font.get_height() + 5  # 5px spacing between lines
+                
+                for i, line in enumerate(lines):
+                    text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                    self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
+        else:
+            # PopUp is completely hidden, clear the button for text
+            if self.popup_button is not None:
+                self.popup_button = None
         
         pygame.display.flip()
     
@@ -2936,13 +3182,15 @@ if __name__ == "__main__":
                                 break  # Exit game
                             elif round_result in ("button_e", "button_m", "button_h"):
                                 # Round selected, go to GameplayPage
-                                difficulty = round_result.split("_")[1]  # Extract "e", "m", or "h"
-                                gameplay_page = GameplayPage(screen, font_path, difficulty)
+                                difficulty = round_result.replace("button_", "")  # Extract "e", "m", or "h"
+                                # Get goal from round_page (should be set when button was clicked)
+                                goal = round_page.Goal if hasattr(round_page, 'Goal') and round_page.Goal is not None else None
+                                print(f"Passing goal to GameplayPage: {goal}")  # Debug
+                                gameplay_page = GameplayPage(screen, font_path, difficulty, goal=goal)
                                 gameplay_result = gameplay_page.run()
                                 
                                 if gameplay_result == "back":
-                                    # Return to round page
-                                    round_page = RoundPage(screen, font_path, boss_level, boss_index)
+                                    # Return to round page (reuse existing round_page to preserve state)
                                     round_result = round_page.run()
                                     if round_result == "back":
                                         continue
