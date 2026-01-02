@@ -1,8 +1,10 @@
 Key;RU;ENG
 MenuStart;Начать игру;Start
 MenuOption;Настройки;Options
+MenuTestMode;Тестовый режим;Test Mode
 MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
 PopUpRound;Заработайте;Earn
+Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.
