@@ -3503,9 +3503,9 @@ class RoundPage:
             self.popup_image = None
         
         # PopUp animation state
-        self.popup_y = -200  # Start above screen (hidden)
+        self.popup_y = -400  # Start above screen (hidden)
         self.popup_x = 0
-        self.popup_target_y = -200  # Target Y position
+        self.popup_target_y = -400  # Target Y position
         self.popup_speed = 25  # Pixels per frame for smooth movement
         self.popup_button = None  # Track which button text to show (persists until PopUp hides)
         
@@ -3715,7 +3715,7 @@ class RoundPage:
                     self.last_hovered_button = self.hovered_button
         else:
             # Move PopUp back above screen when not hovering
-            self.popup_target_y = -350
+            self.popup_target_y = -400
             # Don't clear popup_button here - let it persist until PopUp is hidden
             self.current_line = None  # Clear line when not hovering button
             self.boss_current_line = None  # Clear line when not hovering boss
@@ -3934,6 +3934,11 @@ class RoundPage:
         pygame.display.flip()
     
     def run(self):
+        # Reset popup position when returning to round page
+        self.popup_y = -400
+        self.popup_target_y = -400
+        self.popup_button = None
+        
         while True:
             result = self.handle_input()
             
