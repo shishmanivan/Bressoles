@@ -20,12 +20,38 @@ LIGHT_GOLD = (255, 235, 150)
 DARK_GOLD = (184, 134, 11)
 PAPER_COLOR = (83, 76, 70)
 
+# -------------------------------
+# Animation helpers (dt-based)
+# -------------------------------
+def _clamp_dt_seconds(dt: float, max_dt: float = 0.05) -> float:
+    """Clamp dt to avoid big jumps after window focus loss / stutters."""
+    if dt < 0:
+        return 0.0
+    if dt > max_dt:
+        return max_dt
+    return dt
+
+
+def move_towards(current: float, target: float, max_delta: float) -> float:
+    """Move current towards target by at most max_delta (both float)."""
+    if max_delta <= 0:
+        return current
+    delta = target - current
+    if abs(delta) <= max_delta:
+        return target
+    return current + max_delta if delta > 0 else current - max_delta
+
 # Language system
 Lang = {}  # Dictionary to store language strings
 CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses RU)
 
 # Game progress tracking
 level_1_boss_defeated = False  # Track if level 1 boss is defeated
+
+# Reward cards earned by player: {level_number: [list of card_ids]}
+# Cards earned from winning rounds are stored here and added to initial deck
+earned_reward_cards = {}
+earned_reward_cards = {}
 
 
 def load_language(lang_code="RU"):
@@ -74,7 +100,7 @@ class StartPage:
         start_page_path = os.path.join("UI", "StartPage.jpg")
         if os.path.exists(start_page_path):
             self.background = pygame.image.load(start_page_path).convert()
-            self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+            self.background = pygame.transform.smoothscale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
             print("WARNING: StartPage.jpg not found:", start_page_path)
             self.background = background if background else None
@@ -91,8 +117,8 @@ class StartPage:
         self.menu_items = [
             self.lang.get("MenuStart", "Start Game"),
             self.lang.get("MenuOption", "Options"),
-            self.lang.get("MenuTestMode", "Test Mode"),
-            self.lang.get("MenuQuit", "Quit")
+            self.lang.get("MenuQuit", "Quit"),
+            self.lang.get("MenuTestMode", "Test Mode")
         ]
         self.selected_index = 0
         
@@ -102,8 +128,8 @@ class StartPage:
         self.menu_positions = [
             (SCREEN_WIDTH - 400, 350),  # Start Game
             (SCREEN_WIDTH - 400, 450),  # Options
-            (SCREEN_WIDTH - 400, 500),  # Test Mode
             (SCREEN_WIDTH - 400, 550),  # Quit
+            (SCREEN_WIDTH - 400, 650),  # Test Mode
         ]
 
     # ------------------------------------
@@ -136,10 +162,10 @@ class StartPage:
                         return "start"
                     elif self.selected_index == 1:  # MenuOption
                         return "options"
-                    elif self.selected_index == 2:  # MenuTestMode
-                        return "test_mode"
-                    elif self.selected_index == 3:  # MenuQuit
+                    elif self.selected_index == 2:  # MenuQuit
                         return "quit"
+                    elif self.selected_index == 3:  # MenuTestMode
+                        return "test_mode"
             
             # Mouse support
             if event.type == pygame.MOUSEMOTION:
@@ -160,10 +186,10 @@ class StartPage:
                                 return "start"
                             elif i == 1:  # MenuOption
                                 return "options"
-                            elif i == 2:  # MenuTestMode
-                                return "test_mode"
-                            elif i == 3:  # MenuQuit
+                            elif i == 2:  # MenuQuit
                                 return "quit"
+                            elif i == 3:  # MenuTestMode
+                                return "test_mode"
 
         return None
 
@@ -232,7 +258,7 @@ class GameScreen:
         back3_path = os.path.join("UI", "Back3.png")
         if os.path.exists(back3_path):
             self.background = pygame.image.load(back3_path).convert()
-            self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+            self.background = pygame.transform.smoothscale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
             print("WARNING: Back3.png not found:", back3_path)
             self.background = background if background else None
@@ -246,7 +272,7 @@ class GameScreen:
             original_height = original_image.get_height()
             new_width = int(original_width * 0.8)
             new_height = int(original_height * 0.8)
-            self.levelcard_image = pygame.transform.scale(original_image, (new_width, new_height)).convert_alpha()
+            self.levelcard_image = pygame.transform.smoothscale(original_image, (new_width, new_height)).convert_alpha()
         else:
             print("WARNING: LevelCard.jpg not found:", levelcard_path)
             self.levelcard_image = None
@@ -269,7 +295,7 @@ class GameScreen:
             original_height = original_arrow.get_height()
             new_width = int(original_width * 0.5)
             new_height = int(original_height * 0.5)
-            self.startarrow_image = pygame.transform.scale(original_arrow, (new_width, new_height)).convert_alpha()
+            self.startarrow_image = pygame.transform.smoothscale(original_arrow, (new_width, new_height)).convert_alpha()
         else:
             print("WARNING: StartArrow.jpg not found:", startarrow_path)
             self.startarrow_image = None
@@ -311,7 +337,7 @@ class GameScreen:
             scale_factor = min(picture_size / original_pic_width, picture_size / original_pic_height) * 0.9  # 90% to leave some padding
             new_pic_width = int(original_pic_width * scale_factor)
             new_pic_height = int(original_pic_height * scale_factor)
-            self.level1_picture = pygame.transform.scale(level1_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
+            self.level1_picture = pygame.transform.smoothscale(level1_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
         else:
             print("WARNING: Level1Picture.jpg not found:", level1_picture_path)
             self.level1_picture = None
@@ -328,7 +354,7 @@ class GameScreen:
             scale_factor = min(picture_size / original_pic_width, picture_size / original_pic_height) * 0.9  # 90% to leave some padding
             new_pic_width = int(original_pic_width * scale_factor)
             new_pic_height = int(original_pic_height * scale_factor)
-            self.level2_picture = pygame.transform.scale(level2_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
+            self.level2_picture = pygame.transform.smoothscale(level2_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
         else:
             print("WARNING: Level2Picture.jpg not found:", level2_picture_path)
             self.level2_picture = None
@@ -390,7 +416,7 @@ class GameScreen:
                         scale_factor = min(picture_size / original_pic_width, picture_size / original_pic_height) * 0.9
                         new_pic_width = int(original_pic_width * scale_factor)
                         new_pic_height = int(original_pic_height * scale_factor)
-                        level_pic = pygame.transform.scale(level_pic_original, (new_pic_width, new_pic_height)).convert_alpha()
+                        level_pic = pygame.transform.smoothscale(level_pic_original, (new_pic_width, new_pic_height)).convert_alpha()
                     else:
                         level_pic = None
                     self.test_level_pictures.append(level_pic)
@@ -751,12 +777,14 @@ class GameScreen:
 
 
 class GameplayPage:
-    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1):
+    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1, is_boss_fight=False):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.difficulty = difficulty  # "e", "m", or "h"
         self.Goal = goal  # Goal for this round
         self.level_number = level_number  # Level number for deck initialization
+        self.is_boss_fight = is_boss_fight
+        self.is_final_boss = self.is_boss_fight and self.level_number == 1
         
         # Save font path for dynamic font creation
         self.font_path = font_path
@@ -770,7 +798,7 @@ class GameplayPage:
         bg_path = os.path.join("GameplayPage", "Background.png")
         if os.path.exists(bg_path):
             bg_image = pygame.image.load(bg_path).convert()
-            self.background = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+            self.background = pygame.transform.smoothscale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
             print("WARNING: GameplayPage background not found:", bg_path)
             self.background = None
@@ -788,7 +816,7 @@ class GameplayPage:
             original_height = frame_original.get_height()
             scale_factor = frame_width / original_width
             frame_height = int(original_height * scale_factor)
-            self.frame = pygame.transform.scale(frame_original, (frame_width, frame_height)).convert_alpha()
+            self.frame = pygame.transform.smoothscale(frame_original, (frame_width, frame_height)).convert_alpha()
         else:
             print("WARNING: Frame.png not found:", frame_path)
             self.frame = None
@@ -806,7 +834,7 @@ class GameplayPage:
         self.arrow_anim_frames = []
         if os.path.exists(arrow_path):
             base_img = pygame.image.load(arrow_path).convert_alpha()
-            base_img = pygame.transform.scale(base_img, (60, 60)).convert_alpha()
+            base_img = pygame.transform.smoothscale(base_img, (60, 60)).convert_alpha()
             self.arrow_anim_frames.append(base_img)
             self.arrow_up = base_img
         else:
@@ -815,7 +843,7 @@ class GameplayPage:
         for extra_path in [arrow_path_1, arrow_path_2]:
             if os.path.exists(extra_path):
                 img = pygame.image.load(extra_path).convert_alpha()
-                img = pygame.transform.scale(img, (60, 60)).convert_alpha()
+                img = pygame.transform.smoothscale(img, (60, 60)).convert_alpha()
                 self.arrow_anim_frames.append(img)
         while len(self.arrow_anim_frames) < 3 and self.arrow_anim_frames:
             self.arrow_anim_frames.append(self.arrow_anim_frames[-1])
@@ -824,7 +852,7 @@ class GameplayPage:
         self.arrow_down_frames = []
         if os.path.exists(arrow_down_path):
             base_img = pygame.image.load(arrow_down_path).convert_alpha()
-            base_img = pygame.transform.scale(base_img, (60, 60)).convert_alpha()
+            base_img = pygame.transform.smoothscale(base_img, (60, 60)).convert_alpha()
             self.arrow_down_frames.append(base_img)
             self.arrow_down = base_img
         else:
@@ -833,7 +861,7 @@ class GameplayPage:
         for extra_path in [arrow_down_path_1, arrow_down_path_2]:
             if os.path.exists(extra_path):
                 img = pygame.image.load(extra_path).convert_alpha()
-                img = pygame.transform.scale(img, (60, 60)).convert_alpha()
+                img = pygame.transform.smoothscale(img, (60, 60)).convert_alpha()
                 self.arrow_down_frames.append(img)
         while len(self.arrow_down_frames) < 3 and self.arrow_down_frames:
             self.arrow_down_frames.append(self.arrow_down_frames[-1])
@@ -845,7 +873,7 @@ class GameplayPage:
         self.arrow_mid_up_frames = []
         if os.path.exists(arrow_mid_path):
             arrow_mid_img = pygame.image.load(arrow_mid_path).convert_alpha()
-            arrow_mid_img = pygame.transform.scale(arrow_mid_img, (60, 60)).convert_alpha()
+            arrow_mid_img = pygame.transform.smoothscale(arrow_mid_img, (60, 60)).convert_alpha()
             self.arrow_mid_up_frames.append(arrow_mid_img)
             self.arrow_mid_up = arrow_mid_img
         else:
@@ -856,7 +884,7 @@ class GameplayPage:
         for extra_path in [arrow_mid_path_2, arrow_mid_path_3]:
             if os.path.exists(extra_path):
                 img = pygame.image.load(extra_path).convert_alpha()
-                img = pygame.transform.scale(img, (60, 60)).convert_alpha()
+                img = pygame.transform.smoothscale(img, (60, 60)).convert_alpha()
                 self.arrow_mid_up_frames.append(img)
         
         # Ensure we have 3 frames by duplicating if missing
@@ -871,7 +899,7 @@ class GameplayPage:
         self.arrow_mid_down_frames = []
         if os.path.exists(arrow_mid_down_path_1):
             arrow_mid_down_base = pygame.image.load(arrow_mid_down_path_1).convert_alpha()
-            arrow_mid_down_base = pygame.transform.scale(arrow_mid_down_base, (60, 60)).convert_alpha()
+            arrow_mid_down_base = pygame.transform.smoothscale(arrow_mid_down_base, (60, 60)).convert_alpha()
             self.arrow_mid_down_frames.append(arrow_mid_down_base)
             self.arrow_mid_down = arrow_mid_down_base
         else:
@@ -882,7 +910,7 @@ class GameplayPage:
         for extra_path in [arrow_mid_down_path_2, arrow_mid_down_path_3]:
             if os.path.exists(extra_path):
                 img = pygame.image.load(extra_path).convert_alpha()
-                img = pygame.transform.scale(img, (60, 60)).convert_alpha()
+                img = pygame.transform.smoothscale(img, (60, 60)).convert_alpha()
                 self.arrow_mid_down_frames.append(img)
         
         # Ensure we have 3 frames by duplicating if missing
@@ -904,7 +932,7 @@ class GameplayPage:
             b_orig_h = bottom_original.get_height()
             b_scale = target_width / b_orig_w
             target_height = int(b_orig_h * b_scale)
-            self.bottom_frame = pygame.transform.scale(bottom_original, (target_width, target_height)).convert_alpha()
+            self.bottom_frame = pygame.transform.smoothscale(bottom_original, (target_width, target_height)).convert_alpha()
         else:
             print("WARNING: Bottom Frame.png not found:", bottom_frame_path)
             self.bottom_frame = None
@@ -938,7 +966,7 @@ class GameplayPage:
                 if os.path.exists(frame_path):
                     frame_img = pygame.image.load(frame_path).convert_alpha()
                     # Scale to 84x72 (20% increase from 70x60)
-                    frame_img = pygame.transform.scale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
+                    frame_img = pygame.transform.smoothscale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
                     self.price_unchanged_frames.append(frame_img)
                 else:
                     print(f"WARNING: Frame {i}.png not found in Graph= folder")
@@ -955,7 +983,7 @@ class GameplayPage:
                 if os.path.exists(frame_path):
                     frame_img = pygame.image.load(frame_path).convert_alpha()
                     # Scale to 84x72 (20% increase from 70x60)
-                    frame_img = pygame.transform.scale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
+                    frame_img = pygame.transform.smoothscale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
                     self.price_rise_frames.append(frame_img)
                 else:
                     print(f"WARNING: Frame {i}.png not found in GraphRise folder")
@@ -972,7 +1000,7 @@ class GameplayPage:
                 if os.path.exists(frame_path):
                     frame_img = pygame.image.load(frame_path).convert_alpha()
                     # Scale to 84x72 (20% increase from 70x60)
-                    frame_img = pygame.transform.scale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
+                    frame_img = pygame.transform.smoothscale(frame_img, (self.animation_width, self.animation_height)).convert_alpha()
                     self.price_fall_frames.append(frame_img)
                 else:
                     print(f"WARNING: Frame {i}.png not found in GraphDown folder")
@@ -1002,11 +1030,29 @@ class GameplayPage:
             w, h = img.get_width(), img.get_height()
             scale = min(max_logo_w / w, max_logo_h / h)
             new_size = (int(w * scale), int(h * scale))
-            return pygame.transform.scale(img, new_size).convert_alpha()
+            return pygame.transform.smoothscale(img, new_size).convert_alpha()
 
         self.logo_a = scale_logo(self.logo_a)
         self.logo_b = scale_logo(self.logo_b)
         self.logo_c = scale_logo(self.logo_c)
+        
+        # Load rewards from Rewards.csv
+        # Format: {(level, round, button): reward_card_number}
+        self.rewards = {}
+        rewards_file = "Rewards.csv"
+        if os.path.exists(rewards_file):
+            try:
+                with open(rewards_file, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f, delimiter=';')
+                    for row in reader:
+                        level = int(row.get('Level', 0))
+                        round_num = int(row.get('Round', 0))
+                        button = row.get('Button', '').strip().upper()
+                        reward_card = int(row.get('Reward', 0))
+                        if level > 0 and round_num > 0 and button and reward_card > 0:
+                            self.rewards[(level, round_num, button)] = reward_card
+            except Exception as e:
+                print(f"ERROR loading rewards file in GameplayPage: {e}")
 
         # Load bundle of shares image
         bundle_path = os.path.join("GameplayPage", "A bundle of shares.png")
@@ -1015,7 +1061,7 @@ class GameplayPage:
             # Scale bundle image to 50% of original size
             w, h = bundle_original.get_width(), bundle_original.get_height()
             new_size = (int(w * 0.5), int(h * 0.5))
-            self.bundle_image = pygame.transform.scale(bundle_original, new_size).convert_alpha()
+            self.bundle_image = pygame.transform.smoothscale(bundle_original, new_size).convert_alpha()
         else:
             print("WARNING: A bundle of shares.png not found:", bundle_path)
             self.bundle_image = None
@@ -1027,7 +1073,7 @@ class GameplayPage:
             # Scale dollar image to match bundle image proportions (50% of original)
             w, h = dollar_original.get_width(), dollar_original.get_height()
             new_size = (int(w * 0.5), int(h * 0.5))
-            self.dollar_image = pygame.transform.scale(dollar_original, new_size).convert_alpha()
+            self.dollar_image = pygame.transform.smoothscale(dollar_original, new_size).convert_alpha()
         else:
             print("WARNING: Dollar.png not found:", dollar_path)
             self.dollar_image = None
@@ -1061,7 +1107,7 @@ class GameplayPage:
             button_scale = 0.3  # Adjust this value to match screenshot size
             w, h = end_button_original.get_width(), end_button_original.get_height()
             new_size = (int(w * button_scale), int(h * button_scale))
-            self.end_button = pygame.transform.scale(end_button_original, new_size).convert_alpha()
+            self.end_button = pygame.transform.smoothscale(end_button_original, new_size).convert_alpha()
             # Calculate button position in bottom-right corner
             button_margin_right = 50
             button_margin_bottom = 50
@@ -1080,9 +1126,9 @@ class GameplayPage:
         self.placeholder = pygame.image.load(placeholder_path).convert_alpha() if os.path.exists(placeholder_path) else None
         if self.placeholder:
             # Scale placeholder for bottom area: 138x240 (40% larger than 96x168: 30% + 10%)
-            self.placeholder_bottom = pygame.transform.scale(self.placeholder, (138, 240)).convert_alpha()
+            self.placeholder_bottom = pygame.transform.smoothscale(self.placeholder, (138, 240)).convert_alpha()
             # Scale placeholder for market area: also 96x168 (увеличены на 20%)
-            self.placeholder_market = pygame.transform.scale(self.placeholder, (96, 168)).convert_alpha()
+            self.placeholder_market = pygame.transform.smoothscale(self.placeholder, (96, 168)).convert_alpha()
         else:
             self.placeholder_bottom = None
             self.placeholder_market = None
@@ -1130,9 +1176,9 @@ class GameplayPage:
                     # Store original
                     self.card_images_original[card_id] = card_img
                     # Pre-scale card for bottom area (larger)
-                    self.card_images_bottom[card_id] = pygame.transform.scale(card_img, self.card_size_bottom).convert_alpha()
+                    self.card_images_bottom[card_id] = pygame.transform.smoothscale(card_img, self.card_size_bottom).convert_alpha()
                     # Pre-scale card for market area (smaller) - this prevents scaling on every frame
-                    self.card_images_market[card_id] = pygame.transform.scale(card_img, self.card_size_market).convert_alpha()
+                    self.card_images_market[card_id] = pygame.transform.smoothscale(card_img, self.card_size_market).convert_alpha()
                     print(f"Loaded card {card_id} (base: {base_id}) from {card_path}")
                 except Exception as e:
                     print(f"ERROR loading card {card_id} (base: {base_id}): {e}")
@@ -1248,17 +1294,22 @@ class GameplayPage:
             # Scale to 1/3 of screen size (3 times smaller)
             winlose_width = SCREEN_WIDTH // 3
             winlose_height = SCREEN_HEIGHT // 3
-            self.win_lose_image = pygame.transform.scale(winlose_original, (winlose_width, winlose_height)).convert_alpha()
+            self.win_lose_image = pygame.transform.smoothscale(winlose_original, (winlose_width, winlose_height)).convert_alpha()
             # Calculate centered position
             self.win_lose_x = (SCREEN_WIDTH - winlose_width) // 2
-            self.win_lose_y = -winlose_height  # Start off-screen at top
-            self.win_lose_target_y = (SCREEN_HEIGHT - winlose_height) // 2  # Centered vertically
+            # Use float positions + dt-based movement for smooth sliding
+            self.win_lose_y = float(-winlose_height)  # Start off-screen at top
+            self.win_lose_target_y = float((SCREEN_HEIGHT - winlose_height) // 2)  # Centered vertically
+            self.win_lose_speed_pps = 1200.0  # pixels per second
+            self._winlose_last_tick = pygame.time.get_ticks()
         else:
             print("WARNING: WinLose.png not found:", winlose_path)
             self.win_lose_image = None
             self.win_lose_x = 0
-            self.win_lose_y = 0
+            self.win_lose_y = 0.0
             self.win_lose_target_y = 0
+            self.win_lose_speed_pps = 0.0
+            self._winlose_last_tick = pygame.time.get_ticks()
         
         # Load Ok1.png button (for win)
         ok1_path = os.path.join("GameplayPage", "Ok1.png")
@@ -1268,7 +1319,7 @@ class GameplayPage:
             ok_scale = 1.0  # Full size or larger
             w, h = ok1_original.get_width(), ok1_original.get_height()
             ok_size = (int(w * ok_scale), int(h * ok_scale))
-            self.ok1_button = pygame.transform.scale(ok1_original, ok_size).convert_alpha()
+            self.ok1_button = pygame.transform.smoothscale(ok1_original, ok_size).convert_alpha()
             self.ok_button_base_size = ok_size
         else:
             print("WARNING: Ok1.png not found:", ok1_path)
@@ -1282,7 +1333,7 @@ class GameplayPage:
             ok_scale = 1.0  # Full size or larger
             w, h = ok2_original.get_width(), ok2_original.get_height()
             ok_size = (int(w * ok_scale), int(h * ok_scale))
-            self.ok2_button = pygame.transform.scale(ok2_original, ok_size).convert_alpha()
+            self.ok2_button = pygame.transform.smoothscale(ok2_original, ok_size).convert_alpha()
             # Use same size for both buttons
             if not hasattr(self, 'ok_button_base_size'):
                 self.ok_button_base_size = ok_size
@@ -1293,15 +1344,158 @@ class GameplayPage:
         # Set ok_button_base_size if not set
         if not hasattr(self, 'ok_button_base_size'):
             self.ok_button_base_size = (0, 0)
+        
+        # Store last earned reward cards for WinLose window display
+        self.last_earned_cards = []  # List of card numbers earned in this round
+        
+        # Load WinLose window texts from Lang.csv
+        self.reward_window_text = get_text("RewardWindowText", "RewardWindowText")
+        self.reward_final_boss_text = get_text("RewardFinalBoss", "RewardWindowText")
+        self.lose_window_text = get_text("LoseWindowText", "LoseWindowText")
+        
+        # Cache for WinLose window reward card images
+        self.winlose_card_images = {}
+    
+    def _load_winlose_card(self, card_number):
+        """Load and cache a reward card image for WinLose window. For cards 11-18, uses base card and draws CardAction/CardTurns."""
+        if card_number in self.winlose_card_images:
+            return self.winlose_card_images[card_number]
+        
+        # Target size for WinLose window - increased size
+        target_width = 100
+        # Calculate height to maintain same aspect ratio as market cards (99x171)
+        market_card_ratio = 99 / 171.0
+        target_height = int(target_width / market_card_ratio)
+        
+        # Get base card ID
+        if card_number < 5:
+            # Cards 0-4 use their own images
+            base_card_id = card_number
+        elif card_number in [11, 12, 13, 14]:
+            base_card_id = 11
+        elif card_number in [15, 16]:
+            base_card_id = 15
+        elif card_number in [17, 18]:
+            base_card_id = 17
+        else:
+            base_card_id = card_number
+        
+        card_path = os.path.join("Cards", f"Card_{base_card_id}.png")
+        if not os.path.exists(card_path):
+            print(f"WARNING: WinLose card base not found: {card_path}")
+            self.winlose_card_images[card_number] = None
+            return None
+        
+        # Load base card image
+        card_image = pygame.image.load(card_path).convert_alpha()
+        
+        # Scale to final WinLose size
+        card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+        
+        # Draw CardAction and CardTurns if this card has them
+        if card_number in self.card_actions or card_number in self.card_turns:
+            # Draw CardAction
+            if card_number in self.card_actions:
+                action_value = self.card_actions[card_number]
+                self._draw_winlose_card_action(card_surface, action_value, card_number, target_width, target_height)
+            
+            # Draw CardTurns
+            if card_number in self.card_turns:
+                turns_value = self.card_turns[card_number]
+                self._draw_winlose_card_turns(card_surface, turns_value, card_number, target_width, target_height)
+        
+        self.winlose_card_images[card_number] = card_surface
+        return card_surface
+    
+    def _draw_winlose_card_action(self, surface, action_value, card_id, card_width, card_height):
+        """Draw CardAction value on a WinLose card surface"""
+        base_market_width = 99
+        scale_factor = card_width / base_market_width
+        base_font_size = 36
+        scaled_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+        if scaled_font_size < 1:
+            scaled_font_size = 1
+        
+        gadugib_path = "Gadugib.ttf"
+        if os.path.exists(gadugib_path):
+            font_path_use = gadugib_path
+        else:
+            font_path_use = self.font_path
+        
+        try:
+            font = pygame.font.Font(font_path_use, scaled_font_size)
+            action_text = font.render(str(action_value), True, PAPER_COLOR)
+            
+            plus_x = card_width - 25 * scale_factor
+            plus_y = 10 * scale_factor
+            action_x = plus_x - 29 * scale_factor
+            action_y = plus_y + 14 * scale_factor
+            
+            if card_id in (15, 16):
+                action_x -= 11 * scale_factor
+            
+            surface.blit(action_text, (int(action_x), int(action_y)))
+        except Exception as e:
+            print(f"ERROR drawing CardAction on WinLose card: {e}")
+    
+    def _draw_winlose_card_turns(self, surface, turns_value, card_id, card_width, card_height):
+        """Draw CardTurns value on a WinLose card surface"""
+        base_market_width = 99
+        scale_factor = card_width / base_market_width
+        base_font_size = 36
+        card_action_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+        turns_font_size = int(card_action_font_size * 0.648)
+        if turns_font_size < 1:
+            turns_font_size = 1
+        
+        gadugib_path = "Gadugib.ttf"
+        if os.path.exists(gadugib_path):
+            font_path_use = gadugib_path
+        else:
+            font_path_use = self.font_path
+        
+        try:
+            font = pygame.font.Font(font_path_use, turns_font_size)
+            turns_text = font.render(str(turns_value), True, PAPER_COLOR)
+            
+            base_bottom_height = 244.0
+            height_scale = card_height / base_bottom_height if base_bottom_height > 0 else 1.0
+            offset_from_bottom = 75.0 * height_scale
+            
+            card_center_x = card_width / 2
+            turns_x = card_center_x + 10 * scale_factor
+            turns_y = card_height - offset_from_bottom
+            
+            if card_id in (17, 18):
+                base_market_width_for_adjust = 99.0
+                base_market_height_for_adjust = 171.0
+                x_scale = card_width / base_market_width_for_adjust if base_market_width_for_adjust else 1.0
+                y_scale = card_height / base_market_height_for_adjust if base_market_height_for_adjust else 1.0
+                turns_x -= 7.0 * x_scale
+                turns_y += 2.0 * y_scale
+            
+            surface.blit(turns_text, (int(turns_x), int(turns_y)))
+        except Exception as e:
+            print(f"ERROR drawing CardTurns on WinLose card: {e}")
     
     def _get_initial_deck(self, level_number):
         """Get initial deck composition for a given level"""
+        global earned_reward_cards
+        
         if level_number == 1:
             # Level 1 deck: 0 (2x), 1 (2x), 2 (1x), 3 (1x), 11 (1x), 12 (1x)
-            return [0, 0, 1, 1, 2, 3, 11, 12]
+            base_deck = [0, 0, 1, 1, 2, 3, 11, 12]
         else:
             # Default deck for other levels: Card 0 (2x), Card 1 (2x), Card 2 (1x), Card 3 (2x), Card 4 (1x), Cards 11-14 (1x each), Cards 15-16 (1x each), Cards 17-18 (1x each)
-            return [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
+            base_deck = [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
+        
+        # Add earned reward cards for this level
+        earned_cards = earned_reward_cards.get(level_number, [])
+        if earned_cards:
+            base_deck.extend(earned_cards)
+            print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
+        
+        return base_deck
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -1328,8 +1522,9 @@ class GameplayPage:
                         ok_margin_right = 30
                         ok_margin_bottom = 30
                         ok_x = self.win_lose_x + winlose_width - self.ok_button_base_size[0] - ok_margin_right
-                        ok_y = self.win_lose_y + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
-                        self.ok_button_rect = pygame.Rect(ok_x, ok_y, self.ok_button_base_size[0], self.ok_button_base_size[1])
+                        win_lose_y_draw = int(round(self.win_lose_y))
+                        ok_y = win_lose_y_draw + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
+                        self.ok_button_rect = pygame.Rect(int(ok_x), int(ok_y), self.ok_button_base_size[0], self.ok_button_base_size[1])
                     
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         if event.button == 1:  # Left click
@@ -1586,7 +1781,7 @@ class GameplayPage:
                                     self.win_lose_state = "lose"
                                 if self.win_lose_image:
                                     winlose_height = self.win_lose_image.get_height()
-                                    self.win_lose_y = -winlose_height
+                                    self.win_lose_y = float(-winlose_height)
                             # Draw cards that were delayed until animations finished
                             self._draw_pending_cards()
                         break  # Exit event processing after button click
@@ -1729,39 +1924,79 @@ class GameplayPage:
             if self.Money >= self.Goal:
                 # WIN: Money >= Goal on LastTurn
                 self.win_lose_state = "win"
+                if self.is_final_boss:
+                    self.reward_window_text = self.reward_final_boss_text
                 if self.win_lose_image:
                     winlose_height = self.win_lose_image.get_height()
-                    self.win_lose_y = -winlose_height
+                    self.win_lose_y = float(-winlose_height)
                 print(f"WIN on LastTurn: Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
+                # Add reward card to deck
+                self._add_reward_card_to_deck()
             else:
                 # LOSE: Money < Goal on LastTurn
                 self.win_lose_state = "lose"
                 if self.win_lose_image:
                     winlose_height = self.win_lose_image.get_height()
-                    self.win_lose_y = -winlose_height
+                    self.win_lose_y = float(-winlose_height)
                 print(f"LOSE on LastTurn: Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
             return
         
         # Check win condition for other days (can win early)
         if self.Money >= self.Goal:
             self.win_lose_state = "win"
+            if self.is_final_boss:
+                self.reward_window_text = self.reward_final_boss_text
             if self.win_lose_image:
                 winlose_height = self.win_lose_image.get_height()
-                self.win_lose_y = -winlose_height
+                self.win_lose_y = float(-winlose_height)
             print(f"WIN (early): Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
+            # Add reward card to deck
+            self._add_reward_card_to_deck()
             return
+    
+    def _add_reward_card_to_deck(self):
+        """Add reward card to global earned cards list after winning a round"""
+        global earned_reward_cards
+        
+        # Determine round number based on difficulty
+        # "e" = round 1, "m" = round 2, "h" = round 3
+        round_num = 1 if self.difficulty == "e" else (2 if self.difficulty == "m" else 3)
+        button = self.difficulty.upper()  # "E", "M", or "H"
+        
+        # Look up reward card
+        reward_key = (self.level_number, round_num, button)
+        reward_card_number = self.rewards.get(reward_key)
+        
+        if reward_card_number:
+            # Initialize list for this level if it doesn't exist
+            if self.level_number not in earned_reward_cards:
+                earned_reward_cards[self.level_number] = []
+            
+            # Add reward card to earned cards for this level (if not already added)
+            if reward_card_number not in earned_reward_cards[self.level_number]:
+                earned_reward_cards[self.level_number].append(reward_card_number)
+                # Store last earned card for WinLose window display
+                self.last_earned_cards.append(reward_card_number)
+                print(f"Earned reward card {reward_card_number} for level {self.level_number}, round {round_num}, button {button}")
+                print(f"Earned cards for level {self.level_number}: {earned_reward_cards[self.level_number]}")
+            else:
+                print(f"Reward card {reward_card_number} already earned for level {self.level_number}")
+        else:
+            print(f"No reward card found for level {self.level_number}, round {round_num}, button {button}")
     
     def update_win_lose_animation(self):
         """Update WinLose screen slide animation"""
         if self.win_lose_state is None or not self.win_lose_image:
             return
-        
-        # Animate sliding down from top
-        win_lose_animation_speed = 15  # pixels per frame
-        if self.win_lose_y < self.win_lose_target_y:
-            self.win_lose_y += win_lose_animation_speed
-            if self.win_lose_y > self.win_lose_target_y:
-                self.win_lose_y = self.win_lose_target_y
+
+        # dt-based slide from top (smooth regardless of FPS)
+        now = pygame.time.get_ticks()
+        dt = (now - getattr(self, "_winlose_last_tick", now)) / 1000.0
+        self._winlose_last_tick = now
+        dt = _clamp_dt_seconds(dt)
+
+        max_delta = float(getattr(self, "win_lose_speed_pps", 0.0)) * dt
+        self.win_lose_y = move_towards(float(self.win_lose_y), float(self.win_lose_target_y), max_delta)
 
     def update_stock_prices(self):
         """Calculate price changes based on probability distributions after EndTurn.
@@ -1884,7 +2119,7 @@ class GameplayPage:
                         self.win_lose_state = "lose"
                     if self.win_lose_image:
                         winlose_height = self.win_lose_image.get_height()
-                        self.win_lose_y = -winlose_height
+                        self.win_lose_y = float(-winlose_height)
                 # Draw cards that were delayed until animations finished
                 self._draw_pending_cards()
             return
@@ -1936,7 +2171,7 @@ class GameplayPage:
                             self.win_lose_state = "lose"
                         if self.win_lose_image:
                             winlose_height = self.win_lose_image.get_height()
-                            self.win_lose_y = -winlose_height
+                            self.win_lose_y = float(-winlose_height)
                     # Draw cards that were delayed until animations finished
                     self._draw_pending_cards()
     
@@ -2083,15 +2318,15 @@ class GameplayPage:
             # Без нижней рамки корректно анимировать не получится — просто применяем мгновенно
             existing_cards = [card for card in self.hand_cards if card is not None][: self.hand]
             self.hand_cards = existing_cards + [None] * (self.hand - len(existing_cards))
-            # Добор без анимации
-            if self.Dobor > 0 and len(self.deck) > 0 and self.pending_draws > 0:
-                draw_limit = min(self.Dobor, self.pending_draws, len(self.deck))
-                start_idx = len(existing_cards)
-                slots_available = self.hand - start_idx
-                draw_count = min(draw_limit, slots_available)
+            # Добор без анимации - всегда добраем, если есть свободные слоты и карты в колоде
+            start_idx = len(existing_cards)
+            slots_available = self.hand - start_idx
+            if self.Dobor > 0 and len(self.deck) > 0 and slots_available > 0:
+                draw_limit = min(self.Dobor, len(self.deck), slots_available)
+                draw_count = draw_limit
                 for offset in range(draw_count):
                     self.hand_cards[start_idx + offset] = self.deck.pop(0)
-                self.pending_draws = 0
+            self.pending_draws = 0
             return
 
         # Геометрия нижней рамки и плейсхолдеров (как в draw)
@@ -2122,13 +2357,13 @@ class GameplayPage:
         # 2) Текущее содержимое и целевой порядок (уплотнение влево)
         existing = [(idx, card) for idx, card in enumerate(self.hand_cards) if card is not None]
         if not existing:
-            # В руке вообще нет карт — просто добираем без анимации
-            if self.Dobor > 0 and len(self.deck) > 0 and self.pending_draws > 0:
-                draw_limit = min(self.Dobor, self.pending_draws, len(self.deck), self.hand)
+            # В руке вообще нет карт — просто добираем без анимации - всегда добраем, если есть карты в колоде
+            if self.Dobor > 0 and len(self.deck) > 0 and self.hand > 0:
+                draw_limit = min(self.Dobor, len(self.deck), self.hand)
                 self.hand_cards = [None] * self.hand
                 for i in range(draw_limit):
                     self.hand_cards[i] = self.deck.pop(0)
-                self.pending_draws = 0
+            self.pending_draws = 0
             return
 
         # Обрезаем по размеру руки
@@ -2155,10 +2390,10 @@ class GameplayPage:
                 }
             )
 
-        # 4) Считаем, сколько карт нужно добрать после компактации
+        # 4) Считаем, сколько карт нужно добрать после компактации - всегда добраем, если есть свободные слоты и карты в колоде
         free_slots_after = self.hand - len(existing)
         max_draw_by_slots = free_slots_after
-        draw_limit = min(self.Dobor, self.pending_draws, len(self.deck), max_draw_by_slots)
+        draw_limit = min(self.Dobor, len(self.deck), max_draw_by_slots) if free_slots_after > 0 and len(self.deck) > 0 else 0
 
         if not moves:
             # Ничего не двигается — применяем целевой порядок и запускаем анимацию добора
@@ -2952,8 +3187,9 @@ class GameplayPage:
         
         # Draw WinLose screen if win/lose state is active
         if self.win_lose_state is not None and self.win_lose_image:
+            win_lose_y_draw = int(round(self.win_lose_y))
             # Draw WinLose window at centered position
-            self.screen.blit(self.win_lose_image, (self.win_lose_x, self.win_lose_y))
+            self.screen.blit(self.win_lose_image, (self.win_lose_x, win_lose_y_draw))
             
             # Draw appropriate Ok button based on win/lose state
             ok_button = None
@@ -2969,10 +3205,71 @@ class GameplayPage:
                 ok_margin_right = 30
                 ok_margin_bottom = 30
                 ok_x = self.win_lose_x + winlose_width - self.ok_button_base_size[0] - ok_margin_right
-                ok_y = self.win_lose_y + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
-                self.ok_button_rect = pygame.Rect(ok_x, ok_y, self.ok_button_base_size[0], self.ok_button_base_size[1])
-                self.screen.blit(ok_button, (ok_x, ok_y))
-            else:
+                ok_y = win_lose_y_draw + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
+                self.ok_button_rect = pygame.Rect(int(ok_x), int(ok_y), self.ok_button_base_size[0], self.ok_button_base_size[1])
+                self.screen.blit(ok_button, (int(ok_x), int(ok_y)))
+            
+            # Draw text and cards on WinLose window
+            winlose_width = self.win_lose_image.get_width()
+            winlose_height = self.win_lose_image.get_height()
+            
+            if self.win_lose_state == "win":
+                # Draw reward text - split into multiple lines if needed
+                text_y = win_lose_y_draw + 75  # Top padding (40 + 35)
+                max_text_width = winlose_width - 40  # Leave 20px margin on each side
+                
+                # Split text into lines if it's too long
+                words = self.reward_window_text.split()
+                lines = []
+                current_line = []
+                current_width = 0
+                
+                for word in words:
+                    test_line = " ".join(current_line + [word]) if current_line else word
+                    test_surface = self.font_small.render(test_line, True, PAPER_COLOR)
+                    word_width = test_surface.get_width()
+                    
+                    if current_width == 0 or word_width <= max_text_width:
+                        current_line.append(word)
+                        current_width = word_width
+                    else:
+                        if current_line:
+                            lines.append(" ".join(current_line))
+                        current_line = [word]
+                        current_width = self.font_small.render(word, True, PAPER_COLOR).get_width()
+                
+                if current_line:
+                    lines.append(" ".join(current_line))
+                
+                # Draw text lines
+                line_height = self.font_small.get_height() + 5
+                for i, line in enumerate(lines):
+                    text_surface = self.font_small.render(line, True, PAPER_COLOR)
+                    text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2
+                    self.screen.blit(text_surface, (text_x, text_y + i * line_height))
+                
+                # Draw reward cards below text
+                if self.last_earned_cards:
+                    text_bottom_y = text_y + len(lines) * line_height
+                    card_start_y = text_bottom_y + 5  # 5px spacing (20 - 15)
+                    card_width_winlose = 100  # Increased card size
+                    card_spacing = 10  # Spacing between cards
+                    total_cards_width = len(self.last_earned_cards) * card_width_winlose + (len(self.last_earned_cards) - 1) * card_spacing
+                    card_start_x = self.win_lose_x + (winlose_width - total_cards_width) // 2  # Center cards
+                    
+                    for i, card_number in enumerate(self.last_earned_cards):
+                        card_image = self._load_winlose_card(card_number)
+                        if card_image:
+                            card_x = card_start_x + i * (card_width_winlose + card_spacing)
+                            self.screen.blit(card_image, (card_x, card_start_y))
+            elif self.win_lose_state == "lose":
+                # Draw lose text
+                text_y = win_lose_y_draw + 85  # Top padding (50 + 35)
+                text_surface = self.font_small.render(self.lose_window_text, True, PAPER_COLOR)
+                text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2  # Center horizontally
+                self.screen.blit(text_surface, (text_x, text_y))
+            
+            if not ok_button:
                 # Debug: why button is not shown
                 if self.win_lose_state == "lose":
                     print(f"DEBUG: Ok2 button not shown. ok2_button exists: {self.ok2_button is not None}, win_lose_state: {self.win_lose_state}")
@@ -3036,7 +3333,7 @@ class BossPage:
         back3_path = os.path.join("UI", "Back3.png")
         if os.path.exists(back3_path):
             self.background = pygame.image.load(back3_path).convert()
-            self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+            self.background = pygame.transform.smoothscale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
             print("WARNING: Back3.png not found:", back3_path)
             self.background = None
@@ -3045,7 +3342,7 @@ class BossPage:
         koordinates_path = os.path.join("RoundPage", "Koordinates.png")
         if os.path.exists(koordinates_path):
             self.koordinates = pygame.image.load(koordinates_path).convert_alpha()
-            self.koordinates = pygame.transform.scale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
+            self.koordinates = pygame.transform.smoothscale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
         else:
             print("WARNING: Koordinates.png not found:", koordinates_path)
             self.koordinates = None
@@ -3053,7 +3350,8 @@ class BossPage:
         # Define bosses for each level
         # Format: {level_number: [list of boss filenames]}
         self.level_bosses = {
-            1: ["1_Watt.png"]
+            1: ["1_Watt.png"],
+            2: ["2_AdamSmith.png", "3_RobertFulton.png"]
             # Add more levels and their bosses here as needed
         }
         
@@ -3073,33 +3371,37 @@ class BossPage:
         if os.path.exists(popup_path):
             popup_original = pygame.image.load(popup_path).convert_alpha()
             # Scale to 250x375 pixels
-            self.popup_image = pygame.transform.scale(popup_original, (250, 375)).convert_alpha()
+            self.popup_image = pygame.transform.smoothscale(popup_original, (250, 375)).convert_alpha()
         else:
             print(f"WARNING: PopUp.png not found: {popup_path}")
             self.popup_image = None
         
         # PopUp animation state
-        self.popup_y = -200  # Start above screen (hidden)
+        self.popup_y = -200.0  # Start above screen (hidden) - float for smooth motion
         self.popup_x = 0
-        self.popup_target_y = -200  # Target Y position
-        self.popup_speed = 25  # Pixels per frame for smooth movement
+        self.popup_target_y = -200.0  # Target Y position
+        self.popup_speed_pps = 1400.0  # pixels per second
+        self._popup_last_tick = pygame.time.get_ticks()
         self.current_hovered_boss_index = None  # Track which boss is hovered for PopUp
         self.popup_boss_index = None  # Track which boss text to show (persists until PopUp hides)
         
         # Load font for PopUp text
         self.popup_font = pygame.font.Font(font_path, 24)
         
-        # Map boss indices to text keys in Lang.csv
-        # Format: {boss_index: "LangKey"}
+        # Map level and boss indices to text keys in Lang.csv
+        # Format: {(level_number, boss_index): "LangKey"}
         self.boss_text_keys = {
-            0: "Boss1Text"  # Boss 1 (Watt)
-            # Add more bosses here as needed: 1: "Boss2Text", etc.
+            (1, 0): "Boss1Text",  # Boss 1 (Watt) for level 1
+            (2, 0): "Boss2Text",  # Boss 2 (Adam Smith) for level 2
+            (2, 1): "Boss3Text"   # Boss 3 (Robert Fulton) for level 2
+            # Add more bosses here as needed: (level, boss_index): "BossXText", etc.
         }
         
         # Store boss texts
         self.boss_texts = {}
-        for boss_index, text_key in self.boss_text_keys.items():
-            self.boss_texts[boss_index] = get_text(text_key, text_key)
+        for (level_num, boss_idx), text_key in self.boss_text_keys.items():
+            if level_num == self.level_number:
+                self.boss_texts[boss_idx] = get_text(text_key, text_key)
         
         # Load Pen sound
         pen_sound_path = os.path.join("Sounds", "Pen.mp3")
@@ -3122,7 +3424,7 @@ class BossPage:
                 if os.path.exists(boss_path):
                     boss_image = pygame.image.load(boss_path).convert_alpha()
                     # Scale to 100x100
-                    boss_image = pygame.transform.scale(boss_image, (100, 100)).convert_alpha()
+                    boss_image = pygame.transform.smoothscale(boss_image, (100, 100)).convert_alpha()
                     self.bosses.append(boss_image)
                     
                     # Extract base name (e.g., "1_Watt.png" -> "1_Watt")
@@ -3139,7 +3441,7 @@ class BossPage:
                             frame_path = os.path.join(boss_folder, frame_filename)
                             if os.path.exists(frame_path):
                                 frame_image = pygame.image.load(frame_path).convert_alpha()
-                                frame_image = pygame.transform.scale(frame_image, (100, 100)).convert_alpha()
+                                frame_image = pygame.transform.smoothscale(frame_image, (100, 100)).convert_alpha()
                                 animation_frames.append(frame_image)
                             else:
                                 print(f"WARNING: Animation frame not found: {frame_path}")
@@ -3154,7 +3456,8 @@ class BossPage:
                     self.boss_animation_frames.append([])
         
         # Calculate First boss positions in bottom left part of screen
-        boss_spacing = 60  # Spacing between bosses
+        # For level 2, use 150px spacing between bosses; for other levels, use 60px
+        boss_spacing = 150 if self.level_number == 2 else 60
         start_x = 350  # Left margin
         start_y = SCREEN_HEIGHT - 400  # Bottom margin (100px from bottom)
         
@@ -3162,6 +3465,17 @@ class BossPage:
             boss_x = start_x
             boss_y = start_y - (i * boss_spacing)  # Stack bosses vertically
             self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
+        
+        # Fixed starting point for line (same for all bosses)
+        # Calculate based on first boss position
+        if len(self.boss_rects) > 0:
+            first_boss_rect = self.boss_rects[0]
+            self.fixed_line_start_x = first_boss_rect.centerx - 165
+            self.fixed_line_start_y = first_boss_rect.centery + 132
+        else:
+            # Fallback if no bosses
+            self.fixed_line_start_x = 350 + 50 - 165  # boss_x + 50 (center) - 165
+            self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132  # boss_y + 50 (center) + 132
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -3177,16 +3491,16 @@ class BossPage:
         if hovered_boss is not None:
             # Set target position for PopUp
             boss_rect = self.boss_rects[hovered_boss]
-            self.popup_target_y = boss_rect.y-250  # Y coordinate of the boss
+            self.popup_target_y = float(boss_rect.y - 250)  # Y coordinate of the boss
             self.popup_x = boss_rect.x + 100  # X = boss.x + 70
             self.current_hovered_boss_index = hovered_boss
             self.popup_boss_index = hovered_boss  # Save boss index for text display
             
             # Calculate line coordinates
-            # Start: boss coordinates -50 (x and y)
-            line_start_x = boss_rect.centerx - 165
-            line_start_y = boss_rect.centery + 132
-            # End: boss center coordinates
+            # Start: fixed point (same for all bosses)
+            line_start_x = self.fixed_line_start_x
+            line_start_y = self.fixed_line_start_y
+            # End: boss center coordinates (depends on selected boss)
             line_end_x = boss_rect.centerx
             line_end_y = boss_rect.centery
             self.current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
@@ -3198,7 +3512,7 @@ class BossPage:
                 self.last_hovered_boss = hovered_boss
         else:
             # Move PopUp back above screen when not hovering
-            self.popup_target_y = -350
+            self.popup_target_y = -350.0
             self.current_hovered_boss_index = None
             # Don't clear popup_boss_index here - let it persist until PopUp is hidden
             self.current_line = None  # Clear line when not hovering
@@ -3250,15 +3564,13 @@ class BossPage:
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
         
-        # Update PopUp position with smooth animation
-        if abs(self.popup_y - self.popup_target_y) > 1:
-            # Smooth movement towards target
-            if self.popup_y < self.popup_target_y:
-                self.popup_y = min(self.popup_y + self.popup_speed, self.popup_target_y)
-            else:
-                self.popup_y = max(self.popup_y - self.popup_speed, self.popup_target_y)
-        else:
-            self.popup_y = self.popup_target_y
+        # Update PopUp position with dt-based smooth animation (stable across FPS)
+        now = pygame.time.get_ticks()
+        dt = (now - getattr(self, "_popup_last_tick", now)) / 1000.0
+        self._popup_last_tick = now
+        dt = _clamp_dt_seconds(dt)
+        max_delta = float(getattr(self, "popup_speed_pps", 0.0)) * dt
+        self.popup_y = move_towards(float(self.popup_y), float(self.popup_target_y), max_delta)
         
         # Draw saved line (if boss was clicked)
         if self.saved_line:
@@ -3300,7 +3612,8 @@ class BossPage:
         
         # Draw PopUp if it's visible (not completely above screen)
         if self.popup_image and self.popup_y > -self.popup_image.get_height():
-            self.screen.blit(self.popup_image, (self.popup_x, self.popup_y))
+            popup_y_draw = int(round(self.popup_y))
+            self.screen.blit(self.popup_image, (self.popup_x, popup_y_draw))
             
             # Draw text on PopUp if a boss text is available (persists until PopUp hides)
             if self.popup_boss_index is not None and self.popup_boss_index in self.boss_texts:
@@ -3331,7 +3644,7 @@ class BossPage:
                 
                 # Draw text lines on PopUp
                 text_start_x = self.popup_x + 15  # Left padding
-                text_start_y = self.popup_y + 120  # Top padding
+                text_start_y = popup_y_draw + 120  # Top padding
                 line_height = self.popup_font.get_height() + 5  # 5px spacing between lines
                 
                 for i, line in enumerate(lines):
@@ -3369,12 +3682,13 @@ class RoundPage:
         self.level_number = level_number
         self.boss_index = boss_index
         self.test_mode = test_mode
+        self.font_path = font_path  # Save font path for dynamic font creation
         
         # Load Back3.png from UI folder (same as level selection screen)
         back3_path = os.path.join("UI", "Back3.png")
         if os.path.exists(back3_path):
             self.background = pygame.image.load(back3_path).convert()
-            self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+            self.background = pygame.transform.smoothscale(self.background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         else:
             print("WARNING: Back3.png not found:", back3_path)
             self.background = None
@@ -3383,7 +3697,7 @@ class RoundPage:
         koordinates_path = os.path.join("RoundPage", "Koordinates.png")
         if os.path.exists(koordinates_path):
             self.koordinates = pygame.image.load(koordinates_path).convert_alpha()
-            self.koordinates = pygame.transform.scale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
+            self.koordinates = pygame.transform.smoothscale(self.koordinates, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
         else:
             print("WARNING: Koordinates.png not found:", koordinates_path)
             self.koordinates = None
@@ -3399,7 +3713,7 @@ class RoundPage:
             # Scale down by 5x (divide by 5)
             new_width = button_e_original.get_width() // 5
             new_height = button_e_original.get_height() // 5
-            self.button_e = pygame.transform.scale(button_e_original, (new_width, new_height)).convert_alpha()
+            self.button_e = pygame.transform.smoothscale(button_e_original, (new_width, new_height)).convert_alpha()
         else:
             print("WARNING: LevelButtonE not found:", button_e_path)
             self.button_e = None
@@ -3409,7 +3723,7 @@ class RoundPage:
             # Scale down by 5x (divide by 5)
             new_width = button_m_original.get_width() // 5
             new_height = button_m_original.get_height() // 5
-            self.button_m = pygame.transform.scale(button_m_original, (new_width, new_height)).convert_alpha()
+            self.button_m = pygame.transform.smoothscale(button_m_original, (new_width, new_height)).convert_alpha()
         else:
             print("WARNING: LevelButtonM not found:", button_m_path)
             self.button_m = None
@@ -3419,94 +3733,95 @@ class RoundPage:
             # Scale down by 5x (divide by 5)
             new_width = button_h_original.get_width() // 5
             new_height = button_h_original.get_height() // 5
-            self.button_h = pygame.transform.scale(button_h_original, (new_width, new_height)).convert_alpha()
+            self.button_h = pygame.transform.smoothscale(button_h_original, (new_width, new_height)).convert_alpha()
         else:
             print("WARNING: LevelButtonH not found:", button_h_path)
             self.button_h = None
         
-        # LevelRounds: number of rounds needed to reach boss
-        # Format: {level_number: rounds_count}
-        self.level_rounds = {
-            1: 1  # Level 1 needs 1 round to reach boss
-            # Add more levels here as needed
+        # Load round configuration (round count + per-difficulty goals) from RoundsData.csv
+        self.rounds_config = self._load_rounds_data()
+        level_cfg = self.rounds_config.get(self.level_number, {})
+        # Per-button goals (None means the button should be hidden)
+        self.button_goals = {
+            "e": level_cfg.get("E"),
+            "m": level_cfg.get("M"),
+            "h": level_cfg.get("H")
         }
+        # Hide buttons that are not configured for this level in RoundsData
+        if self.button_goals["e"] is None:
+            self.button_e = None
+        if self.button_goals["m"] is None:
+            self.button_m = None
+        if self.button_goals["h"] is None:
+            self.button_h = None
+        # How many rounds must be completed before the boss unlocks
+        rounds_cfg_value = level_cfg.get("Rounds")
+        self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
         
-        # Track completed rounds: {(level, boss, round): True}
+        # Track completed rounds: integers starting at 1
         self.completed_rounds = set()
         
-        # Round goals: Roundx_y_zGoal = goal value
-        # Format: {(level, boss, round): goal}
-        self.round_goals = {
-            (1, 1, 1): 40  # Round1_1_1Goal = 40
-            # Add more round goals here as needed
-        }
-        
-        # Current goal (will be set when button is clicked)
+        # Current goal (will be set when a button is clicked)
         self.Goal = None
         
-        # Calculate button positions
-        # For level 1, show only button E at boss position
-        if self.level_number == 1:
-            # Position button E at first boss coordinates (350, SCREEN_HEIGHT - 400)
+        # Track last selected round number (1-based order)
+        self.last_selected_round = None
+        
+        # Calculate button positions based on which buttons are available
+        self.button_e_rect = None
+        self.button_m_rect = None
+        self.button_h_rect = None
+        available_buttons = []
+        if self.button_e and self.button_goals.get("e") is not None:
+            available_buttons.append(("e", self.button_e))
+        if self.button_m and self.button_goals.get("m") is not None:
+            available_buttons.append(("m", self.button_m))
+        if self.button_h and self.button_goals.get("h") is not None:
+            available_buttons.append(("h", self.button_h))
+        
+        if self.level_number == 1 and len(available_buttons) == 1 and available_buttons[0][0] == "e":
+            # Special placement for level 1 single button (existing layout)
             if self.button_e:
                 button_e_height = self.button_e.get_height()
                 button_e_width = self.button_e.get_width()
                 button_e_x = 350  # Same as first boss
                 button_e_y = SCREEN_HEIGHT - 400  # Same as first boss
                 self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
-            else:
-                self.button_e_rect = None
-            # Don't show M and H buttons for level 1
-            self.button_m_rect = None
-            self.button_h_rect = None
         else:
-            # For other levels, use original positions
-            if self.button_e:
-                button_e_height = self.button_e.get_height()
-                button_e_width = self.button_e.get_width()
-                button_e_x = 130  # 130px from left
-                button_e_y = SCREEN_HEIGHT - button_e_height - 120  # 120px up from bottom
-                self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
-            else:
-                self.button_e_rect = None
-            # Set default positions for other buttons
-            button_e_y = SCREEN_HEIGHT - 120
-            button_e_x = 130
-        
-        if self.button_m:
-            button_m_height = self.button_m.get_height()
-            button_m_width = self.button_m.get_width()
-            button_m_y = button_e_y - 30 - button_m_height
-            button_m_x = button_e_x  # Same x position as LevelButtonE
-            self.button_m_rect = pygame.Rect(button_m_x, button_m_y, button_m_width, button_m_height)
-        else:
-            self.button_m_rect = None
-            button_m_y = button_e_y - 30  # Fallback position
-        
-        if self.button_h:
-            button_h_height = self.button_h.get_height()
-            button_h_width = self.button_h.get_width()
-            button_h_y = button_m_y - 30 - button_h_height
-            button_h_x = button_e_x  # Same x position as LevelButtonE
-            self.button_h_rect = pygame.Rect(button_h_x, button_h_y, button_h_width, button_h_height)
-        else:
-            self.button_h_rect = None
+            # Stack available buttons from bottom to top on the left side
+            button_x = 130
+            current_y = SCREEN_HEIGHT - 120
+            spacing = 30
+            for key, img in available_buttons:
+                if not img:
+                    continue
+                w, h = img.get_width(), img.get_height()
+                y = current_y - h
+                rect = pygame.Rect(button_x, y, w, h)
+                if key == "e":
+                    self.button_e_rect = rect
+                elif key == "m":
+                    self.button_m_rect = rect
+                else:
+                    self.button_h_rect = rect
+                current_y = y - spacing
         
         # Load PopUp.png (same as BossPage)
         popup_path = os.path.join("Bosses", "PopUp.png")
         if os.path.exists(popup_path):
             popup_original = pygame.image.load(popup_path).convert_alpha()
             # Scale to 250x375 pixels
-            self.popup_image = pygame.transform.scale(popup_original, (250, 375)).convert_alpha()
+            self.popup_image = pygame.transform.smoothscale(popup_original, (250, 375)).convert_alpha()
         else:
             print(f"WARNING: PopUp.png not found: {popup_path}")
             self.popup_image = None
         
         # PopUp animation state
-        self.popup_y = -400  # Start above screen (hidden)
+        self.popup_y = -400.0  # Start above screen (hidden) - float for smooth motion
         self.popup_x = 0
-        self.popup_target_y = -400  # Target Y position
-        self.popup_speed = 25  # Pixels per frame for smooth movement
+        self.popup_target_y = -400.0  # Target Y position
+        self.popup_speed_pps = 1400.0  # pixels per second
+        self._popup_last_tick = pygame.time.get_ticks()
         self.popup_button = None  # Track which button text to show (persists until PopUp hides)
         
         # Load font for PopUp text
@@ -3514,6 +3829,55 @@ class RoundPage:
         
         # Load PopUpRound text from Lang.csv
         self.popup_round_text = get_text("PopUpRound", "PopUpRound")
+        # Load PopUpReward text from Lang.csv
+        self.popup_reward_text = get_text("PopUpReward", "PopUpReward")
+        
+        # Load rewards from Rewards.csv
+        # Format: {(level, round, button): reward_card_number}
+        self.rewards = {}
+        rewards_file = "Rewards.csv"
+        if os.path.exists(rewards_file):
+            try:
+                with open(rewards_file, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f, delimiter=';')
+                    for row in reader:
+                        level = int(row.get('Level', 0))
+                        round_num = int(row.get('Round', 0))
+                        button = row.get('Button', '').strip().upper()
+                        reward_card = int(row.get('Reward', 0))
+                        if level > 0 and round_num > 0 and button and reward_card > 0:
+                            self.rewards[(level, round_num, button)] = reward_card
+            except Exception as e:
+                print(f"ERROR loading rewards file: {e}")
+        
+        # Cache for loaded reward card images
+        self.reward_card_images = {}
+        
+        # Card base mapping: which base image to use for each card
+        # Cards 11, 12, 13, 14 use Card_11.png as base
+        # Cards 15, 16 use Card_15.png as base
+        # Cards 17, 18 use Card_17.png as base
+        self.card_base_mapping = {}
+        for card_id in range(5):
+            self.card_base_mapping[card_id] = card_id  # Original cards use their own images
+        self.card_base_mapping[11] = 11
+        self.card_base_mapping[12] = 11
+        self.card_base_mapping[13] = 11
+        self.card_base_mapping[14] = 11
+        self.card_base_mapping[15] = 15
+        self.card_base_mapping[16] = 15
+        self.card_base_mapping[17] = 17
+        self.card_base_mapping[18] = 17
+        
+        # Card actions and turns for dynamic cards
+        self.card_actions = {
+            11: 2, 12: 2, 13: 4, 14: 4,
+            15: -2, 16: -2, 17: 2, 18: 2
+        }
+        self.card_turns = {
+            11: 1, 13: 1, 12: 2, 14: 2,
+            15: 1, 16: 2, 17: 1, 18: 2
+        }
         
         # Load Pen sound
         pen_sound_path = os.path.join("Sounds", "Pen.mp3")
@@ -3546,54 +3910,226 @@ class RoundPage:
         
         # Boss goals: {boss_key: goal_value}
         self.boss_goals = {
-            (1, 0): 70  # Boss 1_Watt (level 1, boss index 0) Goal = 70
+            (1, 0): 70,  # Boss 1_Watt (level 1, boss index 0) Goal = 70
+            (2, 0): 70,  # Boss 2_AdamSmith (level 2, boss index 0) Goal = 70
+            (2, 1): 70  # Boss 3_RobertFulton (level 2, boss index 1) Goal = 70
             # Add more boss goals here as needed
         }
         
         self._load_boss_icon_if_needed()
     
+    def _load_rounds_data(self):
+        """Load per-level round counts and button goals from RoundsData.csv."""
+        rounds_data = {}
+        rounds_file = "RoundsData.csv"
+        if not os.path.exists(rounds_file):
+            print(f"WARNING: RoundsData.csv not found: {rounds_file}")
+            return rounds_data
+        
+        try:
+            with open(rounds_file, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f, delimiter=";")
+                for row in reader:
+                    try:
+                        level = int(row.get("Level", 0))
+                    except (TypeError, ValueError):
+                        continue
+                    if level <= 0:
+                        continue
+                    
+                    def _parse_value(key):
+                        raw = (row.get(key, "") or "").strip()
+                        if raw == "":
+                            return None
+                        try:
+                            value = int(raw)
+                            # Treat non-positive numbers as absent so the button stays hidden
+                            return value if value > 0 else None
+                        except (TypeError, ValueError):
+                            return None
+                    
+                    rounds_data[level] = {
+                        "E": _parse_value("E"),
+                        "M": _parse_value("M"),
+                        "H": _parse_value("H"),
+                        "Rounds": _parse_value("Rounds"),
+                    }
+        except Exception as e:
+            print(f"ERROR loading RoundsData.csv: {e}")
+        return rounds_data
+    
+    def _load_reward_card(self, card_number):
+        """Load and cache a reward card image. For cards 11-18, uses base card and draws CardAction/CardTurns."""
+        if card_number in self.reward_card_images:
+            return self.reward_card_images[card_number]
+        
+        # Target size for PopUp - use same aspect ratio as market cards (99x171)
+        # Market card ratio: 99/171 ≈ 0.579
+        target_width = 100
+        # Calculate height to maintain same aspect ratio as market cards
+        market_card_ratio = 99 / 171.0  # Use market card aspect ratio
+        target_height = int(target_width / market_card_ratio)
+        
+        # Check if this card uses a base card (cards 11-18)
+        base_card_id = self.card_base_mapping.get(card_number, card_number)
+        card_path = os.path.join("Cards", f"Card_{base_card_id}.png")
+        
+        if not os.path.exists(card_path):
+            print(f"WARNING: Reward card base not found: {card_path}")
+            self.reward_card_images[card_number] = None
+            return None
+        
+        # Load base card image
+        card_image = pygame.image.load(card_path).convert_alpha()
+        
+        # First scale to final PopUp size
+        card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+        
+        # If this card has CardAction or CardTurns, draw them on the scaled card
+        if card_number in self.card_actions or card_number in self.card_turns:
+            # Draw CardAction if this card has one
+            if card_number in self.card_actions:
+                action_value = self.card_actions[card_number]
+                self._draw_card_action_on_surface(card_surface, action_value, card_number, target_width, target_height)
+            
+            # Draw CardTurns if this card has one
+            if card_number in self.card_turns:
+                turns_value = self.card_turns[card_number]
+                self._draw_card_turns_on_surface(card_surface, turns_value, card_number, target_width, target_height)
+            
+            self.reward_card_images[card_number] = card_surface
+            return card_surface
+        else:
+            # Regular card, already scaled
+            self.reward_card_images[card_number] = card_surface
+            return card_surface
+    
+    def _draw_card_action_on_surface(self, surface, action_value, card_id, card_width, card_height):
+        """Draw CardAction value on a card surface"""
+        # Calculate font size based on card size (scaled from GameplayPage logic)
+        base_market_width = 99
+        scale_factor = card_width / base_market_width
+        base_font_size = 36
+        scaled_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+        if scaled_font_size < 1:
+            scaled_font_size = 1
+        
+        # Load font (prefer Gadugib)
+        gadugib_path = "Gadugib.ttf"
+        if os.path.exists(gadugib_path):
+            font_path_use = gadugib_path
+        else:
+            font_path_use = self.font_path
+        
+        try:
+            font = pygame.font.Font(font_path_use, scaled_font_size)
+            action_text = font.render(str(action_value), True, PAPER_COLOR)
+            
+            # Position near + sign (upper right area)
+            plus_x = card_width - 25 * scale_factor
+            plus_y = 10 * scale_factor
+            action_x = plus_x - 29 * scale_factor
+            action_y = plus_y + 14 * scale_factor
+            
+            # For cards 15 and 16, shift left for minus sign
+            if card_id in (15, 16):
+                action_x -= 11 * scale_factor
+            
+            surface.blit(action_text, (int(action_x), int(action_y)))
+        except Exception as e:
+            print(f"ERROR drawing CardAction on reward card: {e}")
+    
+    def _draw_card_turns_on_surface(self, surface, turns_value, card_id, card_width, card_height):
+        """Draw CardTurns value on a card surface"""
+        # Calculate font size (20% smaller than CardAction)
+        base_market_width = 99
+        scale_factor = card_width / base_market_width
+        base_font_size = 36
+        card_action_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+        turns_font_size = int(card_action_font_size * 0.648)
+        if turns_font_size < 1:
+            turns_font_size = 1
+        
+        # Load font (prefer Gadugib)
+        gadugib_path = "Gadugib.ttf"
+        if os.path.exists(gadugib_path):
+            font_path_use = gadugib_path
+        else:
+            font_path_use = self.font_path
+        
+        try:
+            font = pygame.font.Font(font_path_use, turns_font_size)
+            turns_text = font.render(str(turns_value), True, PAPER_COLOR)
+            
+            # Position at bottom center
+            base_bottom_height = 244.0
+            height_scale = card_height / base_bottom_height if base_bottom_height > 0 else 1.0
+            offset_from_bottom = 75.0 * height_scale
+            
+            card_center_x = card_width / 2
+            turns_x = card_center_x + 10 * scale_factor
+            turns_y = card_height - offset_from_bottom
+            
+            # Adjust for cards 17-18 - use market card sizes as base (same as GameplayPage uses card_size)
+            if card_id in (17, 18):
+                # For PopUp cards, use market card sizes (99x171) as base, not bottom card sizes
+                base_market_width = 99.0
+                base_market_height = 171.0
+                x_scale = card_width / base_market_width if card_width else 1.0
+                y_scale = card_height / base_market_height if card_height else 1.0
+                turns_x -= 7.0 * x_scale
+                turns_y += 2.0 * y_scale
+            
+            surface.blit(turns_text, (int(turns_x), int(turns_y)))
+        except Exception as e:
+            print(f"ERROR drawing CardTurns on reward card: {e}")
+    
     def _load_boss_icon_if_needed(self):
         """Load boss icon if all required rounds are completed"""
-        level_rounds = self.level_rounds.get(self.level_number, 0)
-        if level_rounds == 0:
+        level_rounds = self.rounds_required
+        if level_rounds <= 0:
             return
         
         # Check if all rounds are completed
-        completed_count = 0
-        for round_num in range(1, level_rounds + 1):
-            round_key = (self.level_number, self.boss_index + 1, round_num)
-            if round_key in self.completed_rounds:
-                completed_count += 1
+        completed_count = len(self.completed_rounds)
         
         # If all rounds completed, load boss icon
         if completed_count >= level_rounds:
             # Determine which boss icon to load based on level and boss
+            boss_filename = None
             if self.level_number == 1 and self.boss_index == 0:
                 boss_filename = "1_Watt.png"
+            elif self.level_number == 2 and self.boss_index == 0:
+                boss_filename = "2_AdamSmith.png"
+            elif self.level_number == 2 and self.boss_index == 1:
+                boss_filename = "3_RobertFulton.png"
+            
+            if boss_filename:
                 boss_path = os.path.join("Bosses", boss_filename)
                 if os.path.exists(boss_path):
                     boss_image = pygame.image.load(boss_path).convert_alpha()
                     # Scale to 100x100 (same as on BossPage)
-                    self.boss_icon = pygame.transform.scale(boss_image, (100, 100)).convert_alpha()
+                    self.boss_icon = pygame.transform.smoothscale(boss_image, (100, 100)).convert_alpha()
                     
                     # Calculate line distance from button E
                     # Line starts at (235, SCREEN_HEIGHT - 218) and ends at button center
-                    if self.button_e_rect:
+                    base_button_rect = self.button_e_rect or self.button_m_rect or self.button_h_rect
+                    if base_button_rect:
                         line_start_x = 235
                         line_start_y = SCREEN_HEIGHT - 218
-                        line_end_x = self.button_e_rect.centerx
-                        line_end_y = self.button_e_rect.centery
+                        line_end_x = base_button_rect.centerx
+                        line_end_y = base_button_rect.centery
                         # Calculate distance (same as line length)
                         line_dx = line_end_x - line_start_x
                         line_dy = line_end_y - line_start_y
                         
                         # Position boss icon at same distance from button E
-                        boss_x = self.button_e_rect.centerx + line_dx
-                        boss_y = self.button_e_rect.centery + line_dy
+                        boss_x = base_button_rect.centerx + line_dx
+                        boss_y = base_button_rect.centery + line_dy
                         self.boss_icon_rect = pygame.Rect(boss_x - 50, boss_y - 50, 100, 100)
                     
                     # Load animation frames from boss folder
-                    base_name = os.path.splitext(boss_filename)[0]  # "1_Watt"
+                    base_name = os.path.splitext(boss_filename)[0]  # "1_Watt" or "2_AdamSmith"
                     boss_folder = os.path.join("Bosses", base_name)
                     animation_frames = []
                     if os.path.exists(boss_folder) and os.path.isdir(boss_folder):
@@ -3603,7 +4139,7 @@ class RoundPage:
                             frame_path = os.path.join(boss_folder, frame_filename)
                             if os.path.exists(frame_path):
                                 frame_image = pygame.image.load(frame_path).convert_alpha()
-                                frame_image = pygame.transform.scale(frame_image, (100, 100)).convert_alpha()
+                                frame_image = pygame.transform.smoothscale(frame_image, (100, 100)).convert_alpha()
                                 animation_frames.append(frame_image)
                             else:
                                 print(f"WARNING: Animation frame not found: {frame_path}")
@@ -3614,20 +4150,22 @@ class RoundPage:
     
     def mark_round_completed(self, round_num):
         """Mark a round as completed"""
-        round_key = (self.level_number, self.boss_index + 1, round_num)
-        self.completed_rounds.add(round_key)
+        if round_num is None:
+            round_num = self.get_current_active_round()
+        if round_num is not None and round_num <= self.rounds_required:
+            self.completed_rounds.add(round_num)
         # Reload boss icon if needed
         self._load_boss_icon_if_needed()
     
     def is_round_active(self, round_num):
         """Check if a round is active (not completed yet)"""
-        round_key = (self.level_number, self.boss_index + 1, round_num)
-        return round_key not in self.completed_rounds
+        if round_num > self.rounds_required:
+            return False
+        return round_num not in self.completed_rounds
     
     def get_current_active_round(self):
         """Get the current active round number (first uncompleted round)"""
-        level_rounds = self.level_rounds.get(self.level_number, 0)
-        for round_num in range(1, level_rounds + 1):
+        for round_num in range(1, self.rounds_required + 1):
             if self.is_round_active(round_num):
                 return round_num
         return None  # All rounds completed, boss is active
@@ -3642,17 +4180,15 @@ class RoundPage:
         # Check which button is hovered (using original rect for hover detection)
         self.hovered_button = None
         hovered_boss = False
+        can_play_round = current_active_round is not None
         
         # Only check buttons if they are active (not completed)
-        if self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos):
-            if self.is_round_active(1):  # Round 1 (E) is active
-                self.hovered_button = "e"
-        elif self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos):
-            if self.is_round_active(2):  # Round 2 (M) is active
-                self.hovered_button = "m"
-        elif self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos):
-            if self.is_round_active(3):  # Round 3 (H) is active
-                self.hovered_button = "h"
+        if can_play_round and self.button_e_rect and self.button_goals.get("e") is not None and self.button_e_rect.collidepoint(mouse_pos):
+            self.hovered_button = "e"
+        elif can_play_round and self.button_m_rect and self.button_goals.get("m") is not None and self.button_m_rect.collidepoint(mouse_pos):
+            self.hovered_button = "m"
+        elif can_play_round and self.button_h_rect and self.button_goals.get("h") is not None and self.button_h_rect.collidepoint(mouse_pos):
+            self.hovered_button = "h"
         elif self.boss_icon_rect and self.boss_icon_rect.collidepoint(mouse_pos):
             if all_rounds_completed:  # Boss is only active when all rounds are completed
                 hovered_boss = True
@@ -3660,15 +4196,16 @@ class RoundPage:
         # Update PopUp position and line based on hover
         if hovered_boss:
             # Boss is hovered
-            if self.boss_icon_rect and self.button_e_rect:
+            base_button_rect = self.button_e_rect or self.button_m_rect or self.button_h_rect
+            if self.boss_icon_rect and base_button_rect:
                 # Set target position for PopUp (same as for buttons)
-                self.popup_target_y = self.boss_icon_rect.y - 250
+                self.popup_target_y = float(self.boss_icon_rect.y - 250)
                 self.popup_x = self.boss_icon_rect.x + 100
                 self.popup_button = "boss"  # Mark as boss hover
                 
                 # Calculate line coordinates from button E center to boss center
-                line_start_x = self.button_e_rect.centerx
-                line_start_y = self.button_e_rect.centery
+                line_start_x = base_button_rect.centerx
+                line_start_y = base_button_rect.centery
                 line_end_x = self.boss_icon_rect.centerx
                 line_end_y = self.boss_icon_rect.centery
                 self.boss_current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
@@ -3695,7 +4232,7 @@ class RoundPage:
             
             if button_rect:
                 # Set target position for PopUp
-                self.popup_target_y = button_rect.y - 250
+                self.popup_target_y = float(button_rect.y - 250)
                 self.popup_x = button_rect.x + 100
                 self.popup_button = self.hovered_button  # Save button for text display
                 
@@ -3715,7 +4252,7 @@ class RoundPage:
                     self.last_hovered_button = self.hovered_button
         else:
             # Move PopUp back above screen when not hovering
-            self.popup_target_y = -400
+            self.popup_target_y = -400.0
             # Don't clear popup_button here - let it persist until PopUp is hidden
             self.current_line = None  # Clear line when not hovering button
             self.boss_current_line = None  # Clear line when not hovering boss
@@ -3735,7 +4272,7 @@ class RoundPage:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     # Only allow clicks on active buttons
-                    if self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos) and self.is_round_active(1):
+                    if can_play_round and self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos) and self.button_goals.get("e") is not None:
                         print("LevelButtonE (bottom) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
@@ -3744,12 +4281,12 @@ class RoundPage:
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
                         else:
-                            round_key = (self.level_number, self.boss_index + 1, 1)  # round 1 for E
-                            if round_key in self.round_goals:
-                                self.Goal = self.round_goals[round_key]
-                        self.last_selected_round = 1  # Track selected round
+                            goal_value = self.button_goals.get("e")
+                            if goal_value is not None:
+                                self.Goal = goal_value
+                        self.last_selected_round = current_active_round  # Track selected round
                         return "button_e"
-                    if self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.is_round_active(2):
+                    if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
                         print("LevelButtonM (middle) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
@@ -3758,12 +4295,12 @@ class RoundPage:
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
                         else:
-                            round_key = (self.level_number, self.boss_index + 1, 2)  # round 2 for M
-                            if round_key in self.round_goals:
-                                self.Goal = self.round_goals[round_key]
-                        self.last_selected_round = 2  # Track selected round
+                            goal_value = self.button_goals.get("m")
+                            if goal_value is not None:
+                                self.Goal = goal_value
+                        self.last_selected_round = current_active_round  # Track selected round
                         return "button_m"
-                    if self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.is_round_active(3):
+                    if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
                         print("LevelButtonH (upper) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
@@ -3772,10 +4309,10 @@ class RoundPage:
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
                         else:
-                            round_key = (self.level_number, self.boss_index + 1, 3)  # round 3 for H
-                            if round_key in self.round_goals:
-                                self.Goal = self.round_goals[round_key]
-                        self.last_selected_round = 3  # Track selected round
+                            goal_value = self.button_goals.get("h")
+                            if goal_value is not None:
+                                self.Goal = goal_value
+                        self.last_selected_round = current_active_round  # Track selected round
                         return "button_h"
                     # Handle boss click (only if all rounds completed)
                     current_active_round = self.get_current_active_round()
@@ -3804,15 +4341,13 @@ class RoundPage:
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
         
-        # Update PopUp position with smooth animation
-        if abs(self.popup_y - self.popup_target_y) > 1:
-            # Smooth movement towards target
-            if self.popup_y < self.popup_target_y:
-                self.popup_y = min(self.popup_y + self.popup_speed, self.popup_target_y)
-            else:
-                self.popup_y = max(self.popup_y - self.popup_speed, self.popup_target_y)
-        else:
-            self.popup_y = self.popup_target_y
+        # Update PopUp position with dt-based smooth animation (stable across FPS)
+        now = pygame.time.get_ticks()
+        dt = (now - getattr(self, "_popup_last_tick", now)) / 1000.0
+        self._popup_last_tick = now
+        dt = _clamp_dt_seconds(dt)
+        max_delta = float(getattr(self, "popup_speed_pps", 0.0)) * dt
+        self.popup_y = move_towards(float(self.popup_y), float(self.popup_target_y), max_delta)
         
         # Draw saved line (if button was clicked)
         if self.saved_line:
@@ -3830,20 +4365,14 @@ class RoundPage:
             pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
         
         # Draw buttons (from bottom to top: E, M, H)
-        # For level 1, only show button E
-        if self.level_number == 1:
-            if self.button_e and self.button_e_rect:
-                self.screen.blit(self.button_e, self.button_e_rect.topleft)
-        else:
-            # For other levels, show all buttons
-            if self.button_e and self.button_e_rect:
-                self.screen.blit(self.button_e, self.button_e_rect.topleft)
-            
-            if self.button_m and self.button_m_rect:
-                self.screen.blit(self.button_m, self.button_m_rect.topleft)
-            
-            if self.button_h and self.button_h_rect:
-                self.screen.blit(self.button_h, self.button_h_rect.topleft)
+        if self.button_e and self.button_e_rect:
+            self.screen.blit(self.button_e, self.button_e_rect.topleft)
+        
+        if self.button_m and self.button_m_rect:
+            self.screen.blit(self.button_m, self.button_m_rect.topleft)
+        
+        if self.button_h and self.button_h_rect:
+            self.screen.blit(self.button_h, self.button_h_rect.topleft)
         
         # Draw boss icon if all rounds are completed (with animation if hovered)
         if self.boss_icon and self.boss_icon_rect:
@@ -3873,7 +4402,8 @@ class RoundPage:
         
         # Draw PopUp if it's visible (not completely above screen)
         if self.popup_image and self.popup_y > -self.popup_image.get_height():
-            self.screen.blit(self.popup_image, (self.popup_x, self.popup_y))
+            popup_y_draw = int(round(self.popup_y))
+            self.screen.blit(self.popup_image, (self.popup_x, popup_y_draw))
             
             # Draw text on PopUp if a button or boss is hovered
             if self.popup_button is not None:
@@ -3887,10 +4417,8 @@ class RoundPage:
                     # Button is hovered
                     # Determine round number based on button
                     round_num = 1 if self.popup_button == "e" else (2 if self.popup_button == "m" else 3)
-                    round_key = (self.level_number, self.boss_index + 1, round_num)
-                    
                     # Get goal value
-                    goal_value = self.round_goals.get(round_key, 0)
+                    goal_value = self.button_goals.get(self.popup_button, 0) or 0
                     
                     # Build text: PopUpRound text + goal + "$"
                     full_text = f"{self.popup_round_text} {goal_value}$"
@@ -3920,12 +4448,40 @@ class RoundPage:
                 
                 # Draw text lines on PopUp on Round Page
                 text_start_x = self.popup_x + 15  # Left padding
-                text_start_y = self.popup_y + 110  # Top padding (lowered by 50px)
+                text_start_y = popup_y_draw + 110  # Top padding (lowered by 50px)
                 line_height = self.popup_font.get_height() + 5  # 5px spacing between lines
                 
                 for i, line in enumerate(lines):
                     text_surface = self.popup_font.render(line, True, PAPER_COLOR)
                     self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
+                
+                # Draw reward text below goal text (only for buttons E and M, not for boss)
+                if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
+                    reward_text_y = text_start_y + len(lines) * line_height
+                    reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
+                    self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
+                
+                # Draw reward card below reward text for buttons E and M (not for boss)
+                if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
+                    # Determine round number based on button
+                    round_num = 1 if self.popup_button == "e" else 2
+                    reward_key = (self.level_number, round_num, self.popup_button.upper())
+                    reward_card_number = self.rewards.get(reward_key)
+                    
+                    if reward_card_number:
+                        reward_card_image = self._load_reward_card(reward_card_number)
+                        if reward_card_image:
+                            # Calculate position: below the reward text
+                            reward_text_y = text_start_y + len(lines) * line_height
+                            card_spacing = 5  # Spacing between reward text and card
+                            card_y = reward_text_y + line_height + card_spacing
+                            # Reduce card size by 10% to fit better
+                            card_width = int(reward_card_image.get_width() * 0.9)
+                            card_height = int(reward_card_image.get_height() * 0.9)
+                            scaled_card = pygame.transform.smoothscale(reward_card_image, (card_width, card_height)).convert_alpha()
+                            # Center the card horizontally in PopUp (PopUp width is 250px)
+                            card_x = self.popup_x + (250 - card_width) // 2
+                            self.screen.blit(scaled_card, (card_x, card_y))
         else:
             # PopUp is completely hidden, clear the button for text
             if self.popup_button is not None:
@@ -3935,9 +4491,10 @@ class RoundPage:
     
     def run(self):
         # Reset popup position when returning to round page
-        self.popup_y = -400
-        self.popup_target_y = -400
+        self.popup_y = -400.0
+        self.popup_target_y = -400.0
         self.popup_button = None
+        self._popup_last_tick = pygame.time.get_ticks()
         
         while True:
             result = self.handle_input()
@@ -3966,7 +4523,7 @@ def load_background():
     bg_path = os.path.join("UI", "Background.png")
     if os.path.exists(bg_path):
         background = pygame.image.load(bg_path).convert()
-        background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+        background = pygame.transform.smoothscale(background, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
         return background
     else:
         print("WARNING: Background not found:", bg_path)
@@ -4089,7 +4646,7 @@ if __name__ == "__main__":
                                 # Boss clicked, go to GameplayPage with boss goal
                                 goal = round_page.Goal if hasattr(round_page, 'Goal') and round_page.Goal is not None else None
                                 print(f"Passing boss goal to GameplayPage: {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level)  # Use "e" difficulty for boss
+                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level, is_boss_fight=True)  # Use "e" difficulty for boss
                                 gameplay_result = gameplay_page.run()
                                 
                                 if gameplay_result == "back":
@@ -4210,7 +4767,7 @@ if __name__ == "__main__":
                                 # Boss clicked, go to GameplayPage with boss goal (always 2 in test mode)
                                 goal = 2  # Always 2 in test mode
                                 print(f"Passing boss goal to GameplayPage (test mode): {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level)  # Use "e" difficulty for boss
+                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level, is_boss_fight=True)  # Use "e" difficulty for boss
                                 gameplay_result = gameplay_page.run()
                                 
                                 if gameplay_result == "back":

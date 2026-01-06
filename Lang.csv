@@ -6,5 +6,11 @@ MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
+Boss2Text;Адам Смит - второй босс. Нет никаких специальных условий - просто победите его.;Adam Smith is the second boss. There are no special conditions - just beat him:
+Boss3Text;Роберт Фултон - третий босс. Нет никаких специальных условий - просто победите его.;Robert Fulton is the third boss. There are no special conditions - just beat him:
 PopUpRound;Заработайте;Earn
+PopUpReward;Награда за победу;Reward
+RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
+RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
+LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.
