@@ -41,16 +41,45 @@ def move_towards(current: float, target: float, max_delta: float) -> float:
         return target
     return current + max_delta if delta > 0 else current - max_delta
 
+
+def wrap_text(text, font, max_width):
+    """Split text into lines that fit within max_width using rendered widths."""
+    if not text:
+        return []
+    words = text.split()
+    lines = []
+    current_line = []
+    for word in words:
+        candidate = " ".join(current_line + [word]) if current_line else word
+        candidate_width = font.render(candidate + " ", True, PAPER_COLOR).get_width()
+        if candidate_width <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(" ".join(current_line))
+            current_line = [word]
+    if current_line:
+        lines.append(" ".join(current_line))
+    return lines
+
 # Language system
 Lang = {}  # Dictionary to store language strings
 CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses RU)
 
 # Game progress tracking
 level_1_boss_defeated = False  # Track if level 1 boss is defeated
+# Boss defeat tracking per level: {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
+boss_progress = {}
+
+# Boss roster per level and boss rounds
+LEVEL_BOSS_ROUNDS = {
+    1: [["1_Watt.png"]],
+    2: [["2_AdamSmith.png", "3_RobertFulton.png"],
+        ["4_NicolasApper.png", "5_SamuelSlater.png"]],
+}
 
 # Reward cards earned by player: {level_number: [list of card_ids]}
 # Cards earned from winning rounds are stored here and added to initial deck
-earned_reward_cards = {}
 earned_reward_cards = {}
 
 
@@ -81,6 +110,70 @@ def load_language(lang_code="RU"):
             'MenuOption': 'Options',
             'MenuQuit': 'Quit'
         }
+
+# -------------------------------
+# Rounds/Boss configuration loader
+# -------------------------------
+_rounds_config_cache = None
+
+
+def load_rounds_config():
+    """Load per-level configuration (E/M/H goals, Rounds count, Bosses count) from RoundsData.csv."""
+    global _rounds_config_cache
+    if _rounds_config_cache is not None:
+        return _rounds_config_cache
+    
+    config = {}
+    rounds_file = "RoundsData.csv"
+    if not os.path.exists(rounds_file):
+        print(f"WARNING: RoundsData.csv not found: {rounds_file}")
+        _rounds_config_cache = config
+        return config
+    
+    try:
+        with open(rounds_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                try:
+                    level = int(row.get("Level", 0))
+                except (TypeError, ValueError):
+                    continue
+                if level <= 0:
+                    continue
+                
+                def _parse_value(key):
+                    raw = (row.get(key, "") or "").strip()
+                    if raw == "":
+                        return None
+                    try:
+                        val = int(raw)
+                        return val if val > 0 else None
+                    except (TypeError, ValueError):
+                        return None
+                
+                config[level] = {
+                    "E": _parse_value("E"),
+                    "M": _parse_value("M"),
+                    "H": _parse_value("H"),
+                    "Rounds": _parse_value("Rounds"),
+                    "Bosses": _parse_value("Bosses"),
+                }
+    except Exception as e:
+        print(f"ERROR loading RoundsData.csv: {e}")
+    
+    _rounds_config_cache = config
+    return config
+
+
+def get_bosses_required(level_num, rounds_config):
+    """Return bosses required for a level, using CSV; fallback to roster length."""
+    cfg_val = rounds_config.get(level_num, {}).get("Bosses") if rounds_config else None
+    if cfg_val and cfg_val > 0:
+        return cfg_val
+    roster = LEVEL_BOSS_ROUNDS.get(level_num)
+    if roster:
+        return max(1, len(roster))
+    return 1
 
 
 def get_text(key, default=None):
@@ -324,9 +417,17 @@ class GameScreen:
         self.arrow2_position = (0, 0)
         
         # Load level pictures for cards (left side dark square area)
-        # Level 1 picture
-        level1_picture_path = os.path.join("LevelPage", "Level1Picture.jpg")
-        if os.path.exists(level1_picture_path):
+        # Level 1 picture - try PNG first, then JPG
+        level1_picture_path = None
+        level1_picture_path_png = os.path.join("LevelPage", "Level1Picture.png")
+        level1_picture_path_jpg = os.path.join("LevelPage", "Level1Picture.jpg")
+        
+        if os.path.exists(level1_picture_path_png):
+            level1_picture_path = level1_picture_path_png
+        elif os.path.exists(level1_picture_path_jpg):
+            level1_picture_path = level1_picture_path_jpg
+        
+        if level1_picture_path:
             level1_picture_original = pygame.image.load(level1_picture_path).convert_alpha()
             # Scale to fit in the dark square on the left side of the card
             # Fixed size for all levels: 262 pixels
@@ -339,8 +440,33 @@ class GameScreen:
             new_pic_height = int(original_pic_height * scale_factor)
             self.level1_picture = pygame.transform.smoothscale(level1_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
         else:
-            print("WARNING: Level1Picture.jpg not found:", level1_picture_path)
+            print("WARNING: Level1Picture.png and Level1Picture.jpg not found in LevelPage folder")
             self.level1_picture = None
+        
+        # Load Level 1 animation frames from Level1Animation folder
+        self.level1_animation_frames = []
+        animation_folder = os.path.join("LevelPage", "Level1Animation")
+        if os.path.exists(animation_folder):
+            # Get all PNG files and sort them by filename
+            frame_files = sorted([f for f in os.listdir(animation_folder) if f.lower().endswith('.png')])
+            for frame_file in frame_files:
+                frame_path = os.path.join(animation_folder, frame_file)
+                try:
+                    frame_img = pygame.image.load(frame_path).convert_alpha()
+                    # Scale to same size as level1_picture
+                    if self.level1_picture:
+                        frame_img = pygame.transform.smoothscale(frame_img, (new_pic_width, new_pic_height)).convert_alpha()
+                    self.level1_animation_frames.append(frame_img)
+                except Exception as e:
+                    print(f"WARNING: Could not load animation frame {frame_file}: {e}")
+        else:
+            print("WARNING: Level1Animation folder not found:", animation_folder)
+        
+        # Animation state for level 1 card hover
+        self.is_hovering_level1 = False
+        self.level1_animation_frame_index = 0
+        self.level1_animation_timer = 0.0
+        self.level1_animation_frame_duration = 0.12  # Slow but not too slow: 0.12 seconds per frame (2.88 seconds total for 24 frames)
         
         # Level 2 picture
         level2_picture_path = os.path.join("LevelPage", "Level2Picture.jpg")
@@ -362,6 +488,9 @@ class GameScreen:
         # Scroll state for when cards don't fit on screen
         self.scroll_y = 0
         self.max_scroll_y = 0
+        
+        # Initialize card rect for hover detection (will be set in normal mode)
+        self.card1_rect = None
         
         # In test mode, prepare for all 12 levels
         if self.test_mode:
@@ -406,9 +535,17 @@ class GameScreen:
                     else:
                         self.test_card_rects.append(None)
                     
-                    # Try to load level picture - only if file exists, no fallback
-                    level_pic_path = os.path.join("LevelPage", f"Level{level_num}Picture.jpg")
-                    if os.path.exists(level_pic_path):
+                    # Try to load level picture - try PNG first, then JPG
+                    level_pic_path = None
+                    level_pic_path_png = os.path.join("LevelPage", f"Level{level_num}Picture.png")
+                    level_pic_path_jpg = os.path.join("LevelPage", f"Level{level_num}Picture.jpg")
+                    
+                    if os.path.exists(level_pic_path_png):
+                        level_pic_path = level_pic_path_png
+                    elif os.path.exists(level_pic_path_jpg):
+                        level_pic_path = level_pic_path_jpg
+                    
+                    if level_pic_path:
                         level_pic_original = pygame.image.load(level_pic_path).convert_alpha()
                         picture_size = 262
                         original_pic_width = level_pic_original.get_width()
@@ -468,9 +605,29 @@ class GameScreen:
                     self.arrow2_rect = pygame.Rect(self.arrow2_position[0], self.arrow2_position[1], arrow_width, arrow_height)
                 else:
                     self.arrow2_rect = None
+                
+                # Create rect for level 1 card hover detection
+                self.card1_rect = pygame.Rect(self.card_position[0], self.card_position[1], card_width, card_height)
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
+        
+        # Check if mouse is hovering over level 1 card (only in normal mode, not test mode)
+        if not self.test_mode and self.card1_rect:
+            was_hovering = self.is_hovering_level1
+            self.is_hovering_level1 = self.card1_rect.collidepoint(mouse_pos)
+            
+            # If mouse just left the card, reset animation to first frame
+            if was_hovering and not self.is_hovering_level1:
+                self.level1_animation_frame_index = 0
+                self.level1_animation_timer = 0.0
+            
+            # If mouse just entered the card, start animation from beginning
+            if not was_hovering and self.is_hovering_level1:
+                self.level1_animation_frame_index = 0
+                self.level1_animation_timer = 0.0
+        else:
+            self.is_hovering_level1 = False
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -557,26 +714,7 @@ class GameScreen:
             
             # Split text into multiple lines
             max_width = 400
-            words = desc_text.split()
-            lines = []
-            current_line = []
-            current_width = 0
-            
-            for word in words:
-                word_surface = self.font_card_desc.render(word + " ", True, PAPER_COLOR)
-                word_width = word_surface.get_width()
-                
-                if current_width + word_width <= max_width:
-                    current_line.append(word)
-                    current_width += word_width
-                else:
-                    if current_line:
-                        lines.append(" ".join(current_line))
-                    current_line = [word]
-                    current_width = word_width
-            
-            if current_line:
-                lines.append(" ".join(current_line))
+            lines = wrap_text(desc_text, self.font_card_desc, max_width)
             
             # Draw each line below the title
             line_height = self.font_card_desc.get_height() + 5
@@ -621,8 +759,32 @@ class GameScreen:
         if self.levelcard_image:
             self.screen.blit(self.levelcard_image, self.card_position)
             
-            # Draw level 1 picture in the left side dark square area
-            if self.level1_picture:
+            # Update animation when hovering
+            if self.is_hovering_level1 and self.level1_animation_frames:
+                # Update animation timer
+                dt = self.clock.get_time() / 1000.0  # Convert to seconds
+                dt = _clamp_dt_seconds(dt)
+                self.level1_animation_timer += dt
+                
+                # Advance to next frame if timer exceeds frame duration
+                # Play animation only once (stop at last frame)
+                max_frame_index = len(self.level1_animation_frames) - 1
+                if self.level1_animation_frame_index < max_frame_index:
+                    if self.level1_animation_timer >= self.level1_animation_frame_duration:
+                        self.level1_animation_frame_index += 1
+                        self.level1_animation_timer = 0.0
+            
+            # Draw level 1 picture or animation frame in the left side dark square area
+            picture_to_draw = None
+            if self.is_hovering_level1 and self.level1_animation_frames:
+                # Use animation frame when hovering
+                if self.level1_animation_frame_index < len(self.level1_animation_frames):
+                    picture_to_draw = self.level1_animation_frames[self.level1_animation_frame_index]
+            elif self.level1_picture:
+                # Use static picture when not hovering
+                picture_to_draw = self.level1_picture
+            
+            if picture_to_draw:
                 # Position in the left side dark square (centered in left area of card)
                 # Dark square is approximately in the left 200-250px area, centered vertically
                 card_width = self.levelcard_image.get_width()
@@ -632,12 +794,12 @@ class GameScreen:
                 picture_x = self.card_position[0] + dark_square_size // 2  # Center horizontally in dark square
                 picture_y = self.card_position[1] + card_height // 2  # Center vertically in card
                 # Center the picture within the dark square
-                picture_x -= self.level1_picture.get_width() // 2
-                picture_y -= self.level1_picture.get_height() // 2
+                picture_x -= picture_to_draw.get_width() // 2
+                picture_y -= picture_to_draw.get_height() // 2
                 # Adjust position: 12 pixels right, 7 pixels up
                 picture_x -= 4
                 picture_y -= 11
-                self.screen.blit(self.level1_picture, (picture_x, picture_y))
+                self.screen.blit(picture_to_draw, (picture_x, picture_y))
             
             # Draw card title "1815" in upper part, slightly shifted to the right
             card_text = "1815"
@@ -651,26 +813,7 @@ class GameScreen:
             desc_text = get_text("Level1Cond", "Level1Cond")
             # Split long text into multiple lines (max width ~400px for card)
             max_width = 400
-            words = desc_text.split()
-            lines = []
-            current_line = []
-            current_width = 0
-            
-            for word in words:
-                word_surface = self.font_card_desc.render(word + " ", True, PAPER_COLOR)
-                word_width = word_surface.get_width()
-                
-                if current_width + word_width <= max_width:
-                    current_line.append(word)
-                    current_width += word_width
-                else:
-                    if current_line:
-                        lines.append(" ".join(current_line))
-                    current_line = [word]
-                    current_width = word_width
-            
-            if current_line:
-                lines.append(" ".join(current_line))
+            lines = wrap_text(desc_text, self.font_card_desc, max_width)
             
             # Draw each line below the title
             line_height = self.font_card_desc.get_height() + 5  # 5px spacing between lines
@@ -721,26 +864,7 @@ class GameScreen:
             desc_text = get_text("Level2Cond", "Level2Cond")
             # Split long text into multiple lines (max width ~400px for card)
             max_width = 400
-            words = desc_text.split()
-            lines = []
-            current_line = []
-            current_width = 0
-            
-            for word in words:
-                word_surface = self.font_card_desc.render(word + " ", True, PAPER_COLOR)
-                word_width = word_surface.get_width()
-                
-                if current_width + word_width <= max_width:
-                    current_line.append(word)
-                    current_width += word_width
-                else:
-                    if current_line:
-                        lines.append(" ".join(current_line))
-                    current_line = [word]
-                    current_width = word_width
-            
-            if current_line:
-                lines.append(" ".join(current_line))
+            lines = wrap_text(desc_text, self.font_card_desc, max_width)
             
             # Draw each line below the title
             line_height = self.font_card_desc.get_height() + 5  # 5px spacing between lines
@@ -777,13 +901,14 @@ class GameScreen:
 
 
 class GameplayPage:
-    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1, is_boss_fight=False):
+    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1, is_boss_fight=False, boss_index=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.difficulty = difficulty  # "e", "m", or "h"
         self.Goal = goal  # Goal for this round
         self.level_number = level_number  # Level number for deck initialization
         self.is_boss_fight = is_boss_fight
+        self.boss_index = boss_index  # Boss index (0-based) for applying boss modifiers
         self.is_final_boss = self.is_boss_fight and self.level_number == 1
         
         # Save font path for dynamic font creation
@@ -1097,7 +1222,18 @@ class GameplayPage:
         self.Goal = goal if goal is not None else 0  # Use passed goal or default to 0
         self.Money = 0  # Starts at 0
         self.Day = 1  # Current day/turn (starts at 1)
-        self.LastTurn = 8  # Last turn when game ends if goal not reached
+        
+        # Apply boss modifiers to LastTurn
+        # Modifiers apply to ALL rounds after boss selection, not just boss fight
+        base_last_turn = 8  # Default LastTurn value
+        if self.boss_index is not None:
+            # Boss 2 (Adam Smith) - Level 2, boss_index 0: LastTurn - 1
+            if self.level_number == 2 and self.boss_index == 0:
+                self.LastTurn = base_last_turn - 1  # 7 turns
+            else:
+                self.LastTurn = base_last_turn
+        else:
+            self.LastTurn = base_last_turn  # Default: 8 turns
 
         # Load End Turn button
         end_button_path = os.path.join("GameplayPage", "EndButton.png")
@@ -2050,6 +2186,25 @@ class GameplayPage:
                     entry["animating"] = False
                     entry["idx"] = 0
 
+    def _finish_price_animations_and_advance_day(self):
+        """Finalize price animations, card processing, and day progression."""
+        self.current_price_animation = None
+        self._process_cards_11_14()
+        self._check_win_lose()
+
+        if self.win_lose_state is None:
+            if self.Day < self.LastTurn:
+                self.Day += 1
+                self._check_win_lose()
+            else:
+                print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
+                self.win_lose_state = "win" if self.Money >= self.Goal else "lose"
+                if self.win_lose_image:
+                    winlose_height = self.win_lose_image.get_height()
+                    self.win_lose_y = float(-winlose_height)
+
+        self._draw_pending_cards()
+
     def update_price_animation(self):
         """Update price animation - plays sequentially for each market"""
         if not self.current_price_animation:
@@ -2094,34 +2249,7 @@ class GameplayPage:
                 if self.typewriter_sound:
                     self.typewriter_sound.play()
             else:
-                # All animations completed, process cards 11-18
-                self.current_price_animation = None
-                self._process_cards_11_14()
-                # CRITICAL: Check win/lose conditions BEFORE changing day
-                # If Day == LastTurn, game MUST end here
-                self._check_win_lose()
-                
-                # If game ended, stop here - don't change day
-                if self.win_lose_state is not None:
-                    # Game ended, don't do anything else
-                    pass
-                elif self.Day < self.LastTurn:
-                    # Game continues, increment day
-                    self.Day += 1
-                    # Check again after increment (in case we won on this turn)
-                    self._check_win_lose()
-                else:
-                    # Day == LastTurn but game didn't end - FORCE END
-                    print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
-                    if self.Money >= self.Goal:
-                        self.win_lose_state = "win"
-                    else:
-                        self.win_lose_state = "lose"
-                    if self.win_lose_image:
-                        winlose_height = self.win_lose_image.get_height()
-                        self.win_lose_y = float(-winlose_height)
-                # Draw cards that were delayed until animations finished
-                self._draw_pending_cards()
+                self._finish_price_animations_and_advance_day()
             return
         
         now = pygame.time.get_ticks()
@@ -2146,34 +2274,7 @@ class GameplayPage:
                     if self.typewriter_sound:
                         self.typewriter_sound.play()
                 else:
-                    # All animations completed, process cards 11-18
-                    self.current_price_animation = None
-                    self._process_cards_11_14()
-                    # CRITICAL: Check win/lose conditions BEFORE changing day
-                    # If Day == LastTurn, game MUST end here
-                    self._check_win_lose()
-                    
-                    # If game ended, stop here - don't change day
-                    if self.win_lose_state is not None:
-                        # Game ended, don't do anything else
-                        pass
-                    elif self.Day < self.LastTurn:
-                        # Game continues, increment day
-                        self.Day += 1
-                        # Check again after increment (in case we won on this turn)
-                        self._check_win_lose()
-                    else:
-                        # Day == LastTurn but game didn't end - FORCE END
-                        print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
-                        if self.Money >= self.Goal:
-                            self.win_lose_state = "win"
-                        else:
-                            self.win_lose_state = "lose"
-                        if self.win_lose_image:
-                            winlose_height = self.win_lose_image.get_height()
-                            self.win_lose_y = float(-winlose_height)
-                    # Draw cards that were delayed until animations finished
-                    self._draw_pending_cards()
+                    self._finish_price_animations_and_advance_day()
     
     def _process_cards_11_14(self):
         """Queue cards 11-18 for sequential processing after all price animations finish."""
@@ -3219,27 +3320,7 @@ class GameplayPage:
                 max_text_width = winlose_width - 40  # Leave 20px margin on each side
                 
                 # Split text into lines if it's too long
-                words = self.reward_window_text.split()
-                lines = []
-                current_line = []
-                current_width = 0
-                
-                for word in words:
-                    test_line = " ".join(current_line + [word]) if current_line else word
-                    test_surface = self.font_small.render(test_line, True, PAPER_COLOR)
-                    word_width = test_surface.get_width()
-                    
-                    if current_width == 0 or word_width <= max_text_width:
-                        current_line.append(word)
-                        current_width = word_width
-                    else:
-                        if current_line:
-                            lines.append(" ".join(current_line))
-                        current_line = [word]
-                        current_width = self.font_small.render(word, True, PAPER_COLOR).get_width()
-                
-                if current_line:
-                    lines.append(" ".join(current_line))
+                lines = wrap_text(self.reward_window_text, self.font_small, max_text_width)
                 
                 # Draw text lines
                 line_height = self.font_small.get_height() + 5
@@ -3324,10 +3405,17 @@ class GameplayPage:
 
 
 class BossPage:
-    def __init__(self, screen, font_path, level_number):
+    def __init__(self, screen, font_path, level_number, defeated_count=0, last_defeated_rect=None, saved_lines=None, defeated_bosses=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.level_number = level_number
+        self.defeated_count = defeated_count
+        self.last_defeated_rect = last_defeated_rect
+        self.saved_lines = list(saved_lines) if saved_lines else []
+        self.defeated_bosses = list(defeated_bosses) if defeated_bosses else []
+        self.clicked_boss_filename = None
+        self.boss_image_cache = {}
+        self.clicked_boss_rect = None
         
         # Load Back3.png from UI folder (same as level selection screen)
         back3_path = os.path.join("UI", "Back3.png")
@@ -3347,15 +3435,14 @@ class BossPage:
             print("WARNING: Koordinates.png not found:", koordinates_path)
             self.koordinates = None
         
-        # Define bosses for each level
-        # Format: {level_number: [list of boss filenames]}
-        self.level_bosses = {
-            1: ["1_Watt.png"],
-            2: ["2_AdamSmith.png", "3_RobertFulton.png"]
-            # Add more levels and their bosses here as needed
-        }
+        # Load bosses for current round index based on defeated_count
+        round_index = self.defeated_count if self.defeated_count >= 0 else 0
+        bosses_for_round = LEVEL_BOSS_ROUNDS.get(self.level_number, [[]])
+        if round_index >= len(bosses_for_round):
+            round_index = len(bosses_for_round) - 1 if bosses_for_round else 0
+        self.current_boss_filenames = bosses_for_round[round_index] if bosses_for_round else []
         
-        # Load bosses for current level
+        # Boss collections
         self.bosses = []  # Default boss images (non-animated)
         self.boss_rects = []
         self.boss_animation_frames = []  # Animation frames for each boss
@@ -3415,11 +3502,11 @@ class BossPage:
         self.line_color = (110, 90, 70)
         self.line_width = 10
         self.current_line = None  # (start_x, start_y, end_x, end_y) when hovering
-        self.saved_line = None  # (start_x, start_y, end_x, end_y) when clicked
+        # saved_lines already copied in __init__
         self.last_hovered_boss = None  # Track to play sound only once per hover
         
-        if self.level_number in self.level_bosses:
-            for boss_filename in self.level_bosses[self.level_number]:
+        if self.current_boss_filenames:
+            for boss_filename in self.current_boss_filenames:
                 boss_path = os.path.join("Bosses", boss_filename)
                 if os.path.exists(boss_path):
                     boss_image = pygame.image.load(boss_path).convert_alpha()
@@ -3455,27 +3542,49 @@ class BossPage:
                     self.boss_base_names.append(None)
                     self.boss_animation_frames.append([])
         
-        # Calculate First boss positions in bottom left part of screen
-        # For level 2, use 150px spacing between bosses; for other levels, use 60px
-        boss_spacing = 150 if self.level_number == 2 else 60
-        start_x = 350  # Left margin
-        start_y = SCREEN_HEIGHT - 400  # Bottom margin (100px from bottom)
+        # Load defeated bosses passed in state (keep their positions)
+        if saved_lines and isinstance(saved_lines, dict) and saved_lines.get("defeated_bosses"):
+            # Legacy guard - not used now
+            self.defeated_bosses = list(saved_lines.get("defeated_bosses"))
+        elif hasattr(self, "saved_defeated_bosses"):
+            self.defeated_bosses = list(self.saved_defeated_bosses)
         
-        for i, boss_image in enumerate(self.bosses):
-            boss_x = start_x
-            boss_y = start_y - (i * boss_spacing)  # Stack bosses vertically
-            self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
+        # Calculate boss positions
+        # Use Smith/Fulton vertical spacing as a reference for all levels
+        self.boss_vertical_spacing = 150
+        start_x = 350
+        start_y = SCREEN_HEIGHT - 400
         
-        # Fixed starting point for line (same for all bosses)
-        # Calculate based on first boss position
-        if len(self.boss_rects) > 0:
-            first_boss_rect = self.boss_rects[0]
-            self.fixed_line_start_x = first_boss_rect.centerx - 165
-            self.fixed_line_start_y = first_boss_rect.centery + 132
+        # If this is a subsequent boss round and we have last defeated rect, place relative to it
+        if self.defeated_count > 0 and self.last_defeated_rect:
+            anchor_cx, anchor_cy = self.last_defeated_rect.centerx, self.last_defeated_rect.centery
+            positions = []
+            if len(self.bosses) >= 1:
+                positions.append((anchor_cx + 200, anchor_cy - self.boss_vertical_spacing))
+            if len(self.bosses) >= 2:
+                prev_cx, prev_cy = positions[0]
+                positions.append((prev_cx, prev_cy - self.boss_vertical_spacing))
+            
+            for i, boss_image in enumerate(self.bosses):
+                cx, cy = positions[i]
+                self.boss_rects.append(pygame.Rect(cx - 50, cy - 50, 100, 100))
+            
+            # Lines start from last defeated boss center
+            self.fixed_line_start_x = anchor_cx
+            self.fixed_line_start_y = anchor_cy
         else:
-            # Fallback if no bosses
-            self.fixed_line_start_x = 350 + 50 - 165  # boss_x + 50 (center) - 165
-            self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132  # boss_y + 50 (center) + 132
+            for i, boss_image in enumerate(self.bosses):
+                boss_x = start_x
+                boss_y = start_y - (i * self.boss_vertical_spacing)
+                self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
+            
+            if len(self.boss_rects) > 0:
+                first_boss_rect = self.boss_rects[0]
+                self.fixed_line_start_x = first_boss_rect.centerx - 165
+                self.fixed_line_start_y = first_boss_rect.centery + 132
+            else:
+                self.fixed_line_start_x = 350 + 50 - 165
+                self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -3497,7 +3606,7 @@ class BossPage:
             self.popup_boss_index = hovered_boss  # Save boss index for text display
             
             # Calculate line coordinates
-            # Start: fixed point (same for all bosses)
+            # Start: fixed point (same for all bosses) or last defeated boss center if provided
             line_start_x = self.fixed_line_start_x
             line_start_y = self.fixed_line_start_y
             # End: boss center coordinates (depends on selected boss)
@@ -3547,7 +3656,12 @@ class BossPage:
                         if boss_rect.collidepoint(mouse_pos):
                             # Save line coordinates when clicking
                             if self.current_line:
-                                self.saved_line = self.current_line
+                                self.saved_lines.append(self.current_line)
+                            # Remember clicked boss rect
+                            self.clicked_boss_rect = boss_rect.copy()
+                            # Remember clicked boss filename
+                            if i < len(self.current_boss_filenames):
+                                self.clicked_boss_filename = self.current_boss_filenames[i]
                             # Return boss selection (level_number, boss_index)
                             return f"boss_{self.level_number}_{i}"
         
@@ -3572,15 +3686,34 @@ class BossPage:
         max_delta = float(getattr(self, "popup_speed_pps", 0.0)) * dt
         self.popup_y = move_towards(float(self.popup_y), float(self.popup_target_y), max_delta)
         
-        # Draw saved line (if boss was clicked)
-        if self.saved_line:
-            start_x, start_y, end_x, end_y = self.saved_line
+        # Draw saved lines (if bosses were clicked)
+        for line in self.saved_lines:
+            if line:
+                start_x, start_y, end_x, end_y = line
             pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
         
         # Draw current line (when hovering over boss) - UNDER the boss
         if self.current_line:
             start_x, start_y, end_x, end_y = self.current_line
             pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
+        
+        # Draw defeated bosses (persist on screen)
+        for defeated in self.defeated_bosses:
+            filename = defeated.get("filename")
+            rect = defeated.get("rect")
+            if not filename or not rect:
+                continue
+            if filename in self.boss_image_cache:
+                img = self.boss_image_cache[filename]
+            else:
+                path = os.path.join("Bosses", filename)
+                img = None
+                if os.path.exists(path):
+                    img = pygame.image.load(path).convert_alpha()
+                    img = pygame.transform.smoothscale(img, (100, 100)).convert_alpha()
+                self.boss_image_cache[filename] = img
+            if img:
+                self.screen.blit(img, rect.topleft)
         
         # Update animations and draw bosses
         current_time = pygame.time.get_ticks()
@@ -3676,11 +3809,12 @@ class BossPage:
 
 
 class RoundPage:
-    def __init__(self, screen, font_path, level_number, boss_index, test_mode=False):
+    def __init__(self, screen, font_path, level_number, boss_index, boss_filename=None, test_mode=False):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.level_number = level_number
         self.boss_index = boss_index
+        self.boss_filename = boss_filename
         self.test_mode = test_mode
         self.font_path = font_path  # Save font path for dynamic font creation
         
@@ -3747,6 +3881,7 @@ class RoundPage:
             "m": level_cfg.get("M"),
             "h": level_cfg.get("H")
         }
+        self.bosses_required = level_cfg.get("Bosses") or 1
         # Hide buttons that are not configured for this level in RoundsData
         if self.button_goals["e"] is None:
             self.button_e = None
@@ -3760,6 +3895,8 @@ class RoundPage:
         
         # Track completed rounds: integers starting at 1
         self.completed_rounds = set()
+        # Store selected button per round: {round_num: {"key": "e/m/h", "rect": Rect}}
+        self.round_selections = {}
         
         # Current goal (will be set when a button is clicked)
         self.Goal = None
@@ -3771,40 +3908,32 @@ class RoundPage:
         self.button_e_rect = None
         self.button_m_rect = None
         self.button_h_rect = None
-        available_buttons = []
-        if self.button_e and self.button_goals.get("e") is not None:
-            available_buttons.append(("e", self.button_e))
-        if self.button_m and self.button_goals.get("m") is not None:
-            available_buttons.append(("m", self.button_m))
-        if self.button_h and self.button_goals.get("h") is not None:
-            available_buttons.append(("h", self.button_h))
+        # Base rects (round 1 layout) used for all levels; later rounds shift from these
+        self.button_base_rects = {"e": None, "m": None, "h": None}
+        button_x = 350
+        base_y = SCREEN_HEIGHT - 400
+        spacing = 30
+        current_y = base_y
+
+        for key in ["e", "m", "h"]:  # Fixed bottom-to-top order
+            img = None
+            if key == "e":
+                img = self.button_e if self.button_goals.get("e") is not None else None
+            elif key == "m":
+                img = self.button_m if self.button_goals.get("m") is not None else None
+            elif key == "h":
+                img = self.button_h if self.button_goals.get("h") is not None else None
+
+            if not img:
+                continue
+
+            w, h = img.get_width(), img.get_height()
+            rect = pygame.Rect(button_x, current_y, w, h)
+            self.button_base_rects[key] = rect
+            current_y -= (h + spacing)
         
-        if self.level_number == 1 and len(available_buttons) == 1 and available_buttons[0][0] == "e":
-            # Special placement for level 1 single button (existing layout)
-            if self.button_e:
-                button_e_height = self.button_e.get_height()
-                button_e_width = self.button_e.get_width()
-                button_e_x = 350  # Same as first boss
-                button_e_y = SCREEN_HEIGHT - 400  # Same as first boss
-                self.button_e_rect = pygame.Rect(button_e_x, button_e_y, button_e_width, button_e_height)
-        else:
-            # Stack available buttons from bottom to top on the left side
-            button_x = 130
-            current_y = SCREEN_HEIGHT - 120
-            spacing = 30
-            for key, img in available_buttons:
-                if not img:
-                    continue
-                w, h = img.get_width(), img.get_height()
-                y = current_y - h
-                rect = pygame.Rect(button_x, y, w, h)
-                if key == "e":
-                    self.button_e_rect = rect
-                elif key == "m":
-                    self.button_m_rect = rect
-                else:
-                    self.button_h_rect = rect
-                current_y = y - spacing
+        # Initialize current rects for the first active round
+        self._refresh_button_rects()
         
         # Load PopUp.png (same as BossPage)
         popup_path = os.path.join("Bosses", "PopUp.png")
@@ -3892,7 +4021,7 @@ class RoundPage:
         self.line_width = 10
         self.current_line = None  # (start_x, start_y, end_x, end_y) when hovering button
         self.boss_current_line = None  # (start_x, start_y, end_x, end_y) when hovering boss
-        self.saved_line = None  # (start_x, start_y, end_x, end_y) when clicked
+        self.saved_lines = []  # list of (start_x, start_y, end_x, end_y) when clicked
         self.last_hovered_button = None  # Track to play sound only once per hover
         
         self.hovered_button = None  # Track which button is hovered
@@ -3912,11 +4041,46 @@ class RoundPage:
         self.boss_goals = {
             (1, 0): 70,  # Boss 1_Watt (level 1, boss index 0) Goal = 70
             (2, 0): 70,  # Boss 2_AdamSmith (level 2, boss index 0) Goal = 70
-            (2, 1): 70  # Boss 3_RobertFulton (level 2, boss index 1) Goal = 70
-            # Add more boss goals here as needed
+            (2, 1): 70,  # Boss 3_RobertFulton (level 2, boss index 1) Goal = 70
+            # Add more boss goals here as needed; for new bosses fallback to 70 if not listed
         }
         
         self._load_boss_icon_if_needed()
+    
+    def _get_round_offset(self, round_num):
+        """Calculate positional offset for a given round (round 1 has zero offset)."""
+        if not round_num or round_num <= 1:
+            return 0, 0
+        # Each subsequent round shifts +70 on X and -40 on Y
+        shift = round_num - 1
+        return 110 * shift, -40 * shift
+    
+    def _refresh_button_rects(self):
+        """Recompute button rects based on the current active round with offsets."""
+        current_round = self.get_current_active_round()
+        if current_round is None:
+            # All rounds completed; keep last round's offset for consistency
+            current_round = self.rounds_required
+        offset_x, offset_y = self._get_round_offset(current_round)
+        
+        def shift_rect(base_rect):
+            if base_rect is None:
+                return None
+            return base_rect.move(offset_x, offset_y)
+        
+        self.button_e_rect = shift_rect(self.button_base_rects.get("e"))
+        self.button_m_rect = shift_rect(self.button_base_rects.get("m"))
+        self.button_h_rect = shift_rect(self.button_base_rects.get("h"))
+    
+    def _get_prev_selection_rect(self):
+        """Return rect of the last completed round selection (if any)."""
+        if not self.round_selections:
+            return None
+        prev_round = max(self.round_selections.keys())
+        sel = self.round_selections.get(prev_round)
+        if sel:
+            return sel.get("rect")
+        return None
     
     def _load_rounds_data(self):
         """Load per-level round counts and button goals from RoundsData.csv."""
@@ -3953,6 +4117,7 @@ class RoundPage:
                         "M": _parse_value("M"),
                         "H": _parse_value("H"),
                         "Rounds": _parse_value("Rounds"),
+                        "Bosses": _parse_value("Bosses"),
                     }
         except Exception as e:
             print(f"ERROR loading RoundsData.csv: {e}")
@@ -4086,6 +4251,8 @@ class RoundPage:
     
     def _load_boss_icon_if_needed(self):
         """Load boss icon if all required rounds are completed"""
+        # Ensure button rects reflect the latest round offset before positioning boss
+        self._refresh_button_rects()
         level_rounds = self.rounds_required
         if level_rounds <= 0:
             return
@@ -4097,12 +4264,16 @@ class RoundPage:
         if completed_count >= level_rounds:
             # Determine which boss icon to load based on level and boss
             boss_filename = None
-            if self.level_number == 1 and self.boss_index == 0:
-                boss_filename = "1_Watt.png"
-            elif self.level_number == 2 and self.boss_index == 0:
-                boss_filename = "2_AdamSmith.png"
-            elif self.level_number == 2 and self.boss_index == 1:
-                boss_filename = "3_RobertFulton.png"
+            # Prefer explicit filename from caller (supports additional bosses)
+            if self.boss_filename:
+                boss_filename = self.boss_filename
+            else:
+                if self.level_number == 1 and self.boss_index == 0:
+                    boss_filename = "1_Watt.png"
+                elif self.level_number == 2 and self.boss_index == 0:
+                    boss_filename = "2_AdamSmith.png"
+                elif self.level_number == 2 and self.boss_index == 1:
+                    boss_filename = "3_RobertFulton.png"
             
             if boss_filename:
                 boss_path = os.path.join("Bosses", boss_filename)
@@ -4111,21 +4282,11 @@ class RoundPage:
                     # Scale to 100x100 (same as on BossPage)
                     self.boss_icon = pygame.transform.smoothscale(boss_image, (100, 100)).convert_alpha()
                     
-                    # Calculate line distance from button E
-                    # Line starts at (235, SCREEN_HEIGHT - 218) and ends at button center
-                    base_button_rect = self.button_e_rect or self.button_m_rect or self.button_h_rect
-                    if base_button_rect:
-                        line_start_x = 235
-                        line_start_y = SCREEN_HEIGHT - 218
-                        line_end_x = base_button_rect.centerx
-                        line_end_y = base_button_rect.centery
-                        # Calculate distance (same as line length)
-                        line_dx = line_end_x - line_start_x
-                        line_dy = line_end_y - line_start_y
-                        
-                        # Position boss icon at same distance from button E
-                        boss_x = base_button_rect.centerx + line_dx
-                        boss_y = base_button_rect.centery + line_dy
+                    # Position boss relative to last selected round icon: +200 X, -70 Y
+                    anchor_rect = self._get_prev_selection_rect() or self.button_e_rect or self.button_m_rect or self.button_h_rect
+                    if anchor_rect:
+                        boss_x = anchor_rect.centerx + 200
+                        boss_y = anchor_rect.centery - 70
                         self.boss_icon_rect = pygame.Rect(boss_x - 50, boss_y - 50, 100, 100)
                     
                     # Load animation frames from boss folder
@@ -4171,6 +4332,8 @@ class RoundPage:
         return None  # All rounds completed, boss is active
     
     def handle_input(self):
+        # Update button positions for the current active round
+        self._refresh_button_rects()
         mouse_pos = pygame.mouse.get_pos()
         
         # Get current active round
@@ -4197,15 +4360,17 @@ class RoundPage:
         if hovered_boss:
             # Boss is hovered
             base_button_rect = self.button_e_rect or self.button_m_rect or self.button_h_rect
-            if self.boss_icon_rect and base_button_rect:
+            prev_rect = self._get_prev_selection_rect()
+            line_start_rect = prev_rect or base_button_rect
+            if self.boss_icon_rect and line_start_rect:
                 # Set target position for PopUp (same as for buttons)
                 self.popup_target_y = float(self.boss_icon_rect.y - 250)
                 self.popup_x = self.boss_icon_rect.x + 100
                 self.popup_button = "boss"  # Mark as boss hover
                 
                 # Calculate line coordinates from button E center to boss center
-                line_start_x = base_button_rect.centerx
-                line_start_y = base_button_rect.centery
+                line_start_x = line_start_rect.centerx
+                line_start_y = line_start_rect.centery
                 line_end_x = self.boss_icon_rect.centerx
                 line_end_y = self.boss_icon_rect.centery
                 self.boss_current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
@@ -4237,9 +4402,14 @@ class RoundPage:
                 self.popup_button = self.hovered_button  # Save button for text display
                 
                 # Calculate line coordinates
-                # Start: x = 185, y = SCREEN_HEIGHT-268
-                line_start_x = 235
-                line_start_y = SCREEN_HEIGHT - 218
+                # Start from previous round selection if exists; otherwise default start
+                prev_rect = self._get_prev_selection_rect()
+                if prev_rect:
+                    line_start_x = prev_rect.centerx
+                    line_start_y = prev_rect.centery
+                else:
+                    line_start_x = 235
+                    line_start_y = SCREEN_HEIGHT - 218
                 # End: button center coordinates
                 line_end_x = button_rect.centerx
                 line_end_y = button_rect.centery
@@ -4276,7 +4446,7 @@ class RoundPage:
                         print("LevelButtonE (bottom) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
-                            self.saved_line = self.current_line
+                            self.saved_lines.append(self.current_line)
                         # Set goal for this round
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
@@ -4285,12 +4455,17 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
+                        # Remember selection rect for history (preserve past icons)
+                        self.round_selections[current_active_round] = {
+                            "key": "e",
+                            "rect": self.button_e_rect.copy() if self.button_e_rect else None
+                        }
                         return "button_e"
                     if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
                         print("LevelButtonM (middle) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
-                            self.saved_line = self.current_line
+                            self.saved_lines.append(self.current_line)
                         # Set goal for this round
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
@@ -4299,12 +4474,17 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
+                        # Remember selection rect for history (preserve past icons)
+                        self.round_selections[current_active_round] = {
+                            "key": "m",
+                            "rect": self.button_m_rect.copy() if self.button_m_rect else None
+                        }
                         return "button_m"
                     if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
                         print("LevelButtonH (upper) clicked")
                         # Save line coordinates when clicking
                         if self.current_line:
-                            self.saved_line = self.current_line
+                            self.saved_lines.append(self.current_line)
                         # Set goal for this round
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
@@ -4313,6 +4493,11 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
+                        # Remember selection rect for history (preserve past icons)
+                        self.round_selections[current_active_round] = {
+                            "key": "h",
+                            "rect": self.button_h_rect.copy() if self.button_h_rect else None
+                        }
                         return "button_h"
                     # Handle boss click (only if all rounds completed)
                     current_active_round = self.get_current_active_round()
@@ -4341,6 +4526,27 @@ class RoundPage:
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
         
+        # Update button positions for the current active round (draw loop)
+        self._refresh_button_rects()
+        
+        # Draw previously selected round icons (kept at their historical positions)
+        if self.round_selections:
+            for round_num in sorted(self.round_selections.keys()):
+                sel = self.round_selections[round_num]
+                key = sel.get("key")
+                rect = sel.get("rect")
+                if not rect:
+                    continue
+                img = None
+                if key == "e":
+                    img = self.button_e
+                elif key == "m":
+                    img = self.button_m
+                elif key == "h":
+                    img = self.button_h
+                if img:
+                    self.screen.blit(img, rect.topleft)
+        
         # Update PopUp position with dt-based smooth animation (stable across FPS)
         now = pygame.time.get_ticks()
         dt = (now - getattr(self, "_popup_last_tick", now)) / 1000.0
@@ -4349,9 +4555,14 @@ class RoundPage:
         max_delta = float(getattr(self, "popup_speed_pps", 0.0)) * dt
         self.popup_y = move_towards(float(self.popup_y), float(self.popup_target_y), max_delta)
         
-        # Draw saved line (if button was clicked)
-        if self.saved_line:
-            start_x, start_y, end_x, end_y = self.saved_line
+        # Determine if rounds are completed to hide current buttons when boss is active
+        current_active_round = self.get_current_active_round()
+        all_rounds_completed = (current_active_round is None)
+        
+        # Draw saved lines (from previous selected rounds) under icons
+        for line in self.saved_lines:
+            if line:
+                start_x, start_y, end_x, end_y = line
             pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
         
         # Draw current line (when hovering over button) - UNDER the buttons
@@ -4364,15 +4575,34 @@ class RoundPage:
             start_x, start_y, end_x, end_y = self.boss_current_line
             pygame.draw.line(self.screen, self.line_color, (start_x, start_y), (end_x, end_y), self.line_width)
         
-        # Draw buttons (from bottom to top: E, M, H)
-        if self.button_e and self.button_e_rect:
-            self.screen.blit(self.button_e, self.button_e_rect.topleft)
+        # Draw previously selected round icons (kept at their historical positions) above lines
+        if self.round_selections:
+            for round_num in sorted(self.round_selections.keys()):
+                sel = self.round_selections[round_num]
+                key = sel.get("key")
+                rect = sel.get("rect")
+                if not rect:
+                    continue
+                img = None
+                if key == "e":
+                    img = self.button_e
+                elif key == "m":
+                    img = self.button_m
+                elif key == "h":
+                    img = self.button_h
+                if img:
+                    self.screen.blit(img, rect.topleft)
         
-        if self.button_m and self.button_m_rect:
-            self.screen.blit(self.button_m, self.button_m_rect.topleft)
-        
-        if self.button_h and self.button_h_rect:
-            self.screen.blit(self.button_h, self.button_h_rect.topleft)
+        # Draw buttons (from bottom to top: E, M, H) only if rounds remain
+        if not all_rounds_completed:
+            if self.button_e and self.button_e_rect:
+                self.screen.blit(self.button_e, self.button_e_rect.topleft)
+
+            if self.button_m and self.button_m_rect:
+                self.screen.blit(self.button_m, self.button_m_rect.topleft)
+
+            if self.button_h and self.button_h_rect:
+                self.screen.blit(self.button_h, self.button_h_rect.topleft)
         
         # Draw boss icon if all rounds are completed (with animation if hovered)
         if self.boss_icon and self.boss_icon_rect:
@@ -4425,26 +4655,7 @@ class RoundPage:
                 
                 # Split text into multiple lines to fit in PopUp (250px wide)
                 max_width = 220  # Leave some padding (250 - 30px total padding)
-                words = full_text.split()
-                lines = []
-                current_line = []
-                current_width = 0
-                
-                for word in words:
-                    word_surface = self.popup_font.render(word + " ", True, PAPER_COLOR)
-                    word_width = word_surface.get_width()
-                    
-                    if current_width + word_width <= max_width:
-                        current_line.append(word)
-                        current_width += word_width
-                    else:
-                        if current_line:
-                            lines.append(" ".join(current_line))
-                        current_line = [word]
-                        current_width = word_width
-                
-                if current_line:
-                    lines.append(" ".join(current_line))
+                lines = wrap_text(full_text, self.popup_font, max_width)
                 
                 # Draw text lines on PopUp on Round Page
                 text_start_x = self.popup_x + 15  # Left padding
@@ -4573,6 +4784,7 @@ if __name__ == "__main__":
         test_mode = False
         
         if result == "start":
+            rounds_config = load_rounds_config()
             # LevelPage loop
             while True:
                 level_page = GameScreen(screen, background, font_path, test_mode=False)  # LevelPage
@@ -4584,114 +4796,151 @@ if __name__ == "__main__":
                     # Level selected, go to BossPage
                     try:
                         level_num = int(level_result.split("_")[1])
-                        boss_page = BossPage(screen, font_path, level_num)
-                        boss_result = boss_page.run()
-                        
-                        if boss_result == "back":
-                            continue  # Return to level page (stay in level page loop)
-                        elif boss_result == "quit":
-                            break  # Exit game
-                        elif boss_result and boss_result.startswith("boss_"):
-                            # Boss selected, go to RoundPage
-                            # Format: boss_level_bossIndex
-                            parts = boss_result.split("_")
-                            boss_level = int(parts[1])
-                            boss_index = int(parts[2])
-                            
-                            round_page = RoundPage(screen, font_path, boss_level, boss_index, test_mode=False)
-                            round_result = round_page.run()
-                            
-                            # Track gameplay result for level_select handling
-                            gameplay_result = None
-                            
-                            # Gameplay loop - continue until player goes back or quits
-                            while round_result in ("button_e", "button_m", "button_h"):
-                                # Round selected, go to GameplayPage
-                                difficulty = round_result.replace("button_", "")  # Extract "e", "m", or "h"
-                                # Get goal from round_page (should be set when button was clicked)
-                                goal = round_page.Goal if hasattr(round_page, 'Goal') and round_page.Goal is not None else None
-                                print(f"Passing goal to GameplayPage: {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, difficulty, goal=goal, level_number=boss_level)
-                                gameplay_result = gameplay_page.run()
-                                
-                                if gameplay_result == "back":
-                                    # Return to round page (reuse existing round_page to preserve state)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "round_select":
-                                    # Player won, mark round as completed and return to round selection
-                                    if round_page.last_selected_round is not None:
-                                        round_page.mark_round_completed(round_page.last_selected_round)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "level_select":
-                                    # Player lost, return to level selection screen
-                                    break  # Exit gameplay loop and return to level page loop
-                                elif gameplay_result == "game_over":
-                                    # Handle game over
-                                    print("Game Over!")
-                                    round_result = round_page.run()
-                                else:
-                                    # Unknown result, return to round page
-                                    round_result = round_page.run()
-                            
-                            # Handle round_result after gameplay loop
-                            # Check gameplay_result first (it can be set by boss victory)
-                            if gameplay_result == "level_select":
-                                # Player lost or level 1 boss defeated, continue to level page loop
-                                continue  # Return to level page loop
-                            elif round_result == "back":
-                                continue  # Return to boss page (stay in level page loop)
-                            elif round_result == "quit":
-                                break  # Exit game
-                            elif round_result == "boss_clicked":
-                                # Boss clicked, go to GameplayPage with boss goal
-                                goal = round_page.Goal if hasattr(round_page, 'Goal') and round_page.Goal is not None else None
-                                print(f"Passing boss goal to GameplayPage: {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level, is_boss_fight=True)  # Use "e" difficulty for boss
-                                gameplay_result = gameplay_page.run()
-                                
-                                if gameplay_result == "back":
-                                    # Return to round page (reuse existing round_page to preserve state)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "round_select":
-                                    # Player won boss - check if it's level 1 boss (second round victory)
-                                    if boss_level == 1:
-                                        # Level 1 boss defeated - unlock level 2
-                                        level_1_boss_defeated = True
-                                        print("Level 1 boss defeated! Unlocking level 2")
-                                        # Return to level selection to show level 2 card
-                                        # Set gameplay_result to force return to level page loop
-                                        gameplay_result = "level_select"
-                                        # Continue to level page loop (will be handled at top of this block)
-                                        continue  # Return to level page loop
-                                    else:
-                                        # Other levels: return to round selection
+                        bosses_required = get_bosses_required(level_num, rounds_config)
+                        bp_state = boss_progress.setdefault(level_num, {"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []})
+                        # If level already completed earlier, reset its boss state for a fresh replay
+                        if bp_state["defeated"] >= bosses_required:
+                            bp_state.update({"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []})
+                        # Boss selection loop to support multiple boss rounds
+                        while True:
+                            boss_page = BossPage(
+                                screen,
+                                font_path,
+                                level_num,
+                                defeated_count=bp_state["defeated"],
+                                last_defeated_rect=bp_state["last_rect"],
+                                saved_lines=bp_state["lines"],
+                                defeated_bosses=bp_state["defeated_bosses"],
+                            )
+                            boss_result = boss_page.run()
+
+                            if boss_result == "back":
+                                break  # Return to level page loop
+                            elif boss_result == "quit":
+                                level_result = "quit"
+                                break
+                            elif boss_result and boss_result.startswith("boss_"):
+                                # Boss selected, go to RoundPage
+                                parts = boss_result.split("_")
+                                boss_level = int(parts[1])
+                                boss_index = int(parts[2])
+
+                                boss_filename = None
+                                if boss_index < len(boss_page.current_boss_filenames):
+                                    boss_filename = boss_page.current_boss_filenames[boss_index]
+
+                                round_page = RoundPage(
+                                    screen,
+                                    font_path,
+                                    boss_level,
+                                    boss_index,
+                                    boss_filename=boss_filename,
+                                    test_mode=False,
+                                )
+                                round_result = round_page.run()
+
+                                gameplay_result = None
+
+                                while round_result in ("button_e", "button_m", "button_h"):
+                                    difficulty = round_result.replace("button_", "")
+                                    goal = (
+                                        round_page.Goal
+                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
+                                        else None
+                                    )
+                                    print(f"Passing goal to GameplayPage: {goal}")  # Debug
+                                    gameplay_page = GameplayPage(
+                                        screen, font_path, difficulty, goal=goal, level_number=boss_level, boss_index=boss_index
+                                    )
+                                    gameplay_result = gameplay_page.run()
+
+                                    if gameplay_result == "back":
                                         round_result = round_page.run()
-                                elif gameplay_result == "level_select":
-                                    # Player lost boss, return to level selection screen
-                                    # Continue to level page loop (will be handled at top of this block)
-                                    continue  # Return to level page loop
-                                elif gameplay_result == "game_over":
-                                    # Handle game over
-                                    print("Game Over!")
-                                    round_result = round_page.run()
-                                else:
-                                    # Unknown result, return to round page
-                                    round_result = round_page.run()
-                                
-                                # Continue handling round_result (only if we didn't continue above)
-                                if round_result == "back":
-                                    continue
-                                elif round_result == "quit":
+                                    elif gameplay_result == "round_select":
+                                        if round_page.last_selected_round is not None:
+                                            round_page.mark_round_completed(round_page.last_selected_round)
+                                        round_result = round_page.run()
+                                    elif gameplay_result == "level_select":
+                                        break
+                                    elif gameplay_result == "game_over":
+                                        print("Game Over!")
+                                        round_result = round_page.run()
+                                    else:
+                                        round_result = round_page.run()
+
+                                if gameplay_result == "level_select":
                                     break
+                                elif round_result == "back":
+                                    continue  # back to boss loop
+                                elif round_result == "quit":
+                                    level_result = "quit"
+                                    break
+                                elif round_result == "boss_clicked":
+                                    goal = (
+                                        round_page.Goal
+                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
+                                        else None
+                                    )
+                                    print(f"Passing boss goal to GameplayPage: {goal}")  # Debug
+                                    gameplay_page = GameplayPage(
+                                        screen,
+                                        font_path,
+                                        "e",
+                                        goal=goal,
+                                        level_number=boss_level,
+                                        is_boss_fight=True,
+                                        boss_index=boss_index,
+                                    )
+                                    gameplay_result = gameplay_page.run()
+
+                                    if gameplay_result == "back":
+                                        round_result = round_page.run()
+                                    elif gameplay_result == "round_select":
+                                        bp_state["defeated"] += 1
+                                        bp_state["last_rect"] = boss_page.clicked_boss_rect
+                                        bp_state["lines"] = boss_page.saved_lines[:]
+                                        if boss_page.clicked_boss_filename and boss_page.clicked_boss_rect:
+                                            bp_state["defeated_bosses"].append(
+                                                {
+                                                    "filename": boss_page.clicked_boss_filename,
+                                                    "rect": boss_page.clicked_boss_rect.copy(),
+                                                }
+                                            )
+                                        if bp_state["defeated"] >= bosses_required:
+                                            if boss_level == 1:
+                                                level_1_boss_defeated = True
+                                                print("Level 1 boss defeated! Unlocking level 2")
+                                            level_result = "level_select"
+                                            break
+                                        else:
+                                            # More bosses remain; continue boss loop with updated state
+                                            continue
+                                    elif gameplay_result == "level_select":
+                                        continue
+                                    elif gameplay_result == "game_over":
+                                        print("Game Over!")
+                                        round_result = round_page.run()
+                                    else:
+                                        round_result = round_page.run()
+
+                                    if round_result == "back":
+                                        continue
+                                    elif round_result == "quit":
+                                        level_result = "quit"
+                                        break
                         else:
-                            # If BossPage returns something unexpected, return to level page
-                            continue
+                            # Unexpected result - return to level page
+                            break
+                        
+                        if level_result == "quit":
+                            break
                     except Exception as e:
                         print(f"ERROR in navigation: {e}")
                         import traceback
                         traceback.print_exc()
                         continue  # Return to level page on error
         elif result == "test_mode":
+            rounds_config = load_rounds_config()
             # Test mode: show all 12 levels and always set Goal=2
             test_mode = True
             # LevelPage loop in test mode
@@ -4705,97 +4954,133 @@ if __name__ == "__main__":
                     # Level selected, go to BossPage
                     try:
                         level_num = int(level_result.split("_")[1])
-                        boss_page = BossPage(screen, font_path, level_num)
-                        boss_result = boss_page.run()
-                        
-                        if boss_result == "back":
-                            continue  # Return to level page (stay in level page loop)
-                        elif boss_result == "quit":
-                            break  # Exit game
-                        elif boss_result and boss_result.startswith("boss_"):
-                            # Boss selected, go to RoundPage with test_mode=True
-                            # Format: boss_level_bossIndex
-                            parts = boss_result.split("_")
-                            boss_level = int(parts[1])
-                            boss_index = int(parts[2])
-                            
-                            round_page = RoundPage(screen, font_path, boss_level, boss_index, test_mode=True)
-                            round_result = round_page.run()
-                            
-                            # Track gameplay result for level_select handling
-                            gameplay_result = None
-                            
-                            # Gameplay loop - continue until player goes back or quits
-                            while round_result in ("button_e", "button_m", "button_h"):
-                                # Round selected, go to GameplayPage
-                                difficulty = round_result.replace("button_", "")  # Extract "e", "m", or "h"
-                                # Get goal from round_page (should be set to 2 in test mode)
-                                goal = round_page.Goal if hasattr(round_page, 'Goal') and round_page.Goal is not None else 2
-                                print(f"Passing goal to GameplayPage (test mode): {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, difficulty, goal=goal, level_number=boss_level)
-                                gameplay_result = gameplay_page.run()
-                                
-                                if gameplay_result == "back":
-                                    # Return to round page (reuse existing round_page to preserve state)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "round_select":
-                                    # Player won, mark round as completed and return to round selection
-                                    if round_page.last_selected_round is not None:
-                                        round_page.mark_round_completed(round_page.last_selected_round)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "level_select":
-                                    # Player lost, return to level selection screen
-                                    break  # Exit gameplay loop and return to level page loop
-                                elif gameplay_result == "game_over":
-                                    # Handle game over
-                                    print("Game Over!")
-                                    round_result = round_page.run()
-                                else:
-                                    # Unknown result, return to round page
-                                    round_result = round_page.run()
-                            
-                            # Handle round_result after gameplay loop
-                            # Check gameplay_result first (it can be set by boss victory)
-                            if gameplay_result == "level_select":
-                                # Player lost or level 1 boss defeated, continue to level page loop
-                                continue  # Return to level page loop
-                            elif round_result == "back":
-                                continue  # Return to boss page (stay in level page loop)
-                            elif round_result == "quit":
-                                break  # Exit game
-                            elif round_result == "boss_clicked":
-                                # Boss clicked, go to GameplayPage with boss goal (always 2 in test mode)
-                                goal = 2  # Always 2 in test mode
-                                print(f"Passing boss goal to GameplayPage (test mode): {goal}")  # Debug
-                                gameplay_page = GameplayPage(screen, font_path, "e", goal=goal, level_number=boss_level, is_boss_fight=True)  # Use "e" difficulty for boss
-                                gameplay_result = gameplay_page.run()
-                                
-                                if gameplay_result == "back":
-                                    # Return to round page (reuse existing round_page to preserve state)
-                                    round_result = round_page.run()
-                                elif gameplay_result == "round_select":
-                                    # Player won boss - in test mode, just return to round selection
-                                    round_result = round_page.run()
-                                elif gameplay_result == "level_select":
-                                    # Player lost boss, return to level selection screen
-                                    # Continue to level page loop (will be handled at top of this block)
-                                    continue  # Return to level page loop
-                                elif gameplay_result == "game_over":
-                                    # Handle game over
-                                    print("Game Over!")
-                                    round_result = round_page.run()
-                                else:
-                                    # Unknown result, return to round page
-                                    round_result = round_page.run()
-                                
-                                # Continue handling round_result (only if we didn't continue above)
-                                if round_result == "back":
+                        bosses_required = get_bosses_required(level_num, rounds_config)
+                        bp_state = boss_progress.setdefault(level_num, {"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []})
+                        # Reset boss state on replay in test mode too
+                        if bp_state["defeated"] >= bosses_required:
+                            bp_state.update({"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []})
+                        # Boss selection loop (test mode) to support multiple boss rounds
+                        while True:
+                            boss_page = BossPage(
+                                screen,
+                                font_path,
+                                level_num,
+                                defeated_count=bp_state["defeated"],
+                                last_defeated_rect=bp_state["last_rect"],
+                                saved_lines=bp_state["lines"],
+                                defeated_bosses=bp_state["defeated_bosses"],
+                            )
+                            boss_result = boss_page.run()
+
+                            if boss_result == "back":
+                                break  # Return to level page loop
+                            elif boss_result == "quit":
+                                level_result = "quit"
+                                break
+                            elif boss_result and boss_result.startswith("boss_"):
+                                parts = boss_result.split("_")
+                                boss_level = int(parts[1])
+                                boss_index = int(parts[2])
+
+                                boss_filename = None
+                                if boss_index < len(boss_page.current_boss_filenames):
+                                    boss_filename = boss_page.current_boss_filenames[boss_index]
+
+                                round_page = RoundPage(
+                                    screen,
+                                    font_path,
+                                    boss_level,
+                                    boss_index,
+                                    boss_filename=boss_filename,
+                                    test_mode=True,
+                                )
+                                round_result = round_page.run()
+                                gameplay_result = None
+
+                                while round_result in ("button_e", "button_m", "button_h"):
+                                    difficulty = round_result.replace("button_", "")
+                                    goal = (
+                                        round_page.Goal
+                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
+                                        else 2
+                                    )
+                                    print(f"Passing goal to GameplayPage (test mode): {goal}")  # Debug
+                                    gameplay_page = GameplayPage(
+                                        screen, font_path, difficulty, goal=goal, level_number=boss_level, boss_index=boss_index
+                                    )
+                                    gameplay_result = gameplay_page.run()
+
+                                    if gameplay_result == "back":
+                                        round_result = round_page.run()
+                                    elif gameplay_result == "round_select":
+                                        if round_page.last_selected_round is not None:
+                                            round_page.mark_round_completed(round_page.last_selected_round)
+                                        round_result = round_page.run()
+                                    elif gameplay_result == "level_select":
+                                        break
+                                    elif gameplay_result == "game_over":
+                                        print("Game Over!")
+                                        round_result = round_page.run()
+                                    else:
+                                        round_result = round_page.run()
+
+                                if gameplay_result == "level_select":
+                                    break
+                                elif round_result == "back":
                                     continue
                                 elif round_result == "quit":
+                                    level_result = "quit"
                                     break
-                        else:
-                            # If BossPage returns something unexpected, return to level page
-                            continue
+                                elif round_result == "boss_clicked":
+                                    goal = 2  # Always 2 in test mode for boss
+                                    print(f"Passing boss goal to GameplayPage (test mode): {goal}")  # Debug
+                                    gameplay_page = GameplayPage(
+                                        screen,
+                                        font_path,
+                                        "e",
+                                        goal=goal,
+                                        level_number=boss_level,
+                                        is_boss_fight=True,
+                                        boss_index=boss_index,
+                                    )
+                                    gameplay_result = gameplay_page.run()
+
+                                    if gameplay_result == "back":
+                                        round_result = round_page.run()
+                                    elif gameplay_result == "round_select":
+                                        bp_state["defeated"] += 1
+                                        bp_state["last_rect"] = boss_page.clicked_boss_rect
+                                        bp_state["lines"] = boss_page.saved_lines[:]
+                                        if boss_page.clicked_boss_filename and boss_page.clicked_boss_rect:
+                                            bp_state["defeated_bosses"].append(
+                                                {
+                                                    "filename": boss_page.clicked_boss_filename,
+                                                    "rect": boss_page.clicked_boss_rect.copy(),
+                                                }
+                                            )
+                                        if bp_state["defeated"] >= bosses_required:
+                                            level_result = "level_select"
+                                            break
+                                        else:
+                                            continue
+                                    elif gameplay_result == "level_select":
+                                        continue
+                                    elif gameplay_result == "game_over":
+                                        print("Game Over!")
+                                        round_result = round_page.run()
+                                    else:
+                                        round_result = round_page.run()
+
+                                    if round_result == "back":
+                                        continue
+                                    elif round_result == "quit":
+                                        level_result = "quit"
+                                        break
+                            else:
+                                break
+                        
+                        if level_result == "quit":
+                            break
                     except Exception as e:
                         print(f"ERROR in navigation: {e}")
                         import traceback
