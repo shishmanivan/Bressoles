@@ -115,6 +115,119 @@ def load_language(lang_code="RU"):
 # Rounds/Boss configuration loader
 # -------------------------------
 _rounds_config_cache = None
+_goals_level2_cache = None
+
+
+def load_goals_level2():
+    """Load goals for level 2 from GoalsLevel2.csv."""
+    global _goals_level2_cache
+    if _goals_level2_cache is not None:
+        return _goals_level2_cache
+    
+    goals = {
+        "E": {},
+        "M": {}
+    }
+    goals_file = "GoalsLevel2.csv"
+    if not os.path.exists(goals_file):
+        print(f"WARNING: GoalsLevel2.csv not found: {goals_file}")
+        _goals_level2_cache = goals
+        return goals
+    
+    try:
+        with open(goals_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                button = row.get("", "").strip().upper()
+                if button not in ["E", "M"]:
+                    continue
+                
+                # Parse round goals for first boss (columns 1, 2, 3, 4)
+                for round_num in ["1", "2", "3", "4"]:
+                    value_str = row.get(round_num, "").strip()
+                    if value_str:
+                        try:
+                            goals[button][(0, int(round_num))] = int(value_str)
+                        except (TypeError, ValueError):
+                            pass
+                
+                # Parse round goals for second boss (columns B2_1, B2_2, B2_3, B2_4)
+                for round_num in ["1", "2", "3", "4"]:
+                    col_name = f"B2_{round_num}"
+                    value_str = row.get(col_name, "").strip()
+                    if value_str:
+                        try:
+                            goals[button][(1, int(round_num))] = int(value_str)
+                        except (TypeError, ValueError):
+                            pass
+                
+                # Parse boss round goals
+                boss_round_str = row.get("Boss Round", "").strip()
+                if boss_round_str:
+                    try:
+                        goals[button][(0, "boss")] = int(boss_round_str)
+                    except (TypeError, ValueError):
+                        pass
+                
+                boss_round2_str = row.get("Boss Round2", "").strip()
+                if boss_round2_str:
+                    try:
+                        goals[button][(1, "boss")] = int(boss_round2_str)
+                    except (TypeError, ValueError):
+                        pass
+    except Exception as e:
+        print(f"ERROR loading GoalsLevel2.csv: {e}")
+    
+    _goals_level2_cache = goals
+    return goals
+
+
+def get_boss_selection_from_filename(level_number, boss_filename):
+    """
+    Determine boss selection (0 = first boss round, 1 = second boss round) from boss filename.
+    
+    Args:
+        level_number: Level number
+        boss_filename: Boss filename (e.g., "2_AdamSmith.png")
+    
+    Returns:
+        Boss selection (0 or 1) or 0 if not found
+    """
+    if level_number != 2 or not boss_filename:
+        return 0
+    
+    bosses_for_level = LEVEL_BOSS_ROUNDS.get(level_number, [])
+    for round_index, boss_list in enumerate(bosses_for_level):
+        if boss_filename in boss_list:
+            return round_index
+    return 0
+
+
+def get_level2_goal(round_num, button, boss_selection, is_boss_round=False):
+    """
+    Get goal for level 2 based on round number, button, and boss selection.
+    
+    Args:
+        round_num: Round number (1-4) or None for boss round
+        button: "e" or "m" (lowercase)
+        boss_selection: 0 for first boss, 1 for second boss
+        is_boss_round: True if this is a boss round
+    
+    Returns:
+        Goal value or None if not found
+    """
+    if round_num is None or is_boss_round:
+        round_key = "boss"
+    else:
+        round_key = round_num
+    
+    goals = load_goals_level2()
+    button_upper = button.upper()
+    if button_upper not in goals:
+        return None
+    
+    goal = goals[button_upper].get((boss_selection, round_key))
+    return goal
 
 
 def load_rounds_config():
@@ -1619,8 +1732,11 @@ class GameplayPage:
         global earned_reward_cards
         
         if level_number == 1:
-            # Level 1 deck: 0 (2x), 1 (2x), 2 (1x), 3 (1x), 11 (1x), 12 (1x)
-            base_deck = [0, 0, 1, 1, 2, 3, 11, 12]
+            # Level 1 deck: 0, 1 (x2), 2, 3, 4, 11
+            base_deck = [0, 1, 1, 2, 3, 4, 11]
+        elif level_number == 2:
+            # Level 2 deck: level 1 set + one extra card 12
+            base_deck = [0, 1, 1, 2, 3, 4, 11, 12]
         else:
             # Default deck for other levels: Card 0 (2x), Card 1 (2x), Card 2 (1x), Card 3 (2x), Card 4 (1x), Cards 11-14 (1x each), Cards 15-16 (1x each), Cards 17-18 (1x each)
             base_deck = [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
@@ -1915,6 +2031,8 @@ class GameplayPage:
                                     self.win_lose_state = "win"
                                 else:
                                     self.win_lose_state = "lose"
+                                    # Reset earned cards for this level when player loses
+                                    self._reset_earned_cards_for_level()
                                 if self.win_lose_image:
                                     winlose_height = self.win_lose_image.get_height()
                                     self.win_lose_y = float(-winlose_height)
@@ -2071,6 +2189,8 @@ class GameplayPage:
             else:
                 # LOSE: Money < Goal on LastTurn
                 self.win_lose_state = "lose"
+                # Reset earned cards for this level when player loses
+                self._reset_earned_cards_for_level()
                 if self.win_lose_image:
                     winlose_height = self.win_lose_image.get_height()
                     self.win_lose_y = float(-winlose_height)
@@ -2119,6 +2239,13 @@ class GameplayPage:
                 print(f"Reward card {reward_card_number} already earned for level {self.level_number}")
         else:
             print(f"No reward card found for level {self.level_number}, round {round_num}, button {button}")
+    
+    def _reset_earned_cards_for_level(self):
+        """Reset earned reward cards for current level when player loses"""
+        global earned_reward_cards
+        if self.level_number in earned_reward_cards:
+            earned_reward_cards[self.level_number] = []
+            print(f"Reset earned cards for level {self.level_number} due to defeat")
     
     def update_win_lose_animation(self):
         """Update WinLose screen slide animation"""
@@ -2198,7 +2325,12 @@ class GameplayPage:
                 self._check_win_lose()
             else:
                 print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
-                self.win_lose_state = "win" if self.Money >= self.Goal else "lose"
+                if self.Money >= self.Goal:
+                    self.win_lose_state = "win"
+                else:
+                    self.win_lose_state = "lose"
+                    # Reset earned cards for this level when player loses
+                    self._reset_earned_cards_for_level()
                 if self.win_lose_image:
                     winlose_height = self.win_lose_image.get_height()
                     self.win_lose_y = float(-winlose_height)
@@ -3875,20 +4007,12 @@ class RoundPage:
         # Load round configuration (round count + per-difficulty goals) from RoundsData.csv
         self.rounds_config = self._load_rounds_data()
         level_cfg = self.rounds_config.get(self.level_number, {})
-        # Per-button goals (None means the button should be hidden)
-        self.button_goals = {
-            "e": level_cfg.get("E"),
-            "m": level_cfg.get("M"),
-            "h": level_cfg.get("H")
-        }
-        self.bosses_required = level_cfg.get("Bosses") or 1
-        # Hide buttons that are not configured for this level in RoundsData
-        if self.button_goals["e"] is None:
-            self.button_e = None
-        if self.button_goals["m"] is None:
-            self.button_m = None
-        if self.button_goals["h"] is None:
-            self.button_h = None
+        
+        # Determine boss selection for level 2
+        self.boss_selection = 0  # Default to first boss
+        if self.level_number == 2:
+            self.boss_selection = get_boss_selection_from_filename(self.level_number, self.boss_filename)
+        
         # How many rounds must be completed before the boss unlocks
         rounds_cfg_value = level_cfg.get("Rounds")
         self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
@@ -3903,6 +4027,43 @@ class RoundPage:
         
         # Track last selected round number (1-based order)
         self.last_selected_round = None
+        
+        # Per-button goals (None means the button should be hidden)
+        # For level 2, goals will be set dynamically based on round number
+        # For other levels, use RoundsData.csv
+        if self.level_number == 2:
+            # For level 2, initialize goals from GoalsLevel2.csv for round 1
+            # This ensures buttons are visible from the start
+            e_goal = get_level2_goal(1, "e", self.boss_selection, False)
+            m_goal = get_level2_goal(1, "m", self.boss_selection, False)
+            # Fallback to default values if goals are not found
+            if e_goal is None:
+                e_goal = 50  # Default fallback
+            if m_goal is None:
+                m_goal = 70  # Default fallback
+            self.button_goals = {
+                "e": e_goal,
+                "m": m_goal,
+                "h": None
+            }
+        else:
+            self.button_goals = {
+                "e": level_cfg.get("E"),
+                "m": level_cfg.get("M"),
+                "h": level_cfg.get("H")
+            }
+        
+        self.bosses_required = level_cfg.get("Bosses") or 1
+        
+        # Hide buttons that are not configured for this level
+        # For level 2, E and M buttons are always available (loaded from GoalsLevel2.csv)
+        if self.level_number != 2:
+            if self.button_goals["e"] is None:
+                self.button_e = None
+            if self.button_goals["m"] is None:
+                self.button_m = None
+        if self.button_goals["h"] is None:
+            self.button_h = None
         
         # Calculate button positions based on which buttons are available
         self.button_e_rect = None
@@ -4038,12 +4199,13 @@ class RoundPage:
         self.animation_frame_duration = 100  # milliseconds per frame
         
         # Boss goals: {boss_key: goal_value}
+        # For level 2, goals will be loaded dynamically from GoalsLevel2.csv
         self.boss_goals = {
             (1, 0): 70,  # Boss 1_Watt (level 1, boss index 0) Goal = 70
-            (2, 0): 70,  # Boss 2_AdamSmith (level 2, boss index 0) Goal = 70
-            (2, 1): 70,  # Boss 3_RobertFulton (level 2, boss index 1) Goal = 70
-            # Add more boss goals here as needed; for new bosses fallback to 70 if not listed
         }
+        
+        # For level 2, boss goals are determined dynamically based on boss_selection
+        # They will be set when the boss is clicked
         
         self._load_boss_icon_if_needed()
     
@@ -4054,6 +4216,22 @@ class RoundPage:
         # Each subsequent round shifts +70 on X and -40 on Y
         shift = round_num - 1
         return 110 * shift, -40 * shift
+    
+    def _refresh_button_goals(self):
+        """Update button goals based on current round for level 2."""
+        if self.level_number != 2:
+            return
+        
+        current_round = self.get_current_active_round()
+        if current_round is None:
+            return
+        
+        # Update goals from GoalsLevel2.csv
+        e_goal = get_level2_goal(current_round, "e", self.boss_selection, False)
+        m_goal = get_level2_goal(current_round, "m", self.boss_selection, False)
+        
+        self.button_goals["e"] = e_goal
+        self.button_goals["m"] = m_goal
     
     def _refresh_button_rects(self):
         """Recompute button rects based on the current active round with offsets."""
@@ -4334,6 +4512,8 @@ class RoundPage:
     def handle_input(self):
         # Update button positions for the current active round
         self._refresh_button_rects()
+        # Update button goals for level 2 based on current round
+        self._refresh_button_goals()
         mouse_pos = pygame.mouse.get_pos()
         
         # Get current active round
@@ -4508,9 +4688,19 @@ class RoundPage:
                         if self.test_mode:
                             self.Goal = 2  # Always 2 in test mode
                         else:
-                            boss_key = (self.level_number, self.boss_index)
-                            if boss_key in self.boss_goals:
-                                self.Goal = self.boss_goals[boss_key]
+                            if self.level_number == 2:
+                                # Get boss goal from GoalsLevel2.csv
+                                e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
+                                m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
+                                # Use E goal for boss (or M if E is not available)
+                                boss_goal = e_boss_goal if e_boss_goal is not None else m_boss_goal
+                                self.Goal = boss_goal if boss_goal is not None else 70
+                            else:
+                                boss_key = (self.level_number, self.boss_index)
+                                if boss_key in self.boss_goals:
+                                    self.Goal = self.boss_goals[boss_key]
+                                else:
+                                    self.Goal = 70  # Default fallback
                         return "boss_clicked"
         
         return None
@@ -4528,6 +4718,8 @@ class RoundPage:
         
         # Update button positions for the current active round (draw loop)
         self._refresh_button_rects()
+        # Update button goals for level 2 based on current round
+        self._refresh_button_goals()
         
         # Draw previously selected round icons (kept at their historical positions)
         if self.round_selections:
@@ -4639,16 +4831,27 @@ class RoundPage:
             if self.popup_button is not None:
                 if self.popup_button == "boss":
                     # Boss is hovered
-                    boss_key = (self.level_number, self.boss_index)
-                    goal_value = self.boss_goals.get(boss_key, 0)
+                    if self.level_number == 2:
+                        # Get boss goal from GoalsLevel2.csv
+                        e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
+                        m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
+                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
+                    else:
+                        boss_key = (self.level_number, self.boss_index)
+                        goal_value = self.boss_goals.get(boss_key, 0)
                     # Build text: PopUpRound text + goal + "$"
                     full_text = f"{self.popup_round_text} {goal_value}$"
                 else:
                     # Button is hovered
-                    # Determine round number based on button
-                    round_num = 1 if self.popup_button == "e" else (2 if self.popup_button == "m" else 3)
-                    # Get goal value
-                    goal_value = self.button_goals.get(self.popup_button, 0) or 0
+                    # Get goal value - for level 2, use current round; for others use button_goals
+                    if self.level_number == 2:
+                        current_round = self.get_current_active_round()
+                        if current_round is not None:
+                            goal_value = get_level2_goal(current_round, self.popup_button, self.boss_selection, False) or 0
+                        else:
+                            goal_value = self.button_goals.get(self.popup_button, 0) or 0
+                    else:
+                        goal_value = self.button_goals.get(self.popup_button, 0) or 0
                     
                     # Build text: PopUpRound text + goal + "$"
                     full_text = f"{self.popup_round_text} {goal_value}$"
@@ -4916,7 +5119,8 @@ if __name__ == "__main__":
                                             # More bosses remain; continue boss loop with updated state
                                             continue
                                     elif gameplay_result == "level_select":
-                                        continue
+                                        # On defeat always exit to level selection (fresh start)
+                                        break
                                     elif gameplay_result == "game_over":
                                         print("Game Over!")
                                         round_result = round_page.run()
@@ -5064,7 +5268,8 @@ if __name__ == "__main__":
                                         else:
                                             continue
                                     elif gameplay_result == "level_select":
-                                        continue
+                                        # On defeat always exit to level selection (fresh start)
+                                        break
                                     elif gameplay_result == "game_over":
                                         print("Game Over!")
                                         round_result = round_page.run()
