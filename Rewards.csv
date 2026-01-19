@@ -1,2 +1,10 @@
-﻿Level;Round;Button;Reward
+﻿Level;Round;Button;Reward1;Reward2;Reward3;Text
 1;1;E;12
+2;1;E;11,12,15,16;100;;PopUpRewardRandomGain+Shareholder
+2;2;E;11,12,15,16;100;;PopUpRewardRandomGain+Shareholder
+2;3;E;11,12,15,16;100;;PopUpRewardRandomGain+Shareholder
+2;4;E;11,12,15,16;100;;PopUpRewardRandomGain+Shareholder
+2;1;M;11,12,15,16;11,12,15,16;;PopUpReward2RandomGain
+2;2;M;11,12,15,16;11,12,15,16;;PopUpReward2RandomGain
+2;3;M;11,12,15,16;11,12,15,16;;PopUpReward2RandomGain
+2;4;M;11,12,15,16;11,12,15,16;;PopUpReward2RandomGain

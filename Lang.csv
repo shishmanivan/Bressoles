@@ -6,10 +6,15 @@ MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
-Boss2Text;Адам Смит - второй босс. Нет никаких специальных условий - просто победите его.;Adam Smith is the second boss. There are no special conditions - just beat him:
-Boss3Text;Роберт Фултон - третий босс. Нет никаких специальных условий - просто победите его.;Robert Fulton is the third boss. There are no special conditions - just beat him:
+Boss1Reward;Награда за победу над боссом;Reward for defeating the boss:
+Boss2Text;Адам Смит. В каждом раунде на один ход меньше. Награда: После окончания хода вы тянете две карты.;Adam Smith. One turn less in each round. Reward: After your turn, you draw two cards.:
+Boss2Reward;После окончания хода вы тянете две карты;After your turn, you draw two cards:
+Boss3Text;Роберт Фултон. Придётся сыграть на один раунд больше.;Robert Fulton. You'll have to play one more round.:
+Boss3Reward;Награда за победу над боссом;Reward for defeating the boss:
 PopUpRound;Заработайте;Earn
-PopUpReward;Награда за победу;Reward
+PopUpReward;Награда за победу:;Reward:
+PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
+PopUpReward2RandomGain;Две случайные Gain/Drop карты;Two random Gain/Drop cards
 RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 LoseWindowText;Вы проиграли!;You lost!

@@ -70,6 +70,8 @@ CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses 
 level_1_boss_defeated = False  # Track if level 1 boss is defeated
 # Boss defeat tracking per level: {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
 boss_progress = {}
+# Global Dobor variable - how many cards to draw after each turn (default 1, can be increased by boss rewards)
+global_dobor = 1
 
 # Boss roster per level and boss rounds
 LEVEL_BOSS_ROUNDS = {
@@ -287,6 +289,140 @@ def get_bosses_required(level_num, rounds_config):
     if roster:
         return max(1, len(roster))
     return 1
+
+
+_boss_rewards_cache = None
+
+
+def load_boss_rewards():
+    """Load boss rewards from BossRewards.csv.
+    Returns dict: {boss_number: reward_string}
+    Example: {2: "Dobor=Dobor+1"}
+    """
+    global _boss_rewards_cache
+    if _boss_rewards_cache is not None:
+        return _boss_rewards_cache
+    
+    rewards = {}
+    rewards_file = "BossRewards.csv"
+    if not os.path.exists(rewards_file):
+        print(f"WARNING: BossRewards.csv not found: {rewards_file}")
+        _boss_rewards_cache = rewards
+        return rewards
+    
+    try:
+        with open(rewards_file, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f, delimiter=';')
+            for row in reader:
+                boss_str = row.get('Boss', '').strip()
+                reward_str = row.get('Reward', '').strip()
+                if boss_str and reward_str:
+                    try:
+                        boss_num = int(boss_str)
+                        rewards[boss_num] = reward_str
+                    except (TypeError, ValueError):
+                        print(f"WARNING: Invalid boss number in BossRewards.csv: {boss_str}")
+    except Exception as e:
+        print(f"ERROR loading BossRewards.csv: {e}")
+    
+    _boss_rewards_cache = rewards
+    return rewards
+
+
+def apply_boss_reward(reward_string, gameplay_instance):
+    """Apply boss reward from reward string.
+    Example: "Dobor=Dobor+1" -> global_dobor += 1 and gameplay_instance.Dobor += 1
+    
+    Args:
+        reward_string: Reward string from BossRewards.csv (e.g., "Dobor=Dobor+1")
+        gameplay_instance: GameplayPage instance to apply the reward to
+    """
+    global global_dobor
+    if not reward_string or not gameplay_instance:
+        return
+    
+    try:
+        # Parse format: "VariableName=VariableName+1" or "VariableName=VariableName-1"
+        if '=' in reward_string:
+            left, right = reward_string.split('=', 1)
+            var_name = left.strip()
+            
+            # Check if right side matches pattern: "VariableName+number" or "VariableName-number"
+            if right.strip().startswith(var_name):
+                operation = right.strip()[len(var_name):]
+                
+                if operation.startswith('+'):
+                    # Addition: "Dobor+1" -> Dobor += 1
+                    try:
+                        amount = int(operation[1:].strip())
+                        if hasattr(gameplay_instance, var_name):
+                            current_value = getattr(gameplay_instance, var_name)
+                            new_value = current_value + amount
+                            setattr(gameplay_instance, var_name, new_value)
+                            # Update global variable if it's Dobor
+                            if var_name == "Dobor":
+                                global_dobor = new_value
+                            print(f"Applied boss reward: {var_name} = {current_value} + {amount} = {new_value}")
+                        else:
+                            print(f"WARNING: Variable {var_name} not found in gameplay instance")
+                    except (TypeError, ValueError):
+                        print(f"WARNING: Invalid reward format: {reward_string}")
+                elif operation.startswith('-'):
+                    # Subtraction: "Dobor-1" -> Dobor -= 1
+                    try:
+                        amount = int(operation[1:].strip())
+                        if hasattr(gameplay_instance, var_name):
+                            current_value = getattr(gameplay_instance, var_name)
+                            new_value = current_value - amount
+                            setattr(gameplay_instance, var_name, new_value)
+                            # Update global variable if it's Dobor
+                            if var_name == "Dobor":
+                                global_dobor = new_value
+                            print(f"Applied boss reward: {var_name} = {current_value} - {amount} = {new_value}")
+                        else:
+                            print(f"WARNING: Variable {var_name} not found in gameplay instance")
+                    except (TypeError, ValueError):
+                        print(f"WARNING: Invalid reward format: {reward_string}")
+                else:
+                    print(f"WARNING: Unsupported reward operation: {reward_string}")
+            else:
+                # Direct assignment: "VariableName=value"
+                try:
+                    value = int(right.strip())
+                    if hasattr(gameplay_instance, var_name):
+                        setattr(gameplay_instance, var_name, value)
+                        # Update global variable if it's Dobor
+                        if var_name == "Dobor":
+                            global_dobor = value
+                        print(f"Applied boss reward: {var_name} = {value}")
+                    else:
+                        print(f"WARNING: Variable {var_name} not found in gameplay instance")
+                except (TypeError, ValueError):
+                    print(f"WARNING: Invalid reward format: {reward_string}")
+        else:
+            print(f"WARNING: Invalid reward format (no '=' found): {reward_string}")
+    except Exception as e:
+        print(f"ERROR applying boss reward '{reward_string}': {e}")
+
+
+def get_boss_number_from_index(level_number, boss_index):
+    """Get boss number from level and boss index for BossRewards.csv lookup.
+    Boss numbers: 1=Watt (Level 1), 2=AdamSmith (Level 2, index 0), 3=RobertFulton (Level 2, index 1)
+    
+    Args:
+        level_number: Level number (1 or 2)
+        boss_index: Boss index (0-based)
+    
+    Returns:
+        Boss number for BossRewards.csv or None
+    """
+    if level_number == 1 and boss_index == 0:
+        return 1  # Watt
+    elif level_number == 2 and boss_index == 0:
+        return 2  # Adam Smith
+    elif level_number == 2 and boss_index == 1:
+        return 3  # Robert Fulton
+    return None
 
 
 def get_text(key, default=None):
@@ -1014,7 +1150,7 @@ class GameScreen:
 
 
 class GameplayPage:
-    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1, is_boss_fight=False, boss_index=None):
+    def __init__(self, screen, font_path, difficulty="e", goal=None, level_number=1, is_boss_fight=False, boss_index=None, round_num=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.difficulty = difficulty  # "e", "m", or "h"
@@ -1023,6 +1159,7 @@ class GameplayPage:
         self.is_boss_fight = is_boss_fight
         self.boss_index = boss_index  # Boss index (0-based) for applying boss modifiers
         self.is_final_boss = self.is_boss_fight and self.level_number == 1
+        self.round_num = round_num  # Current round number for reward lookup
         
         # Save font path for dynamic font creation
         self.font_path = font_path
@@ -1275,7 +1412,7 @@ class GameplayPage:
         self.logo_c = scale_logo(self.logo_c)
         
         # Load rewards from Rewards.csv
-        # Format: {(level, round, button): reward_card_number}
+        # Format: {(level, round, button): {'reward1': [list of card_numbers or single int], 'reward2': card_number or None}}
         self.rewards = {}
         rewards_file = "Rewards.csv"
         if os.path.exists(rewards_file):
@@ -1285,12 +1422,55 @@ class GameplayPage:
                     for row in reader:
                         level = int(row.get('Level', 0))
                         round_num = int(row.get('Round', 0))
-                        button = row.get('Button', '').strip().upper()
-                        reward_card = int(row.get('Reward', 0))
-                        if level > 0 and round_num > 0 and button and reward_card > 0:
-                            self.rewards[(level, round_num, button)] = reward_card
+                        button_val = row.get('Button') or ''
+                        button = button_val.strip().upper() if button_val else ''
+                        reward1_val = row.get('Reward1') or ''
+                        reward1_str = reward1_val.strip() if reward1_val else ''
+                        reward2_val = row.get('Reward2') or ''
+                        reward2_str = reward2_val.strip() if reward2_val else ''
+                        reward_text_val = row.get('Text') or ''
+                        reward_text = reward_text_val.strip() if reward_text_val else ''
+                        
+                        if level > 0 and round_num > 0 and button and reward1_str:
+                            # Parse Reward1 - can be single card or multiple cards separated by comma
+                            reward1_list = []
+                            for card_str in reward1_str.split(','):
+                                card_str = card_str.strip()
+                                if card_str:
+                                    try:
+                                        card_num = int(card_str)
+                                        if card_num == 0:
+                                            card_num = 100
+                                        reward1_list.append(card_num)
+                                    except ValueError:
+                                        pass
+                            
+                            if reward1_list:
+                                # Parse Reward2 - can be single card, multiple cards separated by comma, or None
+                                reward2_list = []
+                                if reward2_str and reward2_str.strip():
+                                    for card_str in reward2_str.split(','):
+                                        card_str = card_str.strip()
+                                        if card_str:
+                                            try:
+                                                card_num = int(card_str)
+                                                if card_num == 0:
+                                                    card_num = 100
+                                                if card_num >= 0:  # Allow 0 as valid card
+                                                    reward2_list.append(card_num)
+                                            except ValueError:
+                                                pass
+                                
+                                reward_entry = {
+                                    'reward1': reward1_list,
+                                    'reward2': reward2_list if reward2_list else None,
+                                    'text': reward_text if reward_text else None
+                                }
+                                self.rewards[(level, round_num, button)] = reward_entry
             except Exception as e:
                 print(f"ERROR loading rewards file in GameplayPage: {e}")
+                import traceback
+                traceback.print_exc()
 
         # Load bundle of shares image
         bundle_path = os.path.join("GameplayPage", "A bundle of shares.png")
@@ -1337,16 +1517,17 @@ class GameplayPage:
         self.Day = 1  # Current day/turn (starts at 1)
         
         # Apply boss modifiers to LastTurn
-        # Modifiers apply to ALL rounds after boss selection, not just boss fight
+        # IMPORTANT: Modifiers apply ONLY during boss fight, not to regular rounds
+        # After boss victory, modifiers are reset - next boss/rounds use default values
         base_last_turn = 8  # Default LastTurn value
-        if self.boss_index is not None:
+        if self.is_boss_fight and self.boss_index is not None:
             # Boss 2 (Adam Smith) - Level 2, boss_index 0: LastTurn - 1
             if self.level_number == 2 and self.boss_index == 0:
                 self.LastTurn = base_last_turn - 1  # 7 turns
             else:
                 self.LastTurn = base_last_turn
         else:
-            self.LastTurn = base_last_turn  # Default: 8 turns
+            self.LastTurn = base_last_turn  # Default: 8 turns (for regular rounds and after boss victory)
 
         # Load End Turn button
         end_button_path = os.path.join("GameplayPage", "EndButton.png")
@@ -1370,7 +1551,9 @@ class GameplayPage:
 
         # Hand state and placeholder
         self.hand = 7  # initial hand size
-        self.Dobor = 1  # how many cards to draw after each turn by default
+        # Use global Dobor value (can be modified by boss rewards)
+        global global_dobor
+        self.Dobor = global_dobor
         placeholder_path = os.path.join("GameplayPage", "Placeholder.png")
         self.placeholder = pygame.image.load(placeholder_path).convert_alpha() if os.path.exists(placeholder_path) else None
         if self.placeholder:
@@ -1394,7 +1577,8 @@ class GameplayPage:
         # Cards 15, 16 use Card_15.png as base
         # Cards 17, 18 use Card_17.png as base
         card_base_mapping = {}
-        for card_id in range(5):
+        original_card_ids = [1, 2, 3, 4, 100]
+        for card_id in original_card_ids:
             card_base_mapping[card_id] = card_id  # Original cards use their own images
         card_base_mapping[11] = 11
         card_base_mapping[12] = 11
@@ -1405,8 +1589,8 @@ class GameplayPage:
         card_base_mapping[17] = 17
         card_base_mapping[18] = 17
         
-        # Load all card images (original 0-4, plus new cards 11-14, 15-16, 17-18)
-        all_card_ids = list(range(5)) + [11, 12, 13, 14, 15, 16, 17, 18]
+        # Load all card images (original 1-4 and 100, plus new cards 11-14, 15-16, 17-18)
+        all_card_ids = original_card_ids + [11, 12, 13, 14, 15, 16, 17, 18]
         for card_id in all_card_ids:
             base_id = card_base_mapping[card_id]
             # Try both formats: Card_X.png (with underscore) and Card X.png (with space)
@@ -1474,6 +1658,8 @@ class GameplayPage:
         
         # Initialize deck based on level
         self.deck = self._get_initial_deck(self.level_number)
+        # Safety net: if something still produced card 0 (old save, legacy rewards), map it to 100
+        self.deck = [100 if c == 0 else c for c in self.deck]
         # Shuffle deck
         random.shuffle(self.deck)
         
@@ -1482,7 +1668,7 @@ class GameplayPage:
         self.hand_cards = [None] * self.hand
         for idx, card_id in enumerate(initial_hand):
             if idx < self.hand:
-                self.hand_cards[idx] = card_id
+                self.hand_cards[idx] = 100 if card_id == 0 else card_id
         # Remove dealt cards from deck
         self.deck = self.deck[self.hand:] if len(self.deck) > self.hand else []
         
@@ -1607,6 +1793,9 @@ class GameplayPage:
     
     def _load_winlose_card(self, card_number):
         """Load and cache a reward card image for WinLose window. For cards 11-18, uses base card and draws CardAction/CardTurns."""
+        # Safety net: legacy configs may still reference card 0
+        if card_number == 0:
+            card_number = 100
         if card_number in self.winlose_card_images:
             return self.winlose_card_images[card_number]
         
@@ -1617,8 +1806,8 @@ class GameplayPage:
         target_height = int(target_width / market_card_ratio)
         
         # Get base card ID
-        if card_number < 5:
-            # Cards 0-4 use their own images
+        if card_number in (1, 2, 3, 4, 100):
+            # Base cards use their own images
             base_card_id = card_number
         elif card_number in [11, 12, 13, 14]:
             base_card_id = 11
@@ -1732,20 +1921,23 @@ class GameplayPage:
         global earned_reward_cards
         
         if level_number == 1:
-            # Level 1 deck: 0, 1 (x2), 2, 3, 4, 11
-            base_deck = [0, 1, 1, 2, 3, 4, 11]
+            # Level 1 deck: 100, 1 (x2), 2, 3, 4, 11
+            base_deck = [100, 1, 1, 2, 3, 4, 11]
         elif level_number == 2:
             # Level 2 deck: level 1 set + one extra card 12
-            base_deck = [0, 1, 1, 2, 3, 4, 11, 12]
+            base_deck = [100, 1, 1, 2, 3, 4, 11, 12]
         else:
-            # Default deck for other levels: Card 0 (2x), Card 1 (2x), Card 2 (1x), Card 3 (2x), Card 4 (1x), Cards 11-14 (1x each), Cards 15-16 (1x each), Cards 17-18 (1x each)
-            base_deck = [0, 0, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
+            # Default deck for other levels: Card 100 (2x), Card 1 (2x), Card 2 (1x), Card 3 (2x), Card 4 (1x), Cards 11-14 (1x each), Cards 15-16 (1x each), Cards 17-18 (1x each)
+            base_deck = [100, 100, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
         
         # Add earned reward cards for this level
         earned_cards = earned_reward_cards.get(level_number, [])
         if earned_cards:
             base_deck.extend(earned_cards)
             print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
+
+        # Safety net: old saves/configs may still reference card 0; map it to 100.
+        base_deck = [100 if c == 0 else c for c in base_deck]
         
         return base_deck
     
@@ -2211,41 +2403,91 @@ class GameplayPage:
             return
     
     def _add_reward_card_to_deck(self):
-        """Add reward card to global earned cards list after winning a round"""
+        """Add reward card to global earned cards list after winning a round, or apply boss reward for boss fights"""
         global earned_reward_cards
         
-        # Determine round number based on difficulty
-        # "e" = round 1, "m" = round 2, "h" = round 3
-        round_num = 1 if self.difficulty == "e" else (2 if self.difficulty == "m" else 3)
+        # Check if this is a boss fight - if so, apply boss reward instead of regular card reward
+        if self.is_boss_fight and self.boss_index is not None:
+            boss_number = get_boss_number_from_index(self.level_number, self.boss_index)
+            if boss_number:
+                boss_rewards = load_boss_rewards()
+                reward_string = boss_rewards.get(boss_number)
+                if reward_string:
+                    apply_boss_reward(reward_string, self)
+                    print(f"Applied boss reward for boss {boss_number} (level {self.level_number}, index {self.boss_index}): {reward_string}")
+                else:
+                    print(f"No boss reward found for boss {boss_number} (level {self.level_number}, index {self.boss_index})")
+            
+            # IMPORTANT: After boss victory, reset earned cards for this level - deck returns to initial state
+            # Only boss reward (like Dobor) is preserved, not the cards earned in rounds
+            if self.level_number in earned_reward_cards:
+                earned_reward_cards[self.level_number] = []
+                print(f"Reset earned cards for level {self.level_number} after boss victory - deck returns to initial state")
+            
+            return  # Boss rewards are applied, no card reward
+        
+        # Regular round reward (card)
+        # Use provided round_num if available, otherwise fallback to difficulty-based logic
+        if self.round_num is not None:
+            round_num = self.round_num
+        else:
+            # Fallback: "e" = round 1, "m" = round 2, "h" = round 3
+            round_num = 1 if self.difficulty == "e" else (2 if self.difficulty == "m" else 3)
         button = self.difficulty.upper()  # "E", "M", or "H"
         
-        # Look up reward card
+        # Look up reward data
         reward_key = (self.level_number, round_num, button)
-        reward_card_number = self.rewards.get(reward_key)
+        reward_data = self.rewards.get(reward_key)
         
-        if reward_card_number:
-            # Initialize list for this level if it doesn't exist
-            if self.level_number not in earned_reward_cards:
-                earned_reward_cards[self.level_number] = []
+        if reward_data:
+            reward1_list = reward_data.get('reward1', [])
+            reward2 = reward_data.get('reward2')  # Can be list or None
             
-            # Add reward card to earned cards for this level (if not already added)
-            if reward_card_number not in earned_reward_cards[self.level_number]:
-                earned_reward_cards[self.level_number].append(reward_card_number)
+            # Check if Reward2 is a list
+            reward2_list = reward2 if isinstance(reward2, list) else ([reward2] if reward2 is not None else [])
+            
+            if reward1_list:
+                # Randomly select one card from Reward1
+                reward_card_number1 = random.choice(reward1_list)
+                if reward_card_number1 == 0:
+                    reward_card_number1 = 100
+                
+                # Initialize list for this level if it doesn't exist
+                if self.level_number not in earned_reward_cards:
+                    earned_reward_cards[self.level_number] = []
+                
+                # Add reward card from Reward1 to earned cards for this level
+                earned_reward_cards[self.level_number].append(reward_card_number1)
                 # Store last earned card for WinLose window display
-                self.last_earned_cards.append(reward_card_number)
-                print(f"Earned reward card {reward_card_number} for level {self.level_number}, round {round_num}, button {button}")
+                self.last_earned_cards.append(reward_card_number1)
+                
+                # Add reward card from Reward2 if present (randomly select one card if it's a list)
+                if reward2_list:
+                    reward_card_number2 = random.choice(reward2_list)
+                    if reward_card_number2 == 0:
+                        reward_card_number2 = 100
+                    earned_reward_cards[self.level_number].append(reward_card_number2)
+                    self.last_earned_cards.append(reward_card_number2)
+                    print(f"Earned reward cards {reward_card_number1} (from Reward1) and {reward_card_number2} (from Reward2) for level {self.level_number}, round {round_num}, button {button}")
+                else:
+                    print(f"Earned reward card {reward_card_number1} (randomly selected from {reward1_list}) for level {self.level_number}, round {round_num}, button {button}")
+                
                 print(f"Earned cards for level {self.level_number}: {earned_reward_cards[self.level_number]}")
             else:
-                print(f"Reward card {reward_card_number} already earned for level {self.level_number}")
+                print(f"No reward cards in Reward1 for level {self.level_number}, round {round_num}, button {button}")
         else:
-            print(f"No reward card found for level {self.level_number}, round {round_num}, button {button}")
+            print(f"No reward data found for level {self.level_number}, round {round_num}, button {button}")
     
     def _reset_earned_cards_for_level(self):
         """Reset earned reward cards for current level when player loses"""
-        global earned_reward_cards
+        global earned_reward_cards, global_dobor
         if self.level_number in earned_reward_cards:
             earned_reward_cards[self.level_number] = []
             print(f"Reset earned cards for level {self.level_number} due to defeat")
+        # Reset Dobor to default value (1) when player loses
+        global_dobor = 1
+        self.Dobor = 1
+        print(f"Reset Dobor to 1 due to defeat")
     
     def update_win_lose_animation(self):
         """Update WinLose screen slide animation"""
@@ -2551,15 +2793,18 @@ class GameplayPage:
             # Без нижней рамки корректно анимировать не получится — просто применяем мгновенно
             existing_cards = [card for card in self.hand_cards if card is not None][: self.hand]
             self.hand_cards = existing_cards + [None] * (self.hand - len(existing_cards))
-            # Добор без анимации - всегда добраем, если есть свободные слоты и карты в колоде
+
+            # Добор без анимации — всегда добраем, если есть свободные слоты и карты в колоде
             start_idx = len(existing_cards)
             slots_available = self.hand - start_idx
-            if self.Dobor > 0 and len(self.deck) > 0 and slots_available > 0:
+            if self.Dobor > 0 and self.deck and slots_available > 0:
                 draw_limit = min(self.Dobor, len(self.deck), slots_available)
-                draw_count = draw_limit
-                for offset in range(draw_count):
-                    self.hand_cards[start_idx + offset] = self.deck.pop(0)
-            self.pending_draws = 0
+                for offset in range(draw_limit):
+                    card_id = self.deck.pop(0)
+                    if card_id == 0:
+                        card_id = 100
+                    self.hand_cards[start_idx + offset] = card_id
+                self.pending_draws = 0
             return
 
         # Геометрия нижней рамки и плейсхолдеров (как в draw)
@@ -2595,8 +2840,11 @@ class GameplayPage:
                 draw_limit = min(self.Dobor, len(self.deck), self.hand)
                 self.hand_cards = [None] * self.hand
                 for i in range(draw_limit):
-                    self.hand_cards[i] = self.deck.pop(0)
-            self.pending_draws = 0
+                    card_id = self.deck.pop(0)
+                    if card_id == 0:
+                        card_id = 100
+                    self.hand_cards[i] = card_id
+                self.pending_draws = 0
             return
 
         # Обрезаем по размеру руки
@@ -2645,6 +2893,8 @@ class GameplayPage:
                         from_y = SCREEN_HEIGHT + 100  # За экраном снизу
                         
                         card_id = self.deck.pop(0)  # Извлекаем карту из колоды
+                        if card_id == 0:
+                            card_id = 100
                         self.hand_draw_anim.append({
                             'card_id': card_id,
                             'target_slot': target_slot,
@@ -2656,7 +2906,10 @@ class GameplayPage:
                 else:
                     # Без рамки — мгновенный добор
                     for offset in range(draw_limit):
-                        self.hand_cards[start_idx + offset] = self.deck.pop(0)
+                        card_id = self.deck.pop(0)
+                        if card_id == 0:
+                            card_id = 100
+                        self.hand_cards[start_idx + offset] = card_id
             self.pending_draws = 0
             return
 
@@ -2727,6 +2980,8 @@ class GameplayPage:
                             from_y = SCREEN_HEIGHT + 100  # За экраном снизу
                             
                             card_id = self.deck.pop(0)  # Извлекаем карту из колоды
+                            if card_id == 0:
+                                card_id = 100
                             self.hand_draw_anim.append({
                                 'card_id': card_id,
                                 'target_slot': target_slot,
@@ -2738,7 +2993,10 @@ class GameplayPage:
                     else:
                         # Без рамки — мгновенный добор
                         for offset in range(draw_count):
-                            self.hand_cards[first_free + offset] = self.deck.pop(0)
+                            card_id = self.deck.pop(0)
+                            if card_id == 0:
+                                card_id = 100
+                            self.hand_cards[first_free + offset] = card_id
 
             # 3) Сбрасываем состояние анимации компактирования (добор запущен отдельно)
             self.pending_draws = 0
@@ -2764,7 +3022,10 @@ class GameplayPage:
             for entry in self.hand_draw_anim:
                 target_slot = entry['target_slot']
                 if target_slot < len(self.hand_cards):
-                    self.hand_cards[target_slot] = entry['card_id']
+                    card_id = entry['card_id']
+                    if card_id == 0:
+                        card_id = 100
+                    self.hand_cards[target_slot] = card_id
             
             # Сбрасываем состояние анимации добора
             self.hand_draw_anim = []
@@ -3709,7 +3970,7 @@ class BossPage:
                 boss_x = start_x
                 boss_y = start_y - (i * self.boss_vertical_spacing)
                 self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
-            
+
             if len(self.boss_rects) > 0:
                 first_boss_rect = self.boss_rects[0]
                 self.fixed_line_start_x = first_boss_rect.centerx - 165
@@ -3885,7 +4146,7 @@ class BossPage:
                 text = self.boss_texts[self.popup_boss_index]
                 
                 # Split text into multiple lines to fit in PopUp (250px wide)
-                max_width = 220  # Leave some padding (250 - 30px total padding)
+                max_width = 200  # Leave more padding (250 - 50px total padding) to prevent text overflow
                 words = text.split()
                 lines = []
                 current_line = []
@@ -4073,7 +4334,7 @@ class RoundPage:
         self.button_base_rects = {"e": None, "m": None, "h": None}
         button_x = 350
         base_y = SCREEN_HEIGHT - 400
-        spacing = 30
+        spacing = 36  # Increased by 20% (was 30)
         current_y = base_y
 
         for key in ["e", "m", "h"]:  # Fixed bottom-to-top order
@@ -4096,15 +4357,25 @@ class RoundPage:
         # Initialize current rects for the first active round
         self._refresh_button_rects()
         
-        # Load PopUp.png (same as BossPage)
-        popup_path = os.path.join("Bosses", "PopUp.png")
+        # Load PopUp2.png for RoundPage (larger window)
+        popup_path = os.path.join("Bosses", "PopUp2.png")
+        if not os.path.exists(popup_path):
+            popup_path = os.path.join("Bosses", "PopUp2.jpg")
         if os.path.exists(popup_path):
             popup_original = pygame.image.load(popup_path).convert_alpha()
-            # Scale to 250x375 pixels
-            self.popup_image = pygame.transform.smoothscale(popup_original, (250, 375)).convert_alpha()
+            # Get original dimensions to maintain aspect ratio
+            original_width = popup_original.get_width()
+            original_height = popup_original.get_height()
+            # Scale down by 2x and then reduce by 20% (reduce to 40% of original size)
+            scaled_width = int((original_width // 2) * 0.8)
+            scaled_height = int((original_height // 2) * 0.8)
+            self.popup_image = pygame.transform.smoothscale(popup_original, (scaled_width, scaled_height)).convert_alpha()
+            # Store popup width for positioning calculations
+            self.popup_width = scaled_width
         else:
-            print(f"WARNING: PopUp.png not found: {popup_path}")
+            print(f"WARNING: PopUp2.png/PopUp2.jpg not found: {popup_path}")
             self.popup_image = None
+            self.popup_width = 250  # Fallback to old width
         
         # PopUp animation state
         self.popup_y = -400.0  # Start above screen (hidden) - float for smooth motion
@@ -4122,8 +4393,26 @@ class RoundPage:
         # Load PopUpReward text from Lang.csv
         self.popup_reward_text = get_text("PopUpReward", "PopUpReward")
         
+        # Map level and boss indices to reward text keys in Lang.csv for boss PopUp display on RoundPage
+        # Format: {(level_number, boss_index): "LangKey"}
+        # On RoundPage, we show BossReward (reward description), not BossText (full description)
+        self.boss_reward_keys = {
+            (1, 0): "Boss1Reward",  # Boss 1 (Watt) for level 1
+            (2, 0): "Boss2Reward",  # Boss 2 (Adam Smith) for level 2
+            (2, 1): "Boss3Reward"   # Boss 3 (Robert Fulton) for level 2
+            # Add more bosses here as needed: (level, boss_index): "BossXReward", etc.
+        }
+        
+        # Store boss reward text for current level
+        # For level 2, use boss_selection (determined from filename); for level 1, use boss_index
+        self.boss_text = None
+        boss_idx_for_text = self.boss_selection if self.level_number == 2 else self.boss_index
+        if (self.level_number, boss_idx_for_text) in self.boss_reward_keys:
+            text_key = self.boss_reward_keys[(self.level_number, boss_idx_for_text)]
+            self.boss_text = get_text(text_key, text_key)
+        
         # Load rewards from Rewards.csv
-        # Format: {(level, round, button): reward_card_number}
+        # Format: {(level, round, button): {'reward1': [list of card_numbers or single int], 'reward2': card_number or None}}
         self.rewards = {}
         rewards_file = "Rewards.csv"
         if os.path.exists(rewards_file):
@@ -4133,12 +4422,68 @@ class RoundPage:
                     for row in reader:
                         level = int(row.get('Level', 0))
                         round_num = int(row.get('Round', 0))
-                        button = row.get('Button', '').strip().upper()
-                        reward_card = int(row.get('Reward', 0))
-                        if level > 0 and round_num > 0 and button and reward_card > 0:
-                            self.rewards[(level, round_num, button)] = reward_card
+                        button_val = row.get('Button') or ''
+                        button = button_val.strip().upper() if button_val else ''
+                        reward1_val = row.get('Reward1') or ''
+                        reward1_str = reward1_val.strip() if reward1_val else ''
+                        reward2_val = row.get('Reward2') or ''
+                        reward2_str = reward2_val.strip() if reward2_val else ''
+                        reward_text_val = row.get('Text') or ''
+                        reward_text = reward_text_val.strip() if reward_text_val else ''
+                        
+                        if level > 0 and round_num > 0 and button and reward1_str:
+                            # Parse Reward1 - can be single card or multiple cards separated by comma
+                            reward1_list = []
+                            for card_str in reward1_str.split(','):
+                                card_str = card_str.strip()
+                                if card_str:
+                                    try:
+                                        card_num = int(card_str)
+                                        if card_num == 0:
+                                            card_num = 100
+                                        reward1_list.append(card_num)
+                                    except ValueError:
+                                        pass
+                            
+                            if reward1_list:
+                                # Parse Reward2 - can be single card, multiple cards separated by comma, or None
+                                reward2_list = []
+                                if reward2_str and reward2_str.strip():
+                                    for card_str in reward2_str.split(','):
+                                        card_str = card_str.strip()
+                                        if card_str:
+                                            try:
+                                                card_num = int(card_str)
+                                                if card_num == 0:
+                                                    card_num = 100
+                                                if card_num >= 0:  # Allow 0 as valid card
+                                                    reward2_list.append(card_num)
+                                            except ValueError:
+                                                pass
+                                
+                                reward_entry = {
+                                    'reward1': reward1_list,
+                                    'reward2': reward2_list if reward2_list else None,
+                                    'text': reward_text if reward_text else None
+                                }
+                                self.rewards[(level, round_num, button)] = reward_entry
             except Exception as e:
                 print(f"ERROR loading rewards file: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Load RandomDropGain.png image for random rewards
+        random_drop_path = os.path.join("RoundPage", "RandomDropGain.png")
+        if os.path.exists(random_drop_path):
+            random_drop_original = pygame.image.load(random_drop_path).convert_alpha()
+            # Scale to match PopUp card size (100x172)
+            target_width = 100
+            market_card_ratio = 99 / 171.0
+            target_height = int(target_width / market_card_ratio)
+            self.random_drop_image = pygame.transform.smoothscale(random_drop_original, (target_width, target_height)).convert_alpha()
+        else:
+            print(f"WARNING: RandomDropGain.png not found: {random_drop_path}")
+            self.random_drop_image = None
         
         # Cache for loaded reward card images
         self.reward_card_images = {}
@@ -4148,7 +4493,7 @@ class RoundPage:
         # Cards 15, 16 use Card_15.png as base
         # Cards 17, 18 use Card_17.png as base
         self.card_base_mapping = {}
-        for card_id in range(5):
+        for card_id in (1, 2, 3, 4, 100):
             self.card_base_mapping[card_id] = card_id  # Original cards use their own images
         self.card_base_mapping[11] = 11
         self.card_base_mapping[12] = 11
@@ -4201,7 +4546,7 @@ class RoundPage:
         # Boss goals: {boss_key: goal_value}
         # For level 2, goals will be loaded dynamically from GoalsLevel2.csv
         self.boss_goals = {
-            (1, 0): 70,  # Boss 1_Watt (level 1, boss index 0) Goal = 70
+            (1, 0): 60,  # Boss 1_Watt (level 1, boss index 0) Goal = 60
         }
         
         # For level 2, boss goals are determined dynamically based on boss_selection
@@ -4213,9 +4558,9 @@ class RoundPage:
         """Calculate positional offset for a given round (round 1 has zero offset)."""
         if not round_num or round_num <= 1:
             return 0, 0
-        # Each subsequent round shifts +70 on X and -40 on Y
+        # Each subsequent round shifts +150 on X and -80 on Y
         shift = round_num - 1
-        return 110 * shift, -40 * shift
+        return 150 * shift, -80 * shift
     
     def _refresh_button_goals(self):
         """Update button goals based on current round for level 2."""
@@ -4303,6 +4648,9 @@ class RoundPage:
     
     def _load_reward_card(self, card_number):
         """Load and cache a reward card image. For cards 11-18, uses base card and draws CardAction/CardTurns."""
+        # Safety net: legacy configs may still reference card 0
+        if card_number == 0:
+            card_number = 100
         if card_number in self.reward_card_images:
             return self.reward_card_images[card_number]
         
@@ -4527,11 +4875,11 @@ class RoundPage:
         
         # Only check buttons if they are active (not completed)
         if can_play_round and self.button_e_rect and self.button_goals.get("e") is not None and self.button_e_rect.collidepoint(mouse_pos):
-            self.hovered_button = "e"
+                self.hovered_button = "e"
         elif can_play_round and self.button_m_rect and self.button_goals.get("m") is not None and self.button_m_rect.collidepoint(mouse_pos):
-            self.hovered_button = "m"
+                self.hovered_button = "m"
         elif can_play_round and self.button_h_rect and self.button_goals.get("h") is not None and self.button_h_rect.collidepoint(mouse_pos):
-            self.hovered_button = "h"
+                self.hovered_button = "h"
         elif self.boss_icon_rect and self.boss_icon_rect.collidepoint(mouse_pos):
             if all_rounds_completed:  # Boss is only active when all rounds are completed
                 hovered_boss = True
@@ -4789,10 +5137,10 @@ class RoundPage:
         if not all_rounds_completed:
             if self.button_e and self.button_e_rect:
                 self.screen.blit(self.button_e, self.button_e_rect.topleft)
-
+            
             if self.button_m and self.button_m_rect:
                 self.screen.blit(self.button_m, self.button_m_rect.topleft)
-
+            
             if self.button_h and self.button_h_rect:
                 self.screen.blit(self.button_h, self.button_h_rect.topleft)
         
@@ -4830,17 +5178,22 @@ class RoundPage:
             # Draw text on PopUp if a button or boss is hovered
             if self.popup_button is not None:
                 if self.popup_button == "boss":
-                    # Boss is hovered
-                    if self.level_number == 2:
-                        # Get boss goal from GoalsLevel2.csv
-                        e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
-                        m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
-                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
+                    # Boss is hovered - show boss text instead of goal
+                    if self.boss_text:
+                        # Show boss text (e.g., Boss2Text)
+                        full_text = self.boss_text
                     else:
-                        boss_key = (self.level_number, self.boss_index)
-                        goal_value = self.boss_goals.get(boss_key, 0)
-                    # Build text: PopUpRound text + goal + "$"
-                    full_text = f"{self.popup_round_text} {goal_value}$"
+                        # Fallback: show goal if boss text is not available
+                        if self.level_number == 2:
+                            # Get boss goal from GoalsLevel2.csv
+                            e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
+                            m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
+                            goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
+                        else:
+                            boss_key = (self.level_number, self.boss_index)
+                            goal_value = self.boss_goals.get(boss_key, 0)
+                        # Build text: PopUpRound text + goal + "$"
+                        full_text = f"{self.popup_round_text} {goal_value}$"
                 else:
                     # Button is hovered
                     # Get goal value - for level 2, use current round; for others use button_goals
@@ -4856,13 +5209,13 @@ class RoundPage:
                     # Build text: PopUpRound text + goal + "$"
                     full_text = f"{self.popup_round_text} {goal_value}$"
                 
-                # Split text into multiple lines to fit in PopUp (250px wide)
-                max_width = 220  # Leave some padding (250 - 30px total padding)
-                lines = wrap_text(full_text, self.popup_font, max_width)
+                # Split text into multiple lines to fit in PopUp
+                popup_text_width = self.popup_width - 60  # Leave more padding (30px on each side) to prevent text overflow
+                lines = wrap_text(full_text, self.popup_font, popup_text_width)
                 
                 # Draw text lines on PopUp on Round Page
-                text_start_x = self.popup_x + 15  # Left padding
-                text_start_y = popup_y_draw + 110  # Top padding (lowered by 50px)
+                text_start_x = self.popup_x + 30  # Left padding + 30px right
+                text_start_y = popup_y_draw + 115  # Top padding + 5px down
                 line_height = self.popup_font.get_height() + 5  # 5px spacing between lines
                 
                 for i, line in enumerate(lines):
@@ -4871,31 +5224,176 @@ class RoundPage:
                 
                 # Draw reward text below goal text (only for buttons E and M, not for boss)
                 if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
+                    # Determine round number - use current active round
+                    round_num = self.get_current_active_round()
+                    if round_num is None:
+                        # Fallback: for level 2 use rounds_required, for others use button-based logic
+                        if self.level_number == 2:
+                            round_num = self.rounds_required if hasattr(self, 'rounds_required') else 1
+                        else:
+                            round_num = 1 if self.popup_button == "e" else 2
+                    reward_key = (self.level_number, round_num, self.popup_button.upper())
+                    reward_data = self.rewards.get(reward_key)
+                    
                     reward_text_y = text_start_y + len(lines) * line_height
                     reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
                     self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
+                    
+                    # Draw additional text from Rewards.csv Text column if present
+                    if reward_data:
+                        additional_text = reward_data.get('text')
+                        if additional_text:
+                            additional_text_key = additional_text.strip()
+                            additional_text_value = get_text(additional_text_key, additional_text_key)
+                            # Wrap additional text to fit in PopUp width
+                            additional_text_lines = wrap_text(additional_text_value, self.popup_font, popup_text_width)
+                            reward_text_y += line_height
+                            for i, line in enumerate(additional_text_lines):
+                                additional_text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                                self.screen.blit(additional_text_surface, (text_start_x, reward_text_y + i * line_height))
                 
                 # Draw reward card below reward text for buttons E and M (not for boss)
                 if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
-                    # Determine round number based on button
-                    round_num = 1 if self.popup_button == "e" else 2
+                    # Determine round number - use current active round
+                    round_num = self.get_current_active_round()
+                    if round_num is None:
+                        # Fallback: for level 2 use rounds_required, for others use button-based logic
+                        if self.level_number == 2:
+                            round_num = self.rounds_required if hasattr(self, 'rounds_required') else 1
+                        else:
+                            round_num = 1 if self.popup_button == "e" else 2
                     reward_key = (self.level_number, round_num, self.popup_button.upper())
-                    reward_card_number = self.rewards.get(reward_key)
+                    reward_data = self.rewards.get(reward_key)
                     
-                    if reward_card_number:
-                        reward_card_image = self._load_reward_card(reward_card_number)
-                        if reward_card_image:
-                            # Calculate position: below the reward text
+                    if reward_data:
+                        reward1_list = reward_data.get('reward1', [])
+                        reward2 = reward_data.get('reward2')  # Can be list or None
+                        
+                        # Check if Reward2 is a list (multiple cards)
+                        reward2_list = reward2 if isinstance(reward2, list) else ([reward2] if reward2 is not None else [])
+                        
+                        if reward1_list:
+                            # Check if Reward1 has multiple cards (random reward) and any card is in range 10-19
+                            has_random_reward1 = len(reward1_list) > 1 and any(10 <= card <= 19 for card in reward1_list)
+                            # Check if Reward2 has multiple cards (random reward) and any card is in range 10-19
+                            has_random_reward2 = len(reward2_list) > 1 and any(10 <= card <= 19 for card in reward2_list)
+                            
+                            # Calculate position: below the reward text (accounting for additional text if present)
                             reward_text_y = text_start_y + len(lines) * line_height
+                            # Check if there's additional text and calculate how many lines it takes
+                            additional_text_lines_count = 0
+                            if reward_data.get('text'):
+                                additional_text_key = reward_data.get('text').strip()
+                                additional_text_value = get_text(additional_text_key, additional_text_key)
+                                additional_text_lines_list = wrap_text(additional_text_value, self.popup_font, popup_text_width)
+                                additional_text_lines_count = len(additional_text_lines_list)
                             card_spacing = 5  # Spacing between reward text and card
-                            card_y = reward_text_y + line_height + card_spacing
-                            # Reduce card size by 10% to fit better
-                            card_width = int(reward_card_image.get_width() * 0.9)
-                            card_height = int(reward_card_image.get_height() * 0.9)
-                            scaled_card = pygame.transform.smoothscale(reward_card_image, (card_width, card_height)).convert_alpha()
-                            # Center the card horizontally in PopUp (PopUp width is 250px)
-                            card_x = self.popup_x + (250 - card_width) // 2
-                            self.screen.blit(scaled_card, (card_x, card_y))
+                            card_y = reward_text_y + line_height + (additional_text_lines_count * line_height) + card_spacing
+                            
+                            if has_random_reward1 and self.random_drop_image:
+                                # Show RandomDropGain.png for Reward1
+                                card_width = int(self.random_drop_image.get_width() * 0.75)
+                                card_height = int(self.random_drop_image.get_height() * 0.75)
+                                scaled_random1 = pygame.transform.smoothscale(self.random_drop_image, (card_width, card_height)).convert_alpha()
+                                
+                                # Build optional Reward2 surface (random icon OR actual card),
+                                # so E can show 2 rewards even when Reward2 is a single card.
+                                reward2_surface = None
+                                reward2_width = 0
+                                reward2_height = 0
+                                if reward2 is not None:
+                                    if has_random_reward2 and self.random_drop_image:
+                                        reward2_surface = pygame.transform.smoothscale(self.random_drop_image, (card_width, card_height)).convert_alpha()
+                                        reward2_width, reward2_height = card_width, card_height
+                                    else:
+                                        reward2_card = reward2_list[0] if reward2_list else None
+                                        if reward2_card is not None:
+                                            reward2_image = self._load_reward_card(reward2_card)
+                                            if reward2_image:
+                                                reward2_width = int(reward2_image.get_width() * 0.75)
+                                                reward2_height = int(reward2_image.get_height() * 0.75)
+                                                reward2_surface = pygame.transform.smoothscale(
+                                                    reward2_image, (reward2_width, reward2_height)
+                                                ).convert_alpha()
+                                
+                                # Calculate total width for cards with spacing
+                                card_spacing_between = 10  # Spacing between cards
+                                total_cards_width = card_width
+                                if reward2_surface is not None:
+                                    total_cards_width += card_spacing_between + reward2_width
+                                
+                                # Center both cards together
+                                cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
+                                
+                                # Draw RandomDropGain.png first (on the left) - Reward1
+                                self.screen.blit(scaled_random1, (cards_start_x, card_y))
+                                cards_start_x += card_width + card_spacing_between
+                                
+                                # Draw Reward2 (on the right) if present
+                                if reward2_surface is not None:
+                                    self.screen.blit(reward2_surface, (cards_start_x, card_y))
+                            else:
+                                # Show first card from Reward1 (or single card) with Reward2 side by side if present
+                                first_card = reward1_list[0] if reward1_list else None
+                                if first_card:
+                                    reward_card_image = self._load_reward_card(first_card)
+                                    if reward_card_image:
+                                        # Reduce card size by 25% to fit better (changed from 0.9 to 0.75)
+                                        card_width = int(reward_card_image.get_width() * 0.75)
+                                        card_height = int(reward_card_image.get_height() * 0.75)
+                                        scaled_card = pygame.transform.smoothscale(reward_card_image, (card_width, card_height)).convert_alpha()
+                                        
+                                        # Calculate total width for both cards with spacing
+                                        card_spacing_between = 10  # Spacing between cards
+                                        total_cards_width = card_width
+                                        if reward2 is not None:
+                                            # Get card number from list if reward2 is a list, otherwise use reward2 directly
+                                            reward2_card = reward2[0] if isinstance(reward2, list) and len(reward2) > 0 else reward2
+                                            reward2_image = self._load_reward_card(reward2_card)
+                                            if reward2_image:
+                                                reward2_width = int(reward2_image.get_width() * 0.75)
+                                                total_cards_width += card_spacing_between + reward2_width
+                                        
+                                        # Center both cards together
+                                        cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
+                                        
+                                        # Draw Reward1 card first (on the left)
+                                        self.screen.blit(scaled_card, (cards_start_x, card_y))
+                                        cards_start_x += card_width + card_spacing_between
+                                        
+                                        # Draw Reward2 card next (on the right) if present
+                                        # Check if Reward2 is a list or single card
+                                        if reward2 is not None:
+                                            # If Reward2 is a list, show first card or RandomDropGain if multiple
+                                            if isinstance(reward2, list) and len(reward2) > 0:
+                                                has_random_reward2 = len(reward2) > 1 and any(10 <= card <= 19 for card in reward2)
+                                                if has_random_reward2 and self.random_drop_image:
+                                                    reward2_width = int(self.random_drop_image.get_width() * 0.75)
+                                                    reward2_height = int(self.random_drop_image.get_height() * 0.75)
+                                                    scaled_reward2 = pygame.transform.smoothscale(self.random_drop_image, (reward2_width, reward2_height)).convert_alpha()
+                                                    reward2_x = cards_start_x
+                                                    reward2_y = card_y
+                                                    self.screen.blit(scaled_reward2, (reward2_x, reward2_y))
+                                                else:
+                                                    reward2_card = reward2[0]
+                                                    reward2_image = self._load_reward_card(reward2_card)
+                                                    if reward2_image:
+                                                        reward2_width = int(reward2_image.get_width() * 0.75)
+                                                        reward2_height = int(reward2_image.get_height() * 0.75)
+                                                        scaled_reward2 = pygame.transform.smoothscale(reward2_image, (reward2_width, reward2_height)).convert_alpha()
+                                                        reward2_x = cards_start_x
+                                                        reward2_y = card_y
+                                                        self.screen.blit(scaled_reward2, (reward2_x, reward2_y))
+                                            else:
+                                                # Single card
+                                                reward2_image = self._load_reward_card(reward2)
+                                                if reward2_image:
+                                                    reward2_width = int(reward2_image.get_width() * 0.75)
+                                                    reward2_height = int(reward2_image.get_height() * 0.75)
+                                                    scaled_reward2 = pygame.transform.smoothscale(reward2_image, (reward2_width, reward2_height)).convert_alpha()
+                                                    reward2_x = cards_start_x
+                                                    reward2_y = card_y
+                                                    self.screen.blit(scaled_reward2, (reward2_x, reward2_y))
         else:
             # PopUp is completely hidden, clear the button for text
             if self.popup_button is not None:
@@ -5029,7 +5527,7 @@ if __name__ == "__main__":
                                 boss_index = int(parts[2])
 
                                 boss_filename = None
-                                if boss_index < len(boss_page.current_boss_filenames):
+                                if hasattr(boss_page, "current_boss_filenames") and boss_index < len(boss_page.current_boss_filenames):
                                     boss_filename = boss_page.current_boss_filenames[boss_index]
 
                                 round_page = RoundPage(
@@ -5041,19 +5539,23 @@ if __name__ == "__main__":
                                     test_mode=False,
                                 )
                                 round_result = round_page.run()
-
                                 gameplay_result = None
 
+                                # Round buttons (E/M/H)
                                 while round_result in ("button_e", "button_m", "button_h"):
                                     difficulty = round_result.replace("button_", "")
-                                    goal = (
-                                        round_page.Goal
-                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
-                                        else None
-                                    )
-                                    print(f"Passing goal to GameplayPage: {goal}")  # Debug
+                                    goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else None
+                                    round_num = round_page.get_current_active_round()
+                                    print(f"Passing goal to GameplayPage: {goal}, round_num: {round_num}")  # Debug
+
                                     gameplay_page = GameplayPage(
-                                        screen, font_path, difficulty, goal=goal, level_number=boss_level, boss_index=boss_index
+                                        screen,
+                                        font_path,
+                                        difficulty,
+                                        goal=goal,
+                                        level_number=boss_level,
+                                        boss_index=boss_index,
+                                        round_num=round_num,
                                     )
                                     gameplay_result = gameplay_page.run()
 
@@ -5079,12 +5581,9 @@ if __name__ == "__main__":
                                     level_result = "quit"
                                     break
                                 elif round_result == "boss_clicked":
-                                    goal = (
-                                        round_page.Goal
-                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
-                                        else None
-                                    )
+                                    goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else None
                                     print(f"Passing boss goal to GameplayPage: {goal}")  # Debug
+
                                     gameplay_page = GameplayPage(
                                         screen,
                                         font_path,
@@ -5100,24 +5599,28 @@ if __name__ == "__main__":
                                         round_result = round_page.run()
                                     elif gameplay_result == "round_select":
                                         bp_state["defeated"] += 1
-                                        bp_state["last_rect"] = boss_page.clicked_boss_rect
-                                        bp_state["lines"] = boss_page.saved_lines[:]
-                                        if boss_page.clicked_boss_filename and boss_page.clicked_boss_rect:
+                                        bp_state["last_rect"] = getattr(boss_page, "clicked_boss_rect", None)
+                                        bp_state["lines"] = getattr(boss_page, "saved_lines", [])[:]
+
+                                        clicked_filename = getattr(boss_page, "clicked_boss_filename", None)
+                                        clicked_rect = getattr(boss_page, "clicked_boss_rect", None)
+                                        if clicked_filename and clicked_rect:
                                             bp_state["defeated_bosses"].append(
                                                 {
-                                                    "filename": boss_page.clicked_boss_filename,
-                                                    "rect": boss_page.clicked_boss_rect.copy(),
+                                                    "filename": clicked_filename,
+                                                    "rect": clicked_rect.copy(),
                                                 }
                                             )
+
                                         if bp_state["defeated"] >= bosses_required:
                                             if boss_level == 1:
                                                 level_1_boss_defeated = True
                                                 print("Level 1 boss defeated! Unlocking level 2")
                                             level_result = "level_select"
                                             break
-                                        else:
-                                            # More bosses remain; continue boss loop with updated state
-                                            continue
+
+                                        # More bosses remain; continue boss loop with updated state
+                                        continue
                                     elif gameplay_result == "level_select":
                                         # On defeat always exit to level selection (fresh start)
                                         break
@@ -5127,15 +5630,19 @@ if __name__ == "__main__":
                                     else:
                                         round_result = round_page.run()
 
-                                    if round_result == "back":
-                                        continue
-                                    elif round_result == "quit":
+                                    if round_result == "quit":
                                         level_result = "quit"
                                         break
-                        else:
-                            # Unexpected result - return to level page
-                            break
-                        
+
+                                    # Return to boss loop after boss fight flow
+                                    continue
+                                else:
+                                    # Unexpected result from RoundPage - return to boss loop
+                                    continue
+                            else:
+                                # Unexpected result - return to level page
+                                break
+
                         if level_result == "quit":
                             break
                     except Exception as e:
@@ -5187,7 +5694,7 @@ if __name__ == "__main__":
                                 boss_index = int(parts[2])
 
                                 boss_filename = None
-                                if boss_index < len(boss_page.current_boss_filenames):
+                                if hasattr(boss_page, "current_boss_filenames") and boss_index < len(boss_page.current_boss_filenames):
                                     boss_filename = boss_page.current_boss_filenames[boss_index]
 
                                 round_page = RoundPage(
@@ -5203,14 +5710,18 @@ if __name__ == "__main__":
 
                                 while round_result in ("button_e", "button_m", "button_h"):
                                     difficulty = round_result.replace("button_", "")
-                                    goal = (
-                                        round_page.Goal
-                                        if hasattr(round_page, "Goal") and round_page.Goal is not None
-                                        else 2
-                                    )
-                                    print(f"Passing goal to GameplayPage (test mode): {goal}")  # Debug
+                                    goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else 2
+                                    round_num = round_page.get_current_active_round()
+                                    print(f"Passing goal to GameplayPage (test mode): {goal}, round_num: {round_num}")  # Debug
+
                                     gameplay_page = GameplayPage(
-                                        screen, font_path, difficulty, goal=goal, level_number=boss_level, boss_index=boss_index
+                                        screen,
+                                        font_path,
+                                        difficulty,
+                                        goal=goal,
+                                        level_number=boss_level,
+                                        boss_index=boss_index,
+                                        round_num=round_num,
                                     )
                                     gameplay_result = gameplay_page.run()
 
@@ -5238,6 +5749,7 @@ if __name__ == "__main__":
                                 elif round_result == "boss_clicked":
                                     goal = 2  # Always 2 in test mode for boss
                                     print(f"Passing boss goal to GameplayPage (test mode): {goal}")  # Debug
+
                                     gameplay_page = GameplayPage(
                                         screen,
                                         font_path,
@@ -5253,20 +5765,24 @@ if __name__ == "__main__":
                                         round_result = round_page.run()
                                     elif gameplay_result == "round_select":
                                         bp_state["defeated"] += 1
-                                        bp_state["last_rect"] = boss_page.clicked_boss_rect
-                                        bp_state["lines"] = boss_page.saved_lines[:]
-                                        if boss_page.clicked_boss_filename and boss_page.clicked_boss_rect:
+                                        bp_state["last_rect"] = getattr(boss_page, "clicked_boss_rect", None)
+                                        bp_state["lines"] = getattr(boss_page, "saved_lines", [])[:]
+
+                                        clicked_filename = getattr(boss_page, "clicked_boss_filename", None)
+                                        clicked_rect = getattr(boss_page, "clicked_boss_rect", None)
+                                        if clicked_filename and clicked_rect:
                                             bp_state["defeated_bosses"].append(
                                                 {
-                                                    "filename": boss_page.clicked_boss_filename,
-                                                    "rect": boss_page.clicked_boss_rect.copy(),
+                                                    "filename": clicked_filename,
+                                                    "rect": clicked_rect.copy(),
                                                 }
                                             )
+
                                         if bp_state["defeated"] >= bosses_required:
                                             level_result = "level_select"
                                             break
-                                        else:
-                                            continue
+
+                                        continue
                                     elif gameplay_result == "level_select":
                                         # On defeat always exit to level selection (fresh start)
                                         break
@@ -5276,14 +5792,16 @@ if __name__ == "__main__":
                                     else:
                                         round_result = round_page.run()
 
-                                    if round_result == "back":
-                                        continue
-                                    elif round_result == "quit":
+                                    if round_result == "quit":
                                         level_result = "quit"
                                         break
+
+                                    continue
+                                else:
+                                    continue
                             else:
                                 break
-                        
+
                         if level_result == "quit":
                             break
                     except Exception as e:
