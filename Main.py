@@ -1301,8 +1301,14 @@ class GameplayPage:
         bottom_frame_path = os.path.join("GameplayPage", "Bottom Frame.png")
         if os.path.exists(bottom_frame_path):
             bottom_original = pygame.image.load(bottom_frame_path).convert_alpha()
-            # Scale bottom frame - enlarge by 40% to accommodate larger hand cards (57.6% * 1.4 = 80.64%)
-            target_width = int(SCREEN_WIDTH * 0.8064)
+            # Scale bottom frame to match the TOTAL width of the three market frames (A, B, C)
+            # so the layout is perfectly symmetric.
+            if self.frame:
+                market_spacing = 10  # must match draw() spacing between top frames
+                target_width = self.frame.get_width() * 3 + market_spacing * 2
+            else:
+                # Fallback: previous heuristic if top frame is missing
+                target_width = int(SCREEN_WIDTH * 0.8064)
             b_orig_w = bottom_original.get_width()
             b_orig_h = bottom_original.get_height()
             b_scale = target_width / b_orig_w
@@ -1561,9 +1567,14 @@ class GameplayPage:
             self.placeholder_bottom = pygame.transform.smoothscale(self.placeholder, (138, 240)).convert_alpha()
             # Scale placeholder for market area: also 96x168 (увеличены на 20%)
             self.placeholder_market = pygame.transform.smoothscale(self.placeholder, (96, 168)).convert_alpha()
+            # Scale placeholder for right-side areas (slightly smaller to fit 6 slots nicely)
+            side_ph_w = int(96 * 0.85)
+            side_ph_h = int(168 * 0.85)
+            self.placeholder_side = pygame.transform.smoothscale(self.placeholder, (side_ph_w, side_ph_h)).convert_alpha()
         else:
             self.placeholder_bottom = None
             self.placeholder_market = None
+            self.placeholder_side = None
         
         # Load card images
         self.card_images_original = {}  # Original card images
@@ -1571,6 +1582,11 @@ class GameplayPage:
         self.card_images_market = {}  # Pre-scaled for market area (for performance)
         self.card_size_bottom = (142, 244)  # 4 pixels larger than bottom placeholder (138+4, 240+4)
         self.card_size_market = (99, 171)  # 3 pixels larger than market placeholder (96+3, 168+3)
+
+        # Right-side placeholder areas (top: 6 slots, bottom: 3 slots)
+        # These are populated in draw() for hit-testing / future drag&drop.
+        self.side_placeholders_top = []   # [{'slot': int, 'rect': Rect}]
+        self.side_placeholders_bottom = []  # [{'slot': int, 'rect': Rect}]
         
         # Card base mapping: which base image to use for each card
         # Cards 11, 12, 13, 14 use Card_11.png as base
@@ -2015,7 +2031,8 @@ class GameplayPage:
                             spacing = base_spacing * 0.7
                             total_width = ph_w * self.hand + spacing * (self.hand - 1)
                             start_x = bf_x + (bf_w - total_width) / 2
-                            start_y = bf_y + (bf_h - ph_h) // 2
+                            # Slightly lower hand area so cards don't overlap the top edge of the bottom frame
+                            start_y = bf_y + (bf_h - ph_h) // 2 + 10
                             
                             # Check if clicking on a card
                             for i in range(self.hand):
@@ -2823,7 +2840,8 @@ class GameplayPage:
             spacing = 0
         total_width = ph_w * self.hand + spacing * (self.hand - 1)
         start_x = bf_x + (bf_w - total_width) // 2
-        start_y = bf_y + (bf_h - ph_h) // 2
+        # Slightly lower hand area so cards don't overlap the top edge of the bottom frame
+        start_y = bf_y + (bf_h - ph_h) // 2 + 10
 
         # Координаты слотов руки
         slot_positions = []
@@ -3224,9 +3242,50 @@ class GameplayPage:
             frame_c_x = start_x + 2 * (frame_width + spacing)
             frame_c_right = frame_c_x + frame_width
             
-            # Draw Goal and Money positioned 40px to the right of frame C
-            label_start_x = frame_c_right + 55  # 55px from right edge of frame C (40 + 15)
-            margin_top = 80  # Lower position
+            # ------------------------------------------------------------
+            # Right-side framed areas (as in the reference screenshot)
+            # Top area: 6 placeholders (2 rows x 3 columns)
+            # Bottom area: 3 placeholders (1 row x 3 columns)
+            # ------------------------------------------------------------
+            right_gap = 20
+            right_frame_x = frame_c_right + right_gap
+            # Keep within screen bounds
+            right_frame_x = min(right_frame_x, SCREEN_WIDTH - 20 - frame_width)
+
+            # Build frame sizes to comfortably fit placeholders
+            side_cols = 3
+            side_ph = self.placeholder_side or self.placeholder_market
+            side_ph_w = side_ph.get_width() if side_ph else 96
+            side_ph_h = side_ph.get_height() if side_ph else 168
+            # Choose target heights; keep width aligned with market frame width for symmetry
+            top_rows = 2
+            bot_rows = 1
+            # Minimum padding between slots and frame borders
+            min_pad = 18
+            right_frame_w = frame_width
+            # Keep the bottom edge of the TOP (6-slot) frame fixed, but move its top down.
+            # Base is aligned with the top market frames (frame_y is defined later in the draw loop).
+            right_top_y_base = 40
+            right_top_h_base = max(frame_height, top_rows * side_ph_h + (top_rows + 1) * min_pad)
+            right_top_bottom = right_top_y_base + right_top_h_base
+
+            # Compact bottom (3-slot) frame: just enough to wrap placeholders with modest padding
+            bot_pad_y = 12
+            right_bot_h = side_ph_h + 2 * bot_pad_y
+            # Align the TOP border of the 3-slot frame with the TOP border of the hand (bottom) frame.
+            if self.bottom_frame:
+                bf_h = self.bottom_frame.get_height()
+                bf_y = SCREEN_HEIGHT - bf_h - 150
+                # Bottom Frame.png has a small transparent padding; add a tiny offset so the visible
+                # top border aligns with the 3-slot frame border.
+                right_bot_y = bf_y + 17
+            else:
+                right_bot_y = right_top_bottom + 20
+
+            # Draw Goal and Money ABOVE the right-side areas (as in screenshot)
+            label_start_x = right_frame_x + 10
+            # Move labels down so they don't sit over the playfield.
+            margin_top = 90
             label_spacing = 15  # Spacing between Goal and Money
             value_spacing = 10  # Spacing between label and value
             min_right_margin = 20  # Minimum margin from right edge to prevent overflow
@@ -3254,6 +3313,30 @@ class GameplayPage:
             # Ensure value doesn't go off screen
             if money_value_x + money_value.get_width() > SCREEN_WIDTH - min_right_margin:
                 money_value_x = SCREEN_WIDTH - min_right_margin - money_value.get_width()
+            
+            # Now that we know the label block height, move ONLY the top edge of the 6-slot frame down
+            # so it sits neatly under the text, while preserving its bottom edge.
+            desired_top_y = money_label_y + money_label.get_height() + 30
+            # Ensure we still have enough space for 2 rows of placeholders (sizes unchanged)
+            min_pad_top = 12
+            min_top_h = top_rows * side_ph_h + (top_rows + 1) * min_pad_top
+            right_top_y = min(desired_top_y, right_top_bottom - min_top_h)
+            right_top_h = max(1, right_top_bottom - right_top_y)
+
+            # Draw frames (reuse Frame.png scaled to desired sizes)
+            try:
+                right_frame_top_img = pygame.transform.smoothscale(self.frame, (right_frame_w, right_top_h)).convert_alpha()
+                right_frame_bot_img = pygame.transform.smoothscale(self.frame, (right_frame_w, right_bot_h)).convert_alpha()
+                self.screen.blit(right_frame_top_img, (right_frame_x, right_top_y))
+                self.screen.blit(right_frame_bot_img, (right_frame_x, right_bot_y))
+            except Exception:
+                # Fallback: simple rects if scaling fails
+                pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_top_y, right_frame_w, right_top_h), 2)
+                pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_bot_y, right_frame_w, right_bot_h), 2)
+
+            # Draw labels AFTER frames so text is never covered by the frame art
+            self.screen.blit(goal_label, (goal_label_x, goal_label_y))
+            self.screen.blit(goal_value, (goal_value_x, goal_value_y))
             self.screen.blit(money_label, (money_label_x, money_label_y))
             self.screen.blit(money_value, (money_value_x, money_value_y))
             
@@ -3497,6 +3580,43 @@ class GameplayPage:
                                         highlight = True
                         if highlight:
                             pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
+
+            # ------------------------------------------------------------
+            # Draw placeholders inside the right-side framed areas
+            # ------------------------------------------------------------
+            self.side_placeholders_top = []
+            self.side_placeholders_bottom = []
+            ph_img = self.placeholder_side or self.placeholder_market
+            if ph_img:
+                # Top area: 2 rows x 3 columns
+                cols = 3
+                rows = 2
+                ph_w = ph_img.get_width()
+                ph_h = ph_img.get_height()
+                # Even padding inside frame
+                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
+                pad_y = max(10.0, (right_top_h - rows * ph_h) / (rows + 1))
+                for r in range(rows):
+                    for c in range(cols):
+                        x = right_frame_x + pad_x * (c + 1) + ph_w * c
+                        y = right_top_y + pad_y * (r + 1) + ph_h * r
+                        rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
+                        slot = r * cols + c
+                        self.side_placeholders_top.append({"slot": slot, "rect": rect})
+                        self.screen.blit(ph_img, rect.topleft)
+
+                # Bottom area: 1 row x 3 columns
+                cols = 3
+                rows = 1
+                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
+                pad_y = max(10.0, (right_bot_h - rows * ph_h) / (rows + 1))
+                for c in range(cols):
+                    x = right_frame_x + pad_x * (c + 1) + ph_w * c
+                    y = right_bot_y + pad_y
+                    rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
+                    slot = c
+                    self.side_placeholders_bottom.append({"slot": slot, "rect": rect})
+                    self.screen.blit(ph_img, rect.topleft)
                 
                 # Draw price animation in center of frame if currently animating this market
                 if (self.current_price_animation and 
@@ -3541,7 +3661,10 @@ class GameplayPage:
                 spacing = base_spacing * 0.7
                 total_width = ph_w * self.hand + spacing * (self.hand - 1)
                 start_x = bf_x + (bf_w - total_width) / 2
-                start_y = bf_y + (bf_h - ph_h) // 2
+                # Slightly lower hand area so cards don't overlap the top edge of the bottom frame
+                start_y = bf_y + (bf_h - ph_h) // 2 + 10
+                # Slightly lower hand area so cards don't overlap the top edge of the bottom frame
+                start_y = bf_y + (bf_h - ph_h) // 2 + 10
 
                 for i in range(self.hand):
                     slot_x = start_x + i * (ph_w + spacing)
@@ -4334,8 +4457,9 @@ class RoundPage:
         self.button_base_rects = {"e": None, "m": None, "h": None}
         button_x = 350
         base_y = SCREEN_HEIGHT - 400
-        spacing = 36  # Increased by 20% (was 30)
-        current_y = base_y
+        # Fixed vertical gap (in pixels) between icon CENTERS (center-to-center)
+        icon_center_gap_y = 100
+        last_center_y = None
 
         for key in ["e", "m", "h"]:  # Fixed bottom-to-top order
             img = None
@@ -4350,9 +4474,17 @@ class RoundPage:
                 continue
 
             w, h = img.get_width(), img.get_height()
-            rect = pygame.Rect(button_x, current_y, w, h)
+            if last_center_y is None:
+                # base_y is the top-left y for the first (bottom) visible icon
+                center_y = base_y + (h / 2.0)
+            else:
+                # Place above the previous visible icon with a constant center-to-center gap
+                center_y = last_center_y - icon_center_gap_y
+
+            y = int(round(center_y - (h / 2.0)))
+            rect = pygame.Rect(button_x, y, w, h)
             self.button_base_rects[key] = rect
-            current_y -= (h + spacing)
+            last_center_y = rect.centery
         
         # Initialize current rects for the first active round
         self._refresh_button_rects()
@@ -4558,9 +4690,9 @@ class RoundPage:
         """Calculate positional offset for a given round (round 1 has zero offset)."""
         if not round_num or round_num <= 1:
             return 0, 0
-        # Each subsequent round shifts +150 on X and -80 on Y
+        # Each subsequent round shifts +150 on X and -100 on Y
         shift = round_num - 1
-        return 150 * shift, -80 * shift
+        return 150 * shift, -100 * shift
     
     def _refresh_button_goals(self):
         """Update button goals based on current round for level 2."""
@@ -4602,7 +4734,12 @@ class RoundPage:
         prev_round = max(self.round_selections.keys())
         sel = self.round_selections.get(prev_round)
         if sel:
-            return sel.get("rect")
+            key = sel.get("key")
+            # Recalculate position using current offset
+            base_rect = self.button_base_rects.get(key)
+            if base_rect:
+                offset_x, offset_y = self._get_round_offset(prev_round)
+                return base_rect.move(offset_x, offset_y)
         return None
     
     def _load_rounds_data(self):
@@ -4983,10 +5120,9 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
-                        # Remember selection rect for history (preserve past icons)
+                        # Remember selection for history (preserve past icons) - only save key, recalculate position on draw
                         self.round_selections[current_active_round] = {
-                            "key": "e",
-                            "rect": self.button_e_rect.copy() if self.button_e_rect else None
+                            "key": "e"
                         }
                         return "button_e"
                     if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
@@ -5002,10 +5138,9 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
-                        # Remember selection rect for history (preserve past icons)
+                        # Remember selection for history (preserve past icons) - only save key, recalculate position on draw
                         self.round_selections[current_active_round] = {
-                            "key": "m",
-                            "rect": self.button_m_rect.copy() if self.button_m_rect else None
+                            "key": "m"
                         }
                         return "button_m"
                     if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
@@ -5021,10 +5156,9 @@ class RoundPage:
                             if goal_value is not None:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round  # Track selected round
-                        # Remember selection rect for history (preserve past icons)
+                        # Remember selection for history (preserve past icons) - only save key, recalculate position on draw
                         self.round_selections[current_active_round] = {
-                            "key": "h",
-                            "rect": self.button_h_rect.copy() if self.button_h_rect else None
+                            "key": "h"
                         }
                         return "button_h"
                     # Handle boss click (only if all rounds completed)
@@ -5074,9 +5208,12 @@ class RoundPage:
             for round_num in sorted(self.round_selections.keys()):
                 sel = self.round_selections[round_num]
                 key = sel.get("key")
-                rect = sel.get("rect")
-                if not rect:
+                # Recalculate position using current offset
+                base_rect = self.button_base_rects.get(key)
+                if not base_rect:
                     continue
+                offset_x, offset_y = self._get_round_offset(round_num)
+                rect = base_rect.move(offset_x, offset_y)
                 img = None
                 if key == "e":
                     img = self.button_e
@@ -5120,9 +5257,12 @@ class RoundPage:
             for round_num in sorted(self.round_selections.keys()):
                 sel = self.round_selections[round_num]
                 key = sel.get("key")
-                rect = sel.get("rect")
-                if not rect:
+                # Recalculate position using current offset
+                base_rect = self.button_base_rects.get(key)
+                if not base_rect:
                     continue
+                offset_x, offset_y = self._get_round_offset(round_num)
+                rect = base_rect.move(offset_x, offset_y)
                 img = None
                 if key == "e":
                     img = self.button_e
@@ -5517,10 +5657,11 @@ if __name__ == "__main__":
 
                             if boss_result == "back":
                                 break  # Return to level page loop
-                            elif boss_result == "quit":
+                            if boss_result == "quit":
                                 level_result = "quit"
                                 break
-                            elif boss_result and boss_result.startswith("boss_"):
+
+                            if boss_result and boss_result.startswith("boss_"):
                                 # Boss selected, go to RoundPage
                                 parts = boss_result.split("_")
                                 boss_level = int(parts[1])
@@ -5575,12 +5716,14 @@ if __name__ == "__main__":
 
                                 if gameplay_result == "level_select":
                                     break
-                                elif round_result == "back":
+
+                                if round_result == "back":
                                     continue  # back to boss loop
-                                elif round_result == "quit":
+                                if round_result == "quit":
                                     level_result = "quit"
                                     break
-                                elif round_result == "boss_clicked":
+
+                                if round_result == "boss_clicked":
                                     goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else None
                                     print(f"Passing boss goal to GameplayPage: {goal}")  # Debug
 
@@ -5596,8 +5739,10 @@ if __name__ == "__main__":
                                     gameplay_result = gameplay_page.run()
 
                                     if gameplay_result == "back":
+                                        # back to round selection
                                         round_result = round_page.run()
-                                    elif gameplay_result == "round_select":
+                                        continue
+                                    if gameplay_result == "round_select":
                                         bp_state["defeated"] += 1
                                         bp_state["last_rect"] = getattr(boss_page, "clicked_boss_rect", None)
                                         bp_state["lines"] = getattr(boss_page, "saved_lines", [])[:]
@@ -5606,10 +5751,7 @@ if __name__ == "__main__":
                                         clicked_rect = getattr(boss_page, "clicked_boss_rect", None)
                                         if clicked_filename and clicked_rect:
                                             bp_state["defeated_bosses"].append(
-                                                {
-                                                    "filename": clicked_filename,
-                                                    "rect": clicked_rect.copy(),
-                                                }
+                                                {"filename": clicked_filename, "rect": clicked_rect.copy()}
                                             )
 
                                         if bp_state["defeated"] >= bosses_required:
@@ -5621,28 +5763,21 @@ if __name__ == "__main__":
 
                                         # More bosses remain; continue boss loop with updated state
                                         continue
-                                    elif gameplay_result == "level_select":
-                                        # On defeat always exit to level selection (fresh start)
+                                    if gameplay_result == "level_select":
                                         break
-                                    elif gameplay_result == "game_over":
+                                    if gameplay_result == "game_over":
                                         print("Game Over!")
-                                        round_result = round_page.run()
-                                    else:
-                                        round_result = round_page.run()
+                                        continue
 
-                                    if round_result == "quit":
-                                        level_result = "quit"
-                                        break
-
-                                    # Return to boss loop after boss fight flow
+                                    # Default: return to boss loop
                                     continue
-                                else:
-                                    # Unexpected result from RoundPage - return to boss loop
-                                    continue
-                            else:
-                                # Unexpected result - return to level page
-                                break
 
+                                # Unexpected result from RoundPage - return to boss loop
+                                continue
+
+                            # Unexpected result - return to level page
+                            break
+                        
                         if level_result == "quit":
                             break
                     except Exception as e:
@@ -5685,10 +5820,11 @@ if __name__ == "__main__":
 
                             if boss_result == "back":
                                 break  # Return to level page loop
-                            elif boss_result == "quit":
+                            if boss_result == "quit":
                                 level_result = "quit"
                                 break
-                            elif boss_result and boss_result.startswith("boss_"):
+
+                            if boss_result and boss_result.startswith("boss_"):
                                 parts = boss_result.split("_")
                                 boss_level = int(parts[1])
                                 boss_index = int(parts[2])
@@ -5741,12 +5877,14 @@ if __name__ == "__main__":
 
                                 if gameplay_result == "level_select":
                                     break
-                                elif round_result == "back":
+
+                                if round_result == "back":
                                     continue
-                                elif round_result == "quit":
+                                if round_result == "quit":
                                     level_result = "quit"
                                     break
-                                elif round_result == "boss_clicked":
+
+                                if round_result == "boss_clicked":
                                     goal = 2  # Always 2 in test mode for boss
                                     print(f"Passing boss goal to GameplayPage (test mode): {goal}")  # Debug
 
@@ -5763,7 +5901,8 @@ if __name__ == "__main__":
 
                                     if gameplay_result == "back":
                                         round_result = round_page.run()
-                                    elif gameplay_result == "round_select":
+                                        continue
+                                    if gameplay_result == "round_select":
                                         bp_state["defeated"] += 1
                                         bp_state["last_rect"] = getattr(boss_page, "clicked_boss_rect", None)
                                         bp_state["lines"] = getattr(boss_page, "saved_lines", [])[:]
@@ -5772,10 +5911,7 @@ if __name__ == "__main__":
                                         clicked_rect = getattr(boss_page, "clicked_boss_rect", None)
                                         if clicked_filename and clicked_rect:
                                             bp_state["defeated_bosses"].append(
-                                                {
-                                                    "filename": clicked_filename,
-                                                    "rect": clicked_rect.copy(),
-                                                }
+                                                {"filename": clicked_filename, "rect": clicked_rect.copy()}
                                             )
 
                                         if bp_state["defeated"] >= bosses_required:
@@ -5783,25 +5919,19 @@ if __name__ == "__main__":
                                             break
 
                                         continue
-                                    elif gameplay_result == "level_select":
-                                        # On defeat always exit to level selection (fresh start)
+                                    if gameplay_result == "level_select":
                                         break
-                                    elif gameplay_result == "game_over":
+                                    if gameplay_result == "game_over":
                                         print("Game Over!")
-                                        round_result = round_page.run()
-                                    else:
-                                        round_result = round_page.run()
-
-                                    if round_result == "quit":
-                                        level_result = "quit"
-                                        break
+                                        continue
 
                                     continue
-                                else:
-                                    continue
-                            else:
-                                break
 
+                                continue
+
+                            # Unexpected result - return to level page
+                            break
+                        
                         if level_result == "quit":
                             break
                     except Exception as e:
