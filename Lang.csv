@@ -7,10 +7,14 @@ MainQuit;Выход;Quit
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
 Boss1Reward;Награда за победу над боссом;Reward for defeating the boss:
-Boss2Text;Адам Смит. В каждом раунде на один ход меньше. Награда: После окончания хода вы тянете две карты.;Adam Smith. One turn less in each round. Reward: After your turn, you draw two cards.:
+Boss2Text;Адам Смит. В каждом раунде на один ход меньше. ;Adam Smith. One turn less in each round.:
 Boss2Reward;После окончания хода вы тянете две карты;After your turn, you draw two cards:
 Boss3Text;Роберт Фултон. Придётся сыграть на один раунд больше.;Robert Fulton. You'll have to play one more round.:
-Boss3Reward;Награда за победу над боссом;Reward for defeating the boss:
+Boss3Reward;Вы начинаете раунд с 2$;You start the round with 2$:
+Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.:
+Boss4Reward;Какая-то награда;Some reward:
+Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. One card less in your hand.:
+Boss5Reward;Какая-то награда;Some reward:
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
@@ -19,3 +23,4 @@ RewardWindowText;Поздравляем! Теперь ваша колода ст
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.
+LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.
