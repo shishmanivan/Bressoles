@@ -1,5 +1,5 @@
 Boss;Reward;Functionalities
 2;Dobor=Dobor+1;LastTurn=LastTurn-1
 3;Money=Money+2;LevelRounds=LevelRounds+1
-4;Money=Money+2;LevelRounds=LevelRounds+1
-5;Money=Money+2;Self.hand=Self.hand-1
+4;RedCard;Goal=Goal*1.3
+5;RedCard;Self.hand=Self.hand-1

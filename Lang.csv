@@ -4,7 +4,11 @@ MenuOption;Настройки;Options
 MenuTestMode;Тестовый режим;Test Mode
 MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
+Level1Year;1815;1815
+Level2Year;1825;1825
+Level3Year;1830;1830
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
+Level3Cond;В 1830 открывается линии Ливерпуль-Манчестер. Акции начинают покупать обычные люди. Победите трёх боссов.;In 1830, the opening of the Liverpool-Manchester line begins. Stocks begin to be purchased by ordinary people. Beat three bosses.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
 Boss1Reward;Награда за победу над боссом;Reward for defeating the boss:
 Boss2Text;Адам Смит. В каждом раунде на один ход меньше. ;Adam Smith. One turn less in each round.:
@@ -12,12 +16,15 @@ Boss2Reward;После окончания хода вы тянете две ка
 Boss3Text;Роберт Фултон. Придётся сыграть на один раунд больше.;Robert Fulton. You'll have to play one more round.:
 Boss3Reward;Вы начинаете раунд с 2$;You start the round with 2$:
 Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.:
-Boss4Reward;Какая-то награда;Some reward:
+Boss4Reward;В стартовой руке всегда будет красная карта;You start with a red card in your hand.:
 Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. One card less in your hand.:
 Boss5Reward;Какая-то награда;Some reward:
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
+PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop карта и два Shareholder;Random Gain/Drop card and two Shareholders
+PopUpRedCard+Shareholder+Shareholder;Красная карта и два Shareholder;Red card and two Shareholders
+PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и два Shareholder;Silver card and two Shareholders
 PopUpReward2RandomGain;Две случайные Gain/Drop карты;Two random Gain/Drop cards
 RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!

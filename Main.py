@@ -3,6 +3,7 @@ import sys
 import os
 import random
 import csv
+import math
 
 # Initialize Pygame
 pygame.init()
@@ -85,6 +86,8 @@ CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses 
 
 # Game progress tracking
 level_1_boss_defeated = False  # Track if level 1 boss is defeated
+level_2_boss_defeated = False  # Track if level 2 is completed (unlocks level 3)
+level_3_boss_defeated = False  # Track if level 3 is completed (unlocks level 4)
 # Boss defeat tracking per level: {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
 boss_progress = {}
 # Global Dobor variable - how many cards to draw after each turn (default 1, can be increased by boss rewards)
@@ -99,9 +102,220 @@ LEVEL_BOSS_ROUNDS = {
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
 }
 
+# -------------------------------
+# Level 3 dynamic boss roster
+# -------------------------------
+def _generate_level3_boss_roster(bosses_required: int):
+    """Level 3: pick N distinct bosses from 2..5, shuffled, with no player choice."""
+    candidates = [
+        "2_AdamSmith.png",
+        "3_RobertFulton.png",
+        "4_NicolasApper.png",
+        "5_SamuelSlater.png",
+    ]
+    random.shuffle(candidates)
+    try:
+        n = int(bosses_required or 0)
+    except (TypeError, ValueError):
+        n = 0
+    n = max(1, min(n, len(candidates)))
+    chosen = candidates[:n]
+    return [[fn] for fn in chosen]
+
+
+def _ensure_level3_roster(bp_state: dict, bosses_required: int):
+    """Ensure bp_state has a stable roster for the current Level 3 run (and matches bosses_required)."""
+    roster = bp_state.get("roster")
+    if isinstance(roster, list) and roster and len(roster) == max(1, int(bosses_required or 1)):
+        return roster
+    roster = _generate_level3_boss_roster(bosses_required)
+    bp_state["roster"] = roster
+    return roster
+
 # Reward cards earned by player: {level_number: [list of card_ids]}
 # Cards earned from winning rounds are stored here and added to initial deck
 earned_reward_cards = {}
+
+# Active per-level "red cards" deck (rebuilt on level selection).
+# Red cards are defined as: 100 < card_id < 200
+active_red_cards_level = None
+active_red_cards_deck = []
+# Forced "starting hand" cards by level (persist until level win or defeat).
+# Used for boss rewards like RedCard (boss 4 / 5).
+forced_start_hand_cards_by_level = {}
+
+
+# -------------------------------
+# Rewards.csv special tokens
+# -------------------------------
+# Sentinel IDs used inside parsed rewards lists (never overlap with real card ids).
+REWARD_TOKEN_RANDOM_RED = -1001
+
+
+def parse_reward_card_token(token: str):
+    """Parse a single Rewards.csv token into a card id or a special sentinel.
+
+    Supports:
+    - integer card ids (e.g. "11", "100")
+    - "Red Card" -> REWARD_TOKEN_RANDOM_RED (random red card)
+    """
+    if token is None:
+        return None
+    raw = str(token).strip()
+    if not raw:
+        return None
+
+    # Special tokens (case-insensitive)
+    normalized = raw.replace(" ", "").replace("_", "").replace("-", "").lower()
+    if normalized in ("redcard", "red"):
+        return REWARD_TOKEN_RANDOM_RED
+
+    # Numeric card id
+    try:
+        card_num = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if card_num == 0:
+        card_num = 100
+    return card_num
+
+
+def pick_random_red_card_for_level(level_num):
+    """Return a random available red card id for the given level, or None if none exist."""
+    global active_red_cards_level, active_red_cards_deck
+    try:
+        ln = int(level_num or 0)
+    except (TypeError, ValueError):
+        ln = 0
+
+    # Prefer the pre-built pool from level selection, fallback to building on demand.
+    if ln and active_red_cards_level == ln and active_red_cards_deck:
+        pool = list(active_red_cards_deck)
+    else:
+        pool = build_red_cards_deck_for_level(ln)
+    if not pool:
+        return None
+    return random.choice(pool)
+
+
+# -------------------------------
+# Cards configuration loader
+# -------------------------------
+_cards_config_cache = None
+
+
+def load_cards_config():
+    """Load card configuration from Cards.csv.
+
+    Expected columns: Card;Type;Open;Variable (delimiter ';')
+    Returns dict: {card_id: {"Type": int, "Open": int|None, "Variable": str|None}}
+    """
+    global _cards_config_cache
+    if _cards_config_cache is not None:
+        return _cards_config_cache
+
+    config = {}
+    cards_file = "Cards.csv"
+    if not os.path.exists(cards_file):
+        print(f"WARNING: Cards.csv not found: {cards_file}")
+        _cards_config_cache = config
+        return config
+
+    try:
+        with open(cards_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                try:
+                    card_id = int(((row.get("Card") or "").strip()) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if card_id <= 0:
+                    continue
+
+                # Type defaults to 1 for backward compatibility
+                try:
+                    card_type = int(((row.get("Type") or "").strip()) or 1)
+                except (TypeError, ValueError):
+                    card_type = 1
+
+                open_raw = (row.get("Open") or "").strip()
+                try:
+                    open_val = int(open_raw) if open_raw != "" else None
+                except (TypeError, ValueError):
+                    open_val = None
+
+                variable_val = (row.get("Variable") or "").strip() or None
+
+                config[card_id] = {"Type": card_type, "Open": open_val, "Variable": variable_val}
+    except Exception as e:
+        print(f"ERROR loading Cards.csv: {e}")
+
+    _cards_config_cache = config
+    return config
+
+
+def build_red_cards_deck_for_level(level_num):
+    """Build the per-run deck of available red cards when a level is selected.
+
+    Algorithm (per user spec):
+    - Red cards: 100 < Card < 200
+    - Only cards with Open == 1 are eligible
+    - Variable is percent chance [0..100] for inclusion in this run's deck
+      - 100 => always included
+      - otherwise: roll random int 1..100, include if roll <= Variable
+    """
+    cfg = load_cards_config() or {}
+    red_cards = []
+    for card_id, row in cfg.items():
+        try:
+            cid = int(card_id)
+        except (TypeError, ValueError):
+            continue
+        if cid <= 100 or cid >= 200:
+            continue
+
+        open_val = row.get("Open") if isinstance(row, dict) else None
+        try:
+            is_open = int(open_val) == 1
+        except (TypeError, ValueError):
+            is_open = False
+        if not is_open:
+            continue
+
+        prob_raw = row.get("Variable") if isinstance(row, dict) else None
+        try:
+            prob = int(prob_raw) if prob_raw is not None else 100
+        except (TypeError, ValueError):
+            prob = 100
+        prob = max(0, min(100, prob))
+
+        if prob >= 100:
+            red_cards.append(cid)
+        elif prob <= 0:
+            continue
+        else:
+            roll = random.randint(1, 100)
+            if roll <= prob:
+                red_cards.append(cid)
+
+    # Stable order is nice for debugging; shuffle happens later with whole deck anyway.
+    red_cards = sorted(set(red_cards))
+    return red_cards
+
+
+def apper_goal_boost(goal_value, multiplier=1.3):
+    """Boost goal by multiplier and round UP to tens.
+
+    Example: 50 -> 65 -> 70
+    """
+    if goal_value is None:
+        return None
+    try:
+        g = float(goal_value)
+    except (TypeError, ValueError):
+        return goal_value
+    boosted = g * float(multiplier)
+    return int(math.ceil(boosted / 10.0) * 10)
 
 
 def load_language(lang_code="RU"):
@@ -136,7 +350,81 @@ def load_language(lang_code="RU"):
 # Rounds/Boss configuration loader
 # -------------------------------
 _rounds_config_cache = None
+_levels_config_cache = None
 _goals_level2_cache = None
+_goals_level3_cache = None
+
+
+def load_levels_config():
+    """Load per-level meta configuration (Rounds before boss, Bosses to defeat) from LevelsData.csv.
+
+    Returns dict: {level_number: {"Rounds": int|None, "Bosses": int|None}}
+    Notes:
+    - This file is the PRIMARY source of truth for how many rounds a level has before boss,
+      and how many bosses must be defeated to complete the level.
+    - If missing or incomplete, callers may fallback to RoundsData.csv or roster defaults.
+    """
+    global _levels_config_cache
+    if _levels_config_cache is not None:
+        return _levels_config_cache
+
+    config = {}
+    levels_file = "LevelsData.csv"
+    if not os.path.exists(levels_file):
+        print(f"WARNING: LevelsData.csv not found: {levels_file}")
+        _levels_config_cache = config
+        return config
+
+    try:
+        with open(levels_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                try:
+                    level = int(row.get("Level", 0))
+                except (TypeError, ValueError):
+                    continue
+                if level <= 0:
+                    continue
+
+                def _parse_value(key):
+                    raw = (row.get(key, "") or "").strip()
+                    if raw == "":
+                        return None
+                    try:
+                        val = int(raw)
+                        return val if val > 0 else None
+                    except (TypeError, ValueError):
+                        return None
+
+                config[level] = {
+                    "Rounds": _parse_value("Rounds"),
+                    "Bosses": _parse_value("Bosses"),
+                }
+    except Exception as e:
+        print(f"ERROR loading LevelsData.csv: {e}")
+
+    _levels_config_cache = config
+    return config
+
+
+def get_level_rounds_required(level_num, rounds_config=None, levels_config=None):
+    """Return rounds required before boss for a level (PRIMARY: LevelsData.csv).
+
+    Fallback order:
+    1) LevelsData.csv
+    2) RoundsData.csv (legacy)
+    3) default 1
+    """
+    levels_config = levels_config if levels_config is not None else load_levels_config()
+    cfg_val = (levels_config.get(level_num, {}) or {}).get("Rounds")
+    if cfg_val and cfg_val > 0:
+        return cfg_val
+
+    cfg_val = rounds_config.get(level_num, {}).get("Rounds") if rounds_config else None
+    if cfg_val and cfg_val > 0:
+        return cfg_val
+
+    return 1
 
 
 def load_goals_level2():
@@ -203,16 +491,114 @@ def load_goals_level2():
     return goals
 
 
+def load_goals_level3():
+    """Load goals for level 3 from GoalsLevel3.csv.
+
+    Expected format (delimiter ';'):
+    - Row keys in first column: E, M, H
+    - Round columns: numeric strings like "1", "2", ...
+    - Boss columns: "Boss Round 1", "Boss Round 2", "Boss Round3", "Boss Round4", etc.
+
+    Returns dict: {"E": {(round_num:int)->goal, ("boss", boss_idx:int)->goal}, ...}
+    """
+    global _goals_level3_cache
+    if _goals_level3_cache is not None:
+        return _goals_level3_cache
+
+    goals = {"E": {}, "M": {}, "H": {}}
+    goals_file = "GoalsLevel3.csv"
+    if not os.path.exists(goals_file):
+        print(f"WARNING: GoalsLevel3.csv not found: {goals_file}")
+        _goals_level3_cache = goals
+        return goals
+
+    try:
+        with open(goals_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                button = (row.get("", "") or "").strip().upper()
+                if button not in ("E", "M", "H"):
+                    continue
+
+                for key, raw in (row or {}).items():
+                    if key is None:
+                        continue
+                    k = str(key).strip()
+                    v = (raw or "").strip()
+                    if not v:
+                        continue
+
+                    # Regular rounds: numeric columns "1", "2", ...
+                    if k.isdigit():
+                        try:
+                            goals[button][int(k)] = int(v)
+                        except (TypeError, ValueError):
+                            pass
+                        continue
+
+                    # Boss rounds: accept "Boss Round 1", "Boss Round3", etc.
+                    norm = k.replace(" ", "")
+                    if norm.lower().startswith("bossround"):
+                        suffix = norm[len("BossRound") :]
+                        if suffix.isdigit():
+                            try:
+                                goals[button][("boss", int(suffix))] = int(v)
+                            except (TypeError, ValueError):
+                                pass
+    except Exception as e:
+        print(f"ERROR loading GoalsLevel3.csv: {e}")
+
+    _goals_level3_cache = goals
+    return goals
+
+
+def get_level3_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Get goal for level 3 from GoalsLevel3.csv.
+
+    - For regular rounds: uses numeric columns 1..N based on current active round number.
+    - For boss rounds: uses Boss Round (defeated_count + 1).
+    """
+    goals = load_goals_level3()
+    button_upper = (button or "").strip().upper()
+    if button_upper not in goals:
+        return None
+
+    if round_num is None or is_boss_round:
+        try:
+            boss_idx = int(defeated_count or 0) + 1
+        except (TypeError, ValueError):
+            boss_idx = 1
+        # Fallback: clamp to max available boss round in file (if any)
+        available = [k[1] for k in goals[button_upper].keys() if isinstance(k, tuple) and k[:1] == ("boss",)]
+        if available:
+            boss_idx = max(1, min(boss_idx, max(available)))
+        return goals[button_upper].get(("boss", boss_idx))
+
+    try:
+        r = int(round_num)
+    except (TypeError, ValueError):
+        return None
+    return goals[button_upper].get(r)
+
+
 def get_boss_selection_from_filename(level_number, boss_filename):
     """
-    Determine boss selection (0 = first boss round, 1 = second boss round) from boss filename.
+    Determine boss choice index (0/1/...) within the current boss list from boss filename.
+    
+    Note: `LEVEL_BOSS_ROUNDS[level]` is a list of boss-lists (one list per boss "step"/round index),
+    and each boss-list can contain multiple bosses to choose from. This function returns the index
+    INSIDE that boss-list (e.g. Adam=0, Fulton=1), not the outer round index.
+    
+    IMPORTANT (Level 2 goals): GoalsLevel2.csv uses (0/1) to select the STAGE of the level
+    (before first boss vs before second boss), NOT which boss was chosen. Do not use this value
+    to select GoalsLevel2.csv columns.
     
     Args:
         level_number: Level number
         boss_filename: Boss filename (e.g., "2_AdamSmith.png")
     
     Returns:
-        Boss selection (0 or 1) or 0 if not found
+        Boss selection index (0..n-1) or 0 if not found
     """
     if level_number != 2 or not boss_filename:
         return 0
@@ -220,7 +606,10 @@ def get_boss_selection_from_filename(level_number, boss_filename):
     bosses_for_level = LEVEL_BOSS_ROUNDS.get(level_number, [])
     for round_index, boss_list in enumerate(bosses_for_level):
         if boss_filename in boss_list:
-            return round_index
+            try:
+                return boss_list.index(boss_filename)
+            except ValueError:
+                return 0
     return 0
 
 
@@ -300,7 +689,19 @@ def load_rounds_config():
 
 
 def get_bosses_required(level_num, rounds_config):
-    """Return bosses required for a level, using CSV; fallback to roster length."""
+    """Return bosses required for a level (PRIMARY: LevelsData.csv).
+
+    Fallback order:
+    1) LevelsData.csv
+    2) RoundsData.csv (legacy)
+    3) roster length (LEVEL_BOSS_ROUNDS)
+    4) default 1
+    """
+    levels_config = load_levels_config()
+    cfg_val = (levels_config.get(level_num, {}) or {}).get("Bosses")
+    if cfg_val and cfg_val > 0:
+        return cfg_val
+
     cfg_val = rounds_config.get(level_num, {}).get("Bosses") if rounds_config else None
     if cfg_val and cfg_val > 0:
         return cfg_val
@@ -308,6 +709,55 @@ def get_bosses_required(level_num, rounds_config):
     if roster:
         return max(1, len(roster))
     return 1
+
+
+def get_configured_levels(rounds_config, levels_config=None):
+    """Return sorted list of level numbers that have Rounds > 0 (PRIMARY: LevelsData.csv)."""
+    levels_config = levels_config if levels_config is not None else load_levels_config()
+
+    candidates = set()
+    for lvl in (levels_config or {}).keys():
+        candidates.add(lvl)
+    for lvl in (rounds_config or {}).keys():
+        candidates.add(lvl)
+
+    out = []
+    for level in candidates:
+        r = get_level_rounds_required(level, rounds_config=rounds_config, levels_config=levels_config)
+        if r is not None and r > 0:
+            out.append(level)
+    return sorted(out)
+
+
+def validate_levels_and_rounds_config():
+    """
+    Validate levels and rounds configuration (LevelsData.csv primary, with legacy fallback).
+    Logs warnings for missing/inconsistent data. Call at startup.
+    """
+    rounds_config = load_rounds_config()
+    levels_config = load_levels_config()
+    configured = get_configured_levels(rounds_config, levels_config=levels_config)
+    errors = []
+    # Levels with bosses must have Rounds configured
+    for level in LEVEL_BOSS_ROUNDS:
+        r = get_level_rounds_required(level, rounds_config=rounds_config, levels_config=levels_config)
+        if r is None or r <= 0:
+            errors.append(
+                f"Level {level} has bosses (LEVEL_BOSS_ROUNDS) but no valid 'Rounds' in LevelsData.csv (or legacy RoundsData.csv)."
+            )
+        elif level not in configured:
+            errors.append(
+                f"Level {level} has Rounds={r} but was not in configured levels list (internal check)."
+            )
+    # Warn about configured levels without bosses (optional; not an error)
+    for level in configured:
+        if level not in LEVEL_BOSS_ROUNDS:
+            print(
+                f"VALIDATE levels/rounds: Level {level} has Rounds configured but no LEVEL_BOSS_ROUNDS (no bosses)."
+            )
+    for msg in errors:
+        print(f"VALIDATE levels/rounds: {msg}")
+    return len(errors) == 0
 
 
 _boss_rewards_cache = None
@@ -365,10 +815,38 @@ def apply_boss_reward(reward_string, gameplay_instance):
         gameplay_instance: GameplayPage instance to apply the reward to
     """
     global global_dobor, global_start_money_bonus
+    global active_red_cards_level, active_red_cards_deck, forced_start_hand_cards_by_level
     if not reward_string or not gameplay_instance:
         return
     
     try:
+        # Special reward: RedCard (pick a random available red card and force it into starting hand)
+        if str(reward_string).strip().lower() == "redcard":
+            level_num = getattr(gameplay_instance, "level_number", None)
+            # Prefer the pre-built pool from level selection, fallback to building on demand.
+            if level_num is not None and active_red_cards_level == level_num and active_red_cards_deck:
+                pool = list(active_red_cards_deck)
+            else:
+                pool = build_red_cards_deck_for_level(int(level_num or 0))
+            if not pool:
+                print(f"WARNING: RedCard reward requested but no available red cards pool for level {level_num}.")
+                return
+
+            red_card = random.choice(pool)
+            forced = forced_start_hand_cards_by_level.setdefault(int(level_num or 0), [])
+            if red_card not in forced:
+                forced.append(red_card)
+
+            # Also show it in reward UI if applicable
+            try:
+                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
+                    gameplay_instance.last_earned_cards.append(red_card)
+            except Exception:
+                pass
+
+            print(f"Applied boss reward RedCard: forced starting-hand card for level {level_num}: {red_card}")
+            return
+
         # Parse format: "VariableName=VariableName+1" or "VariableName=VariableName-1"
         if '=' in reward_string:
             left, right = reward_string.split('=', 1)
@@ -442,6 +920,83 @@ def apply_boss_reward(reward_string, gameplay_instance):
         print(f"ERROR applying boss reward '{reward_string}': {e}")
 
 
+def apply_boss_functionality(func_string, gameplay_instance):
+    """Apply boss functionality from functionality string.
+    Example: "Self.hand=Self.hand-1" -> gameplay_instance.hand -= 1
+    Example: "LastTurn=LastTurn-1" -> gameplay_instance.LastTurn -= 1
+    
+    Args:
+        func_string: Functionality string from BossRewards.csv (e.g., "Self.hand=Self.hand-1")
+        gameplay_instance: GameplayPage instance to apply the functionality to
+    """
+    if not func_string or not gameplay_instance:
+        return
+    
+    try:
+        if '=' not in func_string:
+            print(f"WARNING: Invalid functionality format (no '=' found): {func_string}")
+            return
+        
+        left, right = func_string.split('=', 1)
+        var_name = left.strip()
+        right = right.strip()
+        
+        # Handle "Self." prefix - remove it to get the actual variable name
+        if var_name.startswith("Self."):
+            var_name = var_name[5:]  # Remove "Self." prefix
+        
+        # Check if it's an operation (e.g., "hand-1") or direct assignment
+        if '+' in right or '-' in right:
+            # Operation: "VariableName+1" or "VariableName-1"
+            if '+' in right:
+                parts = right.split('+')
+                operation = '+'
+            else:
+                parts = right.split('-')
+                operation = '-'
+            
+            if len(parts) != 2:
+                print(f"WARNING: Invalid functionality format: {func_string}")
+                return
+            
+            var_ref = parts[0].strip()
+            # Remove "Self." prefix if present
+            if var_ref.startswith("Self."):
+                var_ref = var_ref[5:]
+            
+            try:
+                amount = int(parts[1].strip())
+                if hasattr(gameplay_instance, var_name):
+                    current_value = getattr(gameplay_instance, var_name)
+                    if operation == '+':
+                        new_value = current_value + amount
+                    else:  # operation == '-'
+                        new_value = current_value - amount
+                        # Ensure hand doesn't go below 1
+                        if var_name == "hand" and new_value < 1:
+                            new_value = 1
+                            print(f"WARNING: Hand size cannot be less than 1, clamping to 1")
+                    setattr(gameplay_instance, var_name, new_value)
+                    print(f"Applied boss functionality: {var_name} = {current_value} {operation} {amount} = {new_value}")
+                else:
+                    print(f"WARNING: Variable {var_name} not found in gameplay instance")
+            except (TypeError, ValueError):
+                print(f"WARNING: Invalid functionality format: {func_string}")
+        else:
+            # Direct assignment: "VariableName=value"
+            try:
+                value = int(right.strip())
+                if hasattr(gameplay_instance, var_name):
+                    setattr(gameplay_instance, var_name, value)
+                    print(f"Applied boss functionality: {var_name} = {value}")
+                else:
+                    print(f"WARNING: Variable {var_name} not found in gameplay instance")
+            except (TypeError, ValueError):
+                print(f"WARNING: Invalid functionality format: {func_string}")
+    except Exception as e:
+        print(f"ERROR applying boss functionality '{func_string}': {e}")
+
+
 def get_boss_number_from_filename(boss_filename):
     """Extract boss number from boss filename.
     Examples: "1_Watt.png" -> 1, "2_AdamSmith.png" -> 2, "4_NicolasApper.png" -> 4
@@ -464,23 +1019,30 @@ def get_boss_number_from_filename(boss_filename):
     return None
 
 
-def get_boss_number_from_index(level_number, boss_index):
+def get_boss_number_from_index(level_number, boss_index, defeated_count=0):
     """Get boss number from level and boss index for BossRewards.csv lookup.
-    Boss numbers: 1=Watt (Level 1), 2=AdamSmith (Level 2, index 0), 3=RobertFulton (Level 2, index 1)
     
     Args:
-        level_number: Level number (1 or 2)
-        boss_index: Boss index (0-based)
+        level_number: Level number
+        boss_index: Boss index (0-based) in current boss step
+        defeated_count: Number of bosses already defeated on this level (determines which boss step we're in)
     
     Returns:
         Boss number for BossRewards.csv or None
     """
-    if level_number == 1 and boss_index == 0:
-        return 1  # Watt
-    elif level_number == 2 and boss_index == 0:
-        return 2  # Adam Smith
-    elif level_number == 2 and boss_index == 1:
-        return 3  # Robert Fulton
+    try:
+        round_index = int(defeated_count or 0)
+    except (TypeError, ValueError):
+        round_index = 0
+    if round_index < 0:
+        round_index = 0
+
+    bosses_for_level = LEVEL_BOSS_ROUNDS.get(level_number, [])
+    if round_index < len(bosses_for_level):
+        boss_list = bosses_for_level[round_index] or []
+        if 0 <= boss_index < len(boss_list):
+            boss_filename = boss_list[boss_index]
+            return get_boss_number_from_filename(boss_filename)
     return None
 
 
@@ -723,6 +1285,14 @@ class GameScreen:
         self.card2_position = None
         self.arrow2_rect = None
         self.arrow2_position = (0, 0)
+        # Level 3 card position (normal mode unlock flow)
+        self.card3_position = None
+        self.arrow3_rect = None
+        self.arrow3_position = (0, 0)
+        # Level 4 card position (normal mode unlock flow)
+        self.card4_position = None
+        self.arrow4_rect = None
+        self.arrow4_position = (0, 0)
         
         # Load level pictures for cards (left side dark square area)
         # Level 1 picture - try PNG first, then JPG
@@ -792,6 +1362,50 @@ class GameScreen:
         else:
             print("WARNING: Level2Picture.jpg not found:", level2_picture_path)
             self.level2_picture = None
+
+        # Level 3 picture (try PNG then JPG)
+        level3_picture_path = None
+        level3_picture_path_png = os.path.join("LevelPage", "Level3Picture.png")
+        level3_picture_path_jpg = os.path.join("LevelPage", "Level3Picture.jpg")
+        if os.path.exists(level3_picture_path_png):
+            level3_picture_path = level3_picture_path_png
+        elif os.path.exists(level3_picture_path_jpg):
+            level3_picture_path = level3_picture_path_jpg
+
+        if level3_picture_path:
+            level3_picture_original = pygame.image.load(level3_picture_path).convert_alpha()
+            picture_size = 262  # Size for the dark square area (fixed for all levels)
+            original_pic_width = level3_picture_original.get_width()
+            original_pic_height = level3_picture_original.get_height()
+            scale_factor = min(picture_size / original_pic_width, picture_size / original_pic_height) * 0.9
+            new_pic_width = int(original_pic_width * scale_factor)
+            new_pic_height = int(original_pic_height * scale_factor)
+            self.level3_picture = pygame.transform.smoothscale(level3_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
+        else:
+            print("WARNING: Level3Picture.png and Level3Picture.jpg not found in LevelPage folder")
+            self.level3_picture = None
+
+        # Level 4 picture (try PNG then JPG)
+        level4_picture_path = None
+        level4_picture_path_png = os.path.join("LevelPage", "Level4Picture.png")
+        level4_picture_path_jpg = os.path.join("LevelPage", "Level4Picture.jpg")
+        if os.path.exists(level4_picture_path_png):
+            level4_picture_path = level4_picture_path_png
+        elif os.path.exists(level4_picture_path_jpg):
+            level4_picture_path = level4_picture_path_jpg
+
+        if level4_picture_path:
+            level4_picture_original = pygame.image.load(level4_picture_path).convert_alpha()
+            picture_size = 262  # Size for the dark square area (fixed for all levels)
+            original_pic_width = level4_picture_original.get_width()
+            original_pic_height = level4_picture_original.get_height()
+            scale_factor = min(picture_size / original_pic_width, picture_size / original_pic_height) * 0.9
+            new_pic_width = int(original_pic_width * scale_factor)
+            new_pic_height = int(original_pic_height * scale_factor)
+            self.level4_picture = pygame.transform.smoothscale(level4_picture_original, (new_pic_width, new_pic_height)).convert_alpha()
+        else:
+            print("WARNING: Level4Picture.png and Level4Picture.jpg not found in LevelPage folder")
+            self.level4_picture = None
         
         # Scroll state for when cards don't fit on screen
         self.scroll_y = 0
@@ -892,6 +1506,10 @@ class GameScreen:
                 # Update card positions to be centered
                 self.card_position = (centered_x, padding_y)
                 self.card2_position = (centered_x + card_width + card_spacing, padding_y)
+                # Level 3 card goes to the next row, first column
+                self.card3_position = (centered_x, padding_y + card_height + card_spacing)
+                # Level 4 card goes to the next row, second column
+                self.card4_position = (centered_x + card_width + card_spacing, padding_y + card_height + card_spacing)
                 
                 # Update arrow positions for centered cards
                 if self.startarrow_image:
@@ -911,8 +1529,24 @@ class GameScreen:
                         self.card2_position[1] + card_height - arrow_height - arrow_padding
                     )
                     self.arrow2_rect = pygame.Rect(self.arrow2_position[0], self.arrow2_position[1], arrow_width, arrow_height)
+                    
+                    # Level 3 arrow position (next row)
+                    self.arrow3_position = (
+                        self.card3_position[0] + card_width - arrow_width - arrow_padding,
+                        self.card3_position[1] + card_height - arrow_height - arrow_padding
+                    )
+                    self.arrow3_rect = pygame.Rect(self.arrow3_position[0], self.arrow3_position[1], arrow_width, arrow_height)
+
+                    # Level 4 arrow position (next row, second col)
+                    self.arrow4_position = (
+                        self.card4_position[0] + card_width - arrow_width - arrow_padding,
+                        self.card4_position[1] + card_height - arrow_height - arrow_padding
+                    )
+                    self.arrow4_rect = pygame.Rect(self.arrow4_position[0], self.arrow4_position[1], arrow_width, arrow_height)
                 else:
                     self.arrow2_rect = None
+                    self.arrow3_rect = None
+                    self.arrow4_rect = None
                 
                 # Create rect for level 1 card hover detection
                 self.card1_rect = pygame.Rect(self.card_position[0], self.card_position[1], card_width, card_height)
@@ -980,6 +1614,14 @@ class GameScreen:
                         if level_1_boss_defeated and self.arrow2_rect and self.arrow2_rect.collidepoint(mouse_pos):
                             # Navigate to boss page for level 2
                             return "level_2"
+                        # Handle StartArrow click for level 3 (if unlocked)
+                        global level_2_boss_defeated
+                        if level_2_boss_defeated and self.arrow3_rect and self.arrow3_rect.collidepoint(mouse_pos):
+                            return "level_3"
+                        # Handle StartArrow click for level 4 (if unlocked)
+                        global level_3_boss_defeated
+                        if level_3_boss_defeated and self.arrow4_rect and self.arrow4_rect.collidepoint(mouse_pos):
+                            return "level_4"
         
         return None
     
@@ -1011,10 +1653,10 @@ class GameScreen:
         
         # Only draw title and description if text exists (not just the key)
         if desc_text and desc_text != desc_key:
-            # Draw card title (year based on level number)
-            # For now, use a simple pattern: 1815 + (level_num - 1) * 10
-            year = 1815 + (level_num - 1) * 10
-            card_text = str(year)
+            # Draw card title (year from Lang.csv)
+            year_key = f"Level{level_num}Year"
+            year_text = get_text(year_key, None)
+            card_text = year_text if year_text and year_text != year_key else str(1815 + (level_num - 1) * 10)
             text_surface = self.font_card.render(card_text, True, PAPER_COLOR)
             text_x = card_position[0] + 390
             text_y = card_position[1] + 8
@@ -1186,6 +1828,90 @@ class GameScreen:
             # Draw StartArrow in bottom right corner of level 2 card
             if self.startarrow_image:
                 self.screen.blit(self.startarrow_image, self.arrow2_position)
+
+        # Draw level 3 card if level 2 is completed
+        global level_2_boss_defeated
+        if level_2_boss_defeated and self.levelcard_image and self.card3_position:
+            # Draw level 3 card
+            self.screen.blit(self.levelcard_image, self.card3_position)
+
+            # Draw level 3 picture in the left side dark square area
+            if getattr(self, "level3_picture", None):
+                card_height = self.levelcard_image.get_height()
+                dark_square_size = 262  # Size of dark square (fixed for all levels)
+                picture_x = self.card3_position[0] + dark_square_size // 2
+                picture_y = self.card3_position[1] + card_height // 2
+                picture_x -= self.level3_picture.get_width() // 2
+                picture_y -= self.level3_picture.get_height() // 2
+                picture_x -= 4
+                picture_y -= 11
+                self.screen.blit(self.level3_picture, (picture_x, picture_y))
+
+            # Draw card title "1830"
+            card_text = "1830"
+            text_surface = self.font_card.render(card_text, True, PAPER_COLOR)
+            text_x = self.card3_position[0] + 390
+            text_y = self.card3_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            # Draw card description with Level3Cond key below the title
+            desc_text = get_text("Level3Cond", "Level3Cond")
+            max_width = 400
+            lines = wrap_text(desc_text, self.font_card_desc, max_width)
+            line_height = self.font_card_desc.get_height() + 5
+            start_y = text_y + text_surface.get_height() + 20
+            start_x = self.card3_position[0] + 250
+            for i, line in enumerate(lines):
+                line_surface = self.font_card_desc.render(line, True, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            # Draw StartArrow in bottom right corner of level 3 card
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow3_position)
+
+        # Draw level 4 card if level 3 is completed
+        global level_3_boss_defeated
+        if level_3_boss_defeated and self.levelcard_image and self.card4_position:
+            # Draw level 4 card
+            self.screen.blit(self.levelcard_image, self.card4_position)
+
+            # Draw level 4 picture in the left side dark square area
+            if getattr(self, "level4_picture", None):
+                card_height = self.levelcard_image.get_height()
+                dark_square_size = 262
+                picture_x = self.card4_position[0] + dark_square_size // 2
+                picture_y = self.card4_position[1] + card_height // 2
+                picture_x -= self.level4_picture.get_width() // 2
+                picture_y -= self.level4_picture.get_height() // 2
+                picture_x -= 4
+                picture_y -= 11
+                self.screen.blit(self.level4_picture, (picture_x, picture_y))
+
+            # Draw year/title if present in Lang (fallback to computed year)
+            year_key = "Level4Year"
+            year_text = get_text(year_key, None)
+            card_text = year_text if year_text and year_text != year_key else "1840"
+            text_surface = self.font_card.render(card_text, True, PAPER_COLOR)
+            text_x = self.card4_position[0] + 390
+            text_y = self.card4_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            # Draw description if present
+            desc_key = "Level4Cond"
+            desc_text = get_text(desc_key, None)
+            if desc_text and desc_text != desc_key:
+                max_width = 400
+                lines = wrap_text(desc_text, self.font_card_desc, max_width)
+                line_height = self.font_card_desc.get_height() + 5
+                start_y = text_y + text_surface.get_height() + 20
+                start_x = self.card4_position[0] + 250
+                for i, line in enumerate(lines):
+                    line_surface = self.font_card_desc.render(line, True, PAPER_COLOR)
+                    self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            # Draw StartArrow in bottom right corner of level 4 card
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow4_position)
         
         pygame.display.flip()
     
@@ -1515,14 +2241,11 @@ class GameplayPage:
                             reward1_list = []
                             for card_str in reward1_str.split(','):
                                 card_str = card_str.strip()
-                                if card_str:
-                                    try:
-                                        card_num = int(card_str)
-                                        if card_num == 0:
-                                            card_num = 100
-                                        reward1_list.append(card_num)
-                                    except ValueError:
-                                        pass
+                                if not card_str:
+                                    continue
+                                token = parse_reward_card_token(card_str)
+                                if token is not None:
+                                    reward1_list.append(token)
                             
                             if reward1_list:
                                 # Parse Reward2 - can be single card, multiple cards separated by comma, or None
@@ -1532,14 +2255,9 @@ class GameplayPage:
                                         card_str = card_str.strip()
                                         if not card_str:
                                             continue
-                                        try:
-                                            card_num = int(card_str)
-                                        except ValueError:
-                                            continue
-                                        if card_num == 0:
-                                            card_num = 100
-                                        if card_num >= 0:  # Allow 0 as valid card
-                                            reward2_list.append(card_num)
+                                        token = parse_reward_card_token(card_str)
+                                        if token is not None:
+                                            reward2_list.append(token)
                                 
                                 reward_entry = {
                                     'reward1': reward1_list,
@@ -1601,10 +2319,14 @@ class GameplayPage:
         # Apply boss modifiers to LastTurn
         # IMPORTANT: Modifiers apply ONLY during boss fight, not to regular rounds
         # After boss victory, modifiers are reset - next boss/rounds use default values
+        # Note: Hand size and other functionalities are applied after hand initialization (see below)
         base_last_turn = 8  # Default LastTurn value
         if self.is_boss_fight and self.boss_index is not None:
-            # Boss 2 (Adam Smith) - Level 2, boss_index 0: LastTurn - 1
+            # Legacy: Boss 2 (Adam Smith) - Level 2, boss_index 0: LastTurn - 1
+            # This is now handled by apply_boss_functionality, but keep for backward compatibility
+            # Check if LastTurn was already modified by functionality (will be checked after hand init)
             if self.level_number == 2 and self.boss_index == 0:
+                # Will be handled by apply_boss_functionality, but set default if not modified
                 self.LastTurn = base_last_turn - 1  # 7 turns
             else:
                 self.LastTurn = base_last_turn
@@ -1633,6 +2355,27 @@ class GameplayPage:
 
         # Hand state and placeholder
         self.hand = 7  # initial hand size
+        
+        # Apply boss functionalities AFTER hand is initialized (e.g., "Self.hand=Self.hand-1", "LastTurn=LastTurn-1")
+        # IMPORTANT: Functionalities apply to ALL rounds (regular E/M/H rounds AND boss round) after boss selection
+        # After boss victory, modifiers are reset - next boss/rounds use default values
+        if self.boss_index is not None:  # Boss was selected (applies to both regular rounds and boss fight)
+            boss_number = get_boss_number_from_index(self.level_number, self.boss_index, self.defeated_count)
+            if boss_number:
+                boss_rewards = load_boss_rewards()
+                boss_entry = boss_rewards.get(boss_number) or {}
+                func_string = boss_entry.get("Functionalities", "").strip()
+                
+                # Apply functionalities (e.g., "Self.hand=Self.hand-1", "LastTurn=LastTurn-1")
+                if func_string:
+                    apply_boss_functionality(func_string, self)
+                    print(f"Applied boss functionality for boss {boss_number} (applies to all rounds): {func_string}")
+                else:
+                    # Legacy: Boss 2 (Adam Smith) - Level 2, boss_index 0: LastTurn - 1
+                    # If no functionality string, apply legacy behavior
+                    if self.level_number == 2 and self.boss_index == 0:
+                        self.LastTurn = base_last_turn - 1  # 7 turns
+        
         # Use global Dobor value (can be modified by boss rewards)
         global global_dobor
         self.Dobor = global_dobor
@@ -1651,13 +2394,34 @@ class GameplayPage:
             self.placeholder_bottom = None
             self.placeholder_market = None
             self.placeholder_side = None
+
+        # Cards config (Card -> Type, etc.)
+        self.cards_config = load_cards_config() or {}
+        # Keep a compact lookup for Card Type (defaults to 1)
+        self.card_types = {cid: (cfg.get("Type", 1) if isinstance(cfg, dict) else 1) for cid, cfg in self.cards_config.items()}
+
+        # Right-side played cards state:
+        # Top area: 6 slots (2 rows x 3 columns) for Type=2 cards
+        # Bottom area: 3 slots exists in UI but Type=2 must NOT use it
+        self.side_cards_top = [None] * 6
+        self.side_cards_bottom = [None] * 3
+        # Original hand slot for each side card (top area only): {slot: hand_index}
+        self.side_card_origins_top = {}
+        # Locked state for side cards after end turn (top area only): {slot: bool}
+        self.side_cards_locked_top = {}
         
         # Load card images
         self.card_images_original = {}  # Original card images
         self.card_images_bottom = {}  # Scaled for bottom area
         self.card_images_market = {}  # Pre-scaled for market area (for performance)
+        self.card_images_side = {}  # Pre-scaled for right-side (6-slot) area
         self.card_size_bottom = (142, 244)  # 4 pixels larger than bottom placeholder (138+4, 240+4)
         self.card_size_market = (99, 171)  # 3 pixels larger than market placeholder (96+3, 168+3)
+        # Right-side cards are slightly smaller; keep a small border like other zones
+        if self.placeholder_side:
+            self.card_size_side = (self.placeholder_side.get_width() + 3, self.placeholder_side.get_height() + 3)
+        else:
+            self.card_size_side = (int(self.card_size_market[0] * 0.85), int(self.card_size_market[1] * 0.85))
 
         # Right-side placeholder areas (top: 6 slots, bottom: 3 slots)
         # These are populated in draw() for hit-testing / future drag&drop.
@@ -1669,9 +2433,9 @@ class GameplayPage:
         # Cards 15, 16 use Card_15.png as base
         # Cards 17, 18 use Card_17.png as base
         card_base_mapping = {}
-        original_card_ids = [1, 2, 3, 4, 100]
-        for card_id in original_card_ids:
-            card_base_mapping[card_id] = card_id  # Original cards use their own images
+        base_card_ids = [1, 2, 3, 4, 100]
+        for card_id in base_card_ids:
+            card_base_mapping[card_id] = card_id  # Base cards use their own images
         card_base_mapping[11] = 11
         card_base_mapping[12] = 11
         card_base_mapping[13] = 11
@@ -1681,10 +2445,15 @@ class GameplayPage:
         card_base_mapping[17] = 17
         card_base_mapping[18] = 17
         
-        # Load all card images (original 1-4 and 100, plus new cards 11-14, 15-16, 17-18)
-        all_card_ids = original_card_ids + [11, 12, 13, 14, 15, 16, 17, 18]
+        # Load all card images (base cards + known action cards + any cards present in Cards.csv)
+        config_card_ids = []
+        try:
+            config_card_ids = [int(x) for x in (self.card_types.keys() if self.card_types else [])]
+        except Exception:
+            config_card_ids = []
+        all_card_ids = sorted(set(base_card_ids + [11, 12, 13, 14, 15, 16, 17, 18] + config_card_ids))
         for card_id in all_card_ids:
-            base_id = card_base_mapping[card_id]
+            base_id = card_base_mapping.get(card_id, card_id)
             # Try both formats: Card_X.png (with underscore) and Card X.png (with space)
             card_path_underscore = os.path.join("Cards", f"Card_{base_id}.png")
             card_path_space = os.path.join("Cards", f"Card {base_id}.png")
@@ -1704,17 +2473,21 @@ class GameplayPage:
                     self.card_images_bottom[card_id] = pygame.transform.smoothscale(card_img, self.card_size_bottom).convert_alpha()
                     # Pre-scale card for market area (smaller) - this prevents scaling on every frame
                     self.card_images_market[card_id] = pygame.transform.smoothscale(card_img, self.card_size_market).convert_alpha()
+                    # Pre-scale for right-side (6-slot) area
+                    self.card_images_side[card_id] = pygame.transform.smoothscale(card_img, self.card_size_side).convert_alpha()
                     print(f"Loaded card {card_id} (base: {base_id}) from {card_path}")
                 except Exception as e:
                     print(f"ERROR loading card {card_id} (base: {base_id}): {e}")
                     self.card_images_original[card_id] = None
                     self.card_images_bottom[card_id] = None
                     self.card_images_market[card_id] = None
+                    self.card_images_side[card_id] = None
             else:
                 print(f"WARNING: Card file not found for card {card_id} (base: {base_id}). Tried: {card_path_underscore} and {card_path_space}")
                 self.card_images_original[card_id] = None
                 self.card_images_bottom[card_id] = None
                 self.card_images_market[card_id] = None
+                self.card_images_side[card_id] = None
         
         # Initialize CardAction system: dictionary mapping card_id to CardAction value
         # Cards 11, 12: CardAction = 2
@@ -1755,14 +2528,35 @@ class GameplayPage:
         # Shuffle deck
         random.shuffle(self.deck)
         
-        # Deal cards to hand (first 7 cards from deck, 8th stays in deck) - keep fixed slots length
-        initial_hand = self.deck[:self.hand] if len(self.deck) >= self.hand else self.deck.copy()
+        # Deal cards to hand (fixed slots length).
+        # Boss rewards can force certain cards to ALWAYS be in starting hand until level win/defeat.
+        global forced_start_hand_cards_by_level
+        forced_cards = list(forced_start_hand_cards_by_level.get(self.level_number, []) or [])
+        forced_cards = [100 if c == 0 else c for c in forced_cards if c is not None]
+        # Remove one occurrence of each forced card from deck to avoid duplicates (if present)
+        for c in forced_cards:
+            try:
+                self.deck.remove(c)
+            except ValueError:
+                pass
+
         self.hand_cards = [None] * self.hand
-        for idx, card_id in enumerate(initial_hand):
-            if idx < self.hand:
-                self.hand_cards[idx] = 100 if card_id == 0 else card_id
+        forced_cards = forced_cards[: self.hand]
+        # Put forced cards into the leftmost slots
+        for idx, card_id in enumerate(forced_cards):
+            self.hand_cards[idx] = card_id
+
+        # Fill the rest of the hand from the shuffled deck
+        fill_idx = len(forced_cards)
+        draw_count = max(0, self.hand - fill_idx)
+        drawn = self.deck[:draw_count] if draw_count > 0 else []
+        for offset, card_id in enumerate(drawn):
+            slot_idx = fill_idx + offset
+            if slot_idx < self.hand:
+                self.hand_cards[slot_idx] = 100 if card_id == 0 else card_id
+
         # Remove dealt cards from deck
-        self.deck = self.deck[self.hand:] if len(self.deck) > self.hand else []
+        self.deck = self.deck[draw_count:] if len(self.deck) > draw_count else []
         
         # Drag and drop state
         self.dragged_card_index = None  # Index of card being dragged, or None
@@ -1771,6 +2565,7 @@ class GameplayPage:
         self.dragged_card_source = None  # 'hand' or 'market'
         self.dragged_card_market = None  # market index when dragging from market
         self.dragged_card_market_slot = None  # slot index when dragging from market
+        self.dragged_card_side_slot = None  # slot index when dragging from right-side top panel (Type=2)
 
         # Card draw state
         self.pending_draws = 0  # Cards to draw after end-turn animations finish
@@ -2011,6 +2806,7 @@ class GameplayPage:
     def _get_initial_deck(self, level_number):
         """Get initial deck composition for a given level"""
         global earned_reward_cards
+        global active_red_cards_level, active_red_cards_deck
         
         if level_number == 1:
             # Level 1 deck: 100, 1 (x2), 2, 3, 4, 11
@@ -2032,6 +2828,15 @@ class GameplayPage:
         base_deck = [100 if c == 0 else c for c in base_deck]
         
         return base_deck
+
+    def get_card_type(self, card_id):
+        """Return card Type from Cards.csv (defaults to 1)."""
+        if card_id is None:
+            return 1
+        try:
+            return int(self.card_types.get(card_id, 1))
+        except Exception:
+            return 1
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -2145,6 +2950,30 @@ class GameplayPage:
                                     self.dragged_card_market = market
                                     self.dragged_card_market_slot = slot
                                     self.drag_offset = (mouse_pos[0] - ph_info["rect"].x, mouse_pos[1] - ph_info["rect"].y)
+                                    self.dragged_card_pos = mouse_pos
+                                    break
+
+                    # Check if clicking a card on the right-side TOP panel (Type=2), only if not already dragging
+                    if self.dragged_card_index is None and self.dragged_card_source is None:
+                        # Only allow dragging the last (rightmost / latest) side card, and only if not locked
+                        occupied = [i for i, cid in enumerate(self.side_cards_top) if cid is not None]
+                        last_slot = max(occupied) if occupied else None
+                        if last_slot is not None:
+                            for ph_info in self.side_placeholders_top:
+                                slot = ph_info.get("slot")
+                                if slot is None or slot != last_slot:
+                                    continue
+                                if self.side_cards_top[slot] is None:
+                                    continue
+                                if self.side_cards_locked_top.get(slot):
+                                    continue
+                                if ph_info["rect"].collidepoint(mouse_pos):
+                                    self.dragged_card_source = "side_top"
+                                    self.dragged_card_side_slot = slot
+                                    self.drag_offset = (
+                                        mouse_pos[0] - ph_info["rect"].x,
+                                        mouse_pos[1] - ph_info["rect"].y,
+                                    )
                                     self.dragged_card_pos = mouse_pos
                                     break
                     
@@ -2277,6 +3106,8 @@ class GameplayPage:
                         animation_queue = self.update_stock_prices()
                         # Lock all currently played market cards for future turns
                         self._lock_market_cards()
+                        # Lock all currently played side (Type=2) cards for future turns
+                        self._lock_side_cards()
                         # Queue animations for markets
                         if animation_queue:
                             self.price_animation_queue = animation_queue.copy()
@@ -2328,85 +3159,157 @@ class GameplayPage:
             # MOUSEMOTION events are handled in run() loop for smoother updates
             
             if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1 and (self.dragged_card_index is not None or self.dragged_card_source == "market"):
-                    # Try to drop card on market placeholder
+                if event.button == 1 and (
+                    self.dragged_card_index is not None
+                    or self.dragged_card_source in ("market", "side_top")
+                ):
                     dropped = False
-                    for ph_info in self.market_placeholders:
-                        if ph_info['rect'].collidepoint(event.pos):
-                            # Drop card on market placeholder
-                            market = ph_info['market']
-                            slot = ph_info['slot']
-                            # If slot is already occupied, skip (except for original source slot when dragging from market)
-                            if not (
-                                self.dragged_card_source == "market"
-                                and market == self.dragged_card_market
-                                and slot == self.dragged_card_market_slot
-                            ):
-                                if slot in self.market_cards[market] and self.market_cards[market][slot] is not None:
+                    # Determine dragged hand card type (if dragging from hand)
+                    dragged_hand_card_id = None
+                    dragged_hand_card_type = 1
+                    if self.dragged_card_source == "hand" and self.dragged_card_index is not None:
+                        if self.dragged_card_index < len(self.hand_cards):
+                            dragged_hand_card_id = self.hand_cards[self.dragged_card_index]
+                            dragged_hand_card_type = self.get_card_type(dragged_hand_card_id)
+
+                    # Returning a Type=2 card from the right-side TOP panel back to hand
+                    if not dropped and self.dragged_card_source == "side_top":
+                        src_slot = self.dragged_card_side_slot
+                        # Cancel drag if dropped back onto the same side placeholder
+                        for ph_info in self.side_placeholders_top:
+                            if ph_info["rect"].collidepoint(event.pos):
+                                if ph_info.get("slot") == src_slot:
+                                    dropped = True
+                                break
+                        if not dropped:
+                            # Only allow drop to the ORIGINAL hand slot of this card
+                            for ph_info in self.bottom_placeholders:
+                                if not ph_info["rect"].collidepoint(event.pos):
                                     continue
-                            # Moving from hand to market
-                            if self.dragged_card_source == "hand" and self.dragged_card_index is not None:
-                                # Only allow drop to the FIRST free placeholder of this market
-                                # (index of the first empty slot or None if market full)
-                                first_free = None
-                                for s in range(3):
-                                    if self.market_cards[market].get(s) is None:
-                                        first_free = s
-                                        break
-                                if first_free is None or slot != first_free:
-                                    continue
-                                if self.dragged_card_index < len(self.hand_cards):
-                                    card_id = self.hand_cards[self.dragged_card_index]
+                                slot = ph_info["slot"]
+                                origin_slot = self.side_card_origins_top.get(src_slot)
+                                if origin_slot is not None and slot == origin_slot and self.hand_cards[slot] is None:
+                                    card_id = self.side_cards_top[src_slot] if src_slot is not None else None
                                     if card_id is not None:
-                                        self.market_cards[market][slot] = card_id
-                                        # Remember original hand slot for this market card
-                                        self.market_card_origins[market][slot] = self.dragged_card_index
-                                        # Новая сыгранная карта пока НЕ заблокирована
-                                        self.market_cards_locked[market][slot] = False
-                                        # Initialize CardTurns for cards 11-18
-                                        if card_id in self.card_turns:
-                                            self.market_card_turns[market][slot] = self.card_turns[card_id]
-                                        # Remove from hand slot
-                                        self.hand_cards[self.dragged_card_index] = None
-                                        # Mark pending draw for empty slot
-                                        self.pending_draws += 1
+                                        self.hand_cards[slot] = card_id
+                                        self.side_cards_top[src_slot] = None
+                                        self.side_card_origins_top.pop(src_slot, None)
+                                        self.side_cards_locked_top.pop(src_slot, None)
+                                        if self.pending_draws > 0:
+                                            self.pending_draws -= 1
                                         dropped = True
                                         break
-                            # Moving from market to market
-                            elif self.dragged_card_source == "market":
-                                src_market = self.dragged_card_market
-                                src_slot = self.dragged_card_market_slot
-                                # If dropping back onto the same placeholder, do nothing (just cancel drag)
-                                if market == src_market and slot == src_slot:
-                                    dropped = True
-                                    break
-                                # Only allow drop to FIRST free placeholder of other markets
-                                if market == src_market:
-                                    continue
+
+                    # Type=2 cards are played ONLY on the top right-side panel (6 slots), not on markets.
+                    if (
+                        not dropped
+                        and self.dragged_card_source == "hand"
+                        and self.dragged_card_index is not None
+                        and dragged_hand_card_type == 2
+                    ):
+                        for ph_info in self.side_placeholders_top:
+                            if ph_info["rect"].collidepoint(event.pos):
+                                slot = ph_info["slot"]
+                                # Only allow drop to the FIRST free slot
                                 first_free = None
-                                for s in range(3):
-                                    if self.market_cards[market].get(s) is None:
+                                for s in range(len(self.side_cards_top)):
+                                    if self.side_cards_top[s] is None:
                                         first_free = s
                                         break
                                 if first_free is None or slot != first_free:
                                     continue
-                                card_id = self.market_cards[src_market].get(src_slot)
+                                card_id = dragged_hand_card_id
                                 if card_id is not None:
-                                    self.market_cards[market][slot] = card_id
-                                    self.market_cards[src_market][src_slot] = None
-                                    # Move origin info along with the card
-                                    origin_slot = self.market_card_origins[src_market].pop(src_slot, None)
-                                    if origin_slot is not None:
-                                        self.market_card_origins[market][slot] = origin_slot
-                                    # Переносим флаг заблокированности вместе с картой
-                                    locked_flag = self.market_cards_locked[src_market].pop(src_slot, False)
-                                    self.market_cards_locked[market][slot] = locked_flag
-                                    # Move CardTurns along with the card
-                                    turns = self.market_card_turns[src_market].pop(src_slot, None)
-                                    if turns is not None:
-                                        self.market_card_turns[market][slot] = turns
+                                    self.side_cards_top[slot] = card_id
+                                    # Remember original hand slot and mark as not locked for this turn
+                                    self.side_card_origins_top[slot] = self.dragged_card_index
+                                    self.side_cards_locked_top[slot] = False
+                                    self.hand_cards[self.dragged_card_index] = None
+                                    self.pending_draws += 1
                                     dropped = True
                                     break
+
+                    # Try to drop card on market placeholder (only if NOT dragging a Type=2 card from hand)
+                    if not (
+                        self.dragged_card_source == "side_top"
+                        or (self.dragged_card_source == "hand" and dragged_hand_card_type == 2)
+                    ):
+                        for ph_info in self.market_placeholders:
+                            if ph_info['rect'].collidepoint(event.pos):
+                                # Drop card on market placeholder
+                                market = ph_info['market']
+                                slot = ph_info['slot']
+                                # If slot is already occupied, skip (except for original source slot when dragging from market)
+                                if not (
+                                    self.dragged_card_source == "market"
+                                    and market == self.dragged_card_market
+                                    and slot == self.dragged_card_market_slot
+                                ):
+                                    if slot in self.market_cards[market] and self.market_cards[market][slot] is not None:
+                                        continue
+                                # Moving from hand to market
+                                if self.dragged_card_source == "hand" and self.dragged_card_index is not None:
+                                    # Only allow drop to the FIRST free placeholder of this market
+                                    # (index of the first empty slot or None if market full)
+                                    first_free = None
+                                    for s in range(3):
+                                        if self.market_cards[market].get(s) is None:
+                                            first_free = s
+                                            break
+                                    if first_free is None or slot != first_free:
+                                        continue
+                                    if self.dragged_card_index < len(self.hand_cards):
+                                        card_id = self.hand_cards[self.dragged_card_index]
+                                        if card_id is not None:
+                                            self.market_cards[market][slot] = card_id
+                                            # Remember original hand slot for this market card
+                                            self.market_card_origins[market][slot] = self.dragged_card_index
+                                            # Новая сыгранная карта пока НЕ заблокирована
+                                            self.market_cards_locked[market][slot] = False
+                                            # Initialize CardTurns for cards 11-18
+                                            if card_id in self.card_turns:
+                                                self.market_card_turns[market][slot] = self.card_turns[card_id]
+                                            # Remove from hand slot
+                                            self.hand_cards[self.dragged_card_index] = None
+                                            # Mark pending draw for empty slot
+                                            self.pending_draws += 1
+                                            dropped = True
+                                            break
+                                # Moving from market to market
+                                elif self.dragged_card_source == "market":
+                                    src_market = self.dragged_card_market
+                                    src_slot = self.dragged_card_market_slot
+                                    # If dropping back onto the same placeholder, do nothing (just cancel drag)
+                                    if market == src_market and slot == src_slot:
+                                        dropped = True
+                                        break
+                                    # Only allow drop to FIRST free placeholder of other markets
+                                    if market == src_market:
+                                        continue
+                                    first_free = None
+                                    for s in range(3):
+                                        if self.market_cards[market].get(s) is None:
+                                            first_free = s
+                                            break
+                                    if first_free is None or slot != first_free:
+                                        continue
+                                    card_id = self.market_cards[src_market].get(src_slot)
+                                    if card_id is not None:
+                                        self.market_cards[market][slot] = card_id
+                                        self.market_cards[src_market][src_slot] = None
+                                        # Move origin info along with the card
+                                        origin_slot = self.market_card_origins[src_market].pop(src_slot, None)
+                                        if origin_slot is not None:
+                                            self.market_card_origins[market][slot] = origin_slot
+                                        # Переносим флаг заблокированности вместе с картой
+                                        locked_flag = self.market_cards_locked[src_market].pop(src_slot, False)
+                                        self.market_cards_locked[market][slot] = locked_flag
+                                        # Move CardTurns along with the card
+                                        turns = self.market_card_turns[src_market].pop(src_slot, None)
+                                        if turns is not None:
+                                            self.market_card_turns[market][slot] = turns
+                                        dropped = True
+                                        break
                     # Try to drop card on hand placeholder (return or move to another hand slot)
                     if not dropped:
                         for ph_info in self.bottom_placeholders:
@@ -2448,6 +3351,7 @@ class GameplayPage:
                     self.dragged_card_source = None
                     self.dragged_card_market = None
                     self.dragged_card_market_slot = None
+                    self.dragged_card_side_slot = None
                     self.drag_offset = (0, 0)
         
         return None
@@ -2501,7 +3405,7 @@ class GameplayPage:
         
         # Check if this is a boss fight - if so, apply boss reward instead of regular card reward
         if self.is_boss_fight and self.boss_index is not None:
-            boss_number = get_boss_number_from_index(self.level_number, self.boss_index)
+            boss_number = get_boss_number_from_index(self.level_number, self.boss_index, self.defeated_count)
             if boss_number:
                 boss_rewards = load_boss_rewards()
                 boss_entry = boss_rewards.get(boss_number) or {}
@@ -2544,6 +3448,12 @@ class GameplayPage:
             if reward1_list:
                 # Randomly select one card from Reward1
                 reward_card_number1 = random.choice(reward1_list)
+                if reward_card_number1 == REWARD_TOKEN_RANDOM_RED:
+                    picked = pick_random_red_card_for_level(self.level_number)
+                    if picked is None:
+                        print(f"WARNING: 'Red Card' reward requested but no available red cards for level {self.level_number}.")
+                        return
+                    reward_card_number1 = picked
                 if reward_card_number1 == 0:
                     reward_card_number1 = 100
                 
@@ -2559,11 +3469,21 @@ class GameplayPage:
                 # Add reward card from Reward2 if present (randomly select one card if it's a list)
                 if reward2_list:
                     reward_card_number2 = random.choice(reward2_list)
-                    if reward_card_number2 == 0:
-                        reward_card_number2 = 100
-                    earned_reward_cards[self.level_number].append(reward_card_number2)
-                    self.last_earned_cards.append(reward_card_number2)
-                    print(f"Earned reward cards {reward_card_number1} (from Reward1) and {reward_card_number2} (from Reward2) for level {self.level_number}, round {round_num}, button {button}")
+                    if reward_card_number2 == REWARD_TOKEN_RANDOM_RED:
+                        picked = pick_random_red_card_for_level(self.level_number)
+                        if picked is None:
+                            print(f"WARNING: 'Red Card' reward requested but no available red cards for level {self.level_number}.")
+                            reward_card_number2 = None
+                        else:
+                            reward_card_number2 = picked
+                    if reward_card_number2 is not None:
+                        if reward_card_number2 == 0:
+                            reward_card_number2 = 100
+                        earned_reward_cards[self.level_number].append(reward_card_number2)
+                        self.last_earned_cards.append(reward_card_number2)
+                        print(f"Earned reward cards {reward_card_number1} (from Reward1) and {reward_card_number2} (from Reward2) for level {self.level_number}, round {round_num}, button {button}")
+                    else:
+                        print(f"Earned reward card {reward_card_number1} (Reward2 skipped) for level {self.level_number}, round {round_num}, button {button}")
                 else:
                     print(f"Earned reward card {reward_card_number1} (randomly selected from {reward1_list}) for level {self.level_number}, round {round_num}, button {button}")
                 
@@ -2575,10 +3495,14 @@ class GameplayPage:
     
     def _reset_earned_cards_for_level(self):
         """Reset earned reward cards for current level when player loses"""
-        global earned_reward_cards, global_dobor
+        global earned_reward_cards, global_dobor, forced_start_hand_cards_by_level
         if self.level_number in earned_reward_cards:
             earned_reward_cards[self.level_number] = []
             print(f"Reset earned cards for level {self.level_number} due to defeat")
+        # Reset forced starting-hand cards (e.g., RedCard boss reward) when player loses the level
+        if self.level_number in forced_start_hand_cards_by_level:
+            forced_start_hand_cards_by_level[self.level_number] = []
+            print(f"Reset forced starting-hand cards for level {self.level_number} due to defeat")
         # Reset Dobor to default value (1) when player loses
         global_dobor = 1
         self.Dobor = 1
@@ -2866,6 +3790,12 @@ class GameplayPage:
             for slot, card_id in list(self.market_cards[market].items()):
                 if card_id is not None:
                     self.market_cards_locked[market][slot] = True
+
+    def _lock_side_cards(self):
+        """Lock all currently played Type=2 cards on the right-side TOP panel for future turns."""
+        for slot, card_id in enumerate(self.side_cards_top):
+            if card_id is not None:
+                self.side_cards_locked_top[slot] = True
 
     def _draw_pending_cards(self):
         """Prepare hand compaction animation and subsequent draw after end-turn animations.
@@ -3299,6 +4229,17 @@ class GameplayPage:
     def draw(self):
         # Clear market placeholders list at start of draw
         self.market_placeholders = []
+
+        # Determine dragged hand card type (for zone highlight / drop rules)
+        dragged_hand_card_id = None
+        dragged_hand_card_type = 1
+        if (
+            self.dragged_card_source == "hand"
+            and self.dragged_card_index is not None
+            and self.dragged_card_index < len(self.hand_cards)
+        ):
+            dragged_hand_card_id = self.hand_cards[self.dragged_card_index]
+            dragged_hand_card_type = self.get_card_type(dragged_hand_card_id)
         
         # Draw background
         if self.background:
@@ -3630,7 +4571,7 @@ class GameplayPage:
                         # Highlight available market placeholder for dropping a card
                         highlight = False
                         # When dragging from hand: only FIRST free slot in each market is valid
-                        if self.dragged_card_source == "hand":
+                        if self.dragged_card_source == "hand" and dragged_hand_card_type != 2:
                             # find first free slot for this market
                             first_free = None
                             for s in range(num_placeholders):
@@ -3659,43 +4600,6 @@ class GameplayPage:
                         if highlight:
                             pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
 
-            # ------------------------------------------------------------
-            # Draw placeholders inside the right-side framed areas
-            # ------------------------------------------------------------
-            self.side_placeholders_top = []
-            self.side_placeholders_bottom = []
-            ph_img = self.placeholder_side or self.placeholder_market
-            if ph_img:
-                # Top area: 2 rows x 3 columns
-                cols = 3
-                rows = 2
-                ph_w = ph_img.get_width()
-                ph_h = ph_img.get_height()
-                # Even padding inside frame
-                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
-                pad_y = max(10.0, (right_top_h - rows * ph_h) / (rows + 1))
-                for r in range(rows):
-                    for c in range(cols):
-                        x = right_frame_x + pad_x * (c + 1) + ph_w * c
-                        y = right_top_y + pad_y * (r + 1) + ph_h * r
-                        rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
-                        slot = r * cols + c
-                        self.side_placeholders_top.append({"slot": slot, "rect": rect})
-                        self.screen.blit(ph_img, rect.topleft)
-
-                # Bottom area: 1 row x 3 columns
-                cols = 3
-                rows = 1
-                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
-                pad_y = max(10.0, (right_bot_h - rows * ph_h) / (rows + 1))
-                for c in range(cols):
-                    x = right_frame_x + pad_x * (c + 1) + ph_w * c
-                    y = right_bot_y + pad_y
-                    rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
-                    slot = c
-                    self.side_placeholders_bottom.append({"slot": slot, "rect": rect})
-                    self.screen.blit(ph_img, rect.topleft)
-                
                 # Draw price animation in center of frame if currently animating this market
                 if (self.current_price_animation and 
                     self.current_price_animation['market'] == i):
@@ -3718,6 +4622,76 @@ class GameplayPage:
                         anim_x = frame_x + (frame_width - self.animation_width) // 2
                         anim_y = frame_y + (frame_height - self.animation_height) // 2 - 20
                         self.screen.blit(anim_img, (anim_x, anim_y))
+
+            # ------------------------------------------------------------
+            # Draw placeholders inside the right-side framed areas
+            # ------------------------------------------------------------
+            self.side_placeholders_top = []
+            self.side_placeholders_bottom = []
+            ph_img = self.placeholder_side or self.placeholder_market
+            if ph_img:
+                # If dragging a Type=2 card from hand, highlight ONLY the first free slot
+                # on the TOP right-side panel (6 slots). Bottom (3 slots) must NOT be used.
+                first_free_side_top = None
+                if self.dragged_card_source == "hand" and dragged_hand_card_type == 2:
+                    for s in range(len(self.side_cards_top)):
+                        if self.side_cards_top[s] is None:
+                            first_free_side_top = s
+                            break
+
+                # Top area: 2 rows x 3 columns
+                cols = 3
+                rows = 2
+                ph_w = ph_img.get_width()
+                ph_h = ph_img.get_height()
+                # Even padding inside frame
+                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
+                pad_y = max(10.0, (right_top_h - rows * ph_h) / (rows + 1))
+                for r in range(rows):
+                    for c in range(cols):
+                        x = right_frame_x + pad_x * (c + 1) + ph_w * c
+                        y = right_top_y + pad_y * (r + 1) + ph_h * r
+                        rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
+                        slot = r * cols + c
+                        self.side_placeholders_top.append({"slot": slot, "rect": rect})
+                        self.screen.blit(ph_img, rect.topleft)
+
+                        # Draw card if placed in this top slot
+                        if 0 <= slot < len(self.side_cards_top):
+                            card_id = self.side_cards_top[slot]
+                        else:
+                            card_id = None
+                        if card_id is not None and not (
+                            self.dragged_card_source == "side_top" and self.dragged_card_side_slot == slot
+                        ):
+                            img = (
+                                self.card_images_side.get(card_id)
+                                or self.card_images_market.get(card_id)
+                                or self.card_images_bottom.get(card_id)
+                            )
+                            if img:
+                                card_x = rect.x - 1
+                                card_y = rect.y - 1
+                                self.screen.blit(img, (card_x, card_y))
+                                self.draw_card_action(card_id, card_x, card_y, self.card_size_side)
+                                self.draw_card_turns(card_id, card_x, card_y, self.card_size_side)
+
+                        # Highlight first free top slot for Type=2 cards
+                        if first_free_side_top is not None and slot == first_free_side_top:
+                            pygame.draw.rect(self.screen, GOLD, rect, 4)
+
+                # Bottom area: 1 row x 3 columns
+                cols = 3
+                rows = 1
+                pad_x = max(10.0, (right_frame_w - cols * ph_w) / (cols + 1))
+                pad_y = max(10.0, (right_bot_h - rows * ph_h) / (rows + 1))
+                for c in range(cols):
+                    x = right_frame_x + pad_x * (c + 1) + ph_w * c
+                    y = right_bot_y + pad_y
+                    rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
+                    slot = c
+                    self.side_placeholders_bottom.append({"slot": slot, "rect": rect})
+                    self.screen.blit(ph_img, rect.topleft)
 
         # Draw bottom frame (strategy cards area)
         if self.bottom_frame:
@@ -3799,6 +4773,14 @@ class GameplayPage:
                         if origin_slot is not None and i == origin_slot and self.hand_cards[i] is None:
                             ph_rect = pygame.Rect(slot_x, slot_y, ph_w, ph_h)
                             pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
+                    # Highlight available hand placeholder when dragging from side-top:
+                    # only the ORIGINAL hand slot of this card
+                    if self.dragged_card_source == "side_top":
+                        src_slot = self.dragged_card_side_slot
+                        origin_slot = self.side_card_origins_top.get(src_slot)
+                        if origin_slot is not None and i == origin_slot and self.hand_cards[i] is None:
+                            ph_rect = pygame.Rect(slot_x, slot_y, ph_w, ph_h)
+                            pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
         
         # Draw dragged card on top of everything
         if self.dragged_card_source == "hand" and self.dragged_card_index is not None and self.dragged_card_index < len(self.hand_cards):
@@ -3824,6 +4806,18 @@ class GameplayPage:
                 # Draw CardTurns if this card has one - use remaining turns from market_card_turns
                 remaining_turns = self.market_card_turns[self.dragged_card_market].get(self.dragged_card_market_slot)
                 self.draw_card_turns(card_id, card_x, card_y, self.card_size_market, turns_remaining=remaining_turns)
+        # Draw dragged card from side-top on top
+        if self.dragged_card_source == "side_top" and self.dragged_card_side_slot is not None:
+            slot = self.dragged_card_side_slot
+            card_id = self.side_cards_top[slot] if 0 <= slot < len(self.side_cards_top) else None
+            if card_id is not None:
+                img = self.card_images_side.get(card_id) or self.card_images_market.get(card_id)
+                if img:
+                    card_x = self.dragged_card_pos[0] - self.drag_offset[0]
+                    card_y = self.dragged_card_pos[1] - self.drag_offset[1]
+                    self.screen.blit(img, (card_x, card_y))
+                    self.draw_card_action(card_id, card_x, card_y, self.card_size_side)
+                    self.draw_card_turns(card_id, card_x, card_y, self.card_size_side)
 
         # Draw hand compaction animations on top (когда карты плавно сдвигаются влево)
         if self.hand_compact_anim:
@@ -4472,6 +5466,15 @@ class RoundPage:
         self.font_path = font_path  # Save font path for dynamic font creation
         self.defeated_count = defeated_count  # Number of bosses already defeated on this level
         
+        # Boss number (used for special goal modifiers like Nicolas Appert)
+        self.boss_number = (
+            get_boss_number_from_index(self.level_number, self.boss_index, self.defeated_count)
+            if self.boss_index is not None
+            else None
+        )
+        # Boss 4 (Nicolas Appert): goals are increased by +30%, rounded up to tens
+        self.is_apper_boss = (self.boss_number == 4)
+        
         # Load Back3.png from UI folder (same as level selection screen)
         back3_path = os.path.join("UI", "Back3.png")
         if os.path.exists(back3_path):
@@ -4529,20 +5532,36 @@ class RoundPage:
         # Load round configuration (round count + per-difficulty goals) from RoundsData.csv
         self.rounds_config = self._load_rounds_data()
         level_cfg = self.rounds_config.get(self.level_number, {})
+        levels_cfg = load_levels_config()
         
-        # Determine boss selection for level 2
-        self.boss_selection = 0  # Default to first boss
+        # Determine which "goal set" to use for GoalsLevel2.csv-like goal tables.
+        # IMPORTANT: In GoalsLevel2.csv, the (0/1) selector is NOT "which boss was chosen" (Adam vs Fulton),
+        # it is the stage of the level:
+        #   - 0: before the first boss (columns 1..4 / Boss Round)
+        #   - 1: before the second boss (columns B2_1..B2_4 / Boss Round2)
+        # Using the chosen boss index here causes wrong goals (e.g. Fulton showing B2_* goals in round 1).
+        self.boss_selection = 0
         if self.level_number == 2:
-            self.boss_selection = get_boss_selection_from_filename(self.level_number, self.boss_filename)
+            stage = 0
+            try:
+                stage = int(self.defeated_count or 0)
+            except (TypeError, ValueError):
+                stage = 0
+            # Current CSV supports 2 stages (0/1). Clamp to the supported range.
+            self.boss_selection = 0 if stage <= 0 else 1
         
-        # How many rounds must be completed before the boss unlocks (base value from RoundsData.csv)
-        rounds_cfg_value = level_cfg.get("Rounds")
+        # How many rounds must be completed before the boss unlocks (PRIMARY: LevelsData.csv)
+        rounds_cfg_value = (levels_cfg.get(self.level_number, {}) or {}).get("Rounds")
+        if rounds_cfg_value is None:
+            # Legacy fallback: RoundsData.csv
+            rounds_cfg_value = level_cfg.get("Rounds")
         self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
         
         # Apply boss-specific functional effects that change the number of rounds before boss
         # For example, Robert Fulton (boss 3) has "LevelRounds=LevelRounds+1" in BossRewards.csv
-        boss_number = get_boss_number_from_index(self.level_number, self.boss_index) if self.boss_index is not None else None
-        print(f"DEBUG RoundPage.__init__: level_number={self.level_number}, boss_index={self.boss_index}, boss_number={boss_number}, rounds_required before={self.rounds_required}")
+        # Use defeated_count to correctly determine boss number (especially for level 2, round 1 bosses 4 and 5)
+        boss_number = self.boss_number
+        print(f"DEBUG RoundPage.__init__: level_number={self.level_number}, boss_index={self.boss_index}, defeated_count={self.defeated_count}, boss_number={boss_number}, rounds_required before={self.rounds_required}")
         if boss_number:
             boss_rewards = load_boss_rewards()
             boss_entry = boss_rewards.get(boss_number)
@@ -4576,8 +5595,7 @@ class RoundPage:
         # For level 2, goals will be set dynamically based on round number
         # For other levels, use RoundsData.csv
         if self.level_number == 2:
-            # For level 2, initialize goals from GoalsLevel2.csv for round 1
-            # This ensures buttons are visible from the start
+            # Level 2: initialize goals from GoalsLevel2.csv for round 1
             e_goal = get_level2_goal(1, "e", self.boss_selection, False)
             m_goal = get_level2_goal(1, "m", self.boss_selection, False)
             # Fallback to default values if goals are not found
@@ -4585,19 +5603,60 @@ class RoundPage:
                 e_goal = 50  # Default fallback
             if m_goal is None:
                 m_goal = 70  # Default fallback
+            # Apply Appert goal modifier if needed
+            if self.is_apper_boss:
+                e_goal = apper_goal_boost(e_goal)
+                m_goal = apper_goal_boost(m_goal)
             self.button_goals = {
                 "e": e_goal,
                 "m": m_goal,
                 "h": None,
             }
+        elif self.level_number == 3:
+            # Level 3: initialize goals from GoalsLevel3.csv for round 1
+            e_goal = get_level3_goal(1, "e", self.defeated_count, False)
+            m_goal = get_level3_goal(1, "m", self.defeated_count, False)
+            h_goal = get_level3_goal(1, "h", self.defeated_count, False)
+            # Fallbacks if file is incomplete
+            if e_goal is None:
+                e_goal = 60
+            if m_goal is None:
+                m_goal = 80
+            if h_goal is None:
+                h_goal = 100
+            if self.is_apper_boss:
+                e_goal = apper_goal_boost(e_goal)
+                m_goal = apper_goal_boost(m_goal)
+                h_goal = apper_goal_boost(h_goal)
+            self.button_goals = {"e": e_goal, "m": m_goal, "h": h_goal}
         else:
-            self.button_goals = {
-                "e": level_cfg.get("E"),
-                "m": level_cfg.get("M"),
-                "h": level_cfg.get("H"),
-            }
+            e_goal = level_cfg.get("E")
+            m_goal = level_cfg.get("M")
+            h_goal = level_cfg.get("H")
+            # Level 3: show H button (Hard) even if RoundsData.csv doesn't specify it yet.
+            # Use a sensible derived goal so the button is actually playable.
+            if self.level_number == 3 and h_goal is None:
+                try:
+                    base_m = int(m_goal) if m_goal is not None else 0
+                except (TypeError, ValueError):
+                    base_m = 0
+                # Default: H ≈ +25% from M, rounded up to tens (80 -> 100).
+                if base_m > 0:
+                    h_goal = int(math.ceil((base_m * 1.25) / 10.0) * 10)
+                else:
+                    h_goal = 100
+            if self.is_apper_boss:
+                e_goal = apper_goal_boost(e_goal)
+                m_goal = apper_goal_boost(m_goal)
+                h_goal = apper_goal_boost(h_goal)
+            self.button_goals = {"e": e_goal, "m": m_goal, "h": h_goal}
         
-        self.bosses_required = level_cfg.get("Bosses") or 1
+        # How many bosses must be defeated to complete the level (PRIMARY: LevelsData.csv)
+        bosses_cfg_value = (levels_cfg.get(self.level_number, {}) or {}).get("Bosses")
+        if bosses_cfg_value is None:
+            # Legacy fallback: RoundsData.csv
+            bosses_cfg_value = level_cfg.get("Bosses")
+        self.bosses_required = bosses_cfg_value if bosses_cfg_value and bosses_cfg_value > 0 else 1
         
         # Hide buttons that are not configured for this level
         # For level 2, E and M buttons are always available (loaded from GoalsLevel2.csv)
@@ -4689,32 +5748,22 @@ class RoundPage:
         # Load PopUpReward text from Lang.csv
         self.popup_reward_text = get_text("PopUpReward", "PopUpReward")
         
-        # Map level and boss indices to reward text keys in Lang.csv for boss PopUp display on RoundPage
-        # Format: {(level_number, boss_index): "LangKey"}
-        # On RoundPage, we show BossReward (reward description), not BossText (full description)
-        self.boss_reward_keys = {
-            (1, 0): "Boss1Reward",  # Boss 1 (Watt) for level 1
-            (2, 0): "Boss2Reward",  # Boss 2 (Adam Smith) for level 2
-            (2, 1): "Boss3Reward"   # Boss 3 (Robert Fulton) for level 2
-            # Add more bosses here as needed: (level, boss_index): "BossXReward", etc.
-        }
-        
-        # Store boss reward text for current level
-        # For level 2, use boss_selection (determined from filename); for level 1, use boss_index
-        # Check if this is the last boss on the level
-        # Logic: if defeated_count == bosses_required - 1, then the next boss (this one) is the last boss
-        boss_idx_for_text = self.boss_selection if self.level_number == 2 else self.boss_index
-        is_last_boss = False
-        # If we've defeated (bosses_required - 1) bosses, then the next one is the final boss
+        # Store boss reward text for PopUp on RoundPage.
+        # Prefer deriving the boss number from the filename so this works for any boss roster.
+        # Logic: if defeated_count == bosses_required - 1, then the next boss (this one) is the last boss.
         is_last_boss = (self.defeated_count == self.bosses_required - 1)
-        
         self.boss_text = None
         if is_last_boss:
-            # If this is the last boss, use LastBossReward text
             self.boss_text = get_text("LastBossReward", "LastBossReward")
-        elif (self.level_number, boss_idx_for_text) in self.boss_reward_keys:
-            text_key = self.boss_reward_keys[(self.level_number, boss_idx_for_text)]
-            self.boss_text = get_text(text_key, text_key)
+        else:
+            boss_number_for_text = None
+            if self.boss_filename:
+                boss_number_for_text = get_boss_number_from_filename(self.boss_filename)
+            if not boss_number_for_text and self.boss_index is not None:
+                boss_number_for_text = get_boss_number_from_index(self.level_number, self.boss_index, self.defeated_count)
+            if boss_number_for_text:
+                text_key = f"Boss{boss_number_for_text}Reward"
+                self.boss_text = get_text(text_key, text_key)
         
         # Load rewards from Rewards.csv
         # Format: {(level, round, button): {'reward1': [list of card_numbers or single int], 'reward2': card_number or None}}
@@ -4741,14 +5790,11 @@ class RoundPage:
                             reward1_list = []
                             for card_str in reward1_str.split(','):
                                 card_str = card_str.strip()
-                                if card_str:
-                                    try:
-                                        card_num = int(card_str)
-                                        if card_num == 0:
-                                            card_num = 100
-                                        reward1_list.append(card_num)
-                                    except ValueError:
-                                        pass
+                                if not card_str:
+                                    continue
+                                token = parse_reward_card_token(card_str)
+                                if token is not None:
+                                    reward1_list.append(token)
                             
                             if reward1_list:
                                 # Parse Reward2 - can be single card, multiple cards separated by comma, or None
@@ -4758,14 +5804,9 @@ class RoundPage:
                                         card_str = card_str.strip()
                                         if not card_str:
                                             continue
-                                        try:
-                                            card_num = int(card_str)
-                                        except ValueError:
-                                            continue
-                                        if card_num == 0:
-                                            card_num = 100
-                                        if card_num >= 0:  # Allow 0 as valid card
-                                            reward2_list.append(card_num)
+                                        token = parse_reward_card_token(card_str)
+                                        if token is not None:
+                                            reward2_list.append(token)
                                 
                                 reward_entry = {
                                     'reward1': reward1_list,
@@ -4790,6 +5831,19 @@ class RoundPage:
         else:
             print(f"WARNING: RandomDropGain.png not found: {random_drop_path}")
             self.random_drop_image = None
+
+        # Load RandomRed.png image for "Red Card" rewards
+        random_red_path = os.path.join("RoundPage", "RandomRed.png")
+        if os.path.exists(random_red_path):
+            random_red_original = pygame.image.load(random_red_path).convert_alpha()
+            # Scale to match PopUp card size (100x172)
+            target_width = 100
+            market_card_ratio = 99 / 171.0
+            target_height = int(target_width / market_card_ratio)
+            self.random_red_image = pygame.transform.smoothscale(random_red_original, (target_width, target_height)).convert_alpha()
+        else:
+            print(f"WARNING: RandomRed.png not found: {random_red_path}")
+            self.random_red_image = None
         
         # Cache for loaded reward card images
         self.reward_card_images = {}
@@ -4866,23 +5920,59 @@ class RoundPage:
             return 0, 0
         # Each subsequent round shifts +150 on X and -100 on Y
         shift = round_num - 1
-        return 150 * shift, -100 * shift
+        offset_x = 150 * shift
+        offset_y = -100 * shift
+
+        # Keep the TOPMOST icon within screen bounds.
+        # If the highest icon (usually H) goes above the top edge, shift the whole group down.
+        try:
+            tops = []
+            for key in ("h", "m", "e"):
+                base_rect = self.button_base_rects.get(key)
+                if base_rect:
+                    tops.append(base_rect.move(offset_x, offset_y).top)
+            if tops:
+                min_top = min(tops)
+                if min_top < 0:
+                    offset_y += -min_top
+        except Exception:
+            pass
+
+        return offset_x, offset_y
     
     def _refresh_button_goals(self):
-        """Update button goals based on current round for level 2."""
-        if self.level_number != 2:
+        """Update button goals based on current round for level 2/3 (CSV-driven)."""
+        if self.level_number not in (2, 3):
             return
         
         current_round = self.get_current_active_round()
         if current_round is None:
             return
-        
-        # Update goals from GoalsLevel2.csv
-        e_goal = get_level2_goal(current_round, "e", self.boss_selection, False)
-        m_goal = get_level2_goal(current_round, "m", self.boss_selection, False)
-        
-        self.button_goals["e"] = e_goal
-        self.button_goals["m"] = m_goal
+
+        if self.level_number == 2:
+            # Update goals from GoalsLevel2.csv
+            e_goal = get_level2_goal(current_round, "e", self.boss_selection, False)
+            m_goal = get_level2_goal(current_round, "m", self.boss_selection, False)
+            if self.is_apper_boss:
+                e_goal = apper_goal_boost(e_goal)
+                m_goal = apper_goal_boost(m_goal)
+            self.button_goals["e"] = e_goal
+            self.button_goals["m"] = m_goal
+        elif self.level_number == 3:
+            # Update goals from GoalsLevel3.csv
+            e_goal = get_level3_goal(current_round, "e", self.defeated_count, False)
+            m_goal = get_level3_goal(current_round, "m", self.defeated_count, False)
+            h_goal = get_level3_goal(current_round, "h", self.defeated_count, False)
+            if self.is_apper_boss:
+                e_goal = apper_goal_boost(e_goal)
+                m_goal = apper_goal_boost(m_goal)
+                h_goal = apper_goal_boost(h_goal)
+            if e_goal is not None:
+                self.button_goals["e"] = e_goal
+            if m_goal is not None:
+                self.button_goals["m"] = m_goal
+            if h_goal is not None:
+                self.button_goals["h"] = h_goal
     
     def _refresh_button_rects(self):
         """Recompute button rects based on the current active round with offsets."""
@@ -4959,6 +6049,9 @@ class RoundPage:
     
     def _load_reward_card(self, card_number):
         """Load and cache a reward card image. For cards 11-18, uses base card and draws CardAction/CardTurns."""
+        # Special Rewards.csv token preview: "Red Card" -> show RandomRed.png
+        if card_number == REWARD_TOKEN_RANDOM_RED:
+            return getattr(self, "random_red_image", None)
         # Safety net: legacy configs may still reference card 0
         if card_number == 0:
             card_number = 100
@@ -5125,6 +6218,9 @@ class RoundPage:
                         boss_x = anchor_rect.centerx + 200
                         boss_y = anchor_rect.centery - 70
                         self.boss_icon_rect = pygame.Rect(boss_x - 50, boss_y - 50, 100, 100)
+                        # If boss icon goes above the screen, clamp it to the top edge.
+                        if self.boss_icon_rect.top < 0:
+                            self.boss_icon_rect.top = 0
                     
                     # Load animation frames from boss folder
                     base_name = os.path.splitext(boss_filename)[0]  # "1_Watt" or "2_AdamSmith"
@@ -5396,15 +6492,23 @@ class RoundPage:
                                 # Get boss goal from GoalsLevel2.csv
                                 e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
                                 m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
-                                # Use E goal for boss (or M if E is not available)
                                 boss_goal = e_boss_goal if e_boss_goal is not None else m_boss_goal
-                                self.Goal = boss_goal if boss_goal is not None else 70
+                                boss_goal = boss_goal if boss_goal is not None else 70
+                                self.Goal = apper_goal_boost(boss_goal) if self.is_apper_boss else boss_goal
+                            elif self.level_number == 3:
+                                boss_goal = (
+                                    get_level3_goal(None, "e", self.defeated_count, True)
+                                    or get_level3_goal(None, "m", self.defeated_count, True)
+                                    or 350
+                                )
+                                self.Goal = apper_goal_boost(boss_goal) if self.is_apper_boss else boss_goal
                             else:
                                 boss_key = (self.level_number, self.boss_index)
                                 if boss_key in self.boss_goals:
-                                    self.Goal = self.boss_goals[boss_key]
+                                    boss_goal = self.boss_goals[boss_key]
+                                    self.Goal = apper_goal_boost(boss_goal) if self.is_apper_boss else boss_goal
                                 else:
-                                    self.Goal = 70  # Default fallback
+                                    self.Goal = apper_goal_boost(70) if self.is_apper_boss else 70  # Default fallback
                         return "boss_clicked"
         
         return None
@@ -5540,23 +6644,24 @@ class RoundPage:
             # Draw text on PopUp if a button or boss is hovered
             if self.popup_button is not None:
                 if self.popup_button == "boss":
-                    # Boss is hovered - show PopUpReward header and boss reward text
-                    if self.boss_text:
-                        # Show PopUpReward header followed by boss reward text on new line
-                        # Format: "Награда за победу:\n[reward text]"
-                        full_text = f"{self.popup_reward_text}\n{self.boss_text}"
+                    # Boss is hovered - show the same structure as regular rounds:
+                    # PopUpRound + Goal$, then PopUpReward + boss reward text below.
+                    if self.level_number == 2:
+                        e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
+                        m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
+                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
+                    elif self.level_number == 3:
+                        e_boss_goal = get_level3_goal(None, "e", self.defeated_count, True)
+                        m_boss_goal = get_level3_goal(None, "m", self.defeated_count, True)
+                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
                     else:
-                        # Fallback: show goal if boss text is not available
-                        if self.level_number == 2:
-                            # Get boss goal from GoalsLevel2.csv
-                            e_boss_goal = get_level2_goal(None, "e", self.boss_selection, True)
-                            m_boss_goal = get_level2_goal(None, "m", self.boss_selection, True)
-                            goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
-                        else:
-                            boss_key = (self.level_number, self.boss_index)
-                            goal_value = self.boss_goals.get(boss_key, 0)
-                        # Build text: PopUpRound text + goal + "$"
-                        full_text = f"{self.popup_round_text} {goal_value}$"
+                        boss_key = (self.level_number, self.boss_index)
+                        goal_value = self.boss_goals.get(boss_key, 0)
+                    if self.is_apper_boss:
+                        goal_value = apper_goal_boost(goal_value) or 0
+                    
+                    # Build text: PopUpRound text + goal + "$"
+                    full_text = f"{self.popup_round_text} {goal_value}$"
                 else:
                     # Button is hovered
                     # Get goal value - for level 2, use current round; for others use button_goals
@@ -5566,8 +6671,16 @@ class RoundPage:
                             goal_value = get_level2_goal(current_round, self.popup_button, self.boss_selection, False) or 0
                         else:
                             goal_value = self.button_goals.get(self.popup_button, 0) or 0
+                    elif self.level_number == 3:
+                        current_round = self.get_current_active_round()
+                        if current_round is not None:
+                            goal_value = get_level3_goal(current_round, self.popup_button, self.defeated_count, False) or 0
+                        else:
+                            goal_value = self.button_goals.get(self.popup_button, 0) or 0
                     else:
                         goal_value = self.button_goals.get(self.popup_button, 0) or 0
+                    if self.is_apper_boss:
+                        goal_value = apper_goal_boost(goal_value) or 0
                     
                     # Build text: PopUpRound text + goal + "$"
                     full_text = f"{self.popup_round_text} {goal_value}$"
@@ -5585,8 +6698,21 @@ class RoundPage:
                     text_surface = self.popup_font.render(line, True, PAPER_COLOR)
                     self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
                 
-                # Draw reward text below goal text (only for buttons E and M, not for boss)
-                if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
+                # Draw boss reward text below goal text (for boss hover)
+                if self.popup_button == "boss":
+                    reward_text_y = text_start_y + len(lines) * line_height
+                    reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
+                    self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
+                    
+                    if self.boss_text:
+                        boss_reward_lines = wrap_text(self.boss_text, self.popup_font, popup_text_width)
+                        reward_text_y += line_height
+                        for i, line in enumerate(boss_reward_lines):
+                            reward_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                            self.screen.blit(reward_surface, (text_start_x, reward_text_y + i * line_height))
+                
+                # Draw reward text below goal text (for round buttons E/M/H, not for boss)
+                if self.popup_button != "boss" and self.popup_button in ["e", "m", "h"]:
                     # Determine round number - use current active round
                     round_num = self.get_current_active_round()
                     if round_num is None:
@@ -5594,7 +6720,12 @@ class RoundPage:
                         if self.level_number == 2:
                             round_num = self.rounds_required if hasattr(self, 'rounds_required') else 1
                         else:
-                            round_num = 1 if self.popup_button == "e" else 2
+                            if self.popup_button == "e":
+                                round_num = 1
+                            elif self.popup_button == "m":
+                                round_num = 2
+                            else:
+                                round_num = 3
                     reward_key = (self.level_number, round_num, self.popup_button.upper())
                     reward_data = self.rewards.get(reward_key)
                     
@@ -5615,8 +6746,8 @@ class RoundPage:
                                 additional_text_surface = self.popup_font.render(line, True, PAPER_COLOR)
                                 self.screen.blit(additional_text_surface, (text_start_x, reward_text_y + i * line_height))
                 
-                # Draw reward card below reward text for buttons E and M (not for boss)
-                if self.popup_button != "boss" and self.popup_button in ["e", "m"]:
+                # Draw reward card below reward text for round buttons E/M/H (not for boss)
+                if self.popup_button != "boss" and self.popup_button in ["e", "m", "h"]:
                     # Determine round number - use current active round
                     round_num = self.get_current_active_round()
                     if round_num is None:
@@ -5624,7 +6755,12 @@ class RoundPage:
                         if self.level_number == 2:
                             round_num = self.rounds_required if hasattr(self, 'rounds_required') else 1
                         else:
-                            round_num = 1 if self.popup_button == "e" else 2
+                            if self.popup_button == "e":
+                                round_num = 1
+                            elif self.popup_button == "m":
+                                round_num = 2
+                            else:
+                                round_num = 3
                     reward_key = (self.level_number, round_num, self.popup_button.upper())
                     reward_data = self.rewards.get(reward_key)
                     
@@ -5636,10 +6772,17 @@ class RoundPage:
                         reward2_list = reward2 if isinstance(reward2, list) else ([reward2] if reward2 is not None else [])
                         
                         if reward1_list:
-                            # Check if Reward1 has multiple cards (random reward) and any card is in range 10-19
-                            has_random_reward1 = len(reward1_list) > 1 and any(10 <= card <= 19 for card in reward1_list)
-                            # Check if Reward2 has multiple cards (random reward) and any card is in range 10-19
-                            has_random_reward2 = len(reward2_list) > 1 and any(10 <= card <= 19 for card in reward2_list)
+                            # Special Rewards.csv token: "Red Card" -> random red card icon
+                            has_random_red1 = REWARD_TOKEN_RANDOM_RED in reward1_list
+                            has_random_red2 = REWARD_TOKEN_RANDOM_RED in reward2_list
+
+                            # Random reward (legacy): pool of cards 10-19 -> show RandomDropGain.png
+                            has_random_reward1 = (not has_random_red1) and len(reward1_list) > 1 and any(
+                                isinstance(card, int) and 10 <= card <= 19 for card in reward1_list
+                            )
+                            has_random_reward2 = (not has_random_red2) and len(reward2_list) > 1 and any(
+                                isinstance(card, int) and 10 <= card <= 19 for card in reward2_list
+                            )
                             
                             # Calculate position: below the reward text (accounting for additional text if present)
                             reward_text_y = text_start_y + len(lines) * line_height
@@ -5653,7 +6796,52 @@ class RoundPage:
                             card_spacing = 5  # Spacing between reward text and card
                             card_y = reward_text_y + line_height + (additional_text_lines_count * line_height) + card_spacing
                             
-                            if has_random_reward1 and self.random_drop_image:
+                            if has_random_red1 and self.random_red_image:
+                                # Show RandomRed.png for Reward1
+                                card_width = int(self.random_red_image.get_width() * 0.75)
+                                card_height = int(self.random_red_image.get_height() * 0.75)
+                                scaled_random1 = pygame.transform.smoothscale(self.random_red_image, (card_width, card_height)).convert_alpha()
+                                
+                                # Build optional Reward2 surface (random icon OR actual card),
+                                # so E can show 2 rewards even when Reward2 is a single card.
+                                reward2_surface = None
+                                reward2_width = 0
+                                reward2_height = 0
+                                if reward2 is not None:
+                                    if has_random_red2 and self.random_red_image:
+                                        reward2_surface = pygame.transform.smoothscale(self.random_red_image, (card_width, card_height)).convert_alpha()
+                                        reward2_width, reward2_height = card_width, card_height
+                                    elif has_random_reward2 and self.random_drop_image:
+                                        reward2_surface = pygame.transform.smoothscale(self.random_drop_image, (card_width, card_height)).convert_alpha()
+                                        reward2_width, reward2_height = card_width, card_height
+                                    else:
+                                        reward2_card = reward2_list[0] if reward2_list else None
+                                        if reward2_card is not None:
+                                            reward2_image = self._load_reward_card(reward2_card)
+                                            if reward2_image:
+                                                reward2_width = int(reward2_image.get_width() * 0.75)
+                                                reward2_height = int(reward2_image.get_height() * 0.75)
+                                                reward2_surface = pygame.transform.smoothscale(
+                                                    reward2_image, (reward2_width, reward2_height)
+                                                ).convert_alpha()
+                                
+                                # Calculate total width for cards with spacing
+                                card_spacing_between = 10  # Spacing between cards
+                                total_cards_width = card_width
+                                if reward2_surface is not None:
+                                    total_cards_width += card_spacing_between + reward2_width
+                                
+                                # Center both cards together
+                                cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
+                                
+                                # Draw RandomDropGain.png first (on the left) - Reward1
+                                self.screen.blit(scaled_random1, (cards_start_x, card_y))
+                                cards_start_x += card_width + card_spacing_between
+                                
+                                # Draw Reward2 (on the right) if present
+                                if reward2_surface is not None:
+                                    self.screen.blit(reward2_surface, (cards_start_x, card_y))
+                            elif has_random_reward1 and self.random_drop_image:
                                 # Show RandomDropGain.png for Reward1
                                 card_width = int(self.random_drop_image.get_width() * 0.75)
                                 card_height = int(self.random_drop_image.get_height() * 0.75)
@@ -5665,7 +6853,10 @@ class RoundPage:
                                 reward2_width = 0
                                 reward2_height = 0
                                 if reward2 is not None:
-                                    if has_random_reward2 and self.random_drop_image:
+                                    if has_random_red2 and self.random_red_image:
+                                        reward2_surface = pygame.transform.smoothscale(self.random_red_image, (card_width, card_height)).convert_alpha()
+                                        reward2_width, reward2_height = card_width, card_height
+                                    elif has_random_reward2 and self.random_drop_image:
                                         reward2_surface = pygame.transform.smoothscale(self.random_drop_image, (card_width, card_height)).convert_alpha()
                                         reward2_width, reward2_height = card_width, card_height
                                     else:
@@ -5729,8 +6920,18 @@ class RoundPage:
                                         if reward2 is not None:
                                             # If Reward2 is a list, show first card or RandomDropGain if multiple
                                             if isinstance(reward2, list) and len(reward2) > 0:
-                                                has_random_reward2 = len(reward2) > 1 and any(10 <= card <= 19 for card in reward2)
-                                                if has_random_reward2 and self.random_drop_image:
+                                                has_random_red2 = REWARD_TOKEN_RANDOM_RED in reward2
+                                                has_random_reward2 = (not has_random_red2) and len(reward2) > 1 and any(
+                                                    isinstance(card, int) and 10 <= card <= 19 for card in reward2
+                                                )
+                                                if has_random_red2 and self.random_red_image:
+                                                    reward2_width = int(self.random_red_image.get_width() * 0.75)
+                                                    reward2_height = int(self.random_red_image.get_height() * 0.75)
+                                                    scaled_reward2 = pygame.transform.smoothscale(self.random_red_image, (reward2_width, reward2_height)).convert_alpha()
+                                                    reward2_x = cards_start_x
+                                                    reward2_y = card_y
+                                                    self.screen.blit(scaled_reward2, (reward2_x, reward2_y))
+                                                elif has_random_reward2 and self.random_drop_image:
                                                     reward2_width = int(self.random_drop_image.get_width() * 0.75)
                                                     reward2_height = int(self.random_drop_image.get_height() * 0.75)
                                                     scaled_reward2 = pygame.transform.smoothscale(self.random_drop_image, (reward2_width, reward2_height)).convert_alpha()
@@ -5838,6 +7039,9 @@ if __name__ == "__main__":
     # Load language (default: RU/RUS)
     load_language(CURRENT_LANGUAGE)
     
+    # Validate levels and rounds config (RoundsData.csv vs LEVEL_BOSS_ROUNDS)
+    validate_levels_and_rounds_config()
+    
     # Main game loop
     while True:
         # Start page
@@ -5869,13 +7073,24 @@ if __name__ == "__main__":
                 except Exception:
                     continue
 
+                # Build the per-run deck of available red cards on LEVEL selection.
+                # Red cards are 100 < id < 200 and are included based on Cards.csv Open/Variable.
+                active_red_cards_level = level_num
+                active_red_cards_deck = build_red_cards_deck_for_level(level_num)
+                print(f"Built red cards deck for level {level_num}: {active_red_cards_deck}")
+
                 bosses_required = get_bosses_required(level_num, rounds_config)
                 bp_state = boss_progress.setdefault(
                     level_num,
-                    {"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []},
+                    {"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": [], "roster": None},
                 )
                 if bp_state["defeated"] >= bosses_required:
-                    bp_state.update({"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": []})
+                    bp_state.update({"defeated": 0, "last_rect": None, "lines": [], "defeated_bosses": [], "roster": None})
+
+                # Level 3: generate and pin 3 mandatory bosses (no choice) for this run
+                if level_num == 3:
+                    roster = _ensure_level3_roster(bp_state, bosses_required=bosses_required)
+                    LEVEL_BOSS_ROUNDS[3] = roster
 
                 # Boss selection loop
                 while True:
@@ -5932,6 +7147,7 @@ if __name__ == "__main__":
                             level_number=boss_level,
                             boss_index=boss_index,
                             round_num=round_num,
+                            defeated_count=bp_state["defeated"],  # Pass defeated_count for regular rounds too
                         )
                         gameplay_result = gameplay_page.run()
 
@@ -5983,9 +7199,18 @@ if __name__ == "__main__":
                                 )
 
                             if bp_state["defeated"] >= bosses_required:
+                                # Level completed: clear forced starting-hand cards for this level
+                                if boss_level in forced_start_hand_cards_by_level:
+                                    forced_start_hand_cards_by_level[boss_level] = []
                                 if boss_level == 1:
                                     level_1_boss_defeated = True
                                     print("Level 1 boss defeated! Unlocking level 2")
+                                elif boss_level == 2:
+                                    level_2_boss_defeated = True
+                                    print("Level 2 completed! Unlocking level 3")
+                                elif boss_level == 3:
+                                    level_3_boss_defeated = True
+                                    print("Level 3 completed! Unlocking level 4")
                                 break
 
                             continue
