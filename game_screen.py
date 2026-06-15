@@ -1,0 +1,373 @@
+import os
+import sys
+
+import pygame
+
+from asset_loaders import load_scaled_background, load_scaled_image
+from level_screen_helpers import (
+    build_normal_mode_layout,
+    build_test_mode_layout,
+    compute_picture_position,
+    load_primary_level_assets,
+    load_test_level_pictures,
+)
+from shared_utils import wrap_text
+
+
+SCREEN_WIDTH = 1680
+SCREEN_HEIGHT = 1050
+FPS = 60
+
+BLACK = (0, 0, 0)
+PAPER_COLOR = (83, 76, 70)
+
+
+class GameScreen:
+    def __init__(self, screen, background, font_path, test_mode=False, lang_dict=None, progress_flags=None):
+        self.screen = screen
+        self.clock = pygame.time.Clock()
+        self.test_mode = test_mode
+        self.lang = lang_dict or {}
+        self.progress_flags = progress_flags or {}
+
+        back3_path = os.path.join("UI", "Back3.png")
+        self.background = load_scaled_background(
+            back3_path,
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            fallback_surface=background,
+            warning_message="WARNING: Back3.png not found:",
+        )
+
+        levelcard_path = os.path.join("LevelPage", "LevelCard.jpg")
+        self.levelcard_image = load_scaled_image(
+            levelcard_path,
+            scale_factor=0.8,
+            warning_message="WARNING: LevelCard.jpg not found:",
+        )
+
+        padding_x = 40
+        padding_y = 75
+        self.card_position = (padding_x, padding_y)
+
+        self.font_card = pygame.font.Font(font_path, 48)
+        self.font_card_desc = pygame.font.Font(font_path, 32)
+        self._text_surface_cache = {}
+        self._wrapped_text_cache = {}
+
+        startarrow_path = os.path.join("LevelPage", "StartArrow.jpg")
+        self.startarrow_image = load_scaled_image(
+            startarrow_path,
+            scale_factor=0.5,
+            warning_message="WARNING: StartArrow.jpg not found:",
+        )
+
+        if self.levelcard_image and self.startarrow_image:
+            card_width = self.levelcard_image.get_width()
+            card_height = self.levelcard_image.get_height()
+            arrow_width = self.startarrow_image.get_width()
+            arrow_height = self.startarrow_image.get_height()
+            arrow_padding = 15
+            self.arrow_position = (
+                self.card_position[0] + card_width - arrow_width - arrow_padding,
+                self.card_position[1] + card_height - arrow_height - arrow_padding,
+            )
+            self.arrow_rect = pygame.Rect(self.arrow_position[0], self.arrow_position[1], arrow_width, arrow_height)
+        else:
+            self.arrow_position = (0, 0)
+            self.arrow_rect = None
+
+        self.card2_position = None
+        self.arrow2_rect = None
+        self.arrow2_position = (0, 0)
+        self.card3_position = None
+        self.arrow3_rect = None
+        self.arrow3_position = (0, 0)
+        self.card4_position = None
+        self.arrow4_rect = None
+        self.arrow4_position = (0, 0)
+
+        primary_assets = load_primary_level_assets()
+        self.level1_picture = primary_assets["level1_picture"]
+        self.level2_picture = primary_assets["level2_picture"]
+        self.level3_picture = primary_assets["level3_picture"]
+        self.level4_picture = primary_assets["level4_picture"]
+
+        self.scroll_y = 0
+        self.max_scroll_y = 0
+        self.card1_rect = None
+
+        if self.test_mode:
+            test_layout = build_test_mode_layout(
+                self.levelcard_image,
+                self.startarrow_image,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+                padding_y,
+            )
+            self.num_levels = test_layout["num_levels"]
+            self.cards_per_row = test_layout["cards_per_row"]
+            self.cards_per_col = test_layout["cards_per_col"]
+            self.test_card_positions = test_layout["test_card_positions"]
+            self.test_card_rects = test_layout["test_card_rects"]
+            self.max_scroll_y = test_layout["max_scroll_y"]
+            self.test_level_pictures = load_test_level_pictures(self.num_levels)
+        else:
+            normal_layout = build_normal_mode_layout(
+                self.levelcard_image,
+                self.startarrow_image,
+                SCREEN_WIDTH,
+                padding_y,
+            )
+            self.card_position = normal_layout["card_position"]
+            self.card2_position = normal_layout["card2_position"]
+            self.card3_position = normal_layout["card3_position"]
+            self.card4_position = normal_layout["card4_position"]
+            self.arrow_position = normal_layout["arrow_position"]
+            self.arrow2_position = normal_layout["arrow2_position"]
+            self.arrow3_position = normal_layout["arrow3_position"]
+            self.arrow4_position = normal_layout["arrow4_position"]
+            self.arrow_rect = normal_layout["arrow_rect"]
+            self.arrow2_rect = normal_layout["arrow2_rect"]
+            self.arrow3_rect = normal_layout["arrow3_rect"]
+            self.arrow4_rect = normal_layout["arrow4_rect"]
+            self.card1_rect = normal_layout["card1_rect"]
+
+    def _get_text(self, key, default=None):
+        if default is None:
+            default = key
+        return self.lang.get(key, default)
+
+    def _is_unlocked(self, level_key):
+        return bool(self.progress_flags.get(level_key))
+
+    def _render_text_cached(self, font, text, color):
+        cache_key = (id(font), str(text), tuple(color))
+        surface = self._text_surface_cache.get(cache_key)
+        if surface is None:
+            surface = font.render(str(text), True, color)
+            self._text_surface_cache[cache_key] = surface
+        return surface
+
+    def _wrap_text_cached(self, text, font, max_width):
+        cache_key = (id(font), text, max_width)
+        lines = self._wrapped_text_cache.get(cache_key)
+        if lines is None:
+            lines = wrap_text(text, font, max_width)
+            self._wrapped_text_cache[cache_key] = lines
+        return lines
+
+    def handle_input(self):
+        mouse_pos = pygame.mouse.get_pos()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return "back"
+                if event.key == pygame.K_UP:
+                    self.scroll_y = max(0, self.scroll_y - 50)
+                elif event.key == pygame.K_DOWN:
+                    self.scroll_y = min(self.max_scroll_y, self.scroll_y + 50)
+
+            if event.type == pygame.MOUSEWHEEL:
+                scroll_amount = event.y * 30
+                self.scroll_y = max(0, min(self.max_scroll_y, self.scroll_y - scroll_amount))
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self.test_mode:
+                    for level_num in range(1, self.num_levels + 1):
+                        card_index = level_num - 1
+                        if card_index < len(self.test_card_rects) and self.test_card_rects[card_index]:
+                            rect = self.test_card_rects[card_index]
+                            adjusted_rect = pygame.Rect(rect.x, rect.y - self.scroll_y, rect.width, rect.height)
+                            if adjusted_rect.collidepoint(mouse_pos):
+                                return f"level_{level_num}"
+                else:
+                    if self.arrow_rect and self.arrow_rect.collidepoint(mouse_pos):
+                        return "level_1"
+                    if self._is_unlocked("level_1_boss_defeated") and self.arrow2_rect and self.arrow2_rect.collidepoint(mouse_pos):
+                        return "level_2"
+                    if self._is_unlocked("level_2_boss_defeated") and self.arrow3_rect and self.arrow3_rect.collidepoint(mouse_pos):
+                        return "level_3"
+                    if self._is_unlocked("level_3_boss_defeated") and self.arrow4_rect and self.arrow4_rect.collidepoint(mouse_pos):
+                        return "level_4"
+
+        return None
+
+    def _draw_level_card(self, card_position, level_num, level_picture):
+        if not self.levelcard_image:
+            return
+
+        card_width = self.levelcard_image.get_width()
+        card_height = self.levelcard_image.get_height()
+        self.screen.blit(self.levelcard_image, card_position)
+
+        if level_picture:
+            self.screen.blit(level_picture, compute_picture_position(card_position, card_height, level_picture))
+
+        desc_key = f"Level{level_num}Cond"
+        desc_text = self._get_text(desc_key, None)
+
+        if desc_text and desc_text != desc_key:
+            year_key = f"Level{level_num}Year"
+            year_text = self._get_text(year_key, None)
+            card_text = year_text if year_text and year_text != year_key else str(1815 + (level_num - 1) * 10)
+            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
+            text_x = card_position[0] + 390
+            text_y = card_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
+            line_height = self.font_card_desc.get_height() + 5
+            start_y = text_y + text_surface.get_height() + 20
+            start_x = card_position[0] + 250
+
+            for i, line in enumerate(lines):
+                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+        if self.startarrow_image:
+            arrow_x = card_position[0] + card_width - self.startarrow_image.get_width() - 15
+            arrow_y = card_position[1] + card_height - self.startarrow_image.get_height() - 15
+            self.screen.blit(self.startarrow_image, (arrow_x, arrow_y))
+
+    def draw(self):
+        if self.background:
+            self.screen.blit(self.background, (0, 0))
+        else:
+            self.screen.fill(BLACK)
+
+        if self.test_mode and self.levelcard_image:
+            for level_num in range(1, self.num_levels + 1):
+                card_index = level_num - 1
+                if card_index < len(self.test_card_positions):
+                    card_x, card_y = self.test_card_positions[card_index]
+                    adjusted_y = card_y - self.scroll_y
+                    if -self.levelcard_image.get_height() <= adjusted_y <= SCREEN_HEIGHT:
+                        card_position = (card_x, adjusted_y)
+                        level_picture = self.test_level_pictures[card_index] if card_index < len(self.test_level_pictures) else None
+                        self._draw_level_card(card_position, level_num, level_picture)
+            pygame.display.flip()
+            return
+
+        if self.levelcard_image:
+            self.screen.blit(self.levelcard_image, self.card_position)
+
+            picture_to_draw = self.level1_picture
+
+            if picture_to_draw:
+                card_height = self.levelcard_image.get_height()
+                self.screen.blit(picture_to_draw, compute_picture_position(self.card_position, card_height, picture_to_draw))
+
+            card_text = "1815"
+            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
+            text_x = self.card_position[0] + 390
+            text_y = self.card_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            desc_text = self._get_text("Level1Cond", "Level1Cond")
+            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
+            line_height = self.font_card_desc.get_height() + 5
+            start_y = text_y + text_surface.get_height() + 20
+            start_x = self.card_position[0] + 250
+            for i, line in enumerate(lines):
+                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow_position)
+
+        if self._is_unlocked("level_1_boss_defeated") and self.levelcard_image:
+            self.screen.blit(self.levelcard_image, self.card2_position)
+            if self.level2_picture:
+                card_height = self.levelcard_image.get_height()
+                self.screen.blit(self.level2_picture, compute_picture_position(self.card2_position, card_height, self.level2_picture))
+
+            text_surface = self._render_text_cached(self.font_card, "1825", PAPER_COLOR)
+            text_x = self.card2_position[0] + 390
+            text_y = self.card2_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            desc_text = self._get_text("Level2Cond", "Level2Cond")
+            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
+            line_height = self.font_card_desc.get_height() + 5
+            start_y = text_y + text_surface.get_height() + 20
+            start_x = self.card2_position[0] + 250
+            for i, line in enumerate(lines):
+                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow2_position)
+
+        if self._is_unlocked("level_2_boss_defeated") and self.levelcard_image and self.card3_position:
+            self.screen.blit(self.levelcard_image, self.card3_position)
+            if self.level3_picture:
+                card_height = self.levelcard_image.get_height()
+                self.screen.blit(self.level3_picture, compute_picture_position(self.card3_position, card_height, self.level3_picture))
+
+            text_surface = self._render_text_cached(self.font_card, "1830", PAPER_COLOR)
+            text_x = self.card3_position[0] + 390
+            text_y = self.card3_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            desc_text = self._get_text("Level3Cond", "Level3Cond")
+            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
+            line_height = self.font_card_desc.get_height() + 5
+            start_y = text_y + text_surface.get_height() + 20
+            start_x = self.card3_position[0] + 250
+            for i, line in enumerate(lines):
+                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
+                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow3_position)
+
+        if self._is_unlocked("level_3_boss_defeated") and self.levelcard_image and self.card4_position:
+            self.screen.blit(self.levelcard_image, self.card4_position)
+            if self.level4_picture:
+                card_height = self.levelcard_image.get_height()
+                self.screen.blit(self.level4_picture, compute_picture_position(self.card4_position, card_height, self.level4_picture))
+
+            year_key = "Level4Year"
+            year_text = self._get_text(year_key, None)
+            card_text = year_text if year_text and year_text != year_key else "1840"
+            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
+            text_x = self.card4_position[0] + 390
+            text_y = self.card4_position[1] + 8
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            desc_key = "Level4Cond"
+            desc_text = self._get_text(desc_key, None)
+            if desc_text and desc_text != desc_key:
+                lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
+                line_height = self.font_card_desc.get_height() + 5
+                start_y = text_y + text_surface.get_height() + 20
+                start_x = self.card4_position[0] + 250
+                for i, line in enumerate(lines):
+                    line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
+                    self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+            if self.startarrow_image:
+                self.screen.blit(self.startarrow_image, self.arrow4_position)
+
+        pygame.display.flip()
+
+    def run(self):
+        while True:
+            result = self.handle_input()
+
+            if result == "quit":
+                pygame.quit()
+                sys.exit()
+
+            if result == "back":
+                return "back"
+
+            if result and result.startswith("level_"):
+                return result
+
+            self.draw()
+            self.clock.tick(FPS)

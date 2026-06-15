@@ -1,0 +1,235 @@
+import os
+
+import pygame
+
+
+def load_winlose_card_preview(
+    card_number,
+    winlose_card_images,
+    card_actions,
+    card_turns,
+    font_path,
+    paper_color,
+):
+    """Load and cache a reward card image for the Win/Lose window."""
+    if card_number == 0:
+        card_number = 100
+    if card_number in winlose_card_images:
+        return winlose_card_images[card_number]
+
+    target_width = 100
+    market_card_ratio = 99 / 171.0
+    target_height = int(target_width / market_card_ratio)
+
+    if card_number in (1, 2, 3, 4, 100):
+        base_card_id = card_number
+    elif card_number in [11, 12, 13, 14]:
+        base_card_id = 11
+    elif card_number in [15, 16]:
+        base_card_id = 15
+    elif card_number in [17, 18]:
+        base_card_id = 17
+    else:
+        base_card_id = card_number
+
+    card_path = os.path.join("Cards", f"Card_{base_card_id}.png")
+    if not os.path.exists(card_path):
+        print(f"WARNING: WinLose card base not found: {card_path}")
+        winlose_card_images[card_number] = None
+        return None
+
+    card_image = pygame.image.load(card_path).convert_alpha()
+    card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+
+    if card_number in card_actions:
+        draw_preview_card_action(
+            card_surface,
+            card_actions[card_number],
+            card_number,
+            target_width,
+            target_height,
+            font_path,
+            paper_color,
+        )
+    if card_number in card_turns:
+        draw_preview_card_turns(
+            card_surface,
+            card_turns[card_number],
+            card_number,
+            target_width,
+            target_height,
+            font_path,
+            paper_color,
+            adjust_mode="preview",
+        )
+
+    winlose_card_images[card_number] = card_surface
+    return card_surface
+
+
+def draw_preview_card_action(surface, action_value, card_id, card_width, card_height, font_path, paper_color):
+    """Draw CardAction value on a scaled preview card surface."""
+    base_market_width = 99
+    scale_factor = card_width / base_market_width
+    base_font_size = 36
+    scaled_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+    if scaled_font_size < 1:
+        scaled_font_size = 1
+
+    font_path_use = _resolve_effect_font_path(font_path)
+    try:
+        font = pygame.font.Font(font_path_use, scaled_font_size)
+        action_text = font.render(str(action_value), True, paper_color)
+        plus_x = card_width - 25 * scale_factor
+        plus_y = 10 * scale_factor
+        action_x = plus_x - 29 * scale_factor
+        action_y = plus_y + 14 * scale_factor
+        if card_id in (15, 16):
+            action_x -= 11 * scale_factor
+        surface.blit(action_text, (int(action_x), int(action_y)))
+    except Exception as e:
+        print(f"ERROR drawing CardAction on preview card: {e}")
+
+
+def draw_preview_card_turns(surface, turns_value, card_id, card_width, card_height, font_path, paper_color, adjust_mode="preview"):
+    """Draw CardTurns value on a scaled preview card surface."""
+    base_market_width = 99
+    scale_factor = card_width / base_market_width
+    base_font_size = 36
+    card_action_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+    turns_font_size = int(card_action_font_size * 0.648)
+    if turns_font_size < 1:
+        turns_font_size = 1
+
+    font_path_use = _resolve_effect_font_path(font_path)
+    try:
+        font = pygame.font.Font(font_path_use, turns_font_size)
+        turns_text = font.render(str(turns_value), True, paper_color)
+        base_bottom_height = 244.0
+        height_scale = card_height / base_bottom_height if base_bottom_height > 0 else 1.0
+        offset_from_bottom = 75.0 * height_scale
+        card_center_x = card_width / 2
+        turns_x = card_center_x + 10 * scale_factor
+        turns_y = card_height - offset_from_bottom
+
+        if card_id in (17, 18):
+            if adjust_mode == "gameplay":
+                x_scale = float(card_width) / 142.0 if card_width else 1.0
+                y_scale = float(card_height) / 244.0 if card_height else 1.0
+                turns_x -= 7.0 * x_scale
+                turns_y += 2.0 * y_scale
+            else:
+                base_market_width_for_adjust = 99.0
+                base_market_height_for_adjust = 171.0
+                x_scale = card_width / base_market_width_for_adjust if base_market_width_for_adjust else 1.0
+                y_scale = card_height / base_market_height_for_adjust if base_market_height_for_adjust else 1.0
+                turns_x -= 7.0 * x_scale
+                turns_y += 2.0 * y_scale
+
+        surface.blit(turns_text, (int(turns_x), int(turns_y)))
+    except Exception as e:
+        print(f"ERROR drawing CardTurns on preview card: {e}")
+
+
+def draw_card_action_text(screen, card_id, card_actions, card_x, card_y, card_size, font_path, paper_color, font_cache):
+    """Draw CardAction value next to the + sign on a gameplay card."""
+    if card_id is None or card_id not in card_actions:
+        return
+    if not card_size or len(card_size) < 2 or card_size[0] <= 0:
+        return
+
+    action_value = card_actions[card_id]
+    base_market_width = 99
+    scale_factor = card_size[0] / base_market_width
+    base_font_size = 36
+    scaled_font_size = int(int(base_font_size * 0.85 * 0.9) * scale_factor)
+    if scaled_font_size < 1:
+        scaled_font_size = 1
+
+    scaled_font = font_cache.get(scaled_font_size)
+    if scaled_font is None:
+        try:
+            scaled_font = pygame.font.Font(_resolve_effect_font_path(font_path), scaled_font_size)
+            font_cache[scaled_font_size] = scaled_font
+        except Exception as e:
+            print(f"ERROR creating font for CardAction (size {scaled_font_size}): {e}")
+            return
+
+    plus_x = card_x + card_size[0] - 25 * scale_factor
+    plus_y = card_y + 10 * scale_factor
+    action_x = plus_x - 29 * scale_factor
+    action_y = plus_y + 14 * scale_factor
+    if card_id in (15, 16):
+        action_x -= 11 * scale_factor
+
+    try:
+        action_text = scaled_font.render(str(action_value), True, paper_color)
+        if action_text:
+            screen.blit(action_text, (action_x, action_y))
+    except Exception as e:
+        print(f"ERROR rendering CardAction text: {e}")
+
+
+def draw_card_turns_text(
+    screen,
+    card_id,
+    card_turns,
+    card_x,
+    card_y,
+    card_size,
+    font_path,
+    paper_color,
+    font_cache,
+    turns_remaining=None,
+):
+    """Draw CardTurns value on a gameplay card."""
+    if card_id is None or card_id not in card_turns:
+        return
+    if not card_size or len(card_size) < 2 or card_size[0] <= 0:
+        return
+
+    turns_value = turns_remaining if turns_remaining is not None else card_turns[card_id]
+    base_market_width = 99
+    scale_factor = card_size[0] / base_market_width
+    base_font_size = 36
+    card_action_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
+    turns_font_size = int(card_action_font_size * 0.648)
+    if turns_font_size < 1:
+        turns_font_size = 1
+
+    scaled_font = font_cache.get(turns_font_size)
+    if scaled_font is None:
+        try:
+            scaled_font = pygame.font.Font(_resolve_effect_font_path(font_path), turns_font_size)
+            font_cache[turns_font_size] = scaled_font
+        except Exception as e:
+            print(f"ERROR creating font for CardTurns (size {turns_font_size}): {e}")
+            return
+
+    try:
+        turns_text = scaled_font.render(str(turns_value), True, paper_color)
+        if turns_text:
+            card_center_x = card_x + card_size[0] / 2
+            turns_x = card_center_x + 10 * scale_factor
+            base_bottom_height = 244.0
+            current_height = float(card_size[1])
+            height_scale = current_height / base_bottom_height if base_bottom_height > 0 else 1.0
+            offset_from_bottom = 75.0 * height_scale
+            turns_y = card_y + card_size[1] - offset_from_bottom
+
+            if card_id in (17, 18):
+                x_scale = float(card_size[0]) / 142.0 if card_size[0] else 1.0
+                y_scale = float(card_size[1]) / 244.0 if card_size[1] else 1.0
+                turns_x -= 7.0 * x_scale
+                turns_y += 2.0 * y_scale
+
+            screen.blit(turns_text, (turns_x, turns_y))
+    except Exception as e:
+        print(f"ERROR rendering CardTurns text: {e}")
+
+
+def _resolve_effect_font_path(font_path):
+    gadugib_path = "Gadugib.ttf"
+    if os.path.exists(gadugib_path):
+        return gadugib_path
+    return font_path

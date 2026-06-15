@@ -1,4 +1,5 @@
 Key;RU;ENG
+Profile;Профиль;Profile
 MenuStart;Начать игру;Start
 MenuOption;Настройки;Options
 MenuTestMode;Тестовый режим;Test Mode
@@ -23,9 +24,12 @@ PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
 PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop карта и два Shareholder;Random Gain/Drop card and two Shareholders
+PopUpRewardRandomGain+RedCard;Случайная Gain/Drop карта и красная карта;Random Gain/Drop card and red card
+PopUpRedCard+Shareholder;Красная карта и один Shareholder;Red card and Shareholder
 PopUpRedCard+Shareholder+Shareholder;Красная карта и два Shareholder;Red card and two Shareholders
 PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и два Shareholder;Silver card and two Shareholders
 PopUpReward2RandomGain;Две случайные Gain/Drop карты;Two random Gain/Drop cards
+PopUp2RedCards;Две красные карты;Two red cards
 RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 LoseWindowText;Вы проиграли!;You lost!
