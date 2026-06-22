@@ -20,12 +20,13 @@ LEVEL_BOSS_ROUNDS = {
 # Level 3 dynamic boss roster
 # -------------------------------
 def _generate_level3_boss_roster(bosses_required: int):
-    """Level 3: pick N distinct bosses from 2..5, shuffled, with no player choice."""
+    """Level 3: pick N distinct bosses from the level-3 pool, shuffled, with no player choice."""
     candidates = [
         "2_AdamSmith.png",
         "3_RobertFulton.png",
         "4_NicolasApper.png",
         "5_SamuelSlater.png",
+        "6_Arkwright.png",
     ]
     random.shuffle(candidates)
     try:
@@ -180,6 +181,12 @@ def apply_boss_reward(reward_string, gameplay_instance):
         return
     
     try:
+        reward_parts = [part.strip() for part in str(reward_string).split(",") if part.strip()]
+        if len(reward_parts) > 1:
+            for reward_part in reward_parts:
+                apply_boss_reward(reward_part, gameplay_instance)
+            return
+
         # Special reward: RedCard (pick a random available red card and force it into starting hand)
         if str(reward_string).strip().lower() == "redcard":
             level_num = getattr(gameplay_instance, "level_number", None)
@@ -200,6 +207,51 @@ def apply_boss_reward(reward_string, gameplay_instance):
                 pass
 
             print(f"Applied boss reward RedCard: forced starting-hand card for level {level_num}: {red_card}")
+            return
+
+        # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
+        if str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower() in (
+            "gaindropcard",
+            "randomgaindrop",
+            "randomgaindropcard",
+        ):
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            gain_drop_card = game_state.pick_random_gain_drop_card(excluded_card_ids={13, 14})
+            if gain_drop_card is None:
+                print("WARNING: GainDropCard reward requested but no available Gain/Drop cards pool.")
+                return
+
+            game_state.earned_reward_cards.setdefault(level_num, []).append(gain_drop_card)
+
+            try:
+                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
+                    gameplay_instance.last_earned_cards.append(gain_drop_card)
+            except Exception:
+                pass
+
+            print(f"Applied boss reward GainDropCard: card for level {level_num}: {gain_drop_card}")
+            return
+
+        # Special reward: SilverCard (pick a random available silver card for the persistent inventory)
+        if str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower() in (
+            "silvercard",
+            "randomsilver",
+            "randomsilvercard",
+            "randsilver",
+        ):
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            silver_card = game_state.add_silver_card(level_num=level_num)
+            if silver_card is None:
+                print("WARNING: SilverCard reward requested but no available silver cards pool.")
+                return
+
+            try:
+                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
+                    gameplay_instance.last_earned_cards.append(silver_card)
+            except Exception:
+                pass
+
+            print(f"Applied boss reward SilverCard: card {silver_card}")
             return
 
         # Parse format: "VariableName=VariableName+1" or "VariableName=VariableName-1"
@@ -227,6 +279,10 @@ def apply_boss_reward(reward_string, gameplay_instance):
                                 # Persist bonus to starting Money across future rounds
                                 # Add the amount to the existing bonus, don't replace it
                                 game_state.global_start_money_bonus += amount
+                            elif var_name == "LastTurn":
+                                game_state.global_last_turn_bonus += amount
+                            elif var_name == "hand":
+                                game_state.global_hand_bonus += amount
                             print(f"Applied boss reward: {var_name} = {current_value} + {amount} = {new_value}")
                         else:
                             print(f"WARNING: Variable {var_name} not found in gameplay instance")
@@ -246,6 +302,10 @@ def apply_boss_reward(reward_string, gameplay_instance):
                             elif var_name == "Money":
                                 # Subtract the amount from the existing bonus
                                 game_state.global_start_money_bonus -= amount
+                            elif var_name == "LastTurn":
+                                game_state.global_last_turn_bonus -= amount
+                            elif var_name == "hand":
+                                game_state.global_hand_bonus -= amount
                             print(f"Applied boss reward: {var_name} = {current_value} - {amount} = {new_value}")
                         else:
                             print(f"WARNING: Variable {var_name} not found in gameplay instance")
@@ -264,6 +324,8 @@ def apply_boss_reward(reward_string, gameplay_instance):
                             game_state.global_dobor = value
                         elif var_name == "Money":
                             game_state.global_start_money_bonus = value
+                        elif var_name == "hand":
+                            game_state.global_hand_bonus = value - 7
                         print(f"Applied boss reward: {var_name} = {value}")
                     else:
                         print(f"WARNING: Variable {var_name} not found in gameplay instance")
@@ -288,6 +350,27 @@ def apply_boss_functionality(func_string, gameplay_instance):
         return
     
     try:
+        func_parts = [part.strip() for part in str(func_string).split(",") if part.strip()]
+        if len(func_parts) > 1:
+            for func_part in func_parts:
+                apply_boss_functionality(func_part, gameplay_instance)
+            return
+
+        normalized_func = str(func_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
+        if normalized_func in ("arkwrightstealshares", "stealshares", "sharesteal"):
+            setattr(gameplay_instance, "boss_steals_shares", True)
+            print("Applied boss functionality: Arkwright share theft enabled")
+            return
+
+        if normalized_func in ("simplestockbot", "stockbot", "bot"):
+            setattr(gameplay_instance, "stock_bot_enabled", True)
+            print("Applied boss functionality: Simple stock bot enabled")
+            return
+
+        if normalized_func == "goal=goal*1.3":
+            print("Applied boss functionality: Apper goal multiplier is handled by goal resolution")
+            return
+
         if '=' not in func_string:
             print(f"WARNING: Invalid functionality format (no '=' found): {func_string}")
             return

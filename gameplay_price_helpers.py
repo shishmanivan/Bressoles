@@ -1,6 +1,23 @@
 import random
 
 
+BASE_MARKET_PROBABILITIES = {
+    0: {"fall": 0.0, "flat": 15.0, "rise": 85.0},
+    1: {"fall": 10.0, "flat": 20.0, "rise": 70.0},
+    2: {"fall": 30.0, "flat": 20.0, "rise": 50.0},
+}
+
+UPSIDE_CARD_BONUSES = {
+    1: 5.0,
+    2: 10.0,
+}
+
+DOWNSIDE_CARD_BONUSES = {
+    3: 5.0,
+    4: 10.0,
+}
+
+
 def get_card_type_from_config(card_types, card_id):
     """Return card Type from Cards.csv config, defaulting to 1."""
     if card_id is None:
@@ -11,28 +28,97 @@ def get_card_type_from_config(card_types, card_id):
         return 1
 
 
-def build_stock_price_animation_queue(step_a, step_b, step_c):
+def _take_probability(probs, donors, amount):
+    remaining = float(amount)
+    positive_donors = [donor for donor in donors if probs.get(donor, 0.0) > 0.0]
+    if not positive_donors or remaining <= 0.0:
+        return 0.0
+
+    preferred_take = remaining / len(positive_donors)
+    taken = 0.0
+    for donor in positive_donors:
+        take = min(preferred_take, probs.get(donor, 0.0))
+        probs[donor] -= take
+        taken += take
+        remaining -= take
+
+    while remaining > 0.0001:
+        donor = max(donors, key=lambda key: probs.get(key, 0.0))
+        available = probs.get(donor, 0.0)
+        if available <= 0.0:
+            break
+        take = min(remaining, available)
+        probs[donor] -= take
+        taken += take
+        remaining -= take
+
+    return taken
+
+
+def _apply_probability_shift(probs, target, donors, amount):
+    taken = _take_probability(probs, donors, amount)
+    probs[target] += taken
+
+
+def build_market_probabilities(market_cards=None):
+    """Return per-market probabilities after applying Upside/Downside cards."""
+    probabilities = {
+        market: dict(values)
+        for market, values in BASE_MARKET_PROBABILITIES.items()
+    }
+
+    for market, slots in (market_cards or {}).items():
+        if market not in probabilities:
+            continue
+        probs = probabilities[market]
+        for slot in sorted((slots or {}).keys()):
+            card_id = slots.get(slot)
+            if card_id in UPSIDE_CARD_BONUSES:
+                _apply_probability_shift(
+                    probs,
+                    "rise",
+                    ("flat", "fall"),
+                    UPSIDE_CARD_BONUSES[card_id],
+                )
+            elif card_id in DOWNSIDE_CARD_BONUSES:
+                _apply_probability_shift(
+                    probs,
+                    "fall",
+                    ("flat", "rise"),
+                    DOWNSIDE_CARD_BONUSES[card_id],
+                )
+
+    return probabilities
+
+
+def build_stock_price_animation_queue(step_a, step_b, step_c, market_cards=None):
     """Build price animation queue from the stock probability rules."""
     animation_queue = []
+    probabilities = build_market_probabilities(market_cards)
 
     rand_a = random.random() * 100
-    if rand_a <= 15:
+    probs_a = probabilities[0]
+    if rand_a <= probs_a["fall"]:
+        animation_queue.append({"market": 0, "type": "fall", "price_change": -step_a})
+    elif rand_a <= probs_a["fall"] + probs_a["flat"]:
         animation_queue.append({"market": 0, "type": "unchanged", "price_change": 0})
     else:
         animation_queue.append({"market": 0, "type": "rise", "price_change": step_a})
 
     rand_b = random.random() * 100
-    if rand_b <= 10:
+    probs_b = probabilities[1]
+    if rand_b <= probs_b["fall"]:
         animation_queue.append({"market": 1, "type": "fall", "price_change": -step_b})
-    elif rand_b <= 30:
+    elif rand_b <= probs_b["fall"] + probs_b["flat"]:
         animation_queue.append({"market": 1, "type": "unchanged", "price_change": 0})
     else:
         animation_queue.append({"market": 1, "type": "rise", "price_change": step_b})
 
     rand_c = random.random() * 100
-    if rand_c <= 30:
+    probs_c = probabilities[2]
+    if rand_c <= probs_c["fall"]:
         animation_queue.append({"market": 2, "type": "fall", "price_change": -step_c})
-    elif rand_c <= 50:
+    elif rand_c <= probs_c["fall"] + probs_c["flat"]:
         animation_queue.append({"market": 2, "type": "unchanged", "price_change": 0})
     else:
         animation_queue.append({"market": 2, "type": "rise", "price_change": step_c})

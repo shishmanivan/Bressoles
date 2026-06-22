@@ -73,10 +73,19 @@ def _empty_progress():
         "boss_progress": {},
         "global_dobor": 1,
         "global_start_money_bonus": 0,
+        "global_last_turn_bonus": 0,
+        "global_hand_bonus": 0,
+        "napoleondors": 0,
+        "napoleondor_level": None,
         "earned_reward_cards": {},
+        "silver_cards": [],
+        "black_cards": [],
+        "gold_cards": [],
         "forced_start_hand_cards_by_level": {},
         "active_red_cards_level": None,
         "active_red_cards_deck": [],
+        "active_silver_cards_level": None,
+        "active_silver_cards_deck": [],
     }
 
 
@@ -142,12 +151,25 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.boss_progress = _restore_boss_progress(progress.get("boss_progress") or {})
     game_state.global_dobor = int(progress.get("global_dobor", 1) or 1)
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
+    game_state.global_last_turn_bonus = int(progress.get("global_last_turn_bonus", 0) or 0)
+    game_state.global_hand_bonus = int(progress.get("global_hand_bonus", 0) or 0)
+    game_state.napoleondors = int(progress.get("napoleondors", 0) or 0)
+    try:
+        game_state.napoleondor_level = int(progress.get("napoleondor_level"))
+    except (TypeError, ValueError):
+        game_state.napoleondor_level = None
     game_state.earned_reward_cards = _restore_int_key_lists(progress.get("earned_reward_cards") or {})
+    game_state.silver_cards = _restore_int_list(progress.get("silver_cards") or [])[: game_state.MAX_SILVER_CARDS]
+    game_state.black_cards = _restore_int_list(progress.get("black_cards") or [])[: game_state.MAX_BLACK_CARDS]
+    game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
+    _migrate_silver_cards_from_earned_rewards()
     game_state.forced_start_hand_cards_by_level = _restore_int_key_lists(
         progress.get("forced_start_hand_cards_by_level") or {}
     )
     game_state.active_red_cards_level = progress.get("active_red_cards_level")
     game_state.active_red_cards_deck = list(progress.get("active_red_cards_deck") or [])
+    game_state.active_silver_cards_level = progress.get("active_silver_cards_level")
+    game_state.active_silver_cards_deck = list(progress.get("active_silver_cards_deck") or [])
 
 
 def save_progress_from_game_state(slot):
@@ -196,10 +218,19 @@ def _capture_progress():
         "boss_progress": _serialize_boss_progress(game_state.boss_progress),
         "global_dobor": int(game_state.global_dobor),
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
+        "global_last_turn_bonus": int(game_state.global_last_turn_bonus),
+        "global_hand_bonus": int(game_state.global_hand_bonus),
+        "napoleondors": int(game_state.napoleondors),
+        "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
+        "silver_cards": _serialize_int_list(game_state.silver_cards),
+        "black_cards": _serialize_int_list(game_state.black_cards),
+        "gold_cards": _serialize_int_list(game_state.gold_cards),
         "forced_start_hand_cards_by_level": _serialize_int_key_lists(game_state.forced_start_hand_cards_by_level),
         "active_red_cards_level": game_state.active_red_cards_level,
         "active_red_cards_deck": list(game_state.active_red_cards_deck or []),
+        "active_silver_cards_level": game_state.active_silver_cards_level,
+        "active_silver_cards_deck": list(game_state.active_silver_cards_deck or []),
     }
 
 
@@ -211,6 +242,37 @@ def _serialize_int_key_lists(source):
         except (TypeError, ValueError):
             continue
     return result
+
+
+def _serialize_int_list(source):
+    result = []
+    for value in source or []:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _restore_int_list(source):
+    return _serialize_int_list(source)
+
+
+def _migrate_silver_cards_from_earned_rewards():
+    migrated = []
+    for level, cards in list((game_state.earned_reward_cards or {}).items()):
+        kept_cards = []
+        for card_id in cards or []:
+            if game_state.is_silver_card(card_id):
+                migrated.append(int(card_id))
+            else:
+                kept_cards.append(card_id)
+        game_state.earned_reward_cards[level] = kept_cards
+
+    for card_id in migrated:
+        if len(game_state.silver_cards) >= game_state.MAX_SILVER_CARDS:
+            break
+        game_state.silver_cards.append(card_id)
 
 
 def _restore_int_key_lists(source):
@@ -262,6 +324,9 @@ def _serialize_boss_progress(source):
             "roster": state.get("roster"),
             "round_progress": _serialize_round_progress(state.get("round_progress") or {}),
             "current_boss": _serialize_current_boss(state.get("current_boss")),
+            "reward_checkpoint": _serialize_reward_checkpoint(state.get("reward_checkpoint")),
+            "run_stats_started": bool(state.get("run_stats_started", False)),
+            "run_stats_finished": bool(state.get("run_stats_finished", False)),
         }
     return result
 
@@ -290,8 +355,41 @@ def _restore_boss_progress(source):
             "roster": state.get("roster"),
             "round_progress": _restore_round_progress(state.get("round_progress") or {}),
             "current_boss": _restore_current_boss(state.get("current_boss")),
+            "reward_checkpoint": _restore_reward_checkpoint(state.get("reward_checkpoint")),
+            "run_stats_started": bool(state.get("run_stats_started", False)),
+            "run_stats_finished": bool(state.get("run_stats_finished", False)),
         }
     return result
+
+
+def _serialize_reward_checkpoint(source):
+    if not isinstance(source, dict):
+        return None
+    return {
+        "global_dobor": int(source.get("global_dobor", 1) or 1),
+        "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
+        "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
+        "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "napoleondors": int(source.get("napoleondors", 0) or 0),
+        "napoleondor_level": source.get("napoleondor_level"),
+        "earned_reward_cards": list(source.get("earned_reward_cards") or []),
+        "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
+    }
+
+
+def _restore_reward_checkpoint(source):
+    if not isinstance(source, dict):
+        return None
+    return {
+        "global_dobor": int(source.get("global_dobor", 1) or 1),
+        "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
+        "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
+        "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "napoleondors": int(source.get("napoleondors", 0) or 0),
+        "napoleondor_level": source.get("napoleondor_level"),
+        "earned_reward_cards": list(source.get("earned_reward_cards") or []),
+        "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
+    }
 
 
 def _serialize_current_boss(source):

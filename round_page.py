@@ -208,6 +208,7 @@ class RoundPage:
         round_reward_assets = load_round_reward_assets()
         self.random_drop_image = round_reward_assets["random_drop_image"]
         self.random_red_image = round_reward_assets["random_red_image"]
+        self.random_silver_image = round_reward_assets["random_silver_image"]
         self.card_base_mapping = round_reward_assets["card_base_mapping"]
         self.card_actions = round_reward_assets["card_actions"]
         self.card_turns = round_reward_assets["card_turns"]
@@ -362,6 +363,7 @@ class RoundPage:
             card_number,
             self.reward_card_images,
             self.random_red_image,
+            self.random_silver_image,
             self.card_base_mapping,
             self.card_actions,
             self.card_turns,
@@ -380,6 +382,46 @@ class RoundPage:
             scaled = pygame.transform.smoothscale(surface, size).convert_alpha()
             self._scaled_reward_surface_cache[cache_key] = scaled
         return scaled
+
+    def _get_reward_preview_surface(self, reward_list):
+        reward_list = reward_list if isinstance(reward_list, list) else ([reward_list] if reward_list is not None else [])
+        if not reward_list:
+            return None
+        if self.reward_token_random_red in reward_list:
+            return self.random_red_image
+        if len(reward_list) > 1 and any(isinstance(card, int) and 10 <= card <= 19 for card in reward_list):
+            return self.random_drop_image
+        return self._load_reward_card(reward_list[0])
+
+    def _draw_reward_preview_cards(self, reward_data, card_y):
+        surfaces = []
+        for reward_key in ("reward1", "reward2", "reward3"):
+            surface = self._get_reward_preview_surface(reward_data.get(reward_key))
+            if surface is not None:
+                surfaces.append(surface)
+        if not surfaces:
+            return
+
+        scale = 0.75
+        spacing = 10
+        scaled_surfaces = []
+        total_width = 0
+        for surface in surfaces:
+            width = int(surface.get_width() * scale)
+            height = int(surface.get_height() * scale)
+            scaled = self._get_scaled_reward_surface(surface, (width, height))
+            if scaled is None:
+                continue
+            scaled_surfaces.append((scaled, width))
+            total_width += width
+        if not scaled_surfaces:
+            return
+        total_width += spacing * (len(scaled_surfaces) - 1)
+
+        card_x = self.popup_x + (self.popup_width - total_width) // 2
+        for surface, width in scaled_surfaces:
+            self.screen.blit(surface, (card_x, card_y))
+            card_x += width + spacing
 
     def _draw_card_action_on_surface(self, surface, action_value, card_id, card_width, card_height):
         draw_round_reward_action_on_surface(
@@ -811,19 +853,8 @@ class RoundPage:
 
                     if reward_data:
                         reward1_list = reward_data.get("reward1", [])
-                        reward2 = reward_data.get("reward2")
-                        reward2_list = reward2 if isinstance(reward2, list) else ([reward2] if reward2 is not None else [])
 
                         if reward1_list:
-                            has_random_red1 = self.reward_token_random_red in reward1_list
-                            has_random_red2 = self.reward_token_random_red in reward2_list
-                            has_random_reward1 = (not has_random_red1) and len(reward1_list) > 1 and any(
-                                isinstance(card, int) and 10 <= card <= 19 for card in reward1_list
-                            )
-                            has_random_reward2 = (not has_random_red2) and len(reward2_list) > 1 and any(
-                                isinstance(card, int) and 10 <= card <= 19 for card in reward2_list
-                            )
-
                             reward_text_y = text_start_y + len(lines) * line_height
                             additional_text_lines_count = 0
                             if reward_data.get("text"):
@@ -833,122 +864,7 @@ class RoundPage:
                                 additional_text_lines_count = len(additional_text_lines_list)
                             card_spacing = 5
                             card_y = reward_text_y + line_height + (additional_text_lines_count * line_height) + card_spacing
-
-                            if has_random_red1 and self.random_red_image:
-                                card_width = int(self.random_red_image.get_width() * 0.75)
-                                card_height = int(self.random_red_image.get_height() * 0.75)
-                                scaled_random1 = self._get_scaled_reward_surface(self.random_red_image, (card_width, card_height))
-                                reward2_surface = None
-                                reward2_width = 0
-                                reward2_height = 0
-                                if reward2 is not None:
-                                    if has_random_red2 and self.random_red_image:
-                                        reward2_surface = self._get_scaled_reward_surface(self.random_red_image, (card_width, card_height))
-                                        reward2_width, reward2_height = card_width, card_height
-                                    elif has_random_reward2 and self.random_drop_image:
-                                        reward2_surface = self._get_scaled_reward_surface(self.random_drop_image, (card_width, card_height))
-                                        reward2_width, reward2_height = card_width, card_height
-                                    else:
-                                        reward2_card = reward2_list[0] if reward2_list else None
-                                        if reward2_card is not None:
-                                            reward2_image = self._load_reward_card(reward2_card)
-                                            if reward2_image:
-                                                reward2_width = int(reward2_image.get_width() * 0.75)
-                                                reward2_height = int(reward2_image.get_height() * 0.75)
-                                                reward2_surface = self._get_scaled_reward_surface(reward2_image, (reward2_width, reward2_height))
-
-                                card_spacing_between = 10
-                                total_cards_width = card_width
-                                if reward2_surface is not None:
-                                    total_cards_width += card_spacing_between + reward2_width
-                                cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
-                                self.screen.blit(scaled_random1, (cards_start_x, card_y))
-                                cards_start_x += card_width + card_spacing_between
-                                if reward2_surface is not None:
-                                    self.screen.blit(reward2_surface, (cards_start_x, card_y))
-                            elif has_random_reward1 and self.random_drop_image:
-                                card_width = int(self.random_drop_image.get_width() * 0.75)
-                                card_height = int(self.random_drop_image.get_height() * 0.75)
-                                scaled_random1 = self._get_scaled_reward_surface(self.random_drop_image, (card_width, card_height))
-                                reward2_surface = None
-                                reward2_width = 0
-                                reward2_height = 0
-                                if reward2 is not None:
-                                    if has_random_red2 and self.random_red_image:
-                                        reward2_surface = self._get_scaled_reward_surface(self.random_red_image, (card_width, card_height))
-                                        reward2_width, reward2_height = card_width, card_height
-                                    elif has_random_reward2 and self.random_drop_image:
-                                        reward2_surface = self._get_scaled_reward_surface(self.random_drop_image, (card_width, card_height))
-                                        reward2_width, reward2_height = card_width, card_height
-                                    else:
-                                        reward2_card = reward2_list[0] if reward2_list else None
-                                        if reward2_card is not None:
-                                            reward2_image = self._load_reward_card(reward2_card)
-                                            if reward2_image:
-                                                reward2_width = int(reward2_image.get_width() * 0.75)
-                                                reward2_height = int(reward2_image.get_height() * 0.75)
-                                                reward2_surface = self._get_scaled_reward_surface(reward2_image, (reward2_width, reward2_height))
-
-                                card_spacing_between = 10
-                                total_cards_width = card_width
-                                if reward2_surface is not None:
-                                    total_cards_width += card_spacing_between + reward2_width
-                                cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
-                                self.screen.blit(scaled_random1, (cards_start_x, card_y))
-                                cards_start_x += card_width + card_spacing_between
-                                if reward2_surface is not None:
-                                    self.screen.blit(reward2_surface, (cards_start_x, card_y))
-                            else:
-                                first_card = reward1_list[0] if reward1_list else None
-                                if first_card:
-                                    reward_card_image = self._load_reward_card(first_card)
-                                    if reward_card_image:
-                                        card_width = int(reward_card_image.get_width() * 0.75)
-                                        card_height = int(reward_card_image.get_height() * 0.75)
-                                        scaled_card = self._get_scaled_reward_surface(reward_card_image, (card_width, card_height))
-                                        card_spacing_between = 10
-                                        total_cards_width = card_width
-                                        if reward2 is not None:
-                                            reward2_card = reward2[0] if isinstance(reward2, list) and len(reward2) > 0 else reward2
-                                            reward2_image = self._load_reward_card(reward2_card)
-                                            if reward2_image:
-                                                reward2_width = int(reward2_image.get_width() * 0.75)
-                                                total_cards_width += card_spacing_between + reward2_width
-                                        cards_start_x = self.popup_x + (self.popup_width - total_cards_width) // 2
-                                        self.screen.blit(scaled_card, (cards_start_x, card_y))
-                                        cards_start_x += card_width + card_spacing_between
-
-                                        if reward2 is not None:
-                                            if isinstance(reward2, list) and len(reward2) > 0:
-                                                has_random_red2 = self.reward_token_random_red in reward2
-                                                has_random_reward2 = (not has_random_red2) and len(reward2) > 1 and any(
-                                                    isinstance(card, int) and 10 <= card <= 19 for card in reward2
-                                                )
-                                                if has_random_red2 and self.random_red_image:
-                                                    reward2_width = int(self.random_red_image.get_width() * 0.75)
-                                                    reward2_height = int(self.random_red_image.get_height() * 0.75)
-                                                    scaled_reward2 = self._get_scaled_reward_surface(self.random_red_image, (reward2_width, reward2_height))
-                                                    self.screen.blit(scaled_reward2, (cards_start_x, card_y))
-                                                elif has_random_reward2 and self.random_drop_image:
-                                                    reward2_width = int(self.random_drop_image.get_width() * 0.75)
-                                                    reward2_height = int(self.random_drop_image.get_height() * 0.75)
-                                                    scaled_reward2 = self._get_scaled_reward_surface(self.random_drop_image, (reward2_width, reward2_height))
-                                                    self.screen.blit(scaled_reward2, (cards_start_x, card_y))
-                                                else:
-                                                    reward2_card = reward2[0]
-                                                    reward2_image = self._load_reward_card(reward2_card)
-                                                    if reward2_image:
-                                                        reward2_width = int(reward2_image.get_width() * 0.75)
-                                                        reward2_height = int(reward2_image.get_height() * 0.75)
-                                                        scaled_reward2 = self._get_scaled_reward_surface(reward2_image, (reward2_width, reward2_height))
-                                                        self.screen.blit(scaled_reward2, (cards_start_x, card_y))
-                                            else:
-                                                reward2_image = self._load_reward_card(reward2)
-                                                if reward2_image:
-                                                    reward2_width = int(reward2_image.get_width() * 0.75)
-                                                    reward2_height = int(reward2_image.get_height() * 0.75)
-                                                    scaled_reward2 = self._get_scaled_reward_surface(reward2_image, (reward2_width, reward2_height))
-                                                    self.screen.blit(scaled_reward2, (cards_start_x, card_y))
+                            self._draw_reward_preview_cards(reward_data, card_y)
         else:
             if self.popup_button is not None:
                 self.popup_button = None

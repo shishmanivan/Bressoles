@@ -1,5 +1,10 @@
 import random
 
+from game_data import REWARD_TOKEN_RANDOM_SILVER
+
+
+BASE_STARTING_DECK = [100, 1, 1, 2, 3, 4, 11]
+
 
 def normalize_card_id(card_id):
     """Map legacy card 0 references to card 100."""
@@ -27,16 +32,26 @@ def dedupe_red_cards(cards):
     return result
 
 
-def build_initial_deck(level_number, earned_reward_cards):
-    """Build initial deck composition for a given level."""
-    if level_number == 1:
-        base_deck = [100, 1, 1, 2, 3, 4, 11]
-    elif level_number == 2:
-        base_deck = [100, 1, 1, 2, 3, 4, 11, 12]
-    else:
-        base_deck = [100, 100, 1, 1, 2, 3, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18]
+def is_silver_reward_card(card_id):
+    try:
+        cid = int(card_id)
+    except (TypeError, ValueError):
+        return False
+    return cid == REWARD_TOKEN_RANDOM_SILVER or 200 < cid < 300
 
-    earned_cards = dedupe_red_cards(earned_reward_cards.get(level_number, []))
+
+def build_initial_deck(level_number, earned_reward_cards, level_completion_reward_cards=None):
+    """Build initial deck composition for a given level."""
+    base_deck = list(BASE_STARTING_DECK)
+
+    completion_cards = dedupe_red_cards(level_completion_reward_cards or [])
+    if completion_cards:
+        base_deck.extend(completion_cards)
+        print(f"Added {len(completion_cards)} completed-level reward card(s) to starting deck: {completion_cards}")
+
+    earned_cards = dedupe_red_cards(
+        card_id for card_id in earned_reward_cards.get(level_number, []) if not is_silver_reward_card(card_id)
+    )
     if earned_cards:
         base_deck.extend(earned_cards)
         print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
@@ -76,8 +91,14 @@ def deal_starting_hand(deck, hand_size, forced_cards):
     return remaining_deck, hand_cards
 
 
-def setup_starting_deck_and_hand(level_number, hand_size, earned_reward_cards, forced_cards_by_level):
+def setup_starting_deck_and_hand(
+    level_number,
+    hand_size,
+    earned_reward_cards,
+    forced_cards_by_level,
+    level_completion_reward_cards=None,
+):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
-    deck = build_initial_deck(level_number, earned_reward_cards)
+    deck = build_initial_deck(level_number, earned_reward_cards, level_completion_reward_cards)
     forced_cards = list(forced_cards_by_level.get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, forced_cards)

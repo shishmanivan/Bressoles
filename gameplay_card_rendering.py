@@ -2,6 +2,8 @@ import os
 
 import pygame
 
+from game_data import REWARD_TOKEN_RANDOM_SILVER
+
 
 def load_winlose_card_preview(
     card_number,
@@ -20,6 +22,21 @@ def load_winlose_card_preview(
     target_width = 100
     market_card_ratio = 99 / 171.0
     target_height = int(target_width / market_card_ratio)
+
+    if card_number == REWARD_TOKEN_RANDOM_SILVER or 200 < int(card_number) < 300:
+        card_path = os.path.join("Cards", f"Card_{int(card_number)}.png")
+        if not os.path.exists(card_path):
+            card_path = os.path.join("RoundPage", "RandSilver.png")
+        if not os.path.exists(card_path):
+            card_path = os.path.join("Cards", "Card_201.png")
+        if not os.path.exists(card_path):
+            print(f"WARNING: WinLose silver card not found: {card_path}")
+            winlose_card_images[card_number] = None
+            return None
+        card_image = pygame.image.load(card_path).convert_alpha()
+        card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+        winlose_card_images[card_number] = card_surface
+        return card_surface
 
     if card_number in (1, 2, 3, 4, 100):
         base_card_id = card_number

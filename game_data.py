@@ -3,6 +3,7 @@ import os
 
 
 REWARD_TOKEN_RANDOM_RED = -1001
+REWARD_TOKEN_RANDOM_SILVER = -1002
 
 _cards_config_cache = None
 _rounds_config_cache = None
@@ -24,6 +25,8 @@ def parse_reward_card_token(token: str):
     normalized = raw.replace(" ", "").replace("_", "").replace("-", "").lower()
     if normalized in ("redcard", "red"):
         return REWARD_TOKEN_RANDOM_RED
+    if normalized in ("silvercard", "silver", "randsilver", "randomsilver", "randomsilvercard"):
+        return REWARD_TOKEN_RANDOM_SILVER
 
     try:
         card_num = int(raw)
@@ -386,6 +389,8 @@ def load_rewards_config():
                 reward1_str = reward1_val.strip() if reward1_val else ""
                 reward2_val = row.get("Reward2") or ""
                 reward2_str = reward2_val.strip() if reward2_val else ""
+                reward3_val = row.get("Reward3") or ""
+                reward3_str = reward3_val.strip() if reward3_val else ""
                 reward_text_val = row.get("Text") or ""
                 reward_text = reward_text_val.strip() if reward_text_val else ""
 
@@ -414,9 +419,20 @@ def load_rewards_config():
                         if token is not None:
                             reward2_list.append(token)
 
+                reward3_list = []
+                if reward3_str:
+                    for card_str in reward3_str.split(","):
+                        card_str = card_str.strip()
+                        if not card_str:
+                            continue
+                        token = parse_reward_card_token(card_str)
+                        if token is not None:
+                            reward3_list.append(token)
+
                 rewards[(level, round_num, button)] = {
                     "reward1": reward1_list,
                     "reward2": reward2_list if reward2_list else None,
+                    "reward3": reward3_list if reward3_list else None,
                     "text": reward_text if reward_text else None,
                 }
     except Exception as e:

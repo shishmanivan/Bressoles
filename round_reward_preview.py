@@ -2,6 +2,8 @@ import os
 
 import pygame
 
+from game_data import REWARD_TOKEN_RANDOM_SILVER
+
 
 PAPER_COLOR = (83, 76, 70)
 
@@ -28,6 +30,16 @@ def load_round_reward_assets():
     else:
         print(f"WARNING: RandomRed.png not found: {random_red_path}")
 
+    random_silver_image = None
+    random_silver_path = os.path.join("RoundPage", "RandSilver.png")
+    random_silver_fallback_path = os.path.join("Cards", "Card_201.png")
+    silver_path = random_silver_path if os.path.exists(random_silver_path) else random_silver_fallback_path
+    if os.path.exists(silver_path):
+        random_silver_original = pygame.image.load(silver_path).convert_alpha()
+        random_silver_image = pygame.transform.smoothscale(random_silver_original, (target_width, target_height)).convert_alpha()
+    else:
+        print(f"WARNING: Silver reward image not found: {random_silver_path}")
+
     card_base_mapping = {}
     for card_id in (1, 2, 3, 4, 100):
         card_base_mapping[card_id] = card_id
@@ -52,6 +64,7 @@ def load_round_reward_assets():
     return {
         "random_drop_image": random_drop_image,
         "random_red_image": random_red_image,
+        "random_silver_image": random_silver_image,
         "card_base_mapping": card_base_mapping,
         "card_actions": card_actions,
         "card_turns": card_turns,
@@ -124,6 +137,7 @@ def load_reward_card_preview(
     card_number,
     reward_card_images,
     random_red_image,
+    random_silver_image,
     card_base_mapping,
     card_actions,
     card_turns,
@@ -134,6 +148,15 @@ def load_reward_card_preview(
     """Load and cache a reward card preview image."""
     if card_number == reward_token_random_red:
         return random_red_image
+    if card_number == REWARD_TOKEN_RANDOM_SILVER:
+        return random_silver_image
+    try:
+        if 200 < int(card_number) < 300:
+            card_path = os.path.join("Cards", f"Card_{int(card_number)}.png")
+            if not os.path.exists(card_path):
+                return random_silver_image
+    except (TypeError, ValueError):
+        pass
     if card_number == 0:
         card_number = 100
     if card_number in reward_card_images:

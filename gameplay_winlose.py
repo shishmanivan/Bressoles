@@ -1,5 +1,8 @@
 import random
 
+import game_state
+from game_data import REWARD_TOKEN_RANDOM_SILVER
+
 
 def resolve_win_lose_state(current_state, money, goal, day, last_turn):
     """Return the next win/lose state and reason, or (None, None)."""
@@ -30,9 +33,22 @@ def apply_win_reward(
     get_boss_number_from_index,
     apply_boss_reward,
     pick_random_red_card_for_level,
+    add_silver_card,
 ):
     """Apply boss or regular round reward after a win."""
     if gameplay_instance.is_boss_fight and gameplay_instance.boss_index is not None:
+        if getattr(gameplay_instance, "is_final_boss", False):
+            level_reward_cards = game_state.get_level_completion_reward_cards(gameplay_instance.level_number)
+            if level_reward_cards and hasattr(gameplay_instance, "last_earned_cards"):
+                gameplay_instance.last_earned_cards.extend(level_reward_cards)
+            print(
+                f"Skipped personal boss reward for final boss on level {gameplay_instance.level_number}; "
+                f"level reward cards: {level_reward_cards}"
+            )
+            return
+
+        level_earned_before_reward = list(earned_reward_cards.get(gameplay_instance.level_number, []) or [])
+
         boss_number = get_boss_number_from_index(
             gameplay_instance.level_number,
             gameplay_instance.boss_index,
@@ -54,11 +70,13 @@ def apply_win_reward(
                     f"(level {gameplay_instance.level_number}, index {gameplay_instance.boss_index})"
                 )
 
-        if gameplay_instance.level_number in earned_reward_cards:
-            earned_reward_cards[gameplay_instance.level_number] = []
+        level_earned_after_reward = list(earned_reward_cards.get(gameplay_instance.level_number, []) or [])
+        boss_earned_cards = level_earned_after_reward[len(level_earned_before_reward):]
+        if level_earned_before_reward or boss_earned_cards:
+            earned_reward_cards[gameplay_instance.level_number] = boss_earned_cards
             print(
-                f"Reset earned cards for level {gameplay_instance.level_number} "
-                "after boss victory - deck returns to initial state"
+                f"Reset pre-boss earned cards for level {gameplay_instance.level_number} "
+                f"after boss victory; kept boss reward cards: {boss_earned_cards}"
             )
         return
 
@@ -78,53 +96,56 @@ def apply_win_reward(
         )
         return
 
-    reward1_list = reward_data.get("reward1", [])
-    reward2 = reward_data.get("reward2")
-    reward2_list = reward2 if isinstance(reward2, list) else ([reward2] if reward2 is not None else [])
+    reward_lists = []
+    for reward_key_part in ("reward1", "reward2", "reward3"):
+        reward_value = reward_data.get(reward_key_part)
+        reward_list = reward_value if isinstance(reward_value, list) else ([reward_value] if reward_value is not None else [])
+        if reward_list:
+            reward_lists.append((reward_key_part, reward_list))
 
-    if not reward1_list:
+    if not reward_lists:
         print(
             f"No reward cards in Reward1 for level {gameplay_instance.level_number}, "
             f"round {round_num}, button {button}"
         )
         return
 
-    reward_card_number1 = _select_reward_card(
-        reward1_list,
-        gameplay_instance.level_number,
-        reward_token_random_red,
-        pick_random_red_card_for_level,
-    )
-    if reward_card_number1 is None:
-        return
-
     earned_reward_cards.setdefault(gameplay_instance.level_number, [])
-    earned_reward_cards[gameplay_instance.level_number].append(reward_card_number1)
-    gameplay_instance.last_earned_cards.append(reward_card_number1)
-
-    if reward2_list:
-        reward_card_number2 = _select_reward_card(
-            reward2_list,
+    selected_rewards = []
+    for index, (reward_key_part, reward_list) in enumerate(reward_lists):
+        reward_card_number = _select_reward_card(
+            reward_list,
             gameplay_instance.level_number,
             reward_token_random_red,
             pick_random_red_card_for_level,
-            allow_missing_random_red=True,
+            allow_missing_random_red=index > 0,
         )
-        if reward_card_number2 is not None:
-            earned_reward_cards[gameplay_instance.level_number].append(reward_card_number2)
-            gameplay_instance.last_earned_cards.append(reward_card_number2)
+        if reward_card_number is None:
+            if index == 0:
+                return
             print(
-                f"Earned reward cards {reward_card_number1} (from Reward1) and {reward_card_number2} "
-                f"(from Reward2) for level {gameplay_instance.level_number}, round {round_num}, button {button}"
+                f"Skipped {reward_key_part} for level {gameplay_instance.level_number}, "
+                f"round {round_num}, button {button}"
             )
+            continue
+        if reward_card_number == REWARD_TOKEN_RANDOM_SILVER:
+            reward_card_number = add_silver_card(reward_card_number, gameplay_instance.level_number)
+            if reward_card_number is None:
+                continue
         else:
-            print(
-                f"Earned reward card {reward_card_number1} (Reward2 skipped) "
-                f"for level {gameplay_instance.level_number}, round {round_num}, button {button}"
-            )
+            earned_reward_cards[gameplay_instance.level_number].append(reward_card_number)
+        gameplay_instance.last_earned_cards.append(reward_card_number)
+        selected_rewards.append((reward_key_part, reward_card_number))
+
+    if selected_rewards:
+        selected_text = ", ".join(f"{card} ({key})" for key, card in selected_rewards)
+        print(
+            f"Earned reward cards {selected_text} "
+            f"for level {gameplay_instance.level_number}, round {round_num}, button {button}"
+        )
     else:
         print(
-            f"Earned reward card {reward_card_number1} (randomly selected from {reward1_list}) "
+            f"No reward cards selected "
             f"for level {gameplay_instance.level_number}, round {round_num}, button {button}"
         )
 
@@ -151,6 +172,8 @@ def _select_reward_card(reward_list, level_number, reward_token_random_red, pick
             print(f"WARNING: 'Red Card' reward requested but no available red cards for level {level_number}.")
             return None if allow_missing_random_red else None
         reward_card_number = picked
+    if reward_card_number == REWARD_TOKEN_RANDOM_SILVER:
+        return REWARD_TOKEN_RANDOM_SILVER
     if reward_card_number == 0:
         reward_card_number = 100
     return reward_card_number

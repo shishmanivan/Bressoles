@@ -2,6 +2,8 @@ import os
 
 import pygame
 
+from game_data import REWARD_TOKEN_RANDOM_SILVER
+
 
 _gameplay_core_assets_cache = {}
 _end_turn_button_cache = {}
@@ -209,7 +211,7 @@ def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, ca
     except Exception:
         config_card_ids = []
 
-    all_card_ids = sorted(set(base_card_ids + [11, 12, 13, 14, 15, 16, 17, 18] + config_card_ids))
+    all_card_ids = sorted(set(base_card_ids + [11, 12, 13, 14, 15, 16, 17, 18, REWARD_TOKEN_RANDOM_SILVER] + config_card_ids))
     card_images_original = {}
     card_images_bottom = {}
     card_images_market = {}
@@ -219,13 +221,21 @@ def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, ca
 
     for card_id in all_card_ids:
         base_id = card_base_mapping.get(card_id, card_id)
-        card_path_underscore = os.path.join("Cards", f"Card_{base_id}.png")
-        card_path_space = os.path.join("Cards", f"Card {base_id}.png")
+        if card_id == REWARD_TOKEN_RANDOM_SILVER or 200 < int(card_id) < 300:
+            card_path_underscore = os.path.join("Cards", f"Card_{int(card_id)}.png")
+            if not os.path.exists(card_path_underscore):
+                card_path_underscore = os.path.join("RoundPage", "RandSilver.png")
+            if not os.path.exists(card_path_underscore):
+                card_path_underscore = os.path.join("Cards", "Card_201.png")
+            card_path_space = None
+        else:
+            card_path_underscore = os.path.join("Cards", f"Card_{base_id}.png")
+            card_path_space = os.path.join("Cards", f"Card {base_id}.png")
 
         card_path = None
         if os.path.exists(card_path_underscore):
             card_path = card_path_underscore
-        elif os.path.exists(card_path_space):
+        elif card_path_space and os.path.exists(card_path_space):
             card_path = card_path_space
 
         if card_path:
@@ -329,7 +339,7 @@ def load_deck_view_assets(screen_width, screen_height):
         return dict(cached)
 
     background = None
-    background_path = os.path.join("RoundPage", "LevelPage.png")
+    background_path = os.path.join("RoundPage", "SilverBlack.png")
     if os.path.exists(background_path):
         original = pygame.image.load(background_path).convert()
         background = pygame.transform.smoothscale(original, (screen_width, screen_height)).convert()
