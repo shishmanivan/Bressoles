@@ -47,8 +47,6 @@ def apply_win_reward(
             )
             return
 
-        level_earned_before_reward = list(earned_reward_cards.get(gameplay_instance.level_number, []) or [])
-
         boss_number = get_boss_number_from_index(
             gameplay_instance.level_number,
             gameplay_instance.boss_index,
@@ -70,14 +68,6 @@ def apply_win_reward(
                     f"(level {gameplay_instance.level_number}, index {gameplay_instance.boss_index})"
                 )
 
-        level_earned_after_reward = list(earned_reward_cards.get(gameplay_instance.level_number, []) or [])
-        boss_earned_cards = level_earned_after_reward[len(level_earned_before_reward):]
-        if level_earned_before_reward or boss_earned_cards:
-            earned_reward_cards[gameplay_instance.level_number] = boss_earned_cards
-            print(
-                f"Reset pre-boss earned cards for level {gameplay_instance.level_number} "
-                f"after boss victory; kept boss reward cards: {boss_earned_cards}"
-            )
         return
 
     round_num = (

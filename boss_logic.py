@@ -363,8 +363,13 @@ def apply_boss_functionality(func_string, gameplay_instance):
             return
 
         if normalized_func in ("simplestockbot", "stockbot", "bot"):
-            setattr(gameplay_instance, "stock_bot_enabled", True)
-            print("Applied boss functionality: Simple stock bot enabled")
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            if level_num == 4:
+                setattr(gameplay_instance, "stock_bot_enabled", True)
+                print("Applied boss functionality: Simple stock bot enabled")
+            else:
+                setattr(gameplay_instance, "stock_bot_enabled", False)
+                print(f"Skipped Simple stock bot functionality on level {level_num}")
             return
 
         if normalized_func == "goal=goal*1.3":

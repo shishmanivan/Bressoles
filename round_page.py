@@ -2,6 +2,7 @@ import sys
 
 import pygame
 
+import game_state
 from round_page_assets import (
     build_round_button_base_rects,
     load_boss_icon_assets,
@@ -145,7 +146,7 @@ class RoundPage:
         self.Goal = None
         self.last_selected_round = None
 
-        self.button_goals = resolve_initial_button_goals(
+        self.base_button_goals = resolve_initial_button_goals(
             self.level_number,
             level_cfg,
             self.boss_selection,
@@ -155,6 +156,7 @@ class RoundPage:
             self._get_level3_goal,
             self._apper_goal_boost,
         )
+        self.button_goals = self._build_display_button_goals()
 
         bosses_cfg_value = (levels_cfg.get(self.level_number, {}) or {}).get("Bosses")
         if bosses_cfg_value is None:
@@ -313,22 +315,28 @@ class RoundPage:
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number not in (2, 3):
-            return
-        current_round = self.get_current_active_round()
-        if current_round is None:
-            return
-        self.button_goals = refresh_button_goals_for_round(
-            self.level_number,
-            current_round,
-            self.boss_selection,
-            self.defeated_count,
-            self.is_apper_boss,
-            self.button_goals,
-            self._get_level2_goal,
-            self._get_level3_goal,
-            self._apper_goal_boost,
-        )
+        if self.level_number in (2, 3):
+            current_round = self.get_current_active_round()
+            if current_round is not None:
+                self.base_button_goals = refresh_button_goals_for_round(
+                    self.level_number,
+                    current_round,
+                    self.boss_selection,
+                    self.defeated_count,
+                    self.is_apper_boss,
+                    self.base_button_goals,
+                    self._get_level2_goal,
+                    self._get_level3_goal,
+                    self._apper_goal_boost,
+                )
+        self.button_goals = self._build_display_button_goals()
+
+    def _build_display_button_goals(self):
+        debt = game_state.get_insurance_goal_debt()
+        return {
+            key: (value + debt if value is not None else None)
+            for key, value in self.base_button_goals.items()
+        }
 
     def _refresh_button_rects(self):
         current_round = self.get_current_active_round()

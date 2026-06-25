@@ -4,6 +4,7 @@ import sys
 import pygame
 
 from game_data import REWARD_TOKEN_RANDOM_SILVER
+from gameplay_card_rendering import draw_bear_modifier_text
 from round_page_assets import load_round_page_static_assets
 
 
@@ -22,24 +23,83 @@ CARD_ROW_SLOTS = 8
 ACTIVE_CARD_SLOTS = 3
 CARD_WIDTH = 102
 CARD_ASPECT_RATIO = 99 / 171.0
-ACTIVE_ROW_Y = 42
-SILVER_ROW_Y = 253
-BLACK_ROW_Y = 464
-GOLD_ROW_Y = 675
+ACTIVE_ROW_Y = 59
+SILVER_ROW_Y = 252
+BLACK_ROW_Y = 450
+GOLD_ROW_Y = 648
 INVENTORY_ROW_GAP = 34
 ACTIVE_ROW_GAP = 42
+
+CARD_TOOLTIPS = {
+    201: (
+        "Rebate",
+        "В последний ход автоматически продаёт все оставшиеся акции по полной текущей цене.",
+    ),
+    202: ("Futures", "Добавляет 1 ход к длительности раунда."),
+    203: ("Futures", "Добавляет 2 хода к длительности раунда."),
+    204: (
+        "Contango",
+        "Удваивает силу всех Gain/Drop-карт. Несколько копий умножают эффект повторно.",
+    ),
+    206: (
+        "Basket Trading",
+        "Если за ход выросли все три рынка, дополнительно повышает цену каждой акции на 2.",
+    ),
+    207: (
+        "Forward Trading",
+        "За каждые две сыгранные карты Shareholder добавляет 1 ход к раунду.",
+    ),
+    208: (
+        "Rollover",
+        "Добавляет 1 ход всем Gain/Drop-картам. Если затем сыграть красную Rollover, она добавит 2 хода вместо 1.",
+    ),
+    214: ("Grant", "Добавляет 4 к стартовым деньгам в начале раунда."),
+    215: (
+        "Bill of exchange",
+        "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    ),
+    217: ("Obligation", "После победы приносит дополнительно 5 наполеондоров."),
+    218: ("Obligation", "После победы приносит дополнительно 10 наполеондоров."),
+    219: ("Obligation", "После победы приносит дополнительно 15 наполеондоров."),
+    220: (
+        "Insurance",
+        "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Нельзя использовать против боссов.",
+    ),
+    401: (
+        "Bear",
+        "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",
+    ),
+    402: (
+        "Forward Trading",
+        "Каждая сыгранная карта Shareholder добавляет 1 ход. Вместе с серебряной Forward Trading даёт 4 хода за пару Shareholder.",
+    ),
+    403: (
+        "Grant",
+        "Добавляет 8 к стартовым деньгам и усиливает каждую серебряную Grant с +4 до +8.",
+    ),
+}
 
 
 class SilverBlackPage:
     """Intermediate card-selection screen before a round starts."""
 
-    def __init__(self, screen, font_path, silver_cards, black_cards=None, gold_cards=None):
+    def __init__(
+        self,
+        screen,
+        font_path,
+        silver_cards,
+        black_cards=None,
+        gold_cards=None,
+        active_gold_cards=None,
+        is_boss_fight=False,
+    ):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.silver_cards = list(silver_cards or [])[:CARD_ROW_SLOTS]
         self.black_cards = list(black_cards or [])[:CARD_ROW_SLOTS]
         self.gold_cards = list(gold_cards or [])[:CARD_ROW_SLOTS]
+        self.is_boss_fight = bool(is_boss_fight)
         self.selected_entries = []
 
         round_page_assets = load_round_page_static_assets()
@@ -52,11 +112,14 @@ class SilverBlackPage:
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
         self.placeholder = self._load_placeholder()
         self.card_images = {}
+        self.tooltip_title_font = pygame.font.Font(self.font_path, 27)
+        self.tooltip_text_font = pygame.font.Font(self.font_path, 22)
 
         self.active_rects = self._build_row_rects(ACTIVE_CARD_SLOTS, y=ACTIVE_ROW_Y, gap=ACTIVE_ROW_GAP)
         self.silver_rects = self._build_row_rects(CARD_ROW_SLOTS, y=SILVER_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.black_rects = self._build_row_rects(CARD_ROW_SLOTS, y=BLACK_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.gold_rects = self._build_row_rects(CARD_ROW_SLOTS, y=GOLD_ROW_Y, gap=INVENTORY_ROW_GAP)
+        self.selected_entries = self._build_initial_selected_entries(active_gold_cards)
         self.drag_source = None
         self.drag_entry = None
         self.drag_active_slot = None
@@ -88,6 +151,29 @@ class SilverBlackPage:
             pygame.Rect(start_x + idx * (self.card_width + gap), row_y, self.card_width, self.card_height)
             for idx in range(count)
         ]
+
+    def _build_initial_selected_entries(self, active_gold_cards):
+        entries = []
+        used_indices = set()
+        for active_card_id in active_gold_cards or []:
+            if len(entries) >= ACTIVE_CARD_SLOTS:
+                break
+            try:
+                target = int(active_card_id)
+            except (TypeError, ValueError):
+                continue
+            for index, card_id in enumerate(self.gold_cards):
+                if index in used_indices:
+                    continue
+                try:
+                    if int(card_id) != target:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                entries.append(("gold", index))
+                used_indices.add(index)
+                break
+        return entries
 
     def _get_card_image(self, card_id):
         if card_id in self.card_images:
@@ -126,7 +212,11 @@ class SilverBlackPage:
         return [
             self._card_id_for_entry(entry)
             for entry in self.selected_entries
-            if entry[0] == kind and self._card_id_for_entry(entry) is not None
+            if (
+                entry[0] == kind
+                and self._card_id_for_entry(entry) is not None
+                and not self._is_card_disabled(self._card_id_for_entry(entry))
+            )
         ]
 
     def _selected_payload(self):
@@ -158,6 +248,8 @@ class SilverBlackPage:
         active_slot = self._active_slot_at(pos)
         if active_slot is not None and active_slot < len(self.selected_entries):
             entry = self.selected_entries[active_slot]
+            if self._is_card_disabled(self._card_id_for_entry(entry)):
+                return
             rect = self.active_rects[active_slot]
             self.drag_source = "active"
             self.drag_entry = entry
@@ -172,6 +264,8 @@ class SilverBlackPage:
             return
 
         kind, index = entry
+        if self._is_card_disabled(self._card_id_for_entry(entry)):
+            return
         rects = {"silver": self.silver_rects, "black": self.black_rects, "gold": self.gold_rects}[kind]
         rect = rects[index]
         self.drag_source = "inventory"
@@ -227,11 +321,35 @@ class SilverBlackPage:
         image = self._get_card_image(card_id)
         if image:
             self.screen.blit(image, rect.topleft)
+            draw_bear_modifier_text(
+                self.screen,
+                card_id,
+                rect.x,
+                rect.y,
+                (self.card_width, self.card_height),
+                self.font_path,
+                PAPER_COLOR,
+            )
 
     def _draw_tint(self, rect, color):
         tint = pygame.Surface(rect.size, pygame.SRCALPHA)
         tint.fill(color)
         self.screen.blit(tint, rect.topleft)
+
+    def _is_card_disabled(self, card_id):
+        try:
+            return self.is_boss_fight and int(card_id) == 220
+        except (TypeError, ValueError):
+            return False
+
+    def _draw_disabled_card(self, rect):
+        self._draw_tint(rect, (45, 38, 35, 165))
+        label = self.tooltip_text_font.render("Нельзя", True, (244, 235, 211))
+        label_rect = label.get_rect(center=rect.center)
+        padding = 7
+        background = label_rect.inflate(padding * 2, padding)
+        pygame.draw.rect(self.screen, (83, 76, 70), background, border_radius=5)
+        self.screen.blit(label, label_rect)
 
     def _active_border_color(self, entry):
         if not entry:
@@ -256,6 +374,110 @@ class SilverBlackPage:
                 and not (self.drag_source == "inventory" and self.drag_entry == entry)
             ):
                 self._draw_card(cards[index], rect)
+                if self._is_card_disabled(cards[index]):
+                    self._draw_disabled_card(rect)
+
+    def _hovered_card(self, pos):
+        for slot, rect in enumerate(self.active_rects):
+            if slot < len(self.selected_entries) and rect.collidepoint(pos):
+                entry = self.selected_entries[slot]
+                return self._card_id_for_entry(entry), entry[0]
+
+        for kind, rects in (
+            ("silver", self.silver_rects),
+            ("black", self.black_rects),
+            ("gold", self.gold_rects),
+        ):
+            cards = self._row_cards(kind)
+            for index, rect in enumerate(rects):
+                entry = (kind, index)
+                if (
+                    index < len(cards)
+                    and entry not in self.selected_entries
+                    and rect.collidepoint(pos)
+                ):
+                    return cards[index], kind
+        return None, None
+
+    def _tooltip_content(self, card_id, kind):
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            normalized = card_id
+
+        if normalized == REWARD_TOKEN_RANDOM_SILVER:
+            return "Случайная серебряная карта", "При получении превращается в случайную доступную серебряную карту."
+        if normalized in CARD_TOOLTIPS:
+            title, description = CARD_TOOLTIPS[normalized]
+            if self._is_card_disabled(normalized):
+                description = f"НЕДОСТУПНО ПЕРЕД БОССОМ. {description}"
+            return title, description
+
+        kind_names = {
+            "silver": "Серебряная карта",
+            "black": "Чёрная карта",
+            "gold": "Золотая карта",
+        }
+        title = f"{kind_names.get(kind, 'Карта')} · Card {normalized}"
+        return title, "Описание эффекта этой карты пока не задано."
+
+    def _wrap_tooltip_text(self, text, font, max_width):
+        lines = []
+        current = ""
+        for word in str(text).split():
+            candidate = word if not current else f"{current} {word}"
+            if font.size(candidate)[0] <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines or [""]
+
+    def _draw_card_tooltip(self):
+        if self.drag_source is not None:
+            return
+
+        mouse_pos = pygame.mouse.get_pos()
+        card_id, kind = self._hovered_card(mouse_pos)
+        if card_id is None:
+            return
+
+        title, description = self._tooltip_content(card_id, kind)
+        width = 460
+        padding = 16
+        text_width = width - padding * 2
+        description_lines = self._wrap_tooltip_text(
+            description,
+            self.tooltip_text_font,
+            text_width,
+        )
+        title_height = self.tooltip_title_font.get_height()
+        line_height = self.tooltip_text_font.get_height() + 4
+        height = padding * 2 + title_height + 10 + line_height * len(description_lines)
+
+        x = mouse_pos[0] + 20
+        y = mouse_pos[1] + 20
+        x = max(8, min(x, SCREEN_WIDTH - width - 8))
+        if y + height > SCREEN_HEIGHT - 8:
+            y = mouse_pos[1] - height - 20
+        y = max(8, min(y, SCREEN_HEIGHT - height - 8))
+
+        tooltip = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.rect(tooltip, (244, 235, 211, 248), tooltip.get_rect(), border_radius=10)
+        pygame.draw.rect(tooltip, PAPER_COLOR, tooltip.get_rect(), 3, border_radius=10)
+
+        title_surface = self.tooltip_title_font.render(str(title), True, PAPER_COLOR)
+        tooltip.blit(title_surface, (padding, padding))
+        text_y = padding + title_height + 10
+        for line in description_lines:
+            line_surface = self.tooltip_text_font.render(line, True, PAPER_COLOR)
+            tooltip.blit(line_surface, (padding, text_y))
+            text_y += line_height
+
+        self.screen.blit(tooltip, (x, y))
 
     def draw(self):
         if self.round_background:
@@ -278,6 +500,8 @@ class SilverBlackPage:
                 card_id = self._card_id_for_entry(entry)
                 if card_id is not None:
                     self._draw_card(card_id, rect)
+                    if self._is_card_disabled(card_id):
+                        self._draw_disabled_card(rect)
 
         self._draw_inventory_row("silver", self.silver_rects, SILVER)
         self._draw_inventory_row("black", self.black_rects, PAPER_COLOR, BLACK_CARD_TINT)
@@ -288,6 +512,7 @@ class SilverBlackPage:
             draw_y = self.drag_pos[1] - self.drag_offset[1]
             self._draw_card(self.drag_card_id, pygame.Rect(draw_x, draw_y, self.card_width, self.card_height))
 
+        self._draw_card_tooltip()
         pygame.display.flip()
 
     def run(self):

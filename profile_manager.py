@@ -78,9 +78,17 @@ def _empty_progress():
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
+        "shop_deck_cards": [],
+        "removed_deck_cards_by_level": {},
+        "investment_card_bonuses": {},
+        "profit_reward_bonus": 0,
+        "pending_shop_discount_percent": 0,
         "silver_cards": [],
         "black_cards": [],
         "gold_cards": [],
+        "active_gold_cards": [],
+        "bear_goal_reduction_steps": 0,
+        "insurance_goal_debt": 0,
         "forced_start_hand_cards_by_level": {},
         "active_red_cards_level": None,
         "active_red_cards_deck": [],
@@ -153,15 +161,35 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
     game_state.global_last_turn_bonus = int(progress.get("global_last_turn_bonus", 0) or 0)
     game_state.global_hand_bonus = int(progress.get("global_hand_bonus", 0) or 0)
-    game_state.napoleondors = int(progress.get("napoleondors", 0) or 0)
+    game_state.napoleondors = float(progress.get("napoleondors", 0) or 0)
     try:
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
     except (TypeError, ValueError):
         game_state.napoleondor_level = None
     game_state.earned_reward_cards = _restore_int_key_lists(progress.get("earned_reward_cards") or {})
+    game_state.shop_deck_cards = _restore_int_list(progress.get("shop_deck_cards") or [])
+    game_state.removed_deck_cards_by_level = _restore_int_key_lists(progress.get("removed_deck_cards_by_level") or {})
+    game_state.investment_card_bonuses = _restore_int_value_dict(progress.get("investment_card_bonuses") or {})
+    game_state.profit_reward_bonus = int(progress.get("profit_reward_bonus", 0) or 0)
+    try:
+        game_state.pending_shop_discount_percent = max(
+            0,
+            min(100, int(progress.get("pending_shop_discount_percent", 0) or 0)),
+        )
+    except (TypeError, ValueError):
+        game_state.pending_shop_discount_percent = 0
     game_state.silver_cards = _restore_int_list(progress.get("silver_cards") or [])[: game_state.MAX_SILVER_CARDS]
     game_state.black_cards = _restore_int_list(progress.get("black_cards") or [])[: game_state.MAX_BLACK_CARDS]
     game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
+    game_state.set_active_gold_cards(_restore_int_list(progress.get("active_gold_cards") or []))
+    try:
+        game_state.bear_goal_reduction_steps = max(0, int(progress.get("bear_goal_reduction_steps", 0) or 0))
+    except (TypeError, ValueError):
+        game_state.bear_goal_reduction_steps = 0
+    try:
+        game_state.insurance_goal_debt = max(0, int(progress.get("insurance_goal_debt", 0) or 0))
+    except (TypeError, ValueError):
+        game_state.insurance_goal_debt = 0
     _migrate_silver_cards_from_earned_rewards()
     game_state.forced_start_hand_cards_by_level = _restore_int_key_lists(
         progress.get("forced_start_hand_cards_by_level") or {}
@@ -220,12 +248,20 @@ def _capture_progress():
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
         "global_last_turn_bonus": int(game_state.global_last_turn_bonus),
         "global_hand_bonus": int(game_state.global_hand_bonus),
-        "napoleondors": int(game_state.napoleondors),
+        "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
+        "shop_deck_cards": _serialize_int_list(game_state.shop_deck_cards),
+        "removed_deck_cards_by_level": _serialize_int_key_lists(game_state.removed_deck_cards_by_level),
+        "investment_card_bonuses": _serialize_int_value_dict(game_state.investment_card_bonuses),
+        "profit_reward_bonus": int(game_state.profit_reward_bonus),
+        "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),
         "gold_cards": _serialize_int_list(game_state.gold_cards),
+        "active_gold_cards": _serialize_int_list(game_state.active_gold_cards),
+        "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
+        "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "forced_start_hand_cards_by_level": _serialize_int_key_lists(game_state.forced_start_hand_cards_by_level),
         "active_red_cards_level": game_state.active_red_cards_level,
         "active_red_cards_deck": list(game_state.active_red_cards_deck or []),
@@ -256,6 +292,26 @@ def _serialize_int_list(source):
 
 def _restore_int_list(source):
     return _serialize_int_list(source)
+
+
+def _serialize_int_value_dict(source):
+    result = {}
+    for key, value in (source or {}).items():
+        try:
+            result[str(int(key))] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _restore_int_value_dict(source):
+    result = {}
+    for key, value in (source or {}).items():
+        try:
+            result[int(key)] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return result
 
 
 def _migrate_silver_cards_from_earned_rewards():
@@ -370,9 +426,11 @@ def _serialize_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
-        "napoleondors": int(source.get("napoleondors", 0) or 0),
+        "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
+        "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
+        "removed_deck_cards": list(source.get("removed_deck_cards") or []),
         "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
     }
 
@@ -385,9 +443,11 @@ def _restore_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
-        "napoleondors": int(source.get("napoleondors", 0) or 0),
+        "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
+        "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
+        "removed_deck_cards": list(source.get("removed_deck_cards") or []),
         "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
     }
 

@@ -40,7 +40,24 @@ def is_silver_reward_card(card_id):
     return cid == REWARD_TOKEN_RANDOM_SILVER or 200 < cid < 300
 
 
-def build_initial_deck(level_number, earned_reward_cards, level_completion_reward_cards=None):
+def apply_removed_cards(deck, removed_cards):
+    result = list(deck or [])
+    for card_id in removed_cards or []:
+        normalized = normalize_card_id(card_id)
+        try:
+            result.remove(normalized)
+        except ValueError:
+            pass
+    return result
+
+
+def build_initial_deck(
+    level_number,
+    earned_reward_cards,
+    level_completion_reward_cards=None,
+    removed_cards_by_level=None,
+    shop_deck_cards=None,
+):
     """Build initial deck composition for a given level."""
     base_deck = list(BASE_STARTING_DECK)
 
@@ -56,7 +73,20 @@ def build_initial_deck(level_number, earned_reward_cards, level_completion_rewar
         base_deck.extend(earned_cards)
         print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
 
-    return dedupe_red_cards(base_deck)
+    bought_cards = dedupe_red_cards(
+        card_id for card_id in (shop_deck_cards or []) if not is_silver_reward_card(card_id)
+    )
+    if bought_cards:
+        base_deck.extend(bought_cards)
+        print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
+
+    deck = dedupe_red_cards(base_deck)
+    removed_cards = (removed_cards_by_level or {}).get(level_number, [])
+    if removed_cards:
+        deck = apply_removed_cards(deck, removed_cards)
+        print(f"Removed {len(removed_cards)} card(s) from level {level_number} deck: {removed_cards}")
+
+    return deck
 
 
 def deal_starting_hand(deck, hand_size, forced_cards):
@@ -97,8 +127,16 @@ def setup_starting_deck_and_hand(
     earned_reward_cards,
     forced_cards_by_level,
     level_completion_reward_cards=None,
+    removed_cards_by_level=None,
+    shop_deck_cards=None,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
-    deck = build_initial_deck(level_number, earned_reward_cards, level_completion_reward_cards)
+    deck = build_initial_deck(
+        level_number,
+        earned_reward_cards,
+        level_completion_reward_cards,
+        removed_cards_by_level,
+        shop_deck_cards,
+    )
     forced_cards = list(forced_cards_by_level.get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, forced_cards)
