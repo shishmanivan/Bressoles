@@ -99,8 +99,6 @@ def draw_preview_card_action(
     scale_factor = card_width / base_market_width
     base_font_size = 36
     scaled_font_size = int(base_font_size * 0.85 * 0.9 * scale_factor)
-    if adjust_mode == "shop" and card_id in (17, 18):
-        scaled_font_size = int(card_width * 0.22)
     if scaled_font_size < 1:
         scaled_font_size = 1
 
@@ -114,13 +112,7 @@ def draw_preview_card_action(
         action_y = plus_y + 14 * scale_factor
         if card_id in (15, 16):
             action_x -= 11 * scale_factor
-        if adjust_mode == "shop" and card_id in (17, 18):
-            action_rect = action_text.get_rect(
-                midleft=(int(card_width * 0.54), int(card_height * 0.26))
-            )
-            surface.blit(action_text, action_rect.topleft)
-        else:
-            surface.blit(action_text, (int(action_x), int(action_y)))
+        surface.blit(action_text, (int(action_x), int(action_y)))
     except Exception as e:
         print(f"ERROR drawing CardAction on preview card: {e}")
 
@@ -145,20 +137,9 @@ def draw_preview_card_turns(surface, turns_value, card_id, card_width, card_heig
         card_center_x = card_width / 2
         turns_x = card_center_x + 10 * scale_factor
         turns_y = card_height - offset_from_bottom
-
         if card_id in (17, 18):
-            if adjust_mode == "gameplay":
-                x_scale = float(card_width) / 142.0 if card_width else 1.0
-                y_scale = float(card_height) / 244.0 if card_height else 1.0
-                turns_x -= 7.0 * x_scale
-                turns_y += 2.0 * y_scale
-            else:
-                base_market_width_for_adjust = 99.0
-                base_market_height_for_adjust = 171.0
-                x_scale = card_width / base_market_width_for_adjust if base_market_width_for_adjust else 1.0
-                y_scale = card_height / base_market_height_for_adjust if base_market_height_for_adjust else 1.0
-                turns_x -= 7.0 * x_scale
-                turns_y += 2.0 * y_scale
+            turns_x -= 10 * scale_factor
+            turns_y += 3 * height_scale
 
         surface.blit(turns_text, (int(turns_x), int(turns_y)))
     except Exception as e:
@@ -250,12 +231,9 @@ def draw_card_turns_text(
             height_scale = current_height / base_bottom_height if base_bottom_height > 0 else 1.0
             offset_from_bottom = 75.0 * height_scale
             turns_y = card_y + card_size[1] - offset_from_bottom
-
             if card_id in (17, 18):
-                x_scale = float(card_size[0]) / 142.0 if card_size[0] else 1.0
-                y_scale = float(card_size[1]) / 244.0 if card_size[1] else 1.0
-                turns_x -= 7.0 * x_scale
-                turns_y += 2.0 * y_scale
+                turns_x -= 10 * scale_factor
+                turns_y += 3 * height_scale
 
             screen.blit(turns_text, (turns_x, turns_y))
     except Exception as e:
@@ -271,27 +249,33 @@ def draw_bear_modifier_text(
     font_path,
     paper_color,
     adjust_mode="default",
+    modifier_percent=None,
 ):
-    """Draw Bear's visible base modifier next to the card title."""
+    """Draw Bear's visible goal modifier next to the card title."""
     try:
         if int(card_id) != 401:
             return
     except (TypeError, ValueError):
         return
     if not card_size or len(card_size) < 2 or card_size[0] <= 0:
-        return
+            return
 
     if adjust_mode == "shop":
         font_size = max(1, int(card_size[0] * 0.18))
         x_ratio = 0.53
-        y_ratio = 0.04
+        y_ratio = 0.07
     else:
         font_size = max(1, int(card_size[0] * 0.20))
         x_ratio = 0.57
         y_ratio = 0.075
     try:
+        try:
+            percent = int(modifier_percent)
+        except (TypeError, ValueError):
+            percent = 2
+        percent = max(2, percent)
         font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
-        text = font.render("-2%", True, paper_color)
+        text = font.render(f"-{percent}%", True, paper_color)
         x = card_x + card_size[0] * x_ratio
         y = card_y + card_size[1] * y_ratio
         screen.blit(text, (int(x), int(y)))

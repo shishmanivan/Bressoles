@@ -386,6 +386,8 @@ class GameplayPage:
             game_state.get_completed_level_reward_cards(),
             game_state.removed_deck_cards_by_level,
             game_state.shop_deck_cards,
+            game_state.round_reward_cards,
+            game_state.guaranteed_start_hand_cards_by_level,
         )
         
         # Drag and drop state
@@ -459,10 +461,23 @@ class GameplayPage:
         
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
+        self.long_payout_amount = 0
         
         # Load WinLose window texts from Lang.csv
         self.reward_window_text = self._get_text("RewardWindowText", "RewardWindowText")
         self.reward_final_boss_text = self._get_text("RewardFinalBoss", "RewardWindowText")
+        self.reward_level1_final_boss_text = self._get_text(
+            "RewardLevel1FinalBoss",
+            "Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.",
+        )
+        self.reward_level2_final_boss_text = self._get_text(
+            "RewardLevel2FinalBoss",
+            "Теперь в игре будут попадаться серебряные карты.",
+        )
+        self.boss_victory_deck_reset_text = self._get_text(
+            "BossVictoryDeckReset",
+            "Колода сброшена до базовой.",
+        )
         self.lose_window_text = self._get_text("LoseWindowText", "LoseWindowText")
         
         # Cache for WinLose window reward card images
@@ -754,6 +769,12 @@ class GameplayPage:
         else:
             pygame.draw.rect(self.screen, (238, 228, 205), rect)
 
+        self._draw_boss_round_label(rect)
+
+        if rect.collidepoint(pygame.mouse.get_pos()):
+            self._draw_current_boss_condition_tooltip(entry, rect)
+
+    def _draw_boss_round_label(self, boss_rect):
         if self.is_boss_fight:
             round_label = "Босс раунд"
         else:
@@ -767,18 +788,32 @@ class GameplayPage:
         padding_x = 12
         padding_y = 7
         label_rect = label_surface.get_rect()
+
+        lifecycle_rects = [
+            entry.get("rect")
+            for entry in self.side_placeholders_bottom
+            if entry.get("rect") is not None
+        ]
+        if lifecycle_rects:
+            section_rect = lifecycle_rects[0].unionall(lifecycle_rects[1:])
+            label_center_x = section_rect.centerx
+            label_y = min(
+                section_rect.bottom + 14,
+                SCREEN_HEIGHT - label_rect.height - padding_y * 2 - 8,
+            )
+        else:
+            label_center_x = boss_rect.left - label_rect.width // 2
+            label_y = boss_rect.centery - (label_rect.height + padding_y * 2) // 2
+
         background_rect = pygame.Rect(
-            rect.x - label_rect.width - padding_x * 2 - 12,
-            rect.centery - (label_rect.height + padding_y * 2) // 2,
+            label_center_x - (label_rect.width + padding_x * 2) // 2,
+            label_y,
             label_rect.width + padding_x * 2,
             label_rect.height + padding_y * 2,
         )
         pygame.draw.rect(self.screen, (238, 228, 205), background_rect, border_radius=7)
         pygame.draw.rect(self.screen, PAPER_COLOR, background_rect, 2, border_radius=7)
         self.screen.blit(label_surface, label_surface.get_rect(center=background_rect.center))
-
-        if rect.collidepoint(pygame.mouse.get_pos()):
-            self._draw_current_boss_condition_tooltip(entry, rect)
 
     def _draw_current_boss_condition_tooltip(self, entry, icon_rect):
         text = entry.get("condition_text") or ""
@@ -811,6 +846,17 @@ class GameplayPage:
         if default is None:
             default = key
         return self.lang_dict.get(key, default)
+
+    def _get_final_boss_reward_text(self):
+        try:
+            level = int(self.level_number or 0)
+        except (TypeError, ValueError):
+            level = 0
+        if level == 1:
+            return self.reward_level1_final_boss_text
+        if level == 2:
+            return self.reward_level2_final_boss_text
+        return self.reward_final_boss_text
 
     def _apply_investment_card_bonuses(self):
         for card_id, bonus in (game_state.investment_card_bonuses or {}).items():
@@ -967,6 +1013,7 @@ class GameplayPage:
             "win_lose_state": self.win_lose_state,
             "win_lose_y": self.win_lose_y,
             "last_earned_cards": list(self.last_earned_cards or []),
+            "long_payout_amount": int(self.long_payout_amount or 0),
             "active_silver_cards": list(self.active_silver_cards or []),
             "active_black_cards": list(self.active_black_cards or []),
             "active_gold_cards": list(self.active_gold_cards or []),
@@ -1029,7 +1076,10 @@ class GameplayPage:
 
         self.final_auto_liquidation_applied = bool(state.get("final_auto_liquidation_applied", False))
         self.win_lose_state = state.get("win_lose_state")
+        if self.win_lose_state == "win" and self.is_final_boss:
+            self.reward_window_text = self._get_final_boss_reward_text()
         self.last_earned_cards = list(state.get("last_earned_cards") or [])
+        self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
         self.active_silver_cards = list(state.get("active_silver_cards", self.active_silver_cards) or [])
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
@@ -1517,9 +1567,10 @@ class GameplayPage:
         self.win_lose_state = next_state
         self._record_stats_result(next_state == "win")
         self._spend_active_silver_cards_if_needed()
+        self.long_payout_amount = 0
         if next_state == "win":
             if self.is_final_boss:
-                self.reward_window_text = self.reward_final_boss_text
+                self.reward_window_text = self._get_final_boss_reward_text()
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
             if reason == "insurance":
                 print(
@@ -1534,6 +1585,8 @@ class GameplayPage:
             self._add_reward_card_to_deck()
             self._apply_obligation_win_bonus()
             self._record_bear_victory_progress()
+            self.long_payout_amount = self._apply_long_investment_payout()
+            game_state.advance_bailout_round()
         else:
             self._reset_earned_cards_for_level()
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
@@ -1683,9 +1736,17 @@ class GameplayPage:
             self.final_auto_liquidation_applied = True
             return False
 
-        proceeds = gross_value if full_price else (gross_value * 80) // 100
+        if full_price and discounted:
+            proceeds = (gross_value * 120) // 100
+            source = "Cards 110+201 Rebate"
+        elif full_price:
+            proceeds = gross_value
+            source = "Active card 201"
+        else:
+            proceeds = (gross_value * 80) // 100
+            source = "Card 110"
+
         self.Money += proceeds
-        source = "Active card 201" if full_price else "Card 110"
         print(
             f"{source} auto-liquidation: gross={gross_value}, proceeds={proceeds}, "
             f"Money={self.Money}"
@@ -1700,7 +1761,7 @@ class GameplayPage:
         """Add reward card to global earned cards list after winning a round, or apply boss reward for boss fights"""
         apply_win_reward(
             self,
-            game_state.earned_reward_cards,
+            game_state.round_reward_cards,
             self.rewards,
             REWARD_TOKEN_RANDOM_RED,
             load_boss_rewards,
@@ -1738,6 +1799,14 @@ class GameplayPage:
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
 
+    def _apply_long_investment_payout(self):
+        payout = game_state.advance_long_investments(self.level_number)
+        if payout <= 0:
+            return 0
+        if self.profile_slot and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        return int(payout)
+
     def _apply_bill_of_exchange_shop_discount(self):
         if not self._has_active_silver_card(215):
             return
@@ -1755,20 +1824,18 @@ class GameplayPage:
         game_state.clear_investment_card_bonuses()
         game_state.clear_profit_bonus()
         game_state.clear_pending_shop_discount()
+        game_state.clear_round_reward_cards(self.level_number)
         game_state.clear_shop_deck_cards()
         game_state.clear_gold_cards()
         game_state.clear_silver_cards_deck()
-        if game_state.restore_level2_loss_checkpoint(self.level_number):
-            self.Dobor = game_state.global_dobor
-            print(f"Restored level 2 first-boss checkpoint after defeat on level {self.level_number}")
-            if self.profile_slot and not self.test_mode:
-                profile_manager.save_progress_from_game_state(self.profile_slot)
-            return
+        game_state.clear_bailout_bonus()
+        game_state.clear_long_investments()
 
         game_state.global_dobor = reset_level_loss_state(
             self.level_number,
             game_state.earned_reward_cards,
             game_state.forced_start_hand_cards_by_level,
+            game_state.guaranteed_start_hand_cards_by_level,
         )
         if game_state.global_start_money_bonus != 0:
             print(
@@ -2219,7 +2286,6 @@ class GameplayPage:
 
     def _apply_red_card_effects_if_needed(self):
         """Apply one-shot effects for freshly played Type=2 red cards."""
-        self._start_fresh_side_card_jump_animations()
         self._apply_extended_gain_drop_effect_if_needed()
         self._apply_forward_trading_effect_if_needed()
         self._apply_bankruptcy_effects_if_needed()
@@ -2227,11 +2293,10 @@ class GameplayPage:
         self._apply_market_crash_effect_if_needed()
         self._apply_deleverage_effect_if_needed()
 
-    def _start_fresh_side_card_jump_animations(self):
+    def _start_fresh_side_card_jump_animation_for_card(self, target_card_id):
         for slot, card_id in enumerate(self.side_cards_top):
             if (
-                card_id is not None
-                and game_state.is_red_card(card_id)
+                card_id == target_card_id
                 and not self.side_cards_locked_top.get(slot)
             ):
                 self._start_card_jump_animation(self.side_card_jump_animations, slot)
@@ -2242,9 +2307,6 @@ class GameplayPage:
         if red_rollover_count <= 0:
             return False
 
-        # INTENTIONAL SYNERGY — NOT A BUG:
-        # With active silver Rollover 208, each freshly played red Rollover 112
-        # grants +2 turns instead of +1. Do not simplify this to red_rollover_count.
         bonus_per_red_rollover = 2 if self._has_active_silver_card(208) else 1
         bonus = red_rollover_count * bonus_per_red_rollover
 
@@ -2258,7 +2320,7 @@ class GameplayPage:
                     current = self.market_card_turns[market].get(slot, self.card_turns[card_id] - bonus)
                     self.market_card_turns[market][slot] = current + bonus
 
-        source = "112+208 Rollover synergy" if bonus_per_red_rollover == 2 else "Card 112 Rollover"
+        source = "Card 112 Rollover"
         print(f"{source} extended Gain/Drop durations by {bonus}.")
         return True
 
@@ -2305,19 +2367,28 @@ class GameplayPage:
 
     def _set_market_price_to_minimum(self, market):
         if market == 0:
+            changed = self.Aprice != 2
             self.Aprice = 2
+            return changed
         elif market == 1:
+            changed = self.BPrice != 2
             self.BPrice = 2
+            return changed
         elif market == 2:
+            changed = self.CPrice != 2
             self.CPrice = 2
+            return changed
+        return False
 
     def _apply_bankruptcy_effects_if_needed(self):
         """Cards 113-115: set A/B/C stock prices to 2."""
         applied = False
         for card_id, market in ((113, 0), (114, 1), (115, 2)):
             if self._has_fresh_side_card(card_id):
-                self._set_market_price_to_minimum(market)
-                applied = True
+                changed = self._set_market_price_to_minimum(market)
+                if changed:
+                    self._start_fresh_side_card_jump_animation_for_card(card_id)
+                    applied = True
         if applied:
             print(
                 "Bankruptcy cards applied: "
@@ -2339,9 +2410,13 @@ class GameplayPage:
         count = self._count_fresh_side_card(117)
         if count <= 0:
             return False
+        changed = any(price != 2 for price in (self.Aprice, self.BPrice, self.CPrice))
         self.Aprice = 2
         self.BPrice = 2
         self.CPrice = 2
+        if not changed:
+            return False
+        self._start_fresh_side_card_jump_animation_for_card(117)
         print(
             f"Card 117 market crash applied: count={count}, "
             f"A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
@@ -3213,6 +3288,7 @@ class GameplayPage:
                                 self.card_size_side,
                                 self.font_path,
                                 PAPER_COLOR,
+                                modifier_percent=game_state.get_bear_goal_discount_percent(self.active_gold_cards),
                             )
 
         # Draw bottom frame (strategy cards area)
@@ -3383,6 +3459,22 @@ class GameplayPage:
                 
                 # Split text into lines if it's too long
                 lines = wrap_text(self.reward_window_text, self.font_small, max_text_width)
+                if self.is_boss_fight:
+                    lines.extend(
+                        wrap_text(
+                            self.boss_victory_deck_reset_text,
+                            self.font_small,
+                            max_text_width,
+                        )
+                    )
+                if self.long_payout_amount:
+                    lines.extend(
+                        wrap_text(
+                            f"Long принес прибыль: {self.long_payout_amount} наполеондоров",
+                            self.font_small,
+                            max_text_width,
+                        )
+                    )
                 
                 # Draw text lines
                 line_height = self.font_small.get_height() + 5

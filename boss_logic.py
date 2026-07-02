@@ -209,8 +209,24 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print(f"Applied boss reward RedCard: forced starting-hand card for level {level_num}: {red_card}")
             return
 
+        normalized_reward = str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
+        if normalized_reward.startswith("guaranteeredstart"):
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            count = 2
+            if "=" in str(reward_string):
+                try:
+                    count = int(str(reward_string).split("=", 1)[1].strip())
+                except (TypeError, ValueError):
+                    count = 2
+            selected = game_state.guarantee_existing_red_start_cards(level_num, count)
+            print(
+                f"Applied boss reward GuaranteeRedStart={count}: "
+                f"guaranteed existing red cards for level {level_num}: {selected}"
+            )
+            return
+
         # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
-        if str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower() in (
+        if normalized_reward in (
             "gaindropcard",
             "randomgaindrop",
             "randomgaindropcard",
@@ -233,7 +249,7 @@ def apply_boss_reward(reward_string, gameplay_instance):
             return
 
         # Special reward: SilverCard (pick a random available silver card for the persistent inventory)
-        if str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower() in (
+        if normalized_reward in (
             "silvercard",
             "randomsilver",
             "randomsilvercard",

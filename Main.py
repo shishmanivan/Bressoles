@@ -114,6 +114,9 @@ def main():
         else:
             game_state.clear_pending_shop_discount()
 
+    def should_open_shop_after_regular_round(level_number):
+        return int(level_number or 0) != 1
+
     def run_saved_gameplay(active_game):
         context = dict((active_game or {}).get("context") or {})
         saved_state = dict((active_game or {}).get("state") or {})
@@ -181,11 +184,12 @@ def main():
     def reset_level_attempt(level_number):
         game_state.clear_investment_card_bonuses()
         game_state.clear_profit_bonus()
+        game_state.clear_round_reward_cards(level_number)
         game_state.clear_shop_deck_cards()
         game_state.clear_gold_cards()
         game_state.clear_silver_cards_deck()
-        if game_state.restore_level2_loss_checkpoint(level_number):
-            return game_state.boss_progress.get(int(level_number))
+        game_state.clear_bailout_bonus()
+        game_state.clear_long_investments()
         return game_state.reset_level_attempt(level_number)
 
     def get_current_boss(bp_state):
@@ -402,11 +406,7 @@ def main():
                             if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(level, 3, show_shop=False)
                                 mark_level_run_result(bp_state, level, True)
-                                if level in game_state.forced_start_hand_cards_by_level:
-                                    game_state.forced_start_hand_cards_by_level[level] = []
-                                game_state.clear_removed_deck_cards(level)
-                                game_state.clear_profit_bonus()
-                                game_state.reset_napoleondors(level)
+                                game_state.complete_level_run(level)
                                 if level == 1:
                                     game_state.level_1_boss_defeated = True
                                 elif level == 2:
@@ -415,13 +415,15 @@ def main():
                                     game_state.level_3_boss_defeated = True
                             else:
                                 award_napoleondors_and_open_shop(level, 3)
-                                if 0 < bp_state["defeated"] < bosses_required:
-                                    game_state.capture_level2_loss_checkpoint(level)
                         elif resume_result == "round_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
                             mark_context_round_completed(bp_state, active_context)
-                            award_napoleondors_and_open_shop(level, 1)
+                            award_napoleondors_and_open_shop(
+                                level,
+                                1,
+                                show_shop=should_open_shop_after_regular_round(level),
+                            )
                         elif resume_result == "level_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
@@ -671,7 +673,12 @@ def main():
                                     boss_filename,
                                 )
                                 profile_manager.save_progress_from_game_state(selected_slot)
-                            award_napoleondors_and_open_shop(boss_level, 1, test_mode=test_mode)
+                            award_napoleondors_and_open_shop(
+                                boss_level,
+                                1,
+                                test_mode=test_mode,
+                                show_shop=should_open_shop_after_regular_round(boss_level),
+                            )
                             round_result = round_page.run()
                         elif gameplay_result == "level_select":
                             mark_level_run_loss_stage(boss_level, f"Раунд {round_num}", round_num)
@@ -769,11 +776,7 @@ def main():
                                     show_shop=False,
                                 )
                                 mark_level_run_result(bp_state, boss_level, True)
-                                if boss_level in game_state.forced_start_hand_cards_by_level:
-                                    game_state.forced_start_hand_cards_by_level[boss_level] = []
-                                game_state.clear_removed_deck_cards(boss_level)
-                                game_state.clear_profit_bonus()
-                                game_state.reset_napoleondors(boss_level)
+                                game_state.complete_level_run(boss_level)
                                 if boss_level == 1:
                                     game_state.level_1_boss_defeated = True
                                     print("Level 1 boss defeated! Unlocking level 2")
@@ -788,8 +791,6 @@ def main():
                                 break
 
                             award_napoleondors_and_open_shop(boss_level, 3, test_mode=test_mode)
-                            if 0 < bp_state["defeated"] < bosses_required:
-                                game_state.capture_level2_loss_checkpoint(boss_level)
 
                             if selected_slot and not test_mode:
                                 profile_manager.save_progress_from_game_state(selected_slot)

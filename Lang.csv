@@ -17,11 +17,11 @@ Boss2Reward;После окончания хода вы тянете две ка
 Boss3Text;Роберт Фултон. Придётся сыграть на один раунд больше.;Robert Fulton. You'll have to play one more round.:
 Boss3Reward;Вы начинаете раунд с 2$ и получаете случайную Gain/Drop карту;You start the round with 2$ and gain a random Gain/Drop card:
 Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.:
-Boss4Reward;В стартовой руке всегда будут две красные карты;You start with two red cards in your hand.:
+Boss4Reward;В стартовой руке будут до двух красных карт, если они есть в колоде;Your starting hand contains up to two red cards, if they are in your deck.:
 Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. One card less in your hand.:
 Boss5Reward;Игра длится на два хода дольше, и вы получаете случайную серебряную карту;The game lasts two turns longer, and you gain a random silver card:
 Boss6Text;Ричард Аркрайт. Есть шанс, что на каждом ходу у вас будут воровать акции.;Richard Arkwright. There is a chance that your shares will be stolen each turn.:
-Boss6Reward;Размер руки увеличивается на 2, и вы получаете случайную серебряную карту;Hand size increases by 2, and you gain a random silver card:
+Boss6Reward;Размер руки увеличивается на 1, и вы получаете случайную серебряную карту;Hand size increases by 1, and you gain a random silver card:
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
@@ -40,6 +40,9 @@ PopUp2RedCards+SilverCard;Две красные карты и серебряна
 PopUp2RedCards;Две красные карты;Two red cards
 RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
+RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
+RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
+BossVictoryDeckReset;Колода сброшена до базовой.;Deck reset to the base deck.
 LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.
 LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.

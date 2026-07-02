@@ -78,11 +78,14 @@ def _empty_progress():
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
+        "round_reward_cards": {},
         "shop_deck_cards": [],
         "removed_deck_cards_by_level": {},
         "investment_card_bonuses": {},
         "profit_reward_bonus": 0,
         "pending_shop_discount_percent": 0,
+        "bailout_rounds_remaining": 0,
+        "active_long_investments": [],
         "silver_cards": [],
         "black_cards": [],
         "gold_cards": [],
@@ -90,6 +93,7 @@ def _empty_progress():
         "bear_goal_reduction_steps": 0,
         "insurance_goal_debt": 0,
         "forced_start_hand_cards_by_level": {},
+        "guaranteed_start_hand_cards_by_level": {},
         "active_red_cards_level": None,
         "active_red_cards_deck": [],
         "active_silver_cards_level": None,
@@ -167,6 +171,7 @@ def apply_profile_to_game_state(profile_or_slot):
     except (TypeError, ValueError):
         game_state.napoleondor_level = None
     game_state.earned_reward_cards = _restore_int_key_lists(progress.get("earned_reward_cards") or {})
+    game_state.round_reward_cards = _restore_int_key_lists(progress.get("round_reward_cards") or {})
     game_state.shop_deck_cards = _restore_int_list(progress.get("shop_deck_cards") or [])
     game_state.removed_deck_cards_by_level = _restore_int_key_lists(progress.get("removed_deck_cards_by_level") or {})
     game_state.investment_card_bonuses = _restore_int_value_dict(progress.get("investment_card_bonuses") or {})
@@ -178,6 +183,16 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.pending_shop_discount_percent = 0
+    try:
+        game_state.bailout_rounds_remaining = max(
+            0,
+            int(progress.get("bailout_rounds_remaining", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.bailout_rounds_remaining = 0
+    game_state.active_long_investments = _restore_int_list(progress.get("active_long_investments") or [])[
+        : game_state.LONG_MAX_ACTIVE
+    ]
     game_state.silver_cards = _restore_int_list(progress.get("silver_cards") or [])[: game_state.MAX_SILVER_CARDS]
     game_state.black_cards = _restore_int_list(progress.get("black_cards") or [])[: game_state.MAX_BLACK_CARDS]
     game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
@@ -193,6 +208,9 @@ def apply_profile_to_game_state(profile_or_slot):
     _migrate_silver_cards_from_earned_rewards()
     game_state.forced_start_hand_cards_by_level = _restore_int_key_lists(
         progress.get("forced_start_hand_cards_by_level") or {}
+    )
+    game_state.guaranteed_start_hand_cards_by_level = _restore_int_key_lists(
+        progress.get("guaranteed_start_hand_cards_by_level") or {}
     )
     game_state.active_red_cards_level = progress.get("active_red_cards_level")
     game_state.active_red_cards_deck = list(progress.get("active_red_cards_deck") or [])
@@ -251,11 +269,14 @@ def _capture_progress():
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
+        "round_reward_cards": _serialize_int_key_lists(game_state.round_reward_cards),
         "shop_deck_cards": _serialize_int_list(game_state.shop_deck_cards),
         "removed_deck_cards_by_level": _serialize_int_key_lists(game_state.removed_deck_cards_by_level),
         "investment_card_bonuses": _serialize_int_value_dict(game_state.investment_card_bonuses),
         "profit_reward_bonus": int(game_state.profit_reward_bonus),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
+        "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
+        "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),
         "gold_cards": _serialize_int_list(game_state.gold_cards),
@@ -263,6 +284,9 @@ def _capture_progress():
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "forced_start_hand_cards_by_level": _serialize_int_key_lists(game_state.forced_start_hand_cards_by_level),
+        "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(
+            game_state.guaranteed_start_hand_cards_by_level
+        ),
         "active_red_cards_level": game_state.active_red_cards_level,
         "active_red_cards_deck": list(game_state.active_red_cards_deck or []),
         "active_silver_cards_level": game_state.active_silver_cards_level,
@@ -429,9 +453,11 @@ def _serialize_reward_checkpoint(source):
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
+        "active_long_investments": list(source.get("active_long_investments") or []),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
         "removed_deck_cards": list(source.get("removed_deck_cards") or []),
         "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
+        "guaranteed_start_hand_cards": list(source.get("guaranteed_start_hand_cards") or []),
     }
 
 
@@ -446,9 +472,11 @@ def _restore_reward_checkpoint(source):
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
+        "active_long_investments": list(source.get("active_long_investments") or []),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
         "removed_deck_cards": list(source.get("removed_deck_cards") or []),
         "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
+        "guaranteed_start_hand_cards": list(source.get("guaranteed_start_hand_cards") or []),
     }
 
 

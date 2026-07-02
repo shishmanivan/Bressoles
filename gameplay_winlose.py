@@ -4,6 +4,16 @@ import game_state
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
+GAIN_DROP_REWARD_WEIGHTS = {
+    11: 25,  # +2, 1 turn
+    12: 25,  # +2, 2 turns
+    15: 20,  # -2, 1 turn
+    16: 10,  # -2, 2 turns
+    13: 10,  # +4, 1 turn
+    14: 10,  # +4, 2 turns
+}
+
+
 def resolve_win_lose_state(current_state, money, goal, day, last_turn):
     """Return the next win/lose state and reason, or (None, None)."""
     if current_state is not None:
@@ -41,6 +51,7 @@ def apply_win_reward(
             level_reward_cards = game_state.get_level_completion_reward_cards(gameplay_instance.level_number)
             if level_reward_cards and hasattr(gameplay_instance, "last_earned_cards"):
                 gameplay_instance.last_earned_cards.extend(level_reward_cards)
+            game_state.clear_round_reward_cards(gameplay_instance.level_number)
             print(
                 f"Skipped personal boss reward for final boss on level {gameplay_instance.level_number}; "
                 f"level reward cards: {level_reward_cards}"
@@ -68,6 +79,7 @@ def apply_win_reward(
                     f"(level {gameplay_instance.level_number}, index {gameplay_instance.boss_index})"
                 )
 
+        game_state.clear_round_reward_cards(gameplay_instance.level_number)
         return
 
     round_num = (
@@ -139,10 +151,18 @@ def apply_win_reward(
             f"for level {gameplay_instance.level_number}, round {round_num}, button {button}"
         )
 
-    print(f"Earned cards for level {gameplay_instance.level_number}: {earned_reward_cards[gameplay_instance.level_number]}")
+    print(
+        f"Temporary reward cards for level {gameplay_instance.level_number}: "
+        f"{earned_reward_cards[gameplay_instance.level_number]}"
+    )
 
 
-def reset_level_loss_state(level_number, earned_reward_cards, forced_start_hand_cards_by_level):
+def reset_level_loss_state(
+    level_number,
+    earned_reward_cards,
+    forced_start_hand_cards_by_level,
+    guaranteed_start_hand_cards_by_level=None,
+):
     """Reset level-scoped rewards after defeat and return default Dobor."""
     if level_number in earned_reward_cards:
         earned_reward_cards[level_number] = []
@@ -150,12 +170,15 @@ def reset_level_loss_state(level_number, earned_reward_cards, forced_start_hand_
     if level_number in forced_start_hand_cards_by_level:
         forced_start_hand_cards_by_level[level_number] = []
         print(f"Reset forced starting-hand cards for level {level_number} due to defeat")
+    if guaranteed_start_hand_cards_by_level is not None and level_number in guaranteed_start_hand_cards_by_level:
+        guaranteed_start_hand_cards_by_level[level_number] = []
+        print(f"Reset guaranteed starting-hand cards for level {level_number} due to defeat")
     print("Reset Dobor to 1 due to defeat")
     return 1
 
 
 def _select_reward_card(reward_list, level_number, reward_token_random_red, pick_random_red_card_for_level, allow_missing_random_red=False):
-    reward_card_number = random.choice(reward_list)
+    reward_card_number = _choose_reward_card(reward_list)
     if reward_card_number == reward_token_random_red:
         picked = pick_random_red_card_for_level(level_number)
         if picked is None:
@@ -167,3 +190,34 @@ def _select_reward_card(reward_list, level_number, reward_token_random_red, pick
     if reward_card_number == 0:
         reward_card_number = 100
     return reward_card_number
+
+
+def _choose_reward_card(reward_list):
+    if _is_gain_drop_reward_list(reward_list):
+        weighted_cards = []
+        weighted_values = []
+        for card_id in reward_list:
+            try:
+                normalized = int(card_id)
+            except (TypeError, ValueError):
+                continue
+            weight = GAIN_DROP_REWARD_WEIGHTS.get(normalized, 0)
+            if weight > 0:
+                weighted_cards.append(normalized)
+                weighted_values.append(weight)
+        if weighted_cards:
+            return random.choices(weighted_cards, weights=weighted_values, k=1)[0]
+    return random.choice(reward_list)
+
+
+def _is_gain_drop_reward_list(reward_list):
+    if not reward_list:
+        return False
+    for card_id in reward_list:
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            return False
+        if normalized not in GAIN_DROP_REWARD_WEIGHTS:
+            return False
+    return True

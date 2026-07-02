@@ -57,6 +57,8 @@ def build_initial_deck(
     level_completion_reward_cards=None,
     removed_cards_by_level=None,
     shop_deck_cards=None,
+    temporary_reward_cards=None,
+    forced_start_hand_cards=None,
 ):
     """Build initial deck composition for a given level."""
     base_deck = list(BASE_STARTING_DECK)
@@ -80,6 +82,20 @@ def build_initial_deck(
         base_deck.extend(bought_cards)
         print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
 
+    forced_cards = dedupe_red_cards(
+        card_id for card_id in (forced_start_hand_cards or []) if not is_silver_reward_card(card_id)
+    )
+    if forced_cards:
+        base_deck.extend(forced_cards)
+        print(f"Added {len(forced_cards)} boss forced-start card(s) to level {level_number} deck: {forced_cards}")
+
+    temporary_cards = dedupe_red_cards(
+        card_id for card_id in (temporary_reward_cards or []) if not is_silver_reward_card(card_id)
+    )
+    if temporary_cards:
+        base_deck.extend(temporary_cards)
+        print(f"Added {len(temporary_cards)} temporary reward card(s) to level {level_number} deck: {temporary_cards}")
+
     deck = dedupe_red_cards(base_deck)
     removed_cards = (removed_cards_by_level or {}).get(level_number, [])
     if removed_cards:
@@ -95,17 +111,19 @@ def deal_starting_hand(deck, hand_size, forced_cards):
     random.shuffle(deck)
 
     forced_cards = dedupe_red_cards(card_id for card_id in forced_cards if card_id is not None)
+    available_forced_cards = []
 
     # Preserve legacy behavior: remove every forced card from the deck before
     # truncating forced cards to the available hand size.
     for card_id in forced_cards:
         try:
             deck.remove(card_id)
+            available_forced_cards.append(card_id)
         except ValueError:
             pass
 
     hand_cards = [None] * hand_size
-    forced_cards = forced_cards[:hand_size]
+    forced_cards = available_forced_cards[:hand_size]
     for slot, card_id in enumerate(forced_cards):
         hand_cards[slot] = card_id
 
@@ -129,6 +147,8 @@ def setup_starting_deck_and_hand(
     level_completion_reward_cards=None,
     removed_cards_by_level=None,
     shop_deck_cards=None,
+    temporary_reward_cards_by_level=None,
+    guaranteed_cards_by_level=None,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -137,6 +157,10 @@ def setup_starting_deck_and_hand(
         level_completion_reward_cards,
         removed_cards_by_level,
         shop_deck_cards,
+        (temporary_reward_cards_by_level or {}).get(level_number, []),
+        forced_cards_by_level.get(level_number, []) if forced_cards_by_level else [],
     )
     forced_cards = list(forced_cards_by_level.get(level_number, []) or [])
+    guaranteed_cards = list((guaranteed_cards_by_level or {}).get(level_number, []) or [])
+    forced_cards.extend(card_id for card_id in guaranteed_cards if card_id not in forced_cards)
     return deal_starting_hand(deck, hand_size, forced_cards)

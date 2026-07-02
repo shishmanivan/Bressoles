@@ -334,7 +334,7 @@ class RoundPage:
     def _build_display_button_goals(self):
         debt = game_state.get_insurance_goal_debt()
         return {
-            key: (value + debt if value is not None else None)
+            key: (game_state.apply_bailout_goal_modifier(value) + debt if value is not None else None)
             for key, value in self.base_button_goals.items()
         }
 
@@ -673,6 +673,7 @@ class RoundPage:
                                 self._get_level3_goal,
                                 self._apper_goal_boost,
                             )
+                            self.Goal = game_state.apply_bailout_goal_modifier(self.Goal)
                         return "boss_clicked"
         return None
 
@@ -773,24 +774,10 @@ class RoundPage:
                         goal_value = self.boss_goals.get(boss_key, 0)
                     if self.is_apper_boss:
                         goal_value = self._apper_goal_boost(goal_value) or 0
+                    goal_value = game_state.apply_bailout_goal_modifier(goal_value)
                     full_text = f"{self.popup_round_text} {goal_value}$"
                 else:
-                    if self.level_number == 2:
-                        current_round = self.get_current_active_round()
-                        if current_round is not None:
-                            goal_value = self._get_level2_goal(current_round, self.popup_button, self.boss_selection, False) or 0
-                        else:
-                            goal_value = self.button_goals.get(self.popup_button, 0) or 0
-                    elif self.level_number == 3:
-                        current_round = self.get_current_active_round()
-                        if current_round is not None:
-                            goal_value = self._get_level3_goal(current_round, self.popup_button, self.defeated_count, False) or 0
-                        else:
-                            goal_value = self.button_goals.get(self.popup_button, 0) or 0
-                    else:
-                        goal_value = self.button_goals.get(self.popup_button, 0) or 0
-                    if self.is_apper_boss:
-                        goal_value = self._apper_goal_boost(goal_value) or 0
+                    goal_value = self.button_goals.get(self.popup_button, 0) or 0
                     full_text = f"{self.popup_round_text} {goal_value}$"
 
                 popup_text_width = self.popup_width - 60

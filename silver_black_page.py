@@ -3,6 +3,7 @@ import sys
 
 import pygame
 
+import game_state
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bear_modifier_text
 from round_page_assets import load_round_page_static_assets
@@ -51,7 +52,7 @@ CARD_TOOLTIPS = {
     ),
     208: (
         "Rollover",
-        "Добавляет 1 ход всем Gain/Drop-картам. Если затем сыграть красную Rollover, она добавит 2 хода вместо 1.",
+        "Добавляет 1 ход всем Gain/Drop-картам.",
     ),
     214: ("Grant", "Добавляет 4 к стартовым деньгам в начале раунда."),
     215: (
@@ -71,11 +72,11 @@ CARD_TOOLTIPS = {
     ),
     402: (
         "Forward Trading",
-        "Каждая сыгранная карта Shareholder добавляет 1 ход. Вместе с серебряной Forward Trading даёт 4 хода за пару Shareholder.",
+        "Каждая сыгранная карта Shareholder добавляет 1 ход.",
     ),
     403: (
         "Grant",
-        "Добавляет 8 к стартовым деньгам и усиливает каждую серебряную Grant с +4 до +8.",
+        "Добавляет 8 к стартовым деньгам.",
     ),
 }
 
@@ -329,6 +330,7 @@ class SilverBlackPage:
                 (self.card_width, self.card_height),
                 self.font_path,
                 PAPER_COLOR,
+                modifier_percent=game_state.get_bear_goal_discount_percent([card_id]),
             )
 
     def _draw_tint(self, rect, color):

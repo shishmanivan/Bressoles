@@ -23,6 +23,7 @@ SOLD_COLOR = (78, 112, 82)
 DISABLED_OVERLAY = (238, 228, 205, 170)
 PANEL_SIZE = (1440, 900)
 PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]) // 2)
+GAMEPLAY_CARD_SIZE = (142, 244)
 
 SPECIAL_ASSETS = {
     "delisting": ("Delisting", os.path.join("Shop", "Delisting.png")),
@@ -30,14 +31,18 @@ SPECIAL_ASSETS = {
     "trader": ("Trader", os.path.join("Shop", "Trader.png")),
     "profit": ("Profit", os.path.join("Shop", "Profit.png")),
     "underwriter": ("Underwriter", os.path.join("Shop", "Underwriter.png")),
+    "bailout": ("Bailout", os.path.join("Shop", "Bailout.png")),
+    "long": ("Long", os.path.join("Shop", "Long.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
     "delisting": "Удаляет одну выбранную карту из колоды.",
     "investment": "Навсегда усиливает выбранную Gain/Drop карту на 1 до конца забега.",
-    "trader": "Позволяет бесплатно продать одну карту из колоды.",
+    "trader": "Позволяет продать одну карту из колоды.",
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
+    "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
+    "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
 }
 
 CARD_DESCRIPTIONS = {
@@ -46,7 +51,16 @@ CARD_DESCRIPTIONS = {
     117: "Crash: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Bear: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Forward Trading: каждый сыгранный Shareholder добавляет один ход.",
-    403: "Grant: добавляет 8 к стартовым деньгам и усиливает каждую серебряную Grant с +4 до +8.",
+    403: "Grant: добавляет 8 к стартовым деньгам.",
+}
+
+CARD_NAMES = {
+    17: "Gain",
+    18: "Gain",
+    117: "Crash",
+    401: "Bear",
+    402: "Forward Trading",
+    403: "Grant",
 }
 
 SHOP_CARD_ACTIONS = {
@@ -132,7 +146,7 @@ class ShopPage:
         self.round_koordinates = assets["koordinates"]
         self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
-        self.coin_image = self._load_image(os.path.join("Shop", "Napoleondor.jpg"), (54, 54))
+        self.coin_image = self._load_image(os.path.join("Shop", "Napoleondor.png"), (54, 54))
 
         self.title_font = pygame.font.Font(font_path, 72)
         self.balance_font = pygame.font.Font(font_path, 48)
@@ -142,6 +156,7 @@ class ShopPage:
         self.button_rect.center = (self.panel_rect.centerx, self.panel_rect.bottom - 120)
         self.offer_rects = self._build_offer_rects()
         self.offer_image_box = (200, 296)
+        self.card_offer_size = GAMEPLAY_CARD_SIZE
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -160,15 +175,41 @@ class ShopPage:
     def _build_offer_rects(self):
         width = 240
         height = 380
-        gap = 58
-        total_width = 4 * width + 3 * gap
-        start_x = self.panel_rect.centerx - total_width // 2
         y = self.panel_rect.y + 265
-        return [pygame.Rect(start_x + idx * (width + gap), y, width, height) for idx in range(4)]
+
+        half_padding = 96
+        slot_gap = 58
+        left_x = self.panel_rect.x + half_padding
+        right_x = self.panel_rect.centerx + half_padding
+
+        card_rects = [
+            pygame.Rect(left_x + idx * (width + slot_gap), y, width, height)
+            for idx in range(2)
+        ]
+        special_rects = [
+            pygame.Rect(right_x + idx * (width + slot_gap), y, width, height)
+            for idx in range(2)
+        ]
+
+        rects = []
+        card_index = 0
+        special_index = 0
+        for offer in self.offers[:4]:
+            if offer.get("kind") == "card" and card_index < len(card_rects):
+                rects.append(card_rects[card_index])
+                card_index += 1
+            elif special_index < len(special_rects):
+                rects.append(special_rects[special_index])
+                special_index += 1
+            elif card_index < len(card_rects):
+                rects.append(card_rects[card_index])
+                card_index += 1
+        return rects
 
     def _offer_label(self, offer):
         if offer.get("kind") == "card":
-            return f"Card {int(offer.get('card_id', 0) or 0)}"
+            card_id = int(offer.get("card_id", 0) or 0)
+            return CARD_NAMES.get(card_id, f"Card {card_id}")
         return SPECIAL_ASSETS.get(offer.get("special_id"), (str(offer.get("special_id")), None))[0]
 
     def _offer_image(self, offer):
@@ -188,12 +229,15 @@ class ShopPage:
             return self.offer_image_cache[cache_key]
         image = self._load_image(path)
         if image:
-            box_width, box_height = self.offer_image_box
-            scale = min(box_width / image.get_width(), box_height / image.get_height())
-            size = (
-                max(1, round(image.get_width() * scale)),
-                max(1, round(image.get_height() * scale)),
-            )
+            if card_id is not None:
+                size = self.card_offer_size
+            else:
+                box_width, box_height = self.offer_image_box
+                scale = min(box_width / image.get_width(), box_height / image.get_height())
+                size = (
+                    max(1, round(image.get_width() * scale)),
+                    max(1, round(image.get_height() * scale)),
+                )
             image = pygame.transform.smoothscale(image, size).convert_alpha()
             if card_id in SHOP_CARD_ACTIONS:
                 draw_preview_card_action(
@@ -326,6 +370,10 @@ class ShopPage:
 
         if offer.get("kind") == "card":
             card_id = int(offer.get("card_id", 0) or 0)
+            if game_state.is_shop_card_already_bought(card_id):
+                self.message = "Карта уже куплена"
+                self.sold_offer_indexes.add(index)
+                return
             added = game_state.add_shop_card_to_level(self.level_number, card_id)
             if added is None:
                 self.message = "Нет места для карты"
@@ -354,7 +402,7 @@ class ShopPage:
             if selected_card is None:
                 self.message = ""
                 return
-            if game_state.invest_gain_drop_card(selected_card):
+            if game_state.invest_gain_drop_card(selected_card, self.level_number):
                 game_state.spend_napoleondors(cost)
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
@@ -394,6 +442,29 @@ class ShopPage:
             self.sold_offer_indexes.add(index)
             cards_text = ", ".join(str(card_id) for card_id in received_cards)
             self.message = f"Получены карты: {cards_text}"
+            return
+
+        if special_id == "bailout":
+            game_state.spend_napoleondors(cost)
+            game_state.buy_bailout()
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Bailout активирован на 5 раундов"
+            return
+
+        if special_id == "long":
+            if not game_state.is_long_offer_available():
+                self.message = "Уже активны два Long"
+                self.sold_offer_indexes.add(index)
+                return
+            if not game_state.buy_long_investment():
+                self.message = "Уже активны два Long"
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Long активирован"
             return
 
         self.message = "Скоро"
@@ -462,7 +533,7 @@ class DeckCardPage:
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.level_number = int(level_number or 1)
-        self.deck = list(deck if deck is not None else game_state.build_current_level_deck(self.level_number))
+        self.deck = list(deck if deck is not None else game_state.build_permanent_level_deck(self.level_number))
         assets = load_round_page_static_assets()
         self.round_background = assets["background"]
         self.round_koordinates = assets["koordinates"]
@@ -471,7 +542,7 @@ class DeckCardPage:
         self.title_font = pygame.font.Font(font_path, 58)
         self.button_font = pygame.font.Font(font_path, 34)
         self.small_font = pygame.font.Font(font_path, 26)
-        self.card_size = (118, 204)
+        self.card_size = getattr(self, "card_size_override", GAMEPLAY_CARD_SIZE)
         self.card_image_cache = {}
         self.selected_index = None
         self.confirming = False
@@ -683,12 +754,24 @@ class InvestmentDeckPage(DeckCardPage):
 
 class TraderDeckPage(DeckCardPage):
     title = "Trader"
+    card_size_override = (122, 211)
+    sale_label_height = 30
     prompt = "Выберите одну карту для продажи"
     empty_text = "В колоде нет карт для продажи"
     confirm_text = "Продать"
 
     def _is_sellable(self, card_id):
         return game_state.get_card_sale_value(card_id) is not None
+
+    def _card_at(self, pos):
+        for index, rect in enumerate(self.card_rects):
+            if index >= len(self.deck):
+                continue
+            hit_rect = rect.copy()
+            hit_rect.height += self.sale_label_height + 2
+            if hit_rect.collidepoint(pos):
+                return index
+        return None
 
     def draw(self):
         self._draw_background()
@@ -713,11 +796,13 @@ class TraderDeckPage(DeckCardPage):
                 self.screen.blit(locked, locked.get_rect(center=rect.center))
             else:
                 price = self.small_font.render(format_napoleondors(sale_value), True, PAPER_COLOR)
-                pygame.draw.rect(self.screen, BUTTON_COLOR, (rect.x, rect.bottom - 32, rect.width, 32))
-                self.screen.blit(price, price.get_rect(center=(rect.centerx, rect.bottom - 16)))
+                label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
+                pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
+                self.screen.blit(price, price.get_rect(center=label_rect.center))
 
             if index == self.selected_index:
-                pygame.draw.rect(self.screen, (184, 134, 11), rect.inflate(10, 10), 4, border_radius=4)
+                selected_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height + self.sale_label_height + 2)
+                pygame.draw.rect(self.screen, (184, 134, 11), selected_rect.inflate(10, 10), 4, border_radius=4)
 
         if self.confirming and self.selected_index is not None:
             sale_value = game_state.get_card_sale_value(self.deck[self.selected_index])
