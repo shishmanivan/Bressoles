@@ -11,6 +11,7 @@ from boss_logic import (
     get_bosses_required,
     validate_levels_and_rounds_config,
     _ensure_level3_roster,
+    _ensure_level4_roster,
 )
 from game_data import (
     REWARD_TOKEN_RANDOM_RED,
@@ -21,6 +22,7 @@ from game_data import (
     load_rounds_config,
     get_level2_goal,
     get_level3_goal,
+    get_level4_goal,
 )
 from game_stats import (
     set_stats_file,
@@ -113,6 +115,20 @@ def main():
             open_shop(level_number, test_mode)
         else:
             game_state.clear_pending_shop_discount()
+
+    def get_boss_victory_napoleondor_amount(level_number, boss_index=None, boss_filename=None, defeated_count=0):
+        boss_number = get_boss_number_from_filename(boss_filename)
+        if not boss_number:
+            try:
+                normalized_boss_index = int(boss_index)
+            except (TypeError, ValueError):
+                normalized_boss_index = 0
+            try:
+                normalized_defeated_count = int(defeated_count or 0)
+            except (TypeError, ValueError):
+                normalized_defeated_count = 0
+            boss_number = get_boss_number_from_index(level_number, normalized_boss_index, normalized_defeated_count)
+        return 20 if boss_number == 7 else 3
 
     def should_open_shop_after_regular_round(level_number):
         return int(level_number or 0) != 1
@@ -404,7 +420,16 @@ def main():
                             )
                             clear_current_boss(bp_state)
                             if bp_state["defeated"] >= bosses_required:
-                                award_napoleondors_and_open_shop(level, 3, show_shop=False)
+                                award_napoleondors_and_open_shop(
+                                    level,
+                                    get_boss_victory_napoleondor_amount(
+                                        level,
+                                        active_context.get("boss_index"),
+                                        active_context.get("boss_filename"),
+                                        active_context.get("defeated_count", 0),
+                                    ),
+                                    show_shop=False,
+                                )
                                 mark_level_run_result(bp_state, level, True)
                                 game_state.complete_level_run(level)
                                 if level == 1:
@@ -414,7 +439,15 @@ def main():
                                 elif level == 3:
                                     game_state.level_3_boss_defeated = True
                             else:
-                                award_napoleondors_and_open_shop(level, 3)
+                                award_napoleondors_and_open_shop(
+                                    level,
+                                    get_boss_victory_napoleondor_amount(
+                                        level,
+                                        active_context.get("boss_index"),
+                                        active_context.get("boss_filename"),
+                                        active_context.get("defeated_count", 0),
+                                    ),
+                                )
                         elif resume_result == "round_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
@@ -526,6 +559,12 @@ def main():
                     roster = _ensure_level3_roster(bp_state, bosses_required=bosses_required)
                     LEVEL_BOSS_ROUNDS[3] = roster
 
+                # Level 4: generate and pin boss choices for this run.
+                # The first boss step offers two level-1 bosses, matching Level 2's choice flow.
+                if level_num == 4:
+                    roster = _ensure_level4_roster(bp_state, bosses_required=bosses_required)
+                    LEVEL_BOSS_ROUNDS[4] = roster
+
                 # Boss selection loop
                 while True:
                     current_boss = get_current_boss(bp_state)
@@ -614,6 +653,7 @@ def main():
                         load_rewards_config=load_rewards_config,
                         get_level2_goal=get_level2_goal,
                         get_level3_goal=get_level3_goal,
+                        get_level4_goal=get_level4_goal,
                         get_boss_number_from_index=get_boss_number_from_index,
                         get_boss_number_from_filename=get_boss_number_from_filename,
                         apper_goal_boost=apper_goal_boost,
@@ -731,6 +771,12 @@ def main():
 
                         if gameplay_result == "round_select":
                             current_boss = get_current_boss(bp_state) or {}
+                            boss_reward_amount = get_boss_victory_napoleondor_amount(
+                                boss_level,
+                                current_boss.get("boss_index", boss_index),
+                                current_boss.get("boss_filename", boss_filename),
+                                current_boss.get("defeated_count", bp_state["defeated"]),
+                            )
                             mark_level_boss_position_result(
                                 boss_level,
                                 current_boss.get("defeated_count", bp_state["defeated"]),
@@ -771,7 +817,7 @@ def main():
                             if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     boss_level,
-                                    3,
+                                    boss_reward_amount,
                                     test_mode=test_mode,
                                     show_shop=False,
                                 )
@@ -790,7 +836,7 @@ def main():
                                     profile_manager.save_progress_from_game_state(selected_slot)
                                 break
 
-                            award_napoleondors_and_open_shop(boss_level, 3, test_mode=test_mode)
+                            award_napoleondors_and_open_shop(boss_level, boss_reward_amount, test_mode=test_mode)
 
                             if selected_slot and not test_mode:
                                 profile_manager.save_progress_from_game_state(selected_slot)

@@ -49,6 +49,7 @@ class RoundPage:
         load_rewards_config=None,
         get_level2_goal=None,
         get_level3_goal=None,
+        get_level4_goal=None,
         get_boss_number_from_index=None,
         get_boss_number_from_filename=None,
         apper_goal_boost=None,
@@ -71,6 +72,7 @@ class RoundPage:
         self._load_rewards_config = load_rewards_config
         self._get_level2_goal = get_level2_goal
         self._get_level3_goal = get_level3_goal
+        self._get_level4_goal = get_level4_goal
         self._get_boss_number_from_index = get_boss_number_from_index
         self._get_boss_number_from_filename = get_boss_number_from_filename
         self._apper_goal_boost = apper_goal_boost
@@ -154,6 +156,7 @@ class RoundPage:
             self.is_apper_boss,
             self._get_level2_goal,
             self._get_level3_goal,
+            self._get_level4_goal,
             self._apper_goal_boost,
         )
         self.button_goals = self._build_display_button_goals()
@@ -315,7 +318,7 @@ class RoundPage:
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3):
+        if self.level_number in (2, 3, 4):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(
@@ -327,6 +330,7 @@ class RoundPage:
                     self.base_button_goals,
                     self._get_level2_goal,
                     self._get_level3_goal,
+                    self._get_level4_goal,
                     self._apper_goal_boost,
                 )
         self.button_goals = self._build_display_button_goals()
@@ -671,6 +675,7 @@ class RoundPage:
                                 self.boss_goals,
                                 self._get_level2_goal,
                                 self._get_level3_goal,
+                                self._get_level4_goal,
                                 self._apper_goal_boost,
                             )
                             self.Goal = game_state.apply_bailout_goal_modifier(self.Goal)
@@ -769,6 +774,15 @@ class RoundPage:
                         e_boss_goal = self._get_level3_goal(None, "e", self.defeated_count, True)
                         m_boss_goal = self._get_level3_goal(None, "m", self.defeated_count, True)
                         goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
+                    elif self.level_number == 4:
+                        e_boss_goal = self._get_level4_goal(None, "e", self.defeated_count, True)
+                        m_boss_goal = self._get_level4_goal(None, "m", self.defeated_count, True)
+                        h_boss_goal = self._get_level4_goal(None, "h", self.defeated_count, True)
+                        goal_value = (
+                            e_boss_goal
+                            if e_boss_goal is not None
+                            else (m_boss_goal if m_boss_goal is not None else (h_boss_goal if h_boss_goal is not None else 70))
+                        )
                     else:
                         boss_key = (self.level_number, self.boss_index)
                         goal_value = self.boss_goals.get(boss_key, 0)

@@ -43,6 +43,7 @@ profit_reward_bonus = 0
 pending_shop_discount_percent = 0
 bailout_rounds_remaining = 0
 active_long_investments = []
+derivative_bought = False
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
@@ -52,6 +53,7 @@ SHOP_SPECIAL_COSTS = {
     "underwriter": 4,
     "bailout": 4,
     "long": 2,
+    "derivative": 8,
 }
 
 LONG_MAX_ACTIVE = 2
@@ -66,6 +68,28 @@ SHOP_CARD_COSTS = {
     402: 10,
     403: 15,
 }
+
+DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
+LICENSE_COSTS = {
+    112: 3,
+    113: 5,
+    114: 5,
+    115: 7,
+    203: 5,
+    204: 7,
+    207: 7,
+    214: 7,
+    215: 7,
+    217: 7,
+    218: 7,
+    219: 10,
+    220: 10,
+}
+LICENSES_BY_LEVEL = {
+    2: [112, 113, 114, 115],
+    3: [203, 204, 207, 214, 215, 217, 218, 219, 220],
+}
+licensed_card_ids = set(DEFAULT_LICENSED_CARDS)
 
 # Active per-level "red cards" deck rebuilt on level selection.
 active_red_cards_level = None
@@ -86,6 +110,9 @@ guaranteed_start_hand_cards_by_level = {}
 LEVEL_COMPLETION_REWARD_CARDS = {
     1: [12],
     2: [13],
+}
+LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
+    3: [301],
 }
 
 # Silver cards are kept outside the regular deck. They are spent after the
@@ -197,6 +224,107 @@ def get_bought_shop_card_ids():
 def is_shop_card_already_bought(card_id):
     normalized = _normalize_card_id(card_id)
     return normalized is not None and normalized in get_bought_shop_card_ids()
+
+
+def normalize_license_ids(card_ids=None):
+    result = set(DEFAULT_LICENSED_CARDS)
+    for card_id in card_ids or []:
+        try:
+            result.add(int(card_id))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def get_legacy_open_license_ids():
+    cfg = load_cards_config() or {}
+    result = set(DEFAULT_LICENSED_CARDS)
+    for card_id, row in cfg.items():
+        try:
+            cid = int(card_id)
+        except (TypeError, ValueError):
+            continue
+        if not is_red_card(cid) and not is_silver_card(cid):
+            continue
+        try:
+            is_open = int(row.get("Open") if isinstance(row, dict) else 0) == 1
+        except (TypeError, ValueError):
+            is_open = False
+        if is_open:
+            result.add(cid)
+    return result
+
+
+def is_card_licensed(card_id):
+    try:
+        cid = int(card_id)
+    except (TypeError, ValueError):
+        return False
+    return cid in licensed_card_ids
+
+
+def unlock_card_license(card_id):
+    try:
+        cid = int(card_id)
+    except (TypeError, ValueError):
+        return False
+    if cid in licensed_card_ids:
+        return False
+    licensed_card_ids.add(cid)
+    return True
+
+
+def get_license_cost(card_id):
+    try:
+        cid = int(card_id)
+    except (TypeError, ValueError):
+        return None
+    return LICENSE_COSTS.get(cid)
+
+
+def get_card_pool_probability(card_id):
+    try:
+        cid = int(card_id)
+    except (TypeError, ValueError):
+        return None
+    cfg = load_cards_config() or {}
+    row = cfg.get(cid) or cfg.get(str(cid))
+    if not isinstance(row, dict):
+        return None
+    try:
+        return max(0, min(100, int(row.get("Variable", 100))))
+    except (TypeError, ValueError):
+        return 100
+
+
+def get_card_rarity_label(card_id):
+    probability = get_card_pool_probability(card_id)
+    if probability is None or probability >= 50:
+        return ""
+    if probability >= 20:
+        return "Rare"
+    if probability >= 10:
+        return "Very rare"
+    return "Extremely rare"
+
+
+def build_license_offer_pool(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    pool = []
+    eligible_levels = [unlock_level for unlock_level in sorted(LICENSES_BY_LEVEL) if level >= int(unlock_level)]
+    ordered_levels = []
+    if level in eligible_levels:
+        ordered_levels.append(level)
+    ordered_levels.extend(unlock_level for unlock_level in eligible_levels if unlock_level != level)
+    for unlock_level in ordered_levels:
+        for card_id in LICENSES_BY_LEVEL.get(unlock_level, []):
+            if not is_card_licensed(card_id):
+                pool.append(int(card_id))
+    random.shuffle(pool)
+    return pool
 
 
 def add_shop_card_to_level(level_number, card_id):
@@ -576,7 +704,7 @@ def new_boss_progress_state():
 
 def reset_level_attempt(level_number):
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus
+    global profit_reward_bonus, derivative_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -586,6 +714,7 @@ def reset_level_attempt(level_number):
     global_last_turn_bonus = 0
     global_hand_bonus = 0
     profit_reward_bonus = 0
+    derivative_bought = False
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
     clear_removed_deck_cards(level_number)
@@ -607,7 +736,7 @@ def reset_level_attempt(level_number):
 def complete_level_run(level_number):
     """Clear temporary run state after defeating the last boss of a level."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus
+    global profit_reward_bonus, derivative_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -618,6 +747,7 @@ def complete_level_run(level_number):
     global_last_turn_bonus = 0
     global_hand_bonus = 0
     profit_reward_bonus = 0
+    derivative_bought = False
 
     if level in earned_reward_cards:
         cleared = list(earned_reward_cards.get(level) or [])
@@ -666,6 +796,7 @@ def capture_level2_loss_checkpoint(level_number):
         "global_start_money_bonus": int(global_start_money_bonus),
         "global_last_turn_bonus": int(global_last_turn_bonus),
         "global_hand_bonus": int(global_hand_bonus),
+        "derivative_bought": bool(derivative_bought),
         "napoleondors": float(napoleondors),
         "napoleondor_level": napoleondor_level,
         "active_long_investments": list(get_active_long_investments()),
@@ -680,6 +811,7 @@ def capture_level2_loss_checkpoint(level_number):
 def restore_level2_loss_checkpoint(level_number):
     """Restore level-2 boss progress and first-boss rewards after a defeat."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
+    global derivative_bought
     global napoleondors, napoleondor_level, profit_reward_bonus
     try:
         level = int(level_number or 0)
@@ -700,6 +832,7 @@ def restore_level2_loss_checkpoint(level_number):
     global_start_money_bonus = int(checkpoint.get("global_start_money_bonus", 0) or 0)
     global_last_turn_bonus = int(checkpoint.get("global_last_turn_bonus", 0) or 0)
     global_hand_bonus = int(checkpoint.get("global_hand_bonus", 0) or 0)
+    derivative_bought = bool(checkpoint.get("derivative_bought", False))
     napoleondors = float(checkpoint.get("napoleondors", napoleondors) or 0)
     try:
         napoleondor_level = int(checkpoint.get("napoleondor_level", level))
@@ -736,6 +869,15 @@ def get_level_completion_reward_cards(level_number):
     except (TypeError, ValueError):
         level = 0
     return list(LEVEL_COMPLETION_REWARD_CARDS.get(level, []) or [])
+
+
+def get_level_completion_black_reward_cards(level_number):
+    """Return permanent black-card rewards for completing a specific level."""
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    return list(LEVEL_COMPLETION_BLACK_REWARD_CARDS.get(level, []) or [])
 
 
 def get_completed_level_reward_cards():
@@ -951,6 +1093,21 @@ def buy_profit_bonus():
     return profit_reward_bonus
 
 
+def buy_derivative_hand_bonus():
+    global global_hand_bonus, derivative_bought
+    if derivative_bought:
+        print("Derivative hand bonus already bought this run.")
+        return None
+    global_hand_bonus += 1
+    derivative_bought = True
+    print(f"Derivative increased hand size bonus to {global_hand_bonus}.")
+    return global_hand_bonus
+
+
+def is_derivative_offer_available():
+    return not bool(derivative_bought)
+
+
 def clear_profit_bonus():
     global profit_reward_bonus
     if profit_reward_bonus:
@@ -1101,8 +1258,15 @@ def clear_removed_deck_cards(level_number=None):
     removed_deck_cards_by_level.pop(level, None)
 
 
-def build_shop_card_offer_pool():
+def build_shop_card_offer_pool(level_number=1):
     """Return shop-buyable card offers."""
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    if level < 4:
+        return []
+
     bought_cards = get_bought_shop_card_ids()
     pool = []
     for card_id, chance in ((17, 5), (18, 5), (117, 50)):
@@ -1115,14 +1279,23 @@ def build_shop_card_offer_pool():
     return pool
 
 
-def build_shop_special_offer_pool():
+def is_underwriter_offer_available(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    return level >= 3 and len(build_rare_silver_cards_pool()) >= 2
+
+
+def build_shop_special_offer_pool(level_number=1):
     rolled = []
     delisting_hit = random.randint(1, 100) <= 80
     investment_hit = random.randint(1, 100) <= 35
     trader_hit = random.randint(1, 100) <= 80
-    underwriter_hit = random.randint(1, 100) <= 15
+    underwriter_hit = is_underwriter_offer_available(level_number) and random.randint(1, 100) <= 15
     bailout_hit = (not is_bailout_active()) and random.randint(1, 100) <= 50
     long_hit = is_long_offer_available() and random.randint(1, 100) <= 50
+    derivative_hit = is_derivative_offer_available() and random.randint(1, 100) <= 45
 
     if underwriter_hit:
         rolled.append("underwriter")
@@ -1130,6 +1303,8 @@ def build_shop_special_offer_pool():
         rolled.append("bailout")
     if long_hit:
         rolled.append("long")
+    if derivative_hit:
+        rolled.append("derivative")
     if trader_hit:
         rolled.append("trader")
     if random.randint(1, 100) <= 20:
@@ -1148,27 +1323,42 @@ def build_shop_special_offer_pool():
     return offers
 
 
-def generate_shop_offers(card_slots=1, special_slots=2, discount_percent=0):
+def generate_shop_offers(level_number=1, card_slots=None, special_slots=2, license_slots=1, discount_percent=0):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    if card_slots is None:
+        card_slots = 1 if level >= 4 else 0
+
     bought_cards = get_bought_shop_card_ids()
-    card_pool = list(build_shop_card_offer_pool())
+    card_pool = list(build_shop_card_offer_pool(level))
     open_card_pool = [17, 18, 117]
-    for card_id in open_card_pool:
-        if len(card_pool) >= card_slots:
-            break
-        if card_id not in bought_cards and card_id not in card_pool:
-            card_pool.append(card_id)
+    if level >= 4:
+        for card_id in open_card_pool:
+            if len(card_pool) >= card_slots:
+                break
+            if card_id not in bought_cards and card_id not in card_pool:
+                card_pool.append(card_id)
 
     card_offers = []
     for card_id in card_pool[:card_slots]:
         normalized = int(card_id)
         card_offers.append({"kind": "card", "card_id": normalized, "cost": SHOP_CARD_COSTS.get(normalized, 1)})
 
-    special_pool = build_shop_special_offer_pool()
+    special_pool = build_shop_special_offer_pool(level)
     special_offers = [
         {"kind": "special", "special_id": offer_id, "cost": get_shop_special_cost(offer_id)}
         for offer_id in special_pool[:special_slots]
     ]
-    offers = card_offers + special_offers
+    license_pool = build_license_offer_pool(level)
+    if license_slots is None:
+        license_slots = len(license_pool)
+    license_offers = [
+        {"kind": "license", "card_id": int(card_id), "cost": get_license_cost(card_id)}
+        for card_id in license_pool[:license_slots]
+    ]
+    offers = card_offers + special_offers + license_offers
     try:
         discount = max(0, min(100, int(discount_percent or 0)))
     except (TypeError, ValueError):
@@ -1313,6 +1503,7 @@ def build_open_silver_cards_pool():
             is_open = False
         if is_open:
             silver_pool.append(cid)
+    silver_pool = [cid for cid in silver_pool if is_card_licensed(cid)]
 
     return sorted(set(silver_pool))
 
@@ -1336,7 +1527,7 @@ def build_rare_silver_cards_pool():
             probability = int(probability_raw)
         except (TypeError, ValueError):
             continue
-        if is_open and 0 < probability < 40:
+        if is_open and is_card_licensed(cid) and 0 < probability < 40:
             rare_cards.append(cid)
 
     return sorted(set(rare_cards))
@@ -1380,6 +1571,8 @@ def build_guaranteed_silver_cards_pool():
             is_open = False
         if not is_open:
             continue
+        if not is_card_licensed(cid):
+            continue
 
         probability_raw = row.get("Variable") if isinstance(row, dict) else None
         try:
@@ -1410,6 +1603,8 @@ def build_silver_cards_pool():
         except (TypeError, ValueError):
             is_open = False
         if not is_open:
+            continue
+        if not is_card_licensed(cid):
             continue
 
         probability_raw = row.get("Variable") if isinstance(row, dict) else None
@@ -1543,6 +1738,8 @@ def build_red_cards_deck_for_level(level_num):
         except (TypeError, ValueError):
             is_open = False
         if not is_open:
+            continue
+        if not is_card_licensed(cid):
             continue
 
         prob_raw = row.get("Variable") if isinstance(row, dict) else None

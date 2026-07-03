@@ -9,11 +9,53 @@ from game_data import (
 )
 
 
+# Boss difficulty tiers. Watt is the test/easy boss; every other current boss
+# belongs to boss level 1.
+BOSS_LEVELS = {
+    "1_Watt.png": 0,
+    "2_AdamSmith.png": 1,
+    "3_RobertFulton.png": 1,
+    "4_NicolasApper.png": 1,
+    "5_SamuelSlater.png": 1,
+    "6_Arkwright.png": 1,
+    "7_Kolbe.png": 1,
+    "8_List.png": 2,
+}
+
+
+def get_bosses_for_boss_level(boss_level: int):
+    """Return all boss filenames assigned to a boss difficulty tier."""
+    try:
+        normalized_level = int(boss_level)
+    except (TypeError, ValueError):
+        return []
+    return [filename for filename, level in BOSS_LEVELS.items() if level == normalized_level]
+
+
+def _build_level4_default_roster():
+    """Fallback Level 4 roster: first step uses level-1 bosses, second uses level-2 bosses."""
+    level_one_bosses = get_bosses_for_boss_level(1)
+    level_two_bosses = get_bosses_for_boss_level(2)
+    if not level_one_bosses and not level_two_bosses:
+        return []
+
+    roster = []
+    if level_one_bosses:
+        roster.append(level_one_bosses[:2])
+    if level_two_bosses:
+        roster.append(level_two_bosses[:2])
+
+    remaining = level_one_bosses[2:]
+    roster.extend([[boss_filename] for boss_filename in remaining])
+    return roster
+
+
 # Boss roster per level and boss rounds
 LEVEL_BOSS_ROUNDS = {
     1: [["1_Watt.png"]],
     2: [["2_AdamSmith.png", "3_RobertFulton.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
+    4: _build_level4_default_roster(),
 }
 
 # -------------------------------
@@ -27,6 +69,7 @@ def _generate_level3_boss_roster(bosses_required: int):
         "4_NicolasApper.png",
         "5_SamuelSlater.png",
         "6_Arkwright.png",
+        "7_Kolbe.png",
     ]
     random.shuffle(candidates)
     try:
@@ -44,6 +87,57 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
     if isinstance(roster, list) and roster and len(roster) == max(1, int(bosses_required or 1)):
         return roster
     roster = _generate_level3_boss_roster(bosses_required)
+    bp_state["roster"] = roster
+    return roster
+
+
+# -------------------------------
+# Level 4 dynamic boss roster
+# -------------------------------
+def _generate_level4_boss_roster(bosses_required: int):
+    """Level 4: first step offers level-1 bosses, second step offers level-2 bosses."""
+    level_one_bosses = get_bosses_for_boss_level(1)
+    level_two_bosses = get_bosses_for_boss_level(2)
+    random.shuffle(level_one_bosses)
+    random.shuffle(level_two_bosses)
+    try:
+        n = int(bosses_required or 0)
+    except (TypeError, ValueError):
+        n = 0
+    n = max(1, n)
+
+    if not level_one_bosses and not level_two_bosses:
+        return []
+
+    roster = []
+    if level_one_bosses:
+        roster.append(level_one_bosses[: min(2, len(level_one_bosses))])
+    if len(roster) < n and level_two_bosses:
+        roster.append(level_two_bosses[: min(2, len(level_two_bosses))])
+
+    remaining = level_one_bosses[min(2, len(level_one_bosses)) :]
+
+    while len(roster) < n:
+        if not remaining:
+            remaining = get_bosses_for_boss_level(1)
+            random.shuffle(remaining)
+        roster.append([remaining.pop(0)])
+
+    return roster
+
+
+def _ensure_level4_roster(bp_state: dict, bosses_required: int):
+    """Ensure bp_state has a stable roster for the current Level 4 run."""
+    roster = bp_state.get("roster")
+    expected_len = max(1, int(bosses_required or 1))
+    has_level_two_step = (
+        isinstance(roster, list)
+        and len(roster) > 1
+        and any(BOSS_LEVELS.get(filename) == 2 for filename in (roster[1] or []))
+    )
+    if isinstance(roster, list) and roster and len(roster) == expected_len and has_level_two_step:
+        return roster
+    roster = _generate_level4_boss_roster(bosses_required)
     bp_state["roster"] = roster
     return roster
 
@@ -225,6 +319,11 @@ def apply_boss_reward(reward_string, gameplay_instance):
             )
             return
 
+        if normalized_reward in ("freeshop", "nextshopfree", "shopfree", "shopdiscount100"):
+            game_state.set_pending_shop_discount(100)
+            print("Applied boss reward FreeShop: next shop is free")
+            return
+
         # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
         if normalized_reward in (
             "gaindropcard",
@@ -378,14 +477,35 @@ def apply_boss_functionality(func_string, gameplay_instance):
             print("Applied boss functionality: Arkwright share theft enabled")
             return
 
+        if normalized_func in ("oddturntradingonly", "kolbeoddturntrading", "tradingoddturnsonly"):
+            setattr(gameplay_instance, "boss_odd_turn_trading_only", True)
+            print("Applied boss functionality: odd-turn trading only enabled")
+            return
+
         if normalized_func in ("simplestockbot", "stockbot", "bot"):
+            setattr(gameplay_instance, "stock_bot_enabled", False)
+            print("Skipped Simple stock bot functionality: stock bot is only enabled for Friedrich List")
+            return
+
+        if normalized_func in ("liststockbot", "friedrichliststockbot", "listbot"):
             level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
-            if level_num == 4:
+            boss_number = None
+            try:
+                if hasattr(gameplay_instance, "_get_active_boss_number"):
+                    boss_number = gameplay_instance._get_active_boss_number()
+            except Exception:
+                boss_number = None
+            if level_num == 4 and boss_number == 8:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
-                print("Applied boss functionality: Simple stock bot enabled")
+                setattr(
+                    gameplay_instance,
+                    "stock_bot_start_quantities",
+                    {"Aquantity": 0, "Bquantity": 10, "Cquantity": 0},
+                )
+                print("Applied boss functionality: Friedrich List stock bot enabled")
             else:
                 setattr(gameplay_instance, "stock_bot_enabled", False)
-                print(f"Skipped Simple stock bot functionality on level {level_num}")
+                print(f"Skipped Friedrich List stock bot functionality on level {level_num}, boss {boss_number}")
             return
 
         if normalized_func == "goal=goal*1.3":

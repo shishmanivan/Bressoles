@@ -51,10 +51,31 @@ def apply_win_reward(
             level_reward_cards = game_state.get_level_completion_reward_cards(gameplay_instance.level_number)
             if level_reward_cards and hasattr(gameplay_instance, "last_earned_cards"):
                 gameplay_instance.last_earned_cards.extend(level_reward_cards)
+            black_reward_cards = game_state.get_level_completion_black_reward_cards(gameplay_instance.level_number)
+            awarded_black_cards = []
+            existing_black_cards = set()
+            for existing_card_id in game_state.black_cards or []:
+                try:
+                    existing_black_cards.add(int(existing_card_id))
+                except (TypeError, ValueError):
+                    continue
+            for card_id in black_reward_cards:
+                try:
+                    normalized = int(card_id)
+                except (TypeError, ValueError):
+                    continue
+                if normalized in existing_black_cards:
+                    continue
+                awarded = game_state.add_black_card(normalized)
+                if awarded is not None:
+                    awarded_black_cards.append(awarded)
+                    existing_black_cards.add(normalized)
+            if awarded_black_cards and hasattr(gameplay_instance, "last_earned_cards"):
+                gameplay_instance.last_earned_cards.extend(awarded_black_cards)
             game_state.clear_round_reward_cards(gameplay_instance.level_number)
             print(
                 f"Skipped personal boss reward for final boss on level {gameplay_instance.level_number}; "
-                f"level reward cards: {level_reward_cards}"
+                f"level reward cards: {level_reward_cards}; black reward cards: {awarded_black_cards}"
             )
             return
 

@@ -26,18 +26,19 @@ PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]
 GAMEPLAY_CARD_SIZE = (142, 244)
 
 SPECIAL_ASSETS = {
-    "delisting": ("Delisting", os.path.join("Shop", "Delisting.png")),
-    "investment": ("Investment", os.path.join("Shop", "Investment.png")),
-    "trader": ("Trader", os.path.join("Shop", "Trader.png")),
-    "profit": ("Profit", os.path.join("Shop", "Profit.png")),
-    "underwriter": ("Underwriter", os.path.join("Shop", "Underwriter.png")),
-    "bailout": ("Bailout", os.path.join("Shop", "Bailout.png")),
-    "long": ("Long", os.path.join("Shop", "Long.png")),
+    "delisting": ("Делистинг", os.path.join("Shop", "Delisting.png")),
+    "investment": ("Инвестиция", os.path.join("Shop", "Investment.png")),
+    "trader": ("Трейдер", os.path.join("Shop", "Trader.png")),
+    "profit": ("Прибыль", os.path.join("Shop", "Profit.png")),
+    "underwriter": ("Андеррайтер", os.path.join("Shop", "Underwriter.png")),
+    "bailout": ("Бейлаут", os.path.join("Shop", "Bailout.png")),
+    "long": ("Лонг", os.path.join("Shop", "Long.png")),
+    "derivative": ("Дериватив", os.path.join("Shop", "Derivative.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
     "delisting": "Удаляет одну выбранную карту из колоды.",
-    "investment": "Навсегда усиливает выбранную Gain/Drop карту на 1 до конца забега.",
+    "investment": "Навсегда усиливает выбранную карту роста или падения на 1 до конца забега.",
     "trader": "Позволяет продать одну карту из колоды.",
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
@@ -45,22 +46,71 @@ SPECIAL_DESCRIPTIONS = {
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
 }
 
+SPECIAL_DESCRIPTIONS.update(
+    {
+        "delisting": "Удаляет одну выбранную карту из колоды.",
+        "investment": "Навсегда усиливает выбранную карту роста или падения на 1 до конца забега.",
+        "trader": "Позволяет продать одну карту из колоды.",
+        "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
+        "underwriter": "Даёт две разные случайные редкие серебряные карты.",
+        "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
+        "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
+        "derivative": "Увеличивает руку на одну карту до конца забега.",
+    }
+)
+
 CARD_DESCRIPTIONS = {
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
-    117: "Crash: после розыгрыша устанавливает цены всех акций на 2.",
-    401: "Bear: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
-    402: "Forward Trading: каждый сыгранный Shareholder добавляет один ход.",
-    403: "Grant: добавляет 8 к стартовым деньгам.",
+    117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
+    401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
+    402: "Форвардная торговля: каждый сыгранный акционер добавляет один ход.",
+    403: "Грант: добавляет 8 к стартовым деньгам.",
 }
 
 CARD_NAMES = {
-    17: "Gain",
-    18: "Gain",
-    117: "Crash",
-    401: "Bear",
-    402: "Forward Trading",
-    403: "Grant",
+    110: "Рибейт",
+    111: "Снижение долга",
+    112: "Ролловер",
+    113: "Банкротство A",
+    114: "Банкротство B",
+    115: "Банкротство C",
+    116: "Продление",
+    201: "Рибейт",
+    202: "Фьючерс",
+    203: "Фьючерс",
+    204: "Контанго",
+    206: "Корзинная торговля",
+    207: "Форвардная торговля",
+    208: "Ролловер",
+    214: "Грант",
+    215: "Вексель",
+    217: "Облигация",
+    218: "Облигация",
+    219: "Облигация",
+    220: "Страхование",
+    17: "Рост",
+    18: "Рост",
+    117: "Крах",
+    401: "Медведь",
+    402: "Форвардная торговля",
+    403: "Грант",
+}
+
+LICENSE_EFFECT_DESCRIPTIONS = {
+    112: "Продлевает действие всех карт роста и падения на 1 ход, включая уже сыгранные.",
+    113: "Устанавливает цену акций компании A на 2.",
+    114: "Устанавливает цену акций компании B на 2.",
+    115: "Устанавливает цену акций компании C на 2.",
+    203: "Добавляет 2 хода к длительности раунда.",
+    204: "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
+    207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
+    214: "Добавляет 4 к стартовым деньгам в начале раунда.",
+    215: "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    217: "После победы приносит дополнительно 5 наполеондоров.",
+    218: "После победы приносит дополнительно 10 наполеондоров.",
+    219: "После победы приносит дополнительно 15 наполеондоров.",
+    220: "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
 }
 
 SHOP_CARD_ACTIONS = {
@@ -136,7 +186,10 @@ class ShopPage:
         self.lang_dict = lang_dict or {}
         self.napoleondors = float(napoleondors or 0)
         self.discount_percent = max(0, min(100, int(discount_percent or 0)))
-        self.offers = game_state.generate_shop_offers(discount_percent=self.discount_percent)
+        self.offers = game_state.generate_shop_offers(
+            level_number=self.level_number,
+            discount_percent=self.discount_percent,
+        )
         self.sold_offer_indexes = set()
         self.message = ""
         self.offer_image_cache = {}
@@ -173,48 +226,43 @@ class ShopPage:
         self.screen.blit(surface, rect)
 
     def _build_offer_rects(self):
-        width = 240
+        width = 176
         height = 380
         y = self.panel_rect.y + 265
-
-        half_padding = 96
-        slot_gap = 58
-        left_x = self.panel_rect.x + half_padding
-        right_x = self.panel_rect.centerx + half_padding
-
-        card_rects = [
-            pygame.Rect(left_x + idx * (width + slot_gap), y, width, height)
-            for idx in range(2)
+        slot_gap = 22
+        group_gap = 120
+        groups = [
+            ("card", [offer for offer in self.offers if offer.get("kind") == "card"]),
+            ("special", [offer for offer in self.offers if offer.get("kind") == "special"]),
+            ("license", [offer for offer in self.offers if offer.get("kind") == "license"]),
         ]
-        special_rects = [
-            pygame.Rect(right_x + idx * (width + slot_gap), y, width, height)
-            for idx in range(2)
-        ]
-
+        groups = [(kind, offers) for kind, offers in groups if offers]
+        total_width = sum(len(offers) * width + max(0, len(offers) - 1) * slot_gap for _kind, offers in groups)
+        total_width += max(0, len(groups) - 1) * group_gap
+        x = self.panel_rect.centerx - total_width // 2
         rects = []
-        card_index = 0
-        special_index = 0
-        for offer in self.offers[:4]:
-            if offer.get("kind") == "card" and card_index < len(card_rects):
-                rects.append(card_rects[card_index])
-                card_index += 1
-            elif special_index < len(special_rects):
-                rects.append(special_rects[special_index])
-                special_index += 1
-            elif card_index < len(card_rects):
-                rects.append(card_rects[card_index])
-                card_index += 1
+        self.category_rects = []
+        for kind, offers in groups:
+            group_width = len(offers) * width + max(0, len(offers) - 1) * slot_gap
+            self.category_rects.append((kind, pygame.Rect(x, y - 54, group_width, 44)))
+            for _offer in offers:
+                rects.append(pygame.Rect(x, y, width, height))
+                x += width + slot_gap
+            x += group_gap - slot_gap
         return rects
 
     def _offer_label(self, offer):
-        if offer.get("kind") == "card":
+        if offer.get("kind") in ("card", "license"):
             card_id = int(offer.get("card_id", 0) or 0)
-            return CARD_NAMES.get(card_id, f"Card {card_id}")
+            name = CARD_NAMES.get(card_id, f"Карта {card_id}")
+            if offer.get("kind") == "license":
+                return name
+            return name
         return SPECIAL_ASSETS.get(offer.get("special_id"), (str(offer.get("special_id")), None))[0]
 
     def _offer_image(self, offer):
         card_id = None
-        if offer.get("kind") == "card":
+        if offer.get("kind") in ("card", "license"):
             card_id = int(offer.get("card_id", 0) or 0)
             path = os.path.join("Cards", f"Card_{card_id}.png")
             if not os.path.exists(path) and card_id == 18:
@@ -224,7 +272,7 @@ class ShopPage:
             if not path:
                 return None
 
-        cache_key = ("card", card_id) if card_id is not None else ("special", path)
+        cache_key = (offer.get("kind"), card_id) if card_id is not None else ("special", path)
         if cache_key in self.offer_image_cache:
             return self.offer_image_cache[cache_key]
         image = self._load_image(path)
@@ -274,6 +322,17 @@ class ShopPage:
         return image
 
     def _offer_description(self, offer):
+        if offer.get("kind") == "license":
+            card_id = int(offer.get("card_id", 0) or 0)
+            card_name = CARD_NAMES.get(card_id, f"Карта {card_id}")
+            effect_text = LICENSE_EFFECT_DESCRIPTIONS.get(
+                card_id,
+                "Добавляет эту карту в пул будущих забегов.",
+            )
+            return (
+                f"Открывает карту {card_name}: теперь она может появляться "
+                f"в следующих забегах. {effect_text}"
+            )
         if offer.get("kind") == "card":
             card_id = int(offer.get("card_id", 0) or 0)
             return CARD_DESCRIPTIONS.get(card_id, f"Добавляет карту {card_id} в вашу колоду.")
@@ -384,6 +443,22 @@ class ShopPage:
             self.message = "Карта куплена"
             return
 
+        if offer.get("kind") == "license":
+            card_id = int(offer.get("card_id", 0) or 0)
+            if game_state.is_card_licensed(card_id):
+                self.message = "Лицензия уже куплена"
+                self.sold_offer_indexes.add(index)
+                return
+            if not game_state.unlock_card_license(card_id):
+                self.message = "Лицензия уже куплена"
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = f"Лицензия куплена: {CARD_NAMES.get(card_id, f'Карта {card_id}')}"
+            return
+
         special_id = offer.get("special_id")
         if special_id == "delisting":
             selected_card = DelistingDeckPage(self.screen, self.font_path, self.level_number).run()
@@ -467,6 +542,20 @@ class ShopPage:
             self.message = "Long активирован"
             return
 
+        if special_id == "derivative":
+            if not game_state.is_derivative_offer_available():
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            if game_state.buy_derivative_hand_bonus() is None:
+                self._sync_balance()
+                self.sold_offer_indexes.add(index)
+                return
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Дериватив увеличил руку"
+            return
+
         self.message = "Скоро"
 
     def draw(self):
@@ -484,9 +573,13 @@ class ShopPage:
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
         self._draw_centered_text("Магазин", self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 145))
-        self._draw_coin_amount(self.napoleondors, (self.panel_rect.centerx, self.panel_rect.y + 250), self.balance_font)
+        self._draw_coin_amount(self.napoleondors, (self.panel_rect.right - 170, self.panel_rect.y + 150), self.balance_font)
 
-        for index, offer in enumerate(self.offers[:4]):
+        category_labels = {"card": "Карты", "special": "Предложения", "license": "Лицензии"}
+        for kind, rect in getattr(self, "category_rects", []):
+            self._draw_centered_text(category_labels.get(kind, kind.title()), self.small_font, rect.center)
+
+        for index, offer in enumerate(self.offers):
             self._draw_offer(index, offer, self.offer_rects[index])
         self._draw_hover_description()
 
@@ -684,7 +777,7 @@ class DeckCardPage:
         pygame.display.flip()
 
     def confirm_message(self, card_id):
-        return f"Card {card_id}?"
+        return f"Карта {card_id}?"
 
     def run(self):
         while True:
@@ -714,19 +807,19 @@ class DeckCardPage:
 
 
 class DelistingDeckPage(DeckCardPage):
-    title = "Delisting"
+    title = "Делистинг"
     prompt = "Выберите карту для удаления"
     empty_text = "В колоде нет карт"
     confirm_text = "Удалить"
 
     def confirm_message(self, card_id):
-        return f"Удалить Card {card_id}?"
+        return f"Удалить карту {card_id}?"
 
 
 class InvestmentDeckPage(DeckCardPage):
-    title = "Investment"
-    prompt = "Выберите Gain/Drop карту для усиления"
-    empty_text = "В колоде нет Gain/Drop карт"
+    title = "Инвестиция"
+    prompt = "Выберите карту роста или падения для усиления"
+    empty_text = "В колоде нет карт роста или падения"
     confirm_text = "Усилить"
 
     def __init__(self, screen, font_path, level_number):
@@ -749,11 +842,11 @@ class InvestmentDeckPage(DeckCardPage):
         pygame.display.flip()
 
     def confirm_message(self, card_id):
-        return f"Усилить Card {card_id}?"
+        return f"Усилить карту {card_id}?"
 
 
 class TraderDeckPage(DeckCardPage):
-    title = "Trader"
+    title = "Трейдер"
     card_size_override = (122, 211)
     sale_label_height = 30
     prompt = "Выберите одну карту для продажи"

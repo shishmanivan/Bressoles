@@ -76,7 +76,9 @@ class SimpleStockBot:
         best_market = max(scores, key=lambda market: scores[market]["roi"])
         best_score = scores[best_market]
         sold = {}
+        sold_value = {}
         bought = {}
+        bought_cost = {}
 
         for market_id, market in MARKETS.items():
             quantity_key = market["quantity_key"]
@@ -92,6 +94,7 @@ class SimpleStockBot:
                 self.money += quantity * price
                 self.quantities[quantity_key] = 0
                 sold[market["label"]] = quantity
+                sold_value[market["label"]] = quantity * price
 
         if best_score["expected_change"] > 0:
             best = MARKETS[best_market]
@@ -102,12 +105,15 @@ class SimpleStockBot:
                     self.money -= count * price
                     self.quantities[best["quantity_key"]] += count
                     bought[best["label"]] = count
+                    bought_cost[best["label"]] = count * price
 
         self.last_decision = {
             "action": "trade" if sold or bought else "hold",
             "best_market": MARKETS[best_market]["label"],
             "sold": sold,
+            "sold_value": sold_value,
             "bought": bought,
+            "bought_cost": bought_cost,
             "scores": {
                 MARKETS[market_id]["label"]: {
                     "expected_change": round(score["expected_change"], 3),
@@ -115,6 +121,31 @@ class SimpleStockBot:
                 }
                 for market_id, score in scores.items()
             },
+            "money": self.money,
+            "quantities": dict(self.quantities),
+        }
+        return self.last_decision
+
+    def sell_all(self, prices):
+        sold = {}
+        sold_value = {}
+        for market in MARKETS.values():
+            quantity_key = market["quantity_key"]
+            quantity = int(self.quantities.get(quantity_key, 0) or 0)
+            if quantity <= 0:
+                continue
+            price = int(prices.get(market["price_key"], 0) or 0)
+            self.money += quantity * price
+            self.quantities[quantity_key] = 0
+            sold[market["label"]] = quantity
+            sold_value[market["label"]] = quantity * price
+
+        self.last_decision = {
+            "action": "liquidate" if sold else "hold",
+            "sold": sold,
+            "sold_value": sold_value,
+            "bought": {},
+            "bought_cost": {},
             "money": self.money,
             "quantities": dict(self.quantities),
         }

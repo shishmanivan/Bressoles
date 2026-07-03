@@ -152,9 +152,12 @@ class GameplayPage:
         self.active_silver_cards_spent = False
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
+        self.boss_odd_turn_trading_only = False
         self.stock_bot_enabled = False
         self.stock_bot = None
         self._stock_bot_saved_state = None
+        self.stock_bot_start_quantities = None
+        self.stock_bot_trade_history = []
         
         # Determine if this is the final boss on the level
         # Logic: if defeated_count == bosses_required - 1, then the next boss (this one) is the last boss
@@ -197,6 +200,7 @@ class GameplayPage:
         self.arrow_anim_interval = 120  # ms
         self.arrow_anim_sequence = [0, 1, 2, 1, 0]  # ping-pong once
         self.arrow_entries = []  # populated each draw: [{'rect':Rect,'animating':bool,'idx':int,'last':ms}]
+        self.dimmed_arrow_cache = {}
 
         self.bottom_frame = gameplay_assets["bottom_frame"]
         self.arrow_sound = gameplay_assets["arrow_sound"]
@@ -473,6 +477,10 @@ class GameplayPage:
         self.reward_level2_final_boss_text = self._get_text(
             "RewardLevel2FinalBoss",
             "Теперь в игре будут попадаться серебряные карты.",
+        )
+        self.reward_level3_final_boss_text = self._get_text(
+            "RewardLevel3FinalBoss",
+            "Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.",
         )
         self.boss_victory_deck_reset_text = self._get_text(
             "BossVictoryDeckReset",
@@ -818,16 +826,32 @@ class GameplayPage:
     def _draw_current_boss_condition_tooltip(self, entry, icon_rect):
         text = entry.get("condition_text") or ""
         max_width = 440
-        lines = wrap_text(text, self.font_small, max_width)
-        if not lines:
+        rows = [{"kind": "text", "text": line} for line in wrap_text(text, self.font_small, max_width)]
+        bot_status = self._stock_bot_status_text()
+        if bot_status:
+            rows.append({"kind": "spacer"})
+            rows.extend({"kind": "text", "text": line} for line in wrap_text(bot_status, self.font_small, max_width))
+        bot_entries = self._stock_bot_tooltip_entries()
+        if bot_entries:
+            rows.append({"kind": "spacer"})
+            rows.extend({"kind": "arrow", **item} for item in bot_entries)
+        if not rows:
             return
 
         line_height = self.font_small.get_height() + 4
+        def _row_width(row):
+            if row.get("kind") == "spacer":
+                return 0
+            text_width = self.font_small.size(str(row.get("text", "")))[0]
+            if row.get("kind") == "arrow":
+                return text_width + 24
+            return text_width
+
         width = min(
             max_width + 28,
-            max(self.font_small.size(line)[0] for line in lines) + 28,
+            max(_row_width(row) for row in rows) + 28,
         )
-        height = len(lines) * line_height + 24
+        height = sum(line_height // 2 if row.get("kind") == "spacer" else line_height for row in rows) + 24
         x = icon_rect.right - width
         y = icon_rect.bottom + 12
         if x < 20:
@@ -838,9 +862,24 @@ class GameplayPage:
         tooltip_rect = pygame.Rect(int(x), int(y), int(width), int(height))
         pygame.draw.rect(self.screen, (238, 228, 205), tooltip_rect)
         pygame.draw.rect(self.screen, PAPER_COLOR, tooltip_rect, 2)
-        for index, line in enumerate(lines):
-            surface = self.font_small.render(line, True, PAPER_COLOR)
-            self.screen.blit(surface, (tooltip_rect.x + 14, tooltip_rect.y + 12 + index * line_height))
+        cursor_y = tooltip_rect.y + 12
+        for row in rows:
+            if row.get("kind") == "spacer":
+                cursor_y += line_height // 2
+                continue
+            text_x = tooltip_rect.x + 14
+            if row.get("kind") == "arrow":
+                arrow_cx = text_x + 8
+                arrow_cy = cursor_y + line_height // 2
+                if row.get("direction") == "up":
+                    points = [(arrow_cx, arrow_cy - 7), (arrow_cx - 7, arrow_cy + 6), (arrow_cx + 7, arrow_cy + 6)]
+                else:
+                    points = [(arrow_cx, arrow_cy + 7), (arrow_cx - 7, arrow_cy - 6), (arrow_cx + 7, arrow_cy - 6)]
+                pygame.draw.polygon(self.screen, PAPER_COLOR, points)
+                text_x += 24
+            surface = self.font_small.render(str(row.get("text", "")), True, PAPER_COLOR)
+            self.screen.blit(surface, (text_x, cursor_y))
+            cursor_y += line_height
 
     def _get_text(self, key, default=None):
         if default is None:
@@ -856,6 +895,8 @@ class GameplayPage:
             return self.reward_level1_final_boss_text
         if level == 2:
             return self.reward_level2_final_boss_text
+        if level == 3:
+            return self.reward_level3_final_boss_text
         return self.reward_final_boss_text
 
     def _apply_investment_card_bonuses(self):
@@ -932,7 +973,13 @@ class GameplayPage:
             import importlib
 
             bot_module = importlib.import_module("simple_stock_bot")
-            self.stock_bot = bot_module.SimpleStockBot.from_state(self._stock_bot_saved_state)
+            if self._stock_bot_saved_state:
+                self.stock_bot = bot_module.SimpleStockBot.from_state(self._stock_bot_saved_state)
+            else:
+                self.stock_bot = bot_module.SimpleStockBot(
+                    money=0,
+                    quantities=self.stock_bot_start_quantities,
+                )
             print("Simple stock bot activated")
         except Exception as exc:
             print(f"ERROR activating simple stock bot: {exc}")
@@ -944,13 +991,33 @@ class GameplayPage:
         self._activate_stock_bot_if_needed()
         if self.stock_bot is None:
             return False
-        decision = self.stock_bot.trade(
-            self._current_prices(),
-            build_market_probabilities(self.market_cards),
-            self._current_steps(),
-        )
+        if self.Day >= self.LastTurn:
+            decision = self.stock_bot.sell_all(self._current_prices())
+        else:
+            decision = self.stock_bot.trade(
+                self._current_prices(),
+                build_market_probabilities(self.market_cards),
+                self._current_steps(),
+            )
+        self._record_stock_bot_trade(decision)
         print(f"Simple stock bot decision: {decision}")
         return True
+
+    def _record_stock_bot_trade(self, decision):
+        if not isinstance(decision, dict):
+            return
+        entry = {
+            "day": int(self.Day or 0),
+            "action": decision.get("action", "hold"),
+            "sold": dict(decision.get("sold") or {}),
+            "sold_value": dict(decision.get("sold_value") or {}),
+            "bought": dict(decision.get("bought") or {}),
+            "money": int(decision.get("money", 0) or 0),
+        }
+        if entry["action"] == "hold" and not entry["sold"] and not entry["bought"]:
+            return
+        self.stock_bot_trade_history.append(entry)
+        self.stock_bot_trade_history = self.stock_bot_trade_history[-8:]
 
     def _stock_bot_status_text(self):
         if not self.stock_bot_enabled:
@@ -959,6 +1026,30 @@ class GameplayPage:
         if self.stock_bot is None:
             return None
         return self.stock_bot.status_line(self._current_prices())
+
+    def _stock_bot_tooltip_entries(self):
+        if not self.stock_bot_enabled:
+            return []
+        entries = []
+        for item in list(self.stock_bot_trade_history or [])[-6:]:
+            if not isinstance(item, dict):
+                continue
+            day = int(item.get("day", 0) or 0)
+            for market, value in (item.get("sold_value") or {}).items():
+                try:
+                    amount = int(value or 0)
+                except (TypeError, ValueError):
+                    amount = 0
+                if amount > 0:
+                    entries.append({"direction": "down", "text": f"Day {day}: {market} +${amount}"})
+            for market, count in (item.get("bought") or {}).items():
+                try:
+                    amount = int(count or 0)
+                except (TypeError, ValueError):
+                    amount = 0
+                if amount > 0:
+                    entries.append({"direction": "up", "text": f"Day {day}: {market} x{amount}"})
+        return entries
 
     def _serialize_nested_int_dict(self, source):
         result = {}
@@ -1021,6 +1112,7 @@ class GameplayPage:
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "stock_bot_enabled": bool(self.stock_bot_enabled),
             "stock_bot": self.stock_bot.to_dict() if self.stock_bot is not None else self._stock_bot_saved_state,
+            "stock_bot_trade_history": list(self.stock_bot_trade_history or []),
             "stats_recorded": self._stats_recorded,
         }
 
@@ -1090,6 +1182,7 @@ class GameplayPage:
         )
         self.stock_bot_enabled = bool(state.get("stock_bot_enabled", self.stock_bot_enabled))
         self._stock_bot_saved_state = state.get("stock_bot")
+        self.stock_bot_trade_history = list(state.get("stock_bot_trade_history") or self.stock_bot_trade_history or [])
         self._stats_recorded = bool(state.get("stats_recorded", self._stats_recorded))
         self.turn_resolution_active = False
         self.price_animation_queue = []
@@ -1153,7 +1246,30 @@ class GameplayPage:
         """Return card Type from Cards.csv (defaults to 1)."""
         return get_card_type_from_config(self.card_types, card_id)
 
+    def _is_arrow_trading_disabled(self):
+        if not getattr(self, "boss_odd_turn_trading_only", False):
+            return False
+        try:
+            return int(self.Day) % 2 == 0
+        except (TypeError, ValueError):
+            return False
+
+    def _get_dimmed_arrow(self, arrow_img):
+        if not arrow_img:
+            return arrow_img
+        cache_key = id(arrow_img)
+        cached = self.dimmed_arrow_cache.get(cache_key)
+        if cached:
+            return cached
+        dimmed = arrow_img.copy()
+        dimmed.fill((120, 120, 120, 145), special_flags=pygame.BLEND_RGBA_MULT)
+        self.dimmed_arrow_cache[cache_key] = dimmed
+        return dimmed
+
     def _apply_arrow_trade(self, frame_idx, arrow_type):
+        if self._is_arrow_trading_disabled():
+            return False
+
         trade_result = apply_arrow_trade(
             self.Money,
             {
@@ -1308,6 +1424,9 @@ class GameplayPage:
                         for entry in self.arrow_entries:
                             if not entry["rect"].collidepoint(mouse_pos):
                                 continue
+
+                            if self._is_arrow_trading_disabled():
+                                break
                             
                             frame_idx = entry.get("frame_index")
                             if frame_idx is None:
@@ -1703,6 +1822,7 @@ class GameplayPage:
         turn_bonuses = {
             202: 1,
             203: 2,
+            301: 1,
         }
         bonus = 0
         for card_id in self._active_lifecycle_cards():
@@ -1743,7 +1863,7 @@ class GameplayPage:
             proceeds = gross_value
             source = "Active card 201"
         else:
-            proceeds = (gross_value * 80) // 100
+            proceeds = (gross_value * 90) // 100
             source = "Card 110"
 
         self.Money += proceeds
@@ -2546,7 +2666,7 @@ class GameplayPage:
         margin_x = 20
         available_width = bf_w - margin_x * 2
         if self.hand > 1:
-            spacing = max(5, (available_width - ph_w * self.hand) // (self.hand - 1))
+            spacing = ((available_width - ph_w) / (self.hand - 1)) - ph_w
         else:
             spacing = 0
         total_width = ph_w * self.hand + spacing * (self.hand - 1)
@@ -2692,8 +2812,8 @@ class GameplayPage:
                         
                         ph_w = 138
                         ph_h = 240
-                        base_spacing = (bf_w - ph_w * self.hand) / (self.hand + 1)
-                        spacing = base_spacing * 0.7
+                        available_width = bf_w - 40
+                        spacing = ((available_width - ph_w) / (self.hand - 1)) - ph_w if self.hand > 1 else 0
                         total_width = ph_w * self.hand + spacing * (self.hand - 1)
                         start_x = bf_x + (bf_w - total_width) / 2
                         start_y = bf_y + (bf_h - ph_h) // 2
@@ -3053,6 +3173,7 @@ class GameplayPage:
                     )
                     arrow_x = frame_x + frame_width - arrow_size - 20  # inset from right edge
                     start_y = frame_y + 25  # place top arrow 25px below top of frame
+                    arrows_disabled = self._is_arrow_trading_disabled()
                     # collect hitboxes for clickable outer arrows (two per frame)
                     for idx, arrow_img in enumerate(arrows):
                         if idx == 0:
@@ -3075,6 +3196,8 @@ class GameplayPage:
                             if entry["animating"]:
                                 frame_idx = self.arrow_anim_sequence[entry["idx"]]
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
+                            if arrows_disabled:
+                                img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 1 and self.arrow_mid_up_frames:
                             # Middle up arrow with animation
@@ -3088,6 +3211,8 @@ class GameplayPage:
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
                             else:
                                 img_to_draw = arrow_img
+                            if arrows_disabled:
+                                img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 2 and self.arrow_mid_down_frames:
                             # Middle down arrow with animation
@@ -3101,6 +3226,8 @@ class GameplayPage:
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
                             else:
                                 img_to_draw = arrow_img
+                            if arrows_disabled:
+                                img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 3 and self.arrow_down_frames:
                             rect = pygame.Rect(arrow_x, ay, arrow_size, arrow_size)
@@ -3111,8 +3238,12 @@ class GameplayPage:
                             if entry["animating"]:
                                 frame_idx = self.arrow_anim_sequence[entry["idx"]]
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
+                            if arrows_disabled:
+                                img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         else:
+                            if arrows_disabled:
+                                img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, (arrow_x, ay))
                 
                 # Draw three placeholders at the bottom of each market frame (A, B, C)
@@ -3303,19 +3434,35 @@ class GameplayPage:
                 self.bottom_placeholders = build_bottom_placeholders(hand_layout)
                 ph_w = hand_layout["placeholder_width"]
                 ph_h = hand_layout["placeholder_height"]
+                hovered_hand_index = None
+                mouse_pos = pygame.mouse.get_pos()
 
                 for ph_info in self.bottom_placeholders:
-                    i = ph_info["slot"]
                     slot_x, slot_y = ph_info["rect"].topleft
-                    # Draw placeholder
                     if self.placeholder_bottom:
                         self.screen.blit(self.placeholder_bottom, (slot_x, slot_y))
                     else:
                         pygame.draw.rect(self.screen, WHITE, (slot_x, slot_y, ph_w, ph_h))
                         pygame.draw.rect(self.screen, BLACK, (slot_x, slot_y, ph_w, ph_h), 2)
-                    
+
+                for ph_info in reversed(self.bottom_placeholders):
+                    i = ph_info["slot"]
+                    if i >= len(self.hand_cards) or i == self.dragged_card_index:
+                        continue
+                    card_id = self.hand_cards[i]
+                    if card_id is None:
+                        continue
+                    slot_x, slot_y = ph_info["rect"].topleft
+                    card_rect = pygame.Rect(slot_x - 2, slot_y - 2, *self.card_size_bottom)
+                    if card_rect.collidepoint(mouse_pos):
+                        hovered_hand_index = i
+                        break
+
+                for ph_info in self.bottom_placeholders:
+                    i = ph_info["slot"]
+                    slot_x, slot_y = ph_info["rect"].topleft
                     # Draw card on placeholder if available and not being dragged
-                    if i < len(self.hand_cards) and i != self.dragged_card_index:
+                    if i < len(self.hand_cards) and i != self.dragged_card_index and i != hovered_hand_index:
                         card_id = self.hand_cards[i]
                         # Если для этой карты есть анимация сдвига, не рисуем её в стандартной позиции
                         moving_from_this_slot = False
@@ -3355,6 +3502,19 @@ class GameplayPage:
                         if origin_slot is not None and i == origin_slot and self.hand_cards[i] is None:
                             ph_rect = pygame.Rect(slot_x, slot_y, ph_w, ph_h)
                             pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
+                if hovered_hand_index is not None and hovered_hand_index < len(self.hand_cards):
+                    card_id = self.hand_cards[hovered_hand_index]
+                    if (
+                        card_id is not None
+                        and card_id in self.card_images_bottom
+                        and self.card_images_bottom[card_id]
+                    ):
+                        slot_x, slot_y = hand_layout["slot_positions"][hovered_hand_index]
+                        card_x = slot_x - 2
+                        card_y = slot_y - 26
+                        self.screen.blit(self.card_images_bottom[card_id], (card_x, card_y))
+                        self.draw_card_action(card_id, card_x, card_y, self.card_size_bottom)
+                        self.draw_card_turns(card_id, card_x, card_y, self.card_size_bottom)
                     # Highlight available hand placeholder when dragging from side-top:
                     # only the ORIGINAL hand slot of this card
                     if self.dragged_card_source == "side_top":

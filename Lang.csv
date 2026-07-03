@@ -8,8 +8,10 @@ MainQuit;Выход;Quit
 Level1Year;1815;1815
 Level2Year;1825;1825
 Level3Year;1830;1830
+Level4Year;1845;1845
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
 Level3Cond;В 1830 открывается линии Ливерпуль-Манчестер. Акции начинают покупать обычные люди. Победите трёх боссов.;In 1830, the opening of the Liverpool-Manchester line begins. Stocks begin to be purchased by ordinary people. Beat three bosses.
+Level4Cond;Пик железнодорожной мании. Победите 4-х боссов.;Peak of railway mania. Beat 4 bosses.
 Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
 Boss1Reward;Награда за победу над боссом;Reward for defeating the boss:
 Boss2Text;Адам Смит. В каждом раунде на один ход меньше. ;Adam Smith. One turn less in each round.:
@@ -22,6 +24,10 @@ Boss5Text;Сэмюэль Слейтер. Рука на одну карту ме�
 Boss5Reward;Игра длится на два хода дольше, и вы получаете случайную серебряную карту;The game lasts two turns longer, and you gain a random silver card:
 Boss6Text;Ричард Аркрайт. Есть шанс, что на каждом ходу у вас будут воровать акции.;Richard Arkwright. There is a chance that your shares will be stolen each turn.:
 Boss6Reward;Размер руки увеличивается на 1, и вы получаете случайную серебряную карту;Hand size increases by 1, and you gain a random silver card:
+Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
+Boss7Reward;20 Наполеондоров;20 Napoleondors
+Boss8Text;Фридрих Лист. Босс торгует акциями. На старте у него 10 акций B, а на последнем ходу он продаёт весь портфель.;Friedrich List. The boss trades stocks. He starts with 10 B shares and sells his portfolio on the final turn.
+Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
@@ -42,6 +48,7 @@ RewardWindowText;Поздравляем! Теперь ваша колода ст
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
+RewardLevel3FinalBoss;Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.;You unlocked the fourth level. You received your first black card.
 BossVictoryDeckReset;Колода сброшена до базовой.;Deck reset to the base deck.
 LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.

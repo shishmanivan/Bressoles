@@ -145,6 +145,14 @@ class BossPage:
                         for frame_num in range(7):
                             frame_filename = f"{base_name}{frame_num}.png"
                             frame_path = os.path.join(boss_folder, frame_filename)
+                            if not os.path.exists(frame_path):
+                                matching_frames = sorted(
+                                    filename
+                                    for filename in os.listdir(boss_folder)
+                                    if filename.lower().endswith(f"{frame_num}.png")
+                                )
+                                if matching_frames:
+                                    frame_path = os.path.join(boss_folder, matching_frames[0])
                             if os.path.exists(frame_path):
                                 frame_image = pygame.image.load(frame_path).convert_alpha()
                                 frame_image = pygame.transform.smoothscale(frame_image, (100, 100)).convert_alpha()

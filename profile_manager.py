@@ -75,6 +75,7 @@ def _empty_progress():
         "global_start_money_bonus": 0,
         "global_last_turn_bonus": 0,
         "global_hand_bonus": 0,
+        "derivative_bought": False,
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
@@ -86,6 +87,7 @@ def _empty_progress():
         "pending_shop_discount_percent": 0,
         "bailout_rounds_remaining": 0,
         "active_long_investments": [],
+        "licensed_card_ids": _serialize_int_list(game_state.DEFAULT_LICENSED_CARDS),
         "silver_cards": [],
         "black_cards": [],
         "gold_cards": [],
@@ -165,6 +167,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
     game_state.global_last_turn_bonus = int(progress.get("global_last_turn_bonus", 0) or 0)
     game_state.global_hand_bonus = int(progress.get("global_hand_bonus", 0) or 0)
+    game_state.derivative_bought = bool(progress.get("derivative_bought", False))
     game_state.napoleondors = float(progress.get("napoleondors", 0) or 0)
     try:
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
@@ -193,6 +196,10 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.active_long_investments = _restore_int_list(progress.get("active_long_investments") or [])[
         : game_state.LONG_MAX_ACTIVE
     ]
+    if "licensed_card_ids" in progress:
+        game_state.licensed_card_ids = game_state.normalize_license_ids(progress.get("licensed_card_ids"))
+    else:
+        game_state.licensed_card_ids = game_state.get_legacy_open_license_ids()
     game_state.silver_cards = _restore_int_list(progress.get("silver_cards") or [])[: game_state.MAX_SILVER_CARDS]
     game_state.black_cards = _restore_int_list(progress.get("black_cards") or [])[: game_state.MAX_BLACK_CARDS]
     game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
@@ -266,6 +273,7 @@ def _capture_progress():
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
         "global_last_turn_bonus": int(game_state.global_last_turn_bonus),
         "global_hand_bonus": int(game_state.global_hand_bonus),
+        "derivative_bought": bool(game_state.derivative_bought),
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
@@ -277,6 +285,7 @@ def _capture_progress():
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
+        "licensed_card_ids": _serialize_int_list(game_state.licensed_card_ids),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),
         "gold_cards": _serialize_int_list(game_state.gold_cards),
@@ -450,6 +459,7 @@ def _serialize_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "derivative_bought": bool(source.get("derivative_bought", False)),
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
@@ -469,6 +479,7 @@ def _restore_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "derivative_bought": bool(source.get("derivative_bought", False)),
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),

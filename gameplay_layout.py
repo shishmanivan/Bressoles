@@ -13,9 +13,17 @@ def compute_bottom_hand_layout(bottom_frame, hand, screen_width, screen_height, 
 
     placeholder_width = 138
     placeholder_height = 240
-    base_spacing = (frame_width - placeholder_width * hand) / (hand + 1)
-    spacing = base_spacing * 0.7
-    total_width = placeholder_width * hand + spacing * (hand - 1)
+    margin_x = 20
+    available_width = max(placeholder_width, frame_width - margin_x * 2)
+    if hand > 1:
+        base_spacing = (frame_width - placeholder_width * hand) / (hand + 1)
+        normal_step = placeholder_width + (base_spacing * 0.7)
+        fit_step = (available_width - placeholder_width) / (hand - 1)
+        step = min(normal_step, fit_step)
+    else:
+        step = 0
+    spacing = step - placeholder_width if hand > 1 else 0
+    total_width = placeholder_width + step * (hand - 1)
     start_x = frame_x + (frame_width - total_width) / 2
     start_y = frame_y + (frame_height - placeholder_height) // 2 + y_offset
 

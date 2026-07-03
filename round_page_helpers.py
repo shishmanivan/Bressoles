@@ -17,6 +17,7 @@ def resolve_initial_button_goals(
     is_apper_boss,
     get_level2_goal,
     get_level3_goal,
+    get_level4_goal,
     apper_goal_boost,
 ):
     """Build the initial E/M/H button goals for RoundPage."""
@@ -48,6 +49,22 @@ def resolve_initial_button_goals(
             h_goal = apper_goal_boost(h_goal)
         return {"e": e_goal, "m": m_goal, "h": h_goal}
 
+    if level_number == 4:
+        e_goal = get_level4_goal(1, "e", defeated_count, False)
+        m_goal = get_level4_goal(1, "m", defeated_count, False)
+        h_goal = get_level4_goal(1, "h", defeated_count, False)
+        if e_goal is None:
+            e_goal = level_cfg.get("E")
+        if m_goal is None:
+            m_goal = level_cfg.get("M")
+        if h_goal is None:
+            h_goal = level_cfg.get("H")
+        if is_apper_boss:
+            e_goal = apper_goal_boost(e_goal)
+            m_goal = apper_goal_boost(m_goal)
+            h_goal = apper_goal_boost(h_goal)
+        return {"e": e_goal, "m": m_goal, "h": h_goal}
+
     e_goal = level_cfg.get("E")
     m_goal = level_cfg.get("M")
     h_goal = level_cfg.get("H")
@@ -67,6 +84,7 @@ def refresh_button_goals_for_round(
     button_goals,
     get_level2_goal,
     get_level3_goal,
+    get_level4_goal,
     apper_goal_boost,
 ):
     """Return updated button goals for the active round."""
@@ -85,6 +103,22 @@ def refresh_button_goals_for_round(
         e_goal = get_level3_goal(current_round, "e", defeated_count, False)
         m_goal = get_level3_goal(current_round, "m", defeated_count, False)
         h_goal = get_level3_goal(current_round, "h", defeated_count, False)
+        if is_apper_boss:
+            e_goal = apper_goal_boost(e_goal)
+            m_goal = apper_goal_boost(m_goal)
+            h_goal = apper_goal_boost(h_goal)
+        if e_goal is not None:
+            updated_goals["e"] = e_goal
+        if m_goal is not None:
+            updated_goals["m"] = m_goal
+        if h_goal is not None:
+            updated_goals["h"] = h_goal
+        return updated_goals
+
+    if level_number == 4:
+        e_goal = get_level4_goal(current_round, "e", defeated_count, False)
+        m_goal = get_level4_goal(current_round, "m", defeated_count, False)
+        h_goal = get_level4_goal(current_round, "h", defeated_count, False)
         if is_apper_boss:
             e_goal = apper_goal_boost(e_goal)
             m_goal = apper_goal_boost(m_goal)
@@ -133,6 +167,7 @@ def resolve_boss_goal(
     boss_goals,
     get_level2_goal,
     get_level3_goal,
+    get_level4_goal,
     apper_goal_boost,
 ):
     """Resolve the target goal when the boss icon is clicked."""
@@ -148,6 +183,15 @@ def resolve_boss_goal(
             get_level3_goal(None, "e", defeated_count, True)
             or get_level3_goal(None, "m", defeated_count, True)
             or 350
+        )
+        return apper_goal_boost(boss_goal) if is_apper_boss else boss_goal
+
+    if level_number == 4:
+        boss_goal = (
+            get_level4_goal(None, "e", defeated_count, True)
+            or get_level4_goal(None, "m", defeated_count, True)
+            or get_level4_goal(None, "h", defeated_count, True)
+            or 70
         )
         return apper_goal_boost(boss_goal) if is_apper_boss else boss_goal
 

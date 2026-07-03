@@ -6,7 +6,8 @@ def find_hand_drag_start(mouse_pos, hand_layout, hand_cards, card_size_bottom):
     if not hand_layout:
         return None
 
-    for index, (slot_x, slot_y) in enumerate(hand_layout["slot_positions"]):
+    for index in reversed(range(len(hand_layout["slot_positions"]))):
+        slot_x, slot_y = hand_layout["slot_positions"][index]
         if index >= len(hand_cards) or hand_cards[index] is None:
             continue
         card_rect = pygame.Rect(slot_x - 2, slot_y - 2, card_size_bottom[0], card_size_bottom[1])
