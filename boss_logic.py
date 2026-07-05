@@ -9,8 +9,8 @@ from game_data import (
 )
 
 
-# Boss difficulty tiers. Watt is the test/easy boss; every other current boss
-# belongs to boss level 1.
+# Boss difficulty tiers. Watt is the test/easy boss; tier 2 bosses appear on
+# Level 4's second boss step.
 BOSS_LEVELS = {
     "1_Watt.png": 0,
     "2_AdamSmith.png": 1,
@@ -20,6 +20,11 @@ BOSS_LEVELS = {
     "6_Arkwright.png": 1,
     "7_Kolbe.png": 1,
     "8_List.png": 2,
+    "Laffitte.png": 2,
+}
+
+BOSS_NUMBERS = {
+    "Laffitte.png": 9,
 }
 
 
@@ -130,10 +135,13 @@ def _ensure_level4_roster(bp_state: dict, bosses_required: int):
     """Ensure bp_state has a stable roster for the current Level 4 run."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
+    level_two_bosses = set(get_bosses_for_boss_level(2))
+    current_second_step = set(roster[1] or []) if isinstance(roster, list) and len(roster) > 1 else set()
     has_level_two_step = (
         isinstance(roster, list)
         and len(roster) > 1
-        and any(BOSS_LEVELS.get(filename) == 2 for filename in (roster[1] or []))
+        and bool(level_two_bosses)
+        and level_two_bosses.issubset(current_second_step)
     )
     if isinstance(roster, list) and roster and len(roster) == expected_len and has_level_two_step:
         return roster
@@ -324,6 +332,18 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print("Applied boss reward FreeShop: next shop is free")
             return
 
+        if normalized_reward in (
+            "updownplus4",
+            "updownsideplus4",
+            "upsideanddownsideplus4",
+            "upside_downside_plus4",
+            "upside/downside+4",
+            "probabilitycardsplus4",
+        ):
+            game_state.add_updown_probability_bonus(4)
+            print("Applied boss reward UpDownPlus4: Upside/Downside bonus increased by 4")
+            return
+
         # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
         if normalized_reward in (
             "gaindropcard",
@@ -482,6 +502,17 @@ def apply_boss_functionality(func_string, gameplay_instance):
             print("Applied boss functionality: odd-turn trading only enabled")
             return
 
+        if normalized_func in (
+            "noprice2buys",
+            "nobuyprice2",
+            "cannotbuyprice2",
+            "forbidprice2buys",
+            "blockprice2buys",
+        ):
+            setattr(gameplay_instance, "boss_forbid_price_2_buys", True)
+            print("Applied boss functionality: buying stocks priced at 2 is disabled")
+            return
+
         if normalized_func in ("simplestockbot", "stockbot", "bot"):
             setattr(gameplay_instance, "stock_bot_enabled", False)
             print("Skipped Simple stock bot functionality: stock bot is only enabled for Friedrich List")
@@ -497,6 +528,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                 boss_number = None
             if level_num == 4 and boss_number == 8:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
+                setattr(gameplay_instance, "stock_bot_type", "simple")
                 setattr(
                     gameplay_instance,
                     "stock_bot_start_quantities",
@@ -506,6 +538,45 @@ def apply_boss_functionality(func_string, gameplay_instance):
             else:
                 setattr(gameplay_instance, "stock_bot_enabled", False)
                 print(f"Skipped Friedrich List stock bot functionality on level {level_num}, boss {boss_number}")
+            return
+
+        if normalized_func in (
+            "bot2",
+            "bot2percent",
+            "bot2percentage",
+            "bot2procent",
+            "bot2procentny",
+            "bot2procentnyi",
+            "bot2percentbot",
+            "bot2percentagebot",
+            "advancedstockbot",
+            "probabilitystockbot",
+            "advancedliststockbot",
+            "probabilityliststockbot",
+            "listprobabilitybot",
+            "laffittebot",
+            "laffittepercentbot",
+        ):
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            boss_number = None
+            try:
+                if hasattr(gameplay_instance, "_get_active_boss_number"):
+                    boss_number = gameplay_instance._get_active_boss_number()
+            except Exception:
+                boss_number = None
+            if level_num == 4:
+                setattr(gameplay_instance, "stock_bot_enabled", True)
+                setattr(gameplay_instance, "stock_bot_type", "advanced")
+                start_quantities = {"Aquantity": 0, "Bquantity": 10, "Cquantity": 0}
+                if boss_number == 9:
+                    start_quantities = {"Aquantity": 4, "Bquantity": 0, "Cquantity": 0}
+                    setattr(gameplay_instance, "boss_forbid_price_2_buys", True)
+                    setattr(gameplay_instance, "stock_bot_blocked_buy_prices", {2})
+                setattr(gameplay_instance, "stock_bot_start_quantities", start_quantities)
+                print(f"Applied boss functionality: advanced stock bot enabled for boss {boss_number}")
+            else:
+                setattr(gameplay_instance, "stock_bot_enabled", False)
+                print(f"Skipped advanced stock bot functionality on level {level_num}, boss {boss_number}")
             return
 
         if normalized_func == "goal=goal*1.3":
@@ -588,6 +659,8 @@ def get_boss_number_from_filename(boss_filename):
     """
     if not boss_filename:
         return None
+    if boss_filename in BOSS_NUMBERS:
+        return BOSS_NUMBERS[boss_filename]
     try:
         # Extract number from filename (format: "X_Name.png")
         parts = boss_filename.split("_")

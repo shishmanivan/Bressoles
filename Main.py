@@ -321,6 +321,7 @@ def main():
             game_state.silver_cards,
             game_state.black_cards,
             game_state.gold_cards,
+            active_black_cards=game_state.active_black_cards,
             active_gold_cards=game_state.active_gold_cards,
             is_boss_fight=is_boss_fight,
         )
@@ -328,10 +329,11 @@ def main():
         if silver_result == "back":
             return "back", {}
         if isinstance(silver_result, dict):
+            active_black_cards = game_state.set_active_black_cards(silver_result.get("active_black_cards") or [])
             active_gold_cards = game_state.set_active_gold_cards(silver_result.get("active_gold_cards") or [])
             return "ok", {
                 "active_silver_cards": list(silver_result.get("active_silver_cards") or []),
-                "active_black_cards": list(silver_result.get("active_black_cards") or []),
+                "active_black_cards": active_black_cards,
                 "active_gold_cards": active_gold_cards,
             }
         return "ok", {}
@@ -548,6 +550,9 @@ def main():
                         bonuses_reset = True
                     if game_state.global_hand_bonus != 0:
                         game_state.global_hand_bonus = 0
+                        bonuses_reset = True
+                    if game_state.updown_probability_bonus != 0:
+                        game_state.clear_updown_probability_bonus()
                         bonuses_reset = True
                     if bonuses_reset and selected_slot and not test_mode:
                         profile_manager.save_progress_from_game_state(selected_slot)

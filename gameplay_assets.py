@@ -3,6 +3,7 @@ import os
 import pygame
 
 from game_data import REWARD_TOKEN_RANDOM_SILVER
+from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
 
 
 _gameplay_core_assets_cache = {}
@@ -91,6 +92,10 @@ def load_gameplay_core_assets(screen_width, screen_height):
 
     assets["arrow_sound"] = _load_sound(os.path.join("Sounds", "WoodTap.wav"), "WARNING: WoodTap.wav not found at")
     assets["typewriter_sound"] = _load_sound(os.path.join("Sounds", "Typewriter.wav"), "WARNING: Typewriter.wav not found at")
+    assets["cash_register_sound"] = _load_sound(
+        os.path.join("Sounds", "cash-register.mp3"),
+        "WARNING: cash-register.mp3 not found at",
+    )
 
     assets["animation_width"] = 118
     assets["animation_height"] = 101
@@ -247,16 +252,37 @@ def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, ca
                 bottom_key = (base_id, "bottom", card_size_bottom)
                 market_key = (base_id, "market", card_size_market)
                 side_key = (base_id, "side", card_size_side)
-                card_images_original[card_id] = card_img
+                original_img = card_img
+                if is_bid_card(card_id):
+                    original_img = card_img.copy()
+                    draw_bid_modifier_text(
+                        original_img,
+                        card_id,
+                        0,
+                        0,
+                        (original_img.get_width(), original_img.get_height()),
+                        None,
+                    )
+                card_images_original[card_id] = original_img
                 if bottom_key not in scaled_image_cache:
                     scaled_image_cache[bottom_key] = pygame.transform.smoothscale(card_img, card_size_bottom).convert_alpha()
                 if market_key not in scaled_image_cache:
                     scaled_image_cache[market_key] = pygame.transform.smoothscale(card_img, card_size_market).convert_alpha()
                 if side_key not in scaled_image_cache:
                     scaled_image_cache[side_key] = pygame.transform.smoothscale(card_img, card_size_side).convert_alpha()
-                card_images_bottom[card_id] = scaled_image_cache[bottom_key]
-                card_images_market[card_id] = scaled_image_cache[market_key]
-                card_images_side[card_id] = scaled_image_cache[side_key]
+                bottom_img = scaled_image_cache[bottom_key]
+                market_img = scaled_image_cache[market_key]
+                side_img = scaled_image_cache[side_key]
+                if is_bid_card(card_id):
+                    bottom_img = bottom_img.copy()
+                    market_img = market_img.copy()
+                    side_img = side_img.copy()
+                    draw_bid_modifier_text(bottom_img, card_id, 0, 0, card_size_bottom, None)
+                    draw_bid_modifier_text(market_img, card_id, 0, 0, card_size_market, None)
+                    draw_bid_modifier_text(side_img, card_id, 0, 0, card_size_side, None)
+                card_images_bottom[card_id] = bottom_img
+                card_images_market[card_id] = market_img
+                card_images_side[card_id] = side_img
             except Exception as e:
                 print(f"ERROR loading card {card_id} (base: {base_id}): {e}")
                 card_images_original[card_id] = None
@@ -445,6 +471,8 @@ def _build_card_base_mapping():
     card_base_mapping[16] = 15
     card_base_mapping[17] = 17
     card_base_mapping[18] = 17
+    for card_id in (118, 119, 120, 121, 122):
+        card_base_mapping[card_id] = 118
     return card_base_mapping
 
 

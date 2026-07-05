@@ -5,6 +5,27 @@ import pygame
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
+BID_CARD_VALUES = {
+    118: 10,
+    119: 20,
+    120: 30,
+    121: 50,
+    122: 100,
+}
+BID_CARD_BASE_ID = 118
+
+
+def is_bid_card(card_id):
+    try:
+        return int(card_id) in BID_CARD_VALUES
+    except (TypeError, ValueError):
+        return False
+
+
+def get_bid_card_base_id(card_id):
+    return BID_CARD_BASE_ID if is_bid_card(card_id) else card_id
+
+
 def load_winlose_card_preview(
     card_number,
     winlose_card_images,
@@ -46,6 +67,8 @@ def load_winlose_card_preview(
         base_card_id = 15
     elif card_number in [17, 18]:
         base_card_id = 17
+    elif is_bid_card(card_number):
+        base_card_id = BID_CARD_BASE_ID
     else:
         base_card_id = card_number
 
@@ -57,6 +80,7 @@ def load_winlose_card_preview(
 
     card_image = pygame.image.load(card_path).convert_alpha()
     card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+    draw_bid_modifier_text(card_surface, card_number, 0, 0, (target_width, target_height), font_path)
 
     if card_number in card_actions:
         draw_preview_card_action(
@@ -281,6 +305,33 @@ def draw_bear_modifier_text(
         screen.blit(text, (int(x), int(y)))
     except Exception as e:
         print(f"ERROR rendering Bear modifier text: {e}")
+
+
+def draw_bid_modifier_text(
+    screen,
+    card_id,
+    card_x,
+    card_y,
+    card_size,
+    font_path,
+):
+    """Draw the BID amount on card variants that share Card_118.png."""
+    try:
+        amount = BID_CARD_VALUES[int(card_id)]
+    except (TypeError, ValueError, KeyError):
+        return
+    if not card_size or len(card_size) < 2 or card_size[0] <= 0:
+        return
+
+    font_size = max(1, int(card_size[0] * 0.18))
+    try:
+        font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
+        text = font.render(str(amount), True, (18, 18, 18))
+        x = card_x + card_size[0] * 0.56
+        y = card_y + card_size[1] * 0.08
+        screen.blit(text, (int(x), int(y)))
+    except Exception as e:
+        print(f"ERROR rendering BID modifier text: {e}")
 
 
 def _resolve_effect_font_path(font_path):

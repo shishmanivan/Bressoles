@@ -3,6 +3,7 @@ import os
 import pygame
 
 from game_data import REWARD_TOKEN_RANDOM_SILVER
+from gameplay_card_rendering import draw_bid_modifier_text
 
 
 PAPER_COLOR = (83, 76, 70)
@@ -51,6 +52,8 @@ def load_round_reward_assets():
     card_base_mapping[16] = 15
     card_base_mapping[17] = 17
     card_base_mapping[18] = 17
+    for card_id in (118, 119, 120, 121, 122):
+        card_base_mapping[card_id] = 118
 
     card_actions = {
         11: 2, 12: 2, 13: 4, 14: 4,
@@ -175,6 +178,7 @@ def load_reward_card_preview(
 
     card_image = pygame.image.load(card_path).convert_alpha()
     card_surface = pygame.transform.smoothscale(card_image, (target_width, target_height)).convert_alpha()
+    draw_bid_modifier_text(card_surface, card_number, 0, 0, (target_width, target_height), font_path)
 
     if card_number in card_actions:
         draw_card_action_on_surface(

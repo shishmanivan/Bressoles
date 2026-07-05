@@ -6,6 +6,8 @@ import pygame
 import game_state
 from gameplay_card_rendering import (
     draw_bear_modifier_text,
+    draw_bid_modifier_text,
+    get_bid_card_base_id,
     draw_preview_card_action,
     draw_preview_card_turns,
 )
@@ -60,15 +62,26 @@ SPECIAL_DESCRIPTIONS.update(
 )
 
 CARD_DESCRIPTIONS = {
+    118: "BID 10.",
+    119: "BID 20.",
+    120: "BID 30.",
+    121: "BID 50.",
+    122: "BID 100.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Форвардная торговля: каждый сыгранный акционер добавляет один ход.",
     403: "Грант: добавляет 8 к стартовым деньгам.",
+    405: "Insider: первые два хода акции C гарантированно растут.",
 }
 
 CARD_NAMES = {
+    118: "BID 10",
+    119: "BID 20",
+    120: "BID 30",
+    121: "BID 50",
+    122: "BID 100",
     110: "Рибейт",
     111: "Снижение долга",
     112: "Ролловер",
@@ -95,9 +108,22 @@ CARD_NAMES = {
     401: "Медведь",
     402: "Форвардная торговля",
     403: "Грант",
+    405: "Insider",
 }
 
+CARD_DESCRIPTIONS.update(
+    {
+        406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
+    }
+)
+CARD_NAMES.update({406: "Gambling"})
+
 LICENSE_EFFECT_DESCRIPTIONS = {
+    118: "BID 10. Pool chance: 60%.",
+    119: "BID 20. Pool chance: 40%.",
+    120: "BID 30. Pool chance: 30%.",
+    121: "BID 50. Pool chance: 10%.",
+    122: "BID 100. Pool chance: 2%.",
     112: "Продлевает действие всех карт роста и падения на 1 ход, включая уже сыгранные.",
     113: "Устанавливает цену акций компании A на 2.",
     114: "Устанавливает цену акций компании B на 2.",
@@ -132,6 +158,11 @@ DECK_CARD_BASES = {
     16: 15,
     17: 17,
     18: 17,
+    118: 118,
+    119: 118,
+    120: 118,
+    121: 118,
+    122: 118,
 }
 
 DECK_CARD_ACTIONS = {
@@ -264,7 +295,7 @@ class ShopPage:
         card_id = None
         if offer.get("kind") in ("card", "license"):
             card_id = int(offer.get("card_id", 0) or 0)
-            path = os.path.join("Cards", f"Card_{card_id}.png")
+            path = os.path.join("Cards", f"Card_{get_bid_card_base_id(card_id)}.png")
             if not os.path.exists(path) and card_id == 18:
                 path = os.path.join("Cards", "Card_17.png")
         else:
@@ -308,6 +339,7 @@ class ShopPage:
                     self.font_path,
                     PAPER_COLOR,
                 )
+            draw_bid_modifier_text(image, card_id, 0, 0, size, self.font_path)
             draw_bear_modifier_text(
                 image,
                 card_id,
@@ -694,6 +726,8 @@ class DeckCardPage:
 
         base_card_id = DECK_CARD_BASES.get(normalized, normalized)
         image = self._load_image(os.path.join("Cards", f"Card_{base_card_id}.png"), self.card_size)
+        if image:
+            draw_bid_modifier_text(image, normalized, 0, 0, self.card_size, self.font_path)
         if image and normalized in DECK_CARD_ACTIONS:
             action_value = DECK_CARD_ACTIONS[normalized]
             if investment_bonus > 0:

@@ -136,6 +136,15 @@ def load_boss_icon_assets(level_number, boss_index, boss_filename, completed_cou
 
     base_name = os.path.splitext(resolved_boss_filename)[0]
     boss_folder = os.path.join("Bosses", base_name)
+    if not os.path.isdir(boss_folder):
+        matching_folders = sorted(
+            folder_name
+            for folder_name in os.listdir("Bosses")
+            if os.path.isdir(os.path.join("Bosses", folder_name))
+            and folder_name.lower().endswith(f"_{base_name.lower()}")
+        )
+        if matching_folders:
+            boss_folder = os.path.join("Bosses", matching_folders[0])
     animation_frames = []
     if os.path.exists(boss_folder) and os.path.isdir(boss_folder):
         for frame_num in range(7):

@@ -28,6 +28,8 @@ Boss7Text;Адольф Кольбе. Торговать можно только 
 Boss7Reward;20 Наполеондоров;20 Napoleondors
 Boss8Text;Фридрих Лист. Босс торгует акциями. На старте у него 10 акций B, а на последнем ходу он продаёт весь портфель.;Friedrich List. The boss trades stocks. He starts with 10 B shares and sells his portfolio on the final turn.
 Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
+Boss9Text;Жак Лаффит. Босс использует Бота 2 - Процентного. На старте у него 4 акции A. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. The boss uses Bot 2 - Percentage. He starts with 4 A shares. Stocks priced at 2 dollars cannot be bought.
+Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder

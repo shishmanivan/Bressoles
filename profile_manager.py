@@ -84,12 +84,14 @@ def _empty_progress():
         "removed_deck_cards_by_level": {},
         "investment_card_bonuses": {},
         "profit_reward_bonus": 0,
+        "updown_probability_bonus": 0,
         "pending_shop_discount_percent": 0,
         "bailout_rounds_remaining": 0,
         "active_long_investments": [],
         "licensed_card_ids": _serialize_int_list(game_state.DEFAULT_LICENSED_CARDS),
         "silver_cards": [],
         "black_cards": [],
+        "active_black_cards": [],
         "gold_cards": [],
         "active_gold_cards": [],
         "bear_goal_reduction_steps": 0,
@@ -179,6 +181,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.removed_deck_cards_by_level = _restore_int_key_lists(progress.get("removed_deck_cards_by_level") or {})
     game_state.investment_card_bonuses = _restore_int_value_dict(progress.get("investment_card_bonuses") or {})
     game_state.profit_reward_bonus = int(progress.get("profit_reward_bonus", 0) or 0)
+    game_state.updown_probability_bonus = max(0, int(progress.get("updown_probability_bonus", 0) or 0))
     try:
         game_state.pending_shop_discount_percent = max(
             0,
@@ -202,6 +205,7 @@ def apply_profile_to_game_state(profile_or_slot):
         game_state.licensed_card_ids = game_state.get_legacy_open_license_ids()
     game_state.silver_cards = _restore_int_list(progress.get("silver_cards") or [])[: game_state.MAX_SILVER_CARDS]
     game_state.black_cards = _restore_int_list(progress.get("black_cards") or [])[: game_state.MAX_BLACK_CARDS]
+    game_state.set_active_black_cards(_restore_int_list(progress.get("active_black_cards") or []))
     game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
     game_state.set_active_gold_cards(_restore_int_list(progress.get("active_gold_cards") or []))
     try:
@@ -282,12 +286,14 @@ def _capture_progress():
         "removed_deck_cards_by_level": _serialize_int_key_lists(game_state.removed_deck_cards_by_level),
         "investment_card_bonuses": _serialize_int_value_dict(game_state.investment_card_bonuses),
         "profit_reward_bonus": int(game_state.profit_reward_bonus),
+        "updown_probability_bonus": game_state.get_updown_probability_bonus(),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
         "licensed_card_ids": _serialize_int_list(game_state.licensed_card_ids),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),
+        "active_black_cards": _serialize_int_list(game_state.active_black_cards),
         "gold_cards": _serialize_int_list(game_state.gold_cards),
         "active_gold_cards": _serialize_int_list(game_state.active_gold_cards),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
@@ -463,6 +469,7 @@ def _serialize_reward_checkpoint(source):
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
+        "updown_probability_bonus": int(source.get("updown_probability_bonus", 0) or 0),
         "active_long_investments": list(source.get("active_long_investments") or []),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
         "removed_deck_cards": list(source.get("removed_deck_cards") or []),
@@ -483,6 +490,7 @@ def _restore_reward_checkpoint(source):
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
+        "updown_probability_bonus": int(source.get("updown_probability_bonus", 0) or 0),
         "active_long_investments": list(source.get("active_long_investments") or []),
         "earned_reward_cards": list(source.get("earned_reward_cards") or []),
         "removed_deck_cards": list(source.get("removed_deck_cards") or []),

@@ -40,6 +40,7 @@ removed_deck_cards_by_level = {}
 # Permanent-until-defeat +1 bonuses for Gain/Drop cards bought through Investment.
 investment_card_bonuses = {}
 profit_reward_bonus = 0
+updown_probability_bonus = 0
 pending_shop_discount_percent = 0
 bailout_rounds_remaining = 0
 active_long_investments = []
@@ -67,6 +68,8 @@ SHOP_CARD_COSTS = {
     401: 15,
     402: 10,
     403: 15,
+    405: 15,
+    406: 5,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -75,6 +78,11 @@ LICENSE_COSTS = {
     113: 5,
     114: 5,
     115: 7,
+    118: 5,
+    119: 7,
+    120: 7,
+    121: 12,
+    122: 15,
     203: 5,
     204: 7,
     207: 7,
@@ -88,6 +96,7 @@ LICENSE_COSTS = {
 LICENSES_BY_LEVEL = {
     2: [112, 113, 114, 115],
     3: [203, 204, 207, 214, 215, 217, 218, 219, 220],
+    4: [118, 119, 120, 121, 122],
 }
 licensed_card_ids = set(DEFAULT_LICENSED_CARDS)
 
@@ -110,6 +119,7 @@ guaranteed_start_hand_cards_by_level = {}
 LEVEL_COMPLETION_REWARD_CARDS = {
     1: [12],
     2: [13],
+    3: [110],
 }
 LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
     3: [301],
@@ -123,10 +133,11 @@ MAX_BLACK_CARDS = MAX_CARD_SLOTS
 MAX_GOLD_CARDS = MAX_CARD_SLOTS
 silver_cards = []
 
-# Black cards are permanent profile unlocks. Gold cards last for the current
-# level run and are cleared after a defeat or after completing the level.
-# Active gold cards stay equipped between rounds until the run ends.
+# Black cards are permanent profile unlocks and stay equipped until the player
+# removes them. Gold cards last for the current level run and are cleared after
+# a defeat or after completing the level.
 black_cards = []
+active_black_cards = []
 gold_cards = []
 active_gold_cards = []
 bear_goal_reduction_steps = 0
@@ -313,6 +324,8 @@ def build_license_offer_pool(level_number):
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
+    if is_level_completed(level):
+        return []
     pool = []
     eligible_levels = [unlock_level for unlock_level in sorted(LICENSES_BY_LEVEL) if level >= int(unlock_level)]
     ordered_levels = []
@@ -325,6 +338,20 @@ def build_license_offer_pool(level_number):
                 pool.append(int(card_id))
     random.shuffle(pool)
     return pool
+
+
+def is_level_completed(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        return False
+    if level == 1:
+        return bool(level_1_boss_defeated)
+    if level == 2:
+        return bool(level_2_boss_defeated)
+    if level == 3:
+        return bool(level_3_boss_defeated)
+    return False
 
 
 def add_shop_card_to_level(level_number, card_id):
@@ -379,6 +406,24 @@ def clear_gold_cards(reason="defeat"):
         active_gold_cards.clear()
         print(f"Cleared active gold cards after {reason}.")
     bear_goal_reduction_steps = 0
+
+
+def set_active_black_cards(selected_cards):
+    """Persist equipped black cards until the player removes them."""
+    active_black_cards.clear()
+    available = list(black_cards or [])
+    for card_id in selected_cards or []:
+        normalized = _normalize_card_id(card_id)
+        if normalized is None:
+            continue
+        try:
+            available.remove(normalized)
+        except ValueError:
+            continue
+        active_black_cards.append(normalized)
+        if len(active_black_cards) >= 3:
+            break
+    return list(active_black_cards)
 
 
 def set_active_gold_cards(selected_cards):
@@ -668,6 +713,9 @@ def get_unavailable_red_cards(level_num):
     except (TypeError, ValueError):
         level = 0
     unavailable = set()
+    for card_id in get_completed_level_reward_cards():
+        if is_red_card(card_id):
+            unavailable.add(int(card_id))
     for card_id in earned_reward_cards.get(level, []) or []:
         if is_red_card(card_id):
             unavailable.add(int(card_id))
@@ -704,7 +752,7 @@ def new_boss_progress_state():
 
 def reset_level_attempt(level_number):
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus, derivative_bought
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -714,6 +762,7 @@ def reset_level_attempt(level_number):
     global_last_turn_bonus = 0
     global_hand_bonus = 0
     profit_reward_bonus = 0
+    updown_probability_bonus = 0
     derivative_bought = False
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
@@ -736,7 +785,7 @@ def reset_level_attempt(level_number):
 def complete_level_run(level_number):
     """Clear temporary run state after defeating the last boss of a level."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus, derivative_bought
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -747,6 +796,7 @@ def complete_level_run(level_number):
     global_last_turn_bonus = 0
     global_hand_bonus = 0
     profit_reward_bonus = 0
+    updown_probability_bonus = 0
     derivative_bought = False
 
     if level in earned_reward_cards:
@@ -797,6 +847,7 @@ def capture_level2_loss_checkpoint(level_number):
         "global_last_turn_bonus": int(global_last_turn_bonus),
         "global_hand_bonus": int(global_hand_bonus),
         "derivative_bought": bool(derivative_bought),
+        "updown_probability_bonus": int(updown_probability_bonus),
         "napoleondors": float(napoleondors),
         "napoleondor_level": napoleondor_level,
         "active_long_investments": list(get_active_long_investments()),
@@ -812,7 +863,7 @@ def restore_level2_loss_checkpoint(level_number):
     """Restore level-2 boss progress and first-boss rewards after a defeat."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
     global derivative_bought
-    global napoleondors, napoleondor_level, profit_reward_bonus
+    global napoleondors, napoleondor_level, profit_reward_bonus, updown_probability_bonus
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -833,6 +884,7 @@ def restore_level2_loss_checkpoint(level_number):
     global_last_turn_bonus = int(checkpoint.get("global_last_turn_bonus", 0) or 0)
     global_hand_bonus = int(checkpoint.get("global_hand_bonus", 0) or 0)
     derivative_bought = bool(checkpoint.get("derivative_bought", False))
+    updown_probability_bonus = int(checkpoint.get("updown_probability_bonus", 0) or 0)
     napoleondors = float(checkpoint.get("napoleondors", napoleondors) or 0)
     try:
         napoleondor_level = int(checkpoint.get("napoleondor_level", level))
@@ -1113,6 +1165,30 @@ def clear_profit_bonus():
     if profit_reward_bonus:
         print(f"Cleared Profit bonus: {profit_reward_bonus}")
     profit_reward_bonus = 0
+
+
+def add_updown_probability_bonus(amount):
+    global updown_probability_bonus
+    try:
+        bonus = int(amount or 0)
+    except (TypeError, ValueError):
+        bonus = 0
+    if bonus <= 0:
+        return updown_probability_bonus
+    updown_probability_bonus += bonus
+    print(f"Upside/Downside probability bonus increased to {updown_probability_bonus}.")
+    return updown_probability_bonus
+
+
+def get_updown_probability_bonus():
+    return max(0, int(updown_probability_bonus or 0))
+
+
+def clear_updown_probability_bonus():
+    global updown_probability_bonus
+    if updown_probability_bonus:
+        print(f"Cleared Upside/Downside probability bonus: {updown_probability_bonus}")
+    updown_probability_bonus = 0
 
 
 def get_victory_napoleondor_reward(base_amount):

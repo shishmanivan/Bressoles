@@ -79,7 +79,21 @@ CARD_TOOLTIPS = {
         "Grant",
         "Добавляет 8 к стартовым деньгам.",
     ),
+    405: (
+        "Insider",
+        "Первые два хода акции C гарантированно растут.",
+    ),
 }
+
+
+CARD_TOOLTIPS.update(
+    {
+        406: (
+            "Gambling",
+            "Усиливает карты Upside и Downside на 7 процентных пунктов.",
+        ),
+    }
+)
 
 
 class SilverBlackPage:
@@ -92,6 +106,7 @@ class SilverBlackPage:
         silver_cards,
         black_cards=None,
         gold_cards=None,
+        active_black_cards=None,
         active_gold_cards=None,
         is_boss_fight=False,
     ):
@@ -121,7 +136,7 @@ class SilverBlackPage:
         self.silver_rects = self._build_row_rects(CARD_ROW_SLOTS, y=SILVER_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.black_rects = self._build_row_rects(CARD_ROW_SLOTS, y=BLACK_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.gold_rects = self._build_row_rects(CARD_ROW_SLOTS, y=GOLD_ROW_Y, gap=INVENTORY_ROW_GAP)
-        self.selected_entries = self._build_initial_selected_entries(active_gold_cards)
+        self.selected_entries = self._build_initial_selected_entries(active_black_cards, active_gold_cards)
         self.drag_source = None
         self.drag_entry = None
         self.drag_active_slot = None
@@ -154,27 +169,31 @@ class SilverBlackPage:
             for idx in range(count)
         ]
 
-    def _build_initial_selected_entries(self, active_gold_cards):
+    def _build_initial_selected_entries(self, active_black_cards, active_gold_cards):
         entries = []
-        used_indices = set()
-        for active_card_id in active_gold_cards or []:
-            if len(entries) >= ACTIVE_CARD_SLOTS:
-                break
-            try:
-                target = int(active_card_id)
-            except (TypeError, ValueError):
-                continue
-            for index, card_id in enumerate(self.gold_cards):
-                if index in used_indices:
-                    continue
+        for kind, active_cards, inventory_cards in (
+            ("black", active_black_cards, self.black_cards),
+            ("gold", active_gold_cards, self.gold_cards),
+        ):
+            used_indices = set()
+            for active_card_id in active_cards or []:
+                if len(entries) >= ACTIVE_CARD_SLOTS:
+                    break
                 try:
-                    if int(card_id) != target:
-                        continue
+                    target = int(active_card_id)
                 except (TypeError, ValueError):
                     continue
-                entries.append(("gold", index))
-                used_indices.add(index)
-                break
+                for index, card_id in enumerate(inventory_cards):
+                    if index in used_indices:
+                        continue
+                    try:
+                        if int(card_id) != target:
+                            continue
+                    except (TypeError, ValueError):
+                        continue
+                    entries.append((kind, index))
+                    used_indices.add(index)
+                    break
         return entries
 
     def _get_card_image(self, card_id):

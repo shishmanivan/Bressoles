@@ -63,6 +63,7 @@ from gameplay_layout import (
     compute_right_panel_layout,
 )
 from gameplay_price_helpers import (
+    GAMBLING_PROBABILITY_BONUS,
     apply_market_price_change,
     build_market_probabilities,
     build_stock_price_animation_queue,
@@ -149,14 +150,18 @@ class GameplayPage:
             self.insurance_goal_debt = 0
         if active_gold_cards is not None:
             game_state.set_active_gold_cards(self.active_gold_cards)
+        self.insider_c_growth_turns_remaining = 2 if self._count_active_silver_card(405) > 0 else 0
         self.active_silver_cards_spent = False
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
         self.boss_odd_turn_trading_only = False
+        self.boss_forbid_price_2_buys = False
         self.stock_bot_enabled = False
         self.stock_bot = None
         self._stock_bot_saved_state = None
+        self.stock_bot_type = "simple"
         self.stock_bot_start_quantities = None
+        self.stock_bot_blocked_buy_prices = set()
         self.stock_bot_trade_history = []
         
         # Determine if this is the final boss on the level
@@ -205,6 +210,7 @@ class GameplayPage:
         self.bottom_frame = gameplay_assets["bottom_frame"]
         self.arrow_sound = gameplay_assets["arrow_sound"]
         self.typewriter_sound = gameplay_assets["typewriter_sound"]
+        self.cash_register_sound = gameplay_assets.get("cash_register_sound")
         self.animation_width = gameplay_assets["animation_width"]
         self.animation_height = gameplay_assets["animation_height"]
         self.price_unchanged_frames = gameplay_assets["price_unchanged_frames"]
@@ -451,6 +457,7 @@ class GameplayPage:
         # Win/Lose state
         self.win_lose_state = None  # None, "win", or "lose"
         self.final_auto_liquidation_applied = False
+        self.final_auto_liquidation_animation = None
         self.ok_button_rect = None  # Will be calculated in draw method
         winlose_assets = load_winlose_assets(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.win_lose_image = winlose_assets["win_lose_image"]
@@ -942,13 +949,6 @@ class GameplayPage:
             "CPrice": self.CPrice,
         }
 
-    def _current_steps(self):
-        return {
-            "StepA": self.StepA,
-            "StepB": self.StepB,
-            "StepC": self.StepC,
-        }
-
     def _is_stock_bot_allowed(self):
         try:
             return int(self.level_number or 0) == 4
@@ -972,18 +972,31 @@ class GameplayPage:
         try:
             import importlib
 
-            bot_module = importlib.import_module("simple_stock_bot")
-            if self._stock_bot_saved_state:
-                self.stock_bot = bot_module.SimpleStockBot.from_state(self._stock_bot_saved_state)
+            if self.stock_bot_type == "advanced":
+                bot_module = importlib.import_module("advanced_stock_bot")
+                bot_class = bot_module.AdvancedStockBot
             else:
-                self.stock_bot = bot_module.SimpleStockBot(
+                bot_module = importlib.import_module("simple_stock_bot")
+                bot_class = bot_module.SimpleStockBot
+            if self._stock_bot_saved_state:
+                self.stock_bot = bot_class.from_state(self._stock_bot_saved_state)
+            else:
+                self.stock_bot = bot_class(
                     money=0,
                     quantities=self.stock_bot_start_quantities,
                 )
-            print("Simple stock bot activated")
+            if hasattr(self.stock_bot, "blocked_buy_prices"):
+                self.stock_bot.blocked_buy_prices = set(self.stock_bot_blocked_buy_prices or [])
+            print(f"{self.stock_bot.display_name} activated")
         except Exception as exc:
-            print(f"ERROR activating simple stock bot: {exc}")
+            print(f"ERROR activating stock bot: {exc}")
             self.stock_bot_enabled = False
+
+    def _stock_bot_probabilities(self):
+        return build_market_probabilities(
+            self.market_cards,
+            probability_card_bonus=self._get_probability_card_bonus(),
+        )
 
     def _run_stock_bot_turn(self):
         if not self.stock_bot_enabled:
@@ -993,14 +1006,15 @@ class GameplayPage:
             return False
         if self.Day >= self.LastTurn:
             decision = self.stock_bot.sell_all(self._current_prices())
-        else:
+        elif self.stock_bot_type == "advanced":
             decision = self.stock_bot.trade(
                 self._current_prices(),
-                build_market_probabilities(self.market_cards),
-                self._current_steps(),
+                self._stock_bot_probabilities(),
             )
+        else:
+            decision = self.stock_bot.trade(self._current_prices())
         self._record_stock_bot_trade(decision)
-        print(f"Simple stock bot decision: {decision}")
+        print(f"{self.stock_bot.display_name} decision: {decision}")
         return True
 
     def _record_stock_bot_trade(self, decision):
@@ -1026,6 +1040,40 @@ class GameplayPage:
         if self.stock_bot is None:
             return None
         return self.stock_bot.status_line(self._current_prices())
+
+    def _is_stock_bot_boss(self):
+        try:
+            return int(self.level_number or 0) == 4 and bool(self.stock_bot_enabled)
+        except Exception:
+            return False
+
+    def _player_portfolio_value(self):
+        return int(self.Money or 0) + (
+            int(self.Aquantity or 0) * int(self.Aprice or 0)
+            + int(self.Bquantity or 0) * int(self.BPrice or 0)
+            + int(self.Cquantity or 0) * int(self.CPrice or 0)
+        )
+
+    def _stock_bot_portfolio_value(self):
+        if not self.stock_bot_enabled:
+            return 0
+        self._activate_stock_bot_if_needed()
+        if self.stock_bot is None:
+            return 0
+        return int(self.stock_bot.portfolio_value(self._current_prices()) or 0)
+
+    def _can_win_against_current_boss(self):
+        if not self._is_stock_bot_boss():
+            return True
+        player_value = self._player_portfolio_value()
+        boss_value = self._stock_bot_portfolio_value()
+        can_win = player_value > boss_value
+        if not can_win:
+            print(
+                f"Stock bot boss blocks victory: player_value={player_value}, "
+                f"boss_value={boss_value}, Money={self.Money}, Goal={self.Goal}"
+            )
+        return can_win
 
     def _stock_bot_tooltip_entries(self):
         if not self.stock_bot_enabled:
@@ -1108,10 +1156,13 @@ class GameplayPage:
             "active_silver_cards": list(self.active_silver_cards or []),
             "active_black_cards": list(self.active_black_cards or []),
             "active_gold_cards": list(self.active_gold_cards or []),
+            "insider_c_growth_turns_remaining": int(self.insider_c_growth_turns_remaining or 0),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "stock_bot_enabled": bool(self.stock_bot_enabled),
+            "stock_bot_type": self.stock_bot_type,
             "stock_bot": self.stock_bot.to_dict() if self.stock_bot is not None else self._stock_bot_saved_state,
+            "stock_bot_blocked_buy_prices": sorted(self.stock_bot_blocked_buy_prices or []),
             "stock_bot_trade_history": list(self.stock_bot_trade_history or []),
             "stats_recorded": self._stats_recorded,
         }
@@ -1138,6 +1189,7 @@ class GameplayPage:
             "StepC",
             "pending_draws",
             "win_lose_y",
+            "insider_c_growth_turns_remaining",
         )
         for field in scalar_fields:
             if field in state:
@@ -1176,12 +1228,21 @@ class GameplayPage:
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
         game_state.set_active_gold_cards(self.active_gold_cards)
+        if self._count_active_silver_card(405) <= 0:
+            self.insider_c_growth_turns_remaining = 0
         self.active_silver_cards_spent = bool(state.get("active_silver_cards_spent", self.active_silver_cards_spent))
         self.forward_trading_shareholder_count = int(
             state.get("forward_trading_shareholder_count", self.forward_trading_shareholder_count) or 0
         )
         self.stock_bot_enabled = bool(state.get("stock_bot_enabled", self.stock_bot_enabled))
+        self.stock_bot_type = state.get("stock_bot_type", self.stock_bot_type) or "simple"
         self._stock_bot_saved_state = state.get("stock_bot")
+        try:
+            self.stock_bot_blocked_buy_prices = {
+                int(price) for price in (state.get("stock_bot_blocked_buy_prices") or self.stock_bot_blocked_buy_prices or [])
+            }
+        except (TypeError, ValueError):
+            self.stock_bot_blocked_buy_prices = set()
         self.stock_bot_trade_history = list(state.get("stock_bot_trade_history") or self.stock_bot_trade_history or [])
         self._stats_recorded = bool(state.get("stats_recorded", self._stats_recorded))
         self.turn_resolution_active = False
@@ -1193,6 +1254,7 @@ class GameplayPage:
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
+        self.final_auto_liquidation_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
         self.hand_compact_anim = []
@@ -1254,6 +1316,27 @@ class GameplayPage:
         except (TypeError, ValueError):
             return False
 
+    def _blocked_buy_prices(self):
+        return {2} if getattr(self, "boss_forbid_price_2_buys", False) else set()
+
+    def _is_arrow_buy_blocked(self, frame_idx, arrow_type):
+        if arrow_type not in (0, 1):
+            return False
+        blocked_prices = self._blocked_buy_prices()
+        if not blocked_prices:
+            return False
+        prices = (self.Aprice, self.BPrice, self.CPrice)
+        try:
+            return int(prices[int(frame_idx)]) in blocked_prices
+        except (TypeError, ValueError, IndexError):
+            return False
+
+    def _is_arrow_disabled(self, frame_idx, arrow_type):
+        return self._is_arrow_trading_disabled() or self._is_arrow_buy_blocked(frame_idx, arrow_type)
+
+    def _is_final_auto_liquidation_animating(self):
+        return self.final_auto_liquidation_animation is not None
+
     def _get_dimmed_arrow(self, arrow_img):
         if not arrow_img:
             return arrow_img
@@ -1267,7 +1350,7 @@ class GameplayPage:
         return dimmed
 
     def _apply_arrow_trade(self, frame_idx, arrow_type):
-        if self._is_arrow_trading_disabled():
+        if self._is_arrow_disabled(frame_idx, arrow_type):
             return False
 
         trade_result = apply_arrow_trade(
@@ -1284,6 +1367,7 @@ class GameplayPage:
             },
             frame_idx,
             arrow_type,
+            blocked_buy_prices=self._blocked_buy_prices(),
         )
 
         quantities = trade_result["quantities"]
@@ -1403,6 +1487,9 @@ class GameplayPage:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return "back"
+
+            if self._is_final_auto_liquidation_animating():
+                continue
             
             # Handle drag and drop
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -1431,6 +1518,9 @@ class GameplayPage:
                             frame_idx = entry.get("frame_index")
                             if frame_idx is None:
                                 continue
+
+                            if self._is_arrow_disabled(frame_idx, entry.get("arrow_type")):
+                                break
                             self._apply_arrow_trade(frame_idx, entry.get("arrow_type"))
                             
                             # Start animation (if entry has frames)
@@ -1668,7 +1758,11 @@ class GameplayPage:
     
     def _check_win_lose(self):
         """Check win/lose conditions and trigger WinLose screen if needed"""
-        self._apply_final_auto_liquidation_if_needed()
+        if self._is_final_auto_liquidation_animating():
+            return
+        if self._apply_final_auto_liquidation_if_needed():
+            if self._is_final_auto_liquidation_animating():
+                return
         next_state, reason = resolve_win_lose_state(
             self.win_lose_state,
             self.Money,
@@ -1679,7 +1773,14 @@ class GameplayPage:
         if next_state is None:
             return
 
-        next_state, reason = self._apply_insurance_if_needed(next_state, reason)
+        if next_state == "win" and not self._can_win_against_current_boss():
+            if self.Day >= self.LastTurn:
+                next_state, reason = "lose", "list_boss_ahead"
+            else:
+                return
+
+        if reason != "list_boss_ahead":
+            next_state, reason = self._apply_insurance_if_needed(next_state, reason)
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
@@ -1739,6 +1840,12 @@ class GameplayPage:
             except (TypeError, ValueError):
                 continue
         return count
+
+    def _get_gambling_probability_bonus(self):
+        return self._count_active_silver_card(406) * GAMBLING_PROBABILITY_BONUS
+
+    def _get_probability_card_bonus(self):
+        return self._get_gambling_probability_bonus() + game_state.get_updown_probability_bonus()
 
     def _apply_insurance_if_needed(self, next_state, reason):
         if next_state != "lose" or self.is_boss_fight or not self._has_active_silver_card(220):
@@ -1866,16 +1973,101 @@ class GameplayPage:
             proceeds = (gross_value * 90) // 100
             source = "Card 110"
 
-        self.Money += proceeds
-        print(
-            f"{source} auto-liquidation: gross={gross_value}, proceeds={proceeds}, "
-            f"Money={self.Money}"
+        self._start_final_auto_liquidation_animation(
+            {
+                "source": source,
+                "gross_value": gross_value,
+                "proceeds": proceeds,
+                "start_money": int(self.Money),
+                "target_money": int(self.Money) + proceeds,
+                "start_quantities": {
+                    "Aquantity": int(self.Aquantity),
+                    "Bquantity": int(self.Bquantity),
+                    "Cquantity": int(self.Cquantity),
+                },
+            }
         )
+        return True
+
+    def _start_final_auto_liquidation_animation(self, liquidation):
+        duration_ms = 1200
+        if self.cash_register_sound:
+            try:
+                duration_ms = max(1, int(self.cash_register_sound.get_length() * 1000))
+            except Exception:
+                duration_ms = 1200
+            self.cash_register_sound.play()
+
+        now = pygame.time.get_ticks()
+        self.final_auto_liquidation_animation = {
+            **liquidation,
+            "start_time": now,
+            "duration_ms": duration_ms,
+        }
+        self._start_rebate_card_jump_animations()
+
+    def _start_rebate_card_jump_animations(self):
+        jump_delay_ms = 500
+        for slot, card_id in enumerate(self.side_cards_top):
+            try:
+                is_rebate = int(card_id) == 110
+            except (TypeError, ValueError):
+                is_rebate = False
+            if is_rebate:
+                self._start_card_jump_animation(self.side_card_jump_animations, slot, delay_ms=jump_delay_ms)
+
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                is_rebate = int(card_id) == 201
+            except (TypeError, ValueError):
+                is_rebate = False
+            if is_rebate:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot, delay_ms=jump_delay_ms)
+
+    def update_final_auto_liquidation_animation(self):
+        anim = self.final_auto_liquidation_animation
+        if not anim:
+            return
+
+        now = pygame.time.get_ticks()
+        duration_ms = max(1, int(anim.get("duration_ms", 1)))
+        progress = min(1.0, max(0.0, (now - anim.get("start_time", now)) / duration_ms))
+        eased = 1.0 - (1.0 - progress) * (1.0 - progress)
+
+        start_money = int(anim.get("start_money", 0))
+        target_money = int(anim.get("target_money", start_money))
+        start_quantities = anim.get("start_quantities") or {}
+
+        self.Money = int(round(start_money + (target_money - start_money) * eased))
+        self.Aquantity = int(round(int(start_quantities.get("Aquantity", 0)) * (1.0 - eased)))
+        self.Bquantity = int(round(int(start_quantities.get("Bquantity", 0)) * (1.0 - eased)))
+        self.Cquantity = int(round(int(start_quantities.get("Cquantity", 0)) * (1.0 - eased)))
+
+        if progress < 1.0:
+            return
+
+        self.Money = target_money
         self.Aquantity = 0
         self.Bquantity = 0
         self.Cquantity = 0
         self.final_auto_liquidation_applied = True
-        return True
+        self.final_auto_liquidation_animation = None
+        print(
+            f"{anim.get('source', 'Rebate')} auto-liquidation: "
+            f"gross={anim.get('gross_value', 0)}, proceeds={anim.get('proceeds', 0)}, "
+            f"Money={self.Money}"
+        )
+        self._check_win_lose()
+        self._finish_deferred_turn_resolution_after_final_liquidation()
+
+    def _finish_deferred_turn_resolution_after_final_liquidation(self):
+        if not self.turn_resolution_active or self.win_lose_state is None:
+            return
+        self._draw_pending_cards()
+        self.turn_resolution_active = False
+        self.red_effects_applied_this_resolution = False
+        if not self.hand_compact_anim and not self.hand_draw_anim:
+            self._save_active_game()
     
     def _add_reward_card_to_deck(self):
         """Add reward card to global earned cards list after winning a round, or apply boss reward for boss fights"""
@@ -2022,12 +2214,33 @@ class GameplayPage:
         """Calculate price changes based on probability distributions after EndTurn.
         Returns list of {'market': 0-2, 'type': 'unchanged'|'rise'|'fall', 'price_change': int} 
         Prices are NOT updated here - they will be updated when animation starts."""
+        forced_rise_markets = {2} if self._consume_insider_c_growth_turn() else None
         return build_stock_price_animation_queue(
             self.StepA,
             self.StepB,
             self.StepC,
             self.market_cards,
+            forced_rise_markets=forced_rise_markets,
+            probability_card_bonus=self._get_probability_card_bonus(),
         )
+
+    def _consume_insider_c_growth_turn(self):
+        remaining = int(getattr(self, "insider_c_growth_turns_remaining", 0) or 0)
+        if remaining <= 0:
+            return False
+
+        self.insider_c_growth_turns_remaining = remaining - 1
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                if int(card_id) == 405:
+                    self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+            except (TypeError, ValueError):
+                continue
+        print(
+            "Active card 405 Insider forced C stock growth: "
+            f"remaining={self.insider_c_growth_turns_remaining}"
+        )
+        return True
 
     def _start_next_price_animation(self, now=None):
         if now is None:
@@ -2057,6 +2270,7 @@ class GameplayPage:
         return (
             self.turn_resolution_active
             or self.effect_finalize_pending
+            or self._is_final_auto_liquidation_animating()
             or self.current_price_animation is not None
             or bool(self.price_animation_queue)
             or self.current_card_processing is not None
@@ -2135,6 +2349,8 @@ class GameplayPage:
         self._apply_boss_share_theft_if_needed()
         self._run_stock_bot_turn()
         self._check_win_lose()
+        if self._is_final_auto_liquidation_animating():
+            return
 
         if self.win_lose_state is None:
             if self.Day < self.LastTurn:
@@ -2142,8 +2358,10 @@ class GameplayPage:
                 self._check_win_lose()
             else:
                 print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
-                if self.Money >= self.Goal:
+                if self.Money >= self.Goal and self._can_win_against_current_boss():
                     next_state, reason = "win", "last_turn"
+                elif self.Money >= self.Goal and self._is_stock_bot_boss():
+                    next_state, reason = "lose", "stock_bot_boss_ahead"
                 else:
                     next_state, reason = self._apply_insurance_if_needed("lose", "last_turn")
                 self._finish_win_lose_result(next_state, reason)
@@ -2323,16 +2541,20 @@ class GameplayPage:
         else:
             self._begin_effect_finalize_or_wait()
     
-    def _start_card_jump_animation(self, animation_map, key):
+    def _start_card_jump_animation(self, animation_map, key, delay_ms=0):
         animation_map[key] = {
             'offset_y': 0.0,
             'velocity': -8.7,
-            'start_time': pygame.time.get_ticks()
+            'start_time': pygame.time.get_ticks() + int(delay_ms or 0)
         }
 
     def _advance_jump_animation_map(self, animation_map, gravity=0.8):
+        now = pygame.time.get_ticks()
         slots_to_remove = []
         for key, anim in list(animation_map.items()):
+            if now < anim.get('start_time', now):
+                continue
+
             anim['velocity'] += gravity
             anim['offset_y'] += anim['velocity']
 
@@ -2914,7 +3136,10 @@ class GameplayPage:
         )
 
     def _draw_market_probability_debug(self, market, x, y):
-        probs = build_market_probabilities(self.market_cards).get(market)
+        probs = build_market_probabilities(
+            self.market_cards,
+            probability_card_bonus=self._get_probability_card_bonus(),
+        ).get(market)
         if not probs:
             return
 
@@ -3184,6 +3409,7 @@ class GameplayPage:
                             ay = start_y + arrow_size * 2 + spacing_outer + spacing_middle
                         else:  # idx == 3
                             ay = start_y + arrow_size * 3 + spacing_outer * 2 + spacing_middle
+                        arrow_disabled = arrows_disabled or self._is_arrow_buy_blocked(i, idx)
                         # Choose animated frame for outer arrows if animating
                         # Determine image (animated only for outer arrows per entry state)
                         img_to_draw = arrow_img
@@ -3196,7 +3422,7 @@ class GameplayPage:
                             if entry["animating"]:
                                 frame_idx = self.arrow_anim_sequence[entry["idx"]]
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
-                            if arrows_disabled:
+                            if arrow_disabled:
                                 img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 1 and self.arrow_mid_up_frames:
@@ -3211,7 +3437,7 @@ class GameplayPage:
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
                             else:
                                 img_to_draw = arrow_img
-                            if arrows_disabled:
+                            if arrow_disabled:
                                 img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 2 and self.arrow_mid_down_frames:
@@ -3226,7 +3452,7 @@ class GameplayPage:
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
                             else:
                                 img_to_draw = arrow_img
-                            if arrows_disabled:
+                            if arrow_disabled:
                                 img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 3 and self.arrow_down_frames:
@@ -3238,11 +3464,11 @@ class GameplayPage:
                             if entry["animating"]:
                                 frame_idx = self.arrow_anim_sequence[entry["idx"]]
                                 img_to_draw = entry["frames"][frame_idx] if entry["frames"] else arrow_img
-                            if arrows_disabled:
+                            if arrow_disabled:
                                 img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, rect.topleft)
                         else:
-                            if arrows_disabled:
+                            if arrow_disabled:
                                 img_to_draw = self._get_dimmed_arrow(img_to_draw)
                             self.screen.blit(img_to_draw, (arrow_x, ay))
                 
@@ -3434,8 +3660,6 @@ class GameplayPage:
                 self.bottom_placeholders = build_bottom_placeholders(hand_layout)
                 ph_w = hand_layout["placeholder_width"]
                 ph_h = hand_layout["placeholder_height"]
-                hovered_hand_index = None
-                mouse_pos = pygame.mouse.get_pos()
 
                 for ph_info in self.bottom_placeholders:
                     slot_x, slot_y = ph_info["rect"].topleft
@@ -3445,24 +3669,11 @@ class GameplayPage:
                         pygame.draw.rect(self.screen, WHITE, (slot_x, slot_y, ph_w, ph_h))
                         pygame.draw.rect(self.screen, BLACK, (slot_x, slot_y, ph_w, ph_h), 2)
 
-                for ph_info in reversed(self.bottom_placeholders):
-                    i = ph_info["slot"]
-                    if i >= len(self.hand_cards) or i == self.dragged_card_index:
-                        continue
-                    card_id = self.hand_cards[i]
-                    if card_id is None:
-                        continue
-                    slot_x, slot_y = ph_info["rect"].topleft
-                    card_rect = pygame.Rect(slot_x - 2, slot_y - 2, *self.card_size_bottom)
-                    if card_rect.collidepoint(mouse_pos):
-                        hovered_hand_index = i
-                        break
-
                 for ph_info in self.bottom_placeholders:
                     i = ph_info["slot"]
                     slot_x, slot_y = ph_info["rect"].topleft
                     # Draw card on placeholder if available and not being dragged
-                    if i < len(self.hand_cards) and i != self.dragged_card_index and i != hovered_hand_index:
+                    if i < len(self.hand_cards) and i != self.dragged_card_index:
                         card_id = self.hand_cards[i]
                         # Если для этой карты есть анимация сдвига, не рисуем её в стандартной позиции
                         moving_from_this_slot = False
@@ -3502,19 +3713,7 @@ class GameplayPage:
                         if origin_slot is not None and i == origin_slot and self.hand_cards[i] is None:
                             ph_rect = pygame.Rect(slot_x, slot_y, ph_w, ph_h)
                             pygame.draw.rect(self.screen, GOLD, ph_rect, 4)
-                if hovered_hand_index is not None and hovered_hand_index < len(self.hand_cards):
-                    card_id = self.hand_cards[hovered_hand_index]
-                    if (
-                        card_id is not None
-                        and card_id in self.card_images_bottom
-                        and self.card_images_bottom[card_id]
-                    ):
-                        slot_x, slot_y = hand_layout["slot_positions"][hovered_hand_index]
-                        card_x = slot_x - 2
-                        card_y = slot_y - 26
-                        self.screen.blit(self.card_images_bottom[card_id], (card_x, card_y))
-                        self.draw_card_action(card_id, card_x, card_y, self.card_size_bottom)
-                        self.draw_card_turns(card_id, card_x, card_y, self.card_size_bottom)
+
                     # Highlight available hand placeholder when dragging from side-top:
                     # only the ORIGINAL hand slot of this card
                     if self.dragged_card_source == "side_top":
@@ -3711,6 +3910,7 @@ class GameplayPage:
             self.update_card_jump_animations()
             self.update_side_card_jump_animations()
             self.update_market_clear_animations()
+            self.update_final_auto_liquidation_animation()
             
             # Update sequential processing of cards 11-18
             self.update_cards_11_14_processing()
