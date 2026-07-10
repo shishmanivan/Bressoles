@@ -31,6 +31,7 @@ from game_stats import (
     update_level_run_result,
     update_level_run_started,
 )
+from shop_card_stats import set_shop_card_stats_file
 from boss_page import BossPage
 from game_screen import GameScreen
 from gameplay_page import GameplayPage
@@ -76,6 +77,7 @@ def main():
     if selected_profile:
         profile_manager.apply_profile_to_game_state(selected_profile)
         set_stats_file(profile_manager.get_stats_file(selected_slot))
+        set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
 
     def choose_profile():
         nonlocal selected_slot, selected_profile
@@ -86,6 +88,7 @@ def main():
             selected_profile = profile_manager.load_profile(selected_slot)
             profile_manager.apply_profile_to_game_state(selected_profile)
             set_stats_file(profile_manager.get_stats_file(selected_slot))
+            set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
             return True
         return False
 
@@ -94,6 +97,7 @@ def main():
             profile_manager.save_progress_from_game_state(selected_slot)
 
     def open_shop(level_number, test_mode=False):
+        game_state.apply_bank_interest(level_number)
         discount_percent = game_state.consume_pending_shop_discount()
         save_progress_if_needed(test_mode)
         shop_page = ShopPage(
@@ -103,8 +107,10 @@ def main():
             game_state.napoleondors,
             Lang,
             discount_percent=discount_percent,
+            stats_enabled=bool(selected_slot and not test_mode),
         )
         shop_page.run()
+        game_state.update_bank_interest_base()
         save_progress_if_needed(test_mode)
 
     def award_napoleondors_and_open_shop(level_number, amount, test_mode=False, show_shop=True):
@@ -156,6 +162,7 @@ def main():
             active_silver_cards=context.get("active_silver_cards") or [],
             active_black_cards=context.get("active_black_cards") or [],
             active_gold_cards=context.get("active_gold_cards") or [],
+            active_lifecycle_card_order=context.get("active_lifecycle_card_order") or [],
             rounds_required=context.get("rounds_required"),
         )
         return gameplay_page.run()
@@ -323,6 +330,7 @@ def main():
             game_state.gold_cards,
             active_black_cards=game_state.active_black_cards,
             active_gold_cards=game_state.active_gold_cards,
+            active_lifecycle_card_order=game_state.active_lifecycle_card_order,
             is_boss_fight=is_boss_fight,
         )
         silver_result = silver_page.run()
@@ -331,10 +339,13 @@ def main():
         if isinstance(silver_result, dict):
             active_black_cards = game_state.set_active_black_cards(silver_result.get("active_black_cards") or [])
             active_gold_cards = game_state.set_active_gold_cards(silver_result.get("active_gold_cards") or [])
+            active_lifecycle_card_order = list(silver_result.get("active_lifecycle_card_order") or [])
+            game_state.set_active_lifecycle_card_order(active_lifecycle_card_order)
             return "ok", {
                 "active_silver_cards": list(silver_result.get("active_silver_cards") or []),
                 "active_black_cards": active_black_cards,
                 "active_gold_cards": active_gold_cards,
+                "active_lifecycle_card_order": active_lifecycle_card_order,
             }
         return "ok", {}
 
@@ -551,6 +562,9 @@ def main():
                     if game_state.global_hand_bonus != 0:
                         game_state.global_hand_bonus = 0
                         bonuses_reset = True
+                    if game_state.global_start_c_shares_bonus != 0:
+                        game_state.clear_start_c_shares_bonus()
+                        bonuses_reset = True
                     if game_state.updown_probability_bonus != 0:
                         game_state.clear_updown_probability_bonus()
                         bonuses_reset = True
@@ -697,6 +711,7 @@ def main():
                             active_silver_cards=active_cards.get("active_silver_cards") or [],
                             active_black_cards=active_cards.get("active_black_cards") or [],
                             active_gold_cards=active_cards.get("active_gold_cards") or [],
+                            active_lifecycle_card_order=active_cards.get("active_lifecycle_card_order") or [],
                             insurance_goal_debt=insurance_goal_debt,
                             rounds_required=round_page.rounds_required,
                         )
@@ -770,6 +785,7 @@ def main():
                             active_silver_cards=active_cards.get("active_silver_cards") or [],
                             active_black_cards=active_cards.get("active_black_cards") or [],
                             active_gold_cards=active_cards.get("active_gold_cards") or [],
+                            active_lifecycle_card_order=active_cards.get("active_lifecycle_card_order") or [],
                             rounds_required=round_page.rounds_required,
                         )
                         gameplay_result = gameplay_page.run()

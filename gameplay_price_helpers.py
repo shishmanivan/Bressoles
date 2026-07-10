@@ -62,8 +62,14 @@ def _apply_probability_shift(probs, target, donors, amount):
     probs[target] += taken
 
 
-def build_market_probabilities(market_cards=None, probability_card_bonus=0):
+def build_market_probabilities(market_cards=None, probability_card_bonus=0, force_flat=False):
     """Return per-market probabilities after applying Upside/Downside cards."""
+    if force_flat:
+        return {
+            market: {"fall": 0.0, "flat": 100.0, "rise": 0.0}
+            for market in BASE_MARKET_PROBABILITIES
+        }
+
     probabilities = {
         market: dict(values)
         for market, values in BASE_MARKET_PROBABILITIES.items()
@@ -127,10 +133,25 @@ def build_stock_price_animation_queue(
     market_cards=None,
     forced_rise_markets=None,
     probability_card_bonus=0,
+    force_flat=False,
 ):
     """Build price animation queue from the stock probability rules."""
-    probabilities = build_market_probabilities(market_cards, probability_card_bonus=probability_card_bonus)
     forced_rise_markets = _normalize_forced_rise_markets(forced_rise_markets)
+    if force_flat:
+        steps = {0: step_a, 1: step_b, 2: step_c}
+        return [
+            (
+                {"market": market, "type": "rise", "price_change": steps[market]}
+                if market in forced_rise_markets
+                else {"market": market, "type": "unchanged", "price_change": 0}
+            )
+            for market in (0, 1, 2)
+        ]
+
+    probabilities = build_market_probabilities(
+        market_cards,
+        probability_card_bonus=probability_card_bonus,
+    )
 
     return [
         _roll_market_animation(0, step_a, probabilities, forced_rise_markets),

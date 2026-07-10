@@ -17,6 +17,7 @@ global_dobor = 1
 global_start_money_bonus = 0
 global_last_turn_bonus = 0
 global_hand_bonus = 0
+global_start_c_shares_bonus = 0
 
 # Napoleondors are earned and spent inside the current level run.
 napoleondors = 0
@@ -45,6 +46,9 @@ pending_shop_discount_percent = 0
 bailout_rounds_remaining = 0
 active_long_investments = []
 derivative_bought = False
+issuer_bought_count = 0
+bank_bought = False
+bank_interest_base = None
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
@@ -55,11 +59,21 @@ SHOP_SPECIAL_COSTS = {
     "bailout": 4,
     "long": 2,
     "derivative": 8,
+    "junk_bond": 2,
+    "issuer": 10,
+    "bank": 5,
 }
 
 LONG_MAX_ACTIVE = 2
 LONG_ROUNDS_TO_PAYOUT = 4
 LONG_PAYOUT = 6
+JUNK_BOND_SUCCESS_CHANCE = 40
+JUNK_BOND_PAYOUT = 6
+LIFECYCLE_CARD_BASE_SLOTS = 3
+ISSUER_MAX_PURCHASES = 2
+BANK_INTEREST_PERCENT = 25
+BANK_INTEREST_STEP = 0.5
+BANK_MIN_INTEREST_BASE = 2.5
 
 SHOP_CARD_COSTS = {
     17: 10,
@@ -68,6 +82,7 @@ SHOP_CARD_COSTS = {
     401: 15,
     402: 10,
     403: 15,
+    404: 5,
     405: 15,
     406: 5,
 }
@@ -140,6 +155,7 @@ black_cards = []
 active_black_cards = []
 gold_cards = []
 active_gold_cards = []
+active_lifecycle_card_order = []
 bear_goal_reduction_steps = 0
 insurance_goal_debt = 0
 
@@ -405,6 +421,7 @@ def clear_gold_cards(reason="defeat"):
     if active_gold_cards:
         active_gold_cards.clear()
         print(f"Cleared active gold cards after {reason}.")
+    _sync_active_lifecycle_card_order()
     bear_goal_reduction_steps = 0
 
 
@@ -412,6 +429,9 @@ def set_active_black_cards(selected_cards):
     """Persist equipped black cards until the player removes them."""
     active_black_cards.clear()
     available = list(black_cards or [])
+    slot_limit = get_lifecycle_card_slot_limit()
+    if slot_limit <= 0:
+        return list(active_black_cards)
     for card_id in selected_cards or []:
         normalized = _normalize_card_id(card_id)
         if normalized is None:
@@ -421,7 +441,7 @@ def set_active_black_cards(selected_cards):
         except ValueError:
             continue
         active_black_cards.append(normalized)
-        if len(active_black_cards) >= 3:
+        if len(active_black_cards) >= slot_limit:
             break
     return list(active_black_cards)
 
@@ -430,6 +450,9 @@ def set_active_gold_cards(selected_cards):
     """Persist equipped gold cards, preserving duplicate-card inventory counts."""
     active_gold_cards.clear()
     available = list(gold_cards or [])
+    slot_limit = max(0, get_lifecycle_card_slot_limit() - len(active_black_cards))
+    if slot_limit <= 0:
+        return list(active_gold_cards)
     for card_id in selected_cards or []:
         normalized = _normalize_card_id(card_id)
         if normalized is None:
@@ -439,7 +462,57 @@ def set_active_gold_cards(selected_cards):
         except ValueError:
             continue
         active_gold_cards.append(normalized)
+        if len(active_gold_cards) >= slot_limit:
+            break
     return list(active_gold_cards)
+
+
+def _normalize_lifecycle_order_entry(entry):
+    if isinstance(entry, dict):
+        kind = entry.get("kind")
+        card_id = entry.get("card_id", entry.get("id"))
+    elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+        kind, card_id = entry[0], entry[1]
+    else:
+        return None
+    kind = str(kind or "").lower()
+    if kind not in ("black", "gold"):
+        return None
+    normalized = _normalize_card_id(card_id)
+    if normalized is None:
+        return None
+    return kind, normalized
+
+
+def _sync_active_lifecycle_card_order(preferred_order=None):
+    preferred_order = list(preferred_order or [])
+    active_lifecycle_card_order.clear()
+    available = {
+        "black": list(active_black_cards or []),
+        "gold": list(active_gold_cards or []),
+    }
+    for entry in preferred_order or []:
+        normalized = _normalize_lifecycle_order_entry(entry)
+        if normalized is None:
+            continue
+        kind, card_id = normalized
+        try:
+            available[kind].remove(card_id)
+        except ValueError:
+            continue
+        active_lifecycle_card_order.append({"kind": kind, "card_id": card_id})
+
+    for kind in ("black", "gold"):
+        for card_id in available[kind]:
+            active_lifecycle_card_order.append({"kind": kind, "card_id": card_id})
+
+    del active_lifecycle_card_order[get_lifecycle_card_slot_limit() :]
+    return list(active_lifecycle_card_order)
+
+
+def set_active_lifecycle_card_order(selected_order):
+    """Remember mixed black/gold active-card positions between rounds."""
+    return _sync_active_lifecycle_card_order(selected_order)
 
 
 def _count_card_instances(cards, target_card_id):
@@ -632,6 +705,13 @@ def clear_long_investments():
     active_long_investments.clear()
 
 
+def resolve_junk_bond(level_number):
+    if random.randint(1, 100) > JUNK_BOND_SUCCESS_CHANCE:
+        return False
+    add_napoleondors(level_number, JUNK_BOND_PAYOUT)
+    return True
+
+
 def clear_silver_cards_deck():
     global active_silver_cards_level, active_silver_cards_deck
     if active_silver_cards_deck:
@@ -648,8 +728,21 @@ def ensure_napoleondor_level(level_number):
         level = None
     if napoleondor_level != level:
         napoleondor_level = level
-        napoleondors = 0
+        napoleondors = get_starting_napoleondors_for_level(level)
     return napoleondors
+
+
+def get_starting_napoleondors_for_level(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        return 0
+    starting_amount = 0
+    if level >= 3 and level_2_boss_defeated:
+        starting_amount += 2
+    if level >= 4 and level_3_boss_defeated:
+        starting_amount += 3
+    return starting_amount
 
 
 def add_napoleondors(level_number, amount):
@@ -685,7 +778,7 @@ def reset_napoleondors(level_number=None):
             napoleondor_level = int(level_number or 0)
         except (TypeError, ValueError):
             napoleondor_level = None
-    napoleondors = 0
+    napoleondors = get_starting_napoleondors_for_level(napoleondor_level)
     print(f"Reset napoleondors for level {napoleondor_level}")
 
 
@@ -751,8 +844,8 @@ def new_boss_progress_state():
 
 
 def reset_level_attempt(level_number):
-    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus, updown_probability_bonus, derivative_bought
+    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -761,9 +854,11 @@ def reset_level_attempt(level_number):
     global_start_money_bonus = 0
     global_last_turn_bonus = 0
     global_hand_bonus = 0
+    global_start_c_shares_bonus = 0
     profit_reward_bonus = 0
     updown_probability_bonus = 0
     derivative_bought = False
+    issuer_bought_count = 0
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
     clear_removed_deck_cards(level_number)
@@ -775,6 +870,10 @@ def reset_level_attempt(level_number):
     clear_insurance_goal_debt()
     clear_bailout_bonus()
     clear_long_investments()
+    clear_bank_offer()
+    active_black_cards[:] = active_black_cards[:get_lifecycle_card_slot_limit()]
+    active_gold_cards[:] = active_gold_cards[:max(0, get_lifecycle_card_slot_limit() - len(active_black_cards))]
+    _sync_active_lifecycle_card_order(active_lifecycle_card_order)
     if level in guaranteed_start_hand_cards_by_level:
         guaranteed_start_hand_cards_by_level[level] = []
     state = new_boss_progress_state()
@@ -784,8 +883,8 @@ def reset_level_attempt(level_number):
 
 def complete_level_run(level_number):
     """Clear temporary run state after defeating the last boss of a level."""
-    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global profit_reward_bonus, updown_probability_bonus, derivative_bought
+    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -795,9 +894,11 @@ def complete_level_run(level_number):
     global_start_money_bonus = 0
     global_last_turn_bonus = 0
     global_hand_bonus = 0
+    global_start_c_shares_bonus = 0
     profit_reward_bonus = 0
     updown_probability_bonus = 0
     derivative_bought = False
+    issuer_bought_count = 0
 
     if level in earned_reward_cards:
         cleared = list(earned_reward_cards.get(level) or [])
@@ -826,6 +927,10 @@ def complete_level_run(level_number):
     clear_insurance_goal_debt()
     clear_bailout_bonus()
     clear_long_investments()
+    clear_bank_offer()
+    active_black_cards[:] = active_black_cards[:get_lifecycle_card_slot_limit()]
+    active_gold_cards[:] = active_gold_cards[:max(0, get_lifecycle_card_slot_limit() - len(active_black_cards))]
+    _sync_active_lifecycle_card_order(active_lifecycle_card_order)
 
 
 def capture_level2_loss_checkpoint(level_number):
@@ -846,7 +951,11 @@ def capture_level2_loss_checkpoint(level_number):
         "global_start_money_bonus": int(global_start_money_bonus),
         "global_last_turn_bonus": int(global_last_turn_bonus),
         "global_hand_bonus": int(global_hand_bonus),
+        "global_start_c_shares_bonus": int(global_start_c_shares_bonus),
         "derivative_bought": bool(derivative_bought),
+        "issuer_bought_count": get_issuer_bought_count(),
+        "bank_bought": bool(bank_bought),
+        "bank_interest_base": bank_interest_base,
         "updown_probability_bonus": int(updown_probability_bonus),
         "napoleondors": float(napoleondors),
         "napoleondor_level": napoleondor_level,
@@ -861,8 +970,8 @@ def capture_level2_loss_checkpoint(level_number):
 
 def restore_level2_loss_checkpoint(level_number):
     """Restore level-2 boss progress and first-boss rewards after a defeat."""
-    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus
-    global derivative_bought
+    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
+    global derivative_bought, issuer_bought_count, bank_bought, bank_interest_base
     global napoleondors, napoleondor_level, profit_reward_bonus, updown_probability_bonus
     try:
         level = int(level_number or 0)
@@ -883,7 +992,21 @@ def restore_level2_loss_checkpoint(level_number):
     global_start_money_bonus = int(checkpoint.get("global_start_money_bonus", 0) or 0)
     global_last_turn_bonus = int(checkpoint.get("global_last_turn_bonus", 0) or 0)
     global_hand_bonus = int(checkpoint.get("global_hand_bonus", 0) or 0)
+    global_start_c_shares_bonus = int(checkpoint.get("global_start_c_shares_bonus", 0) or 0)
     derivative_bought = bool(checkpoint.get("derivative_bought", False))
+    try:
+        issuer_bought_count = max(0, min(ISSUER_MAX_PURCHASES, int(checkpoint.get("issuer_bought_count", 0) or 0)))
+    except (TypeError, ValueError):
+        issuer_bought_count = 0
+    bank_bought = bool(checkpoint.get("bank_bought", False))
+    try:
+        bank_interest_base = (
+            float(checkpoint.get("bank_interest_base"))
+            if checkpoint.get("bank_interest_base") is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        bank_interest_base = None
     updown_probability_bonus = int(checkpoint.get("updown_probability_bonus", 0) or 0)
     napoleondors = float(checkpoint.get("napoleondors", napoleondors) or 0)
     try:
@@ -1160,6 +1283,110 @@ def is_derivative_offer_available():
     return not bool(derivative_bought)
 
 
+def get_issuer_bought_count():
+    try:
+        return max(0, min(ISSUER_MAX_PURCHASES, int(issuer_bought_count or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_lifecycle_card_slot_limit():
+    return LIFECYCLE_CARD_BASE_SLOTS + get_issuer_bought_count()
+
+
+def get_issuer_offer_cost():
+    bought_count = get_issuer_bought_count()
+    if bought_count <= 0:
+        return 10
+    if bought_count == 1:
+        return 15
+    return None
+
+
+def is_issuer_offer_available():
+    return get_issuer_bought_count() < ISSUER_MAX_PURCHASES
+
+
+def buy_issuer_slot():
+    global issuer_bought_count
+    if not is_issuer_offer_available():
+        return None
+    issuer_bought_count = get_issuer_bought_count() + 1
+    print(f"Issuer increased lifecycle card slots to {get_lifecycle_card_slot_limit()}.")
+    return get_lifecycle_card_slot_limit()
+
+
+def clear_issuer_slots():
+    global issuer_bought_count
+    if issuer_bought_count:
+        print(f"Cleared Issuer slot upgrades: {issuer_bought_count}")
+    issuer_bought_count = 0
+    active_black_cards[:] = active_black_cards[:get_lifecycle_card_slot_limit()]
+    active_gold_cards[:] = active_gold_cards[:max(0, get_lifecycle_card_slot_limit() - len(active_black_cards))]
+    _sync_active_lifecycle_card_order(active_lifecycle_card_order)
+
+
+def is_bank_offer_available():
+    return not bool(bank_bought)
+
+
+def buy_bank_offer():
+    global bank_bought
+    if bank_bought:
+        return False
+    bank_bought = True
+    print("Bank interest activated.")
+    return True
+
+
+def _round_bank_interest(amount):
+    try:
+        value = float(amount or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if value <= 0:
+        return 0.0
+    steps = int(value / BANK_INTEREST_STEP)
+    return steps * BANK_INTEREST_STEP
+
+
+def update_bank_interest_base():
+    global bank_interest_base
+    if not bank_bought:
+        bank_interest_base = None
+        return None
+    bank_interest_base = max(0.0, float(napoleondors or 0))
+    print(f"Bank interest base updated: {bank_interest_base}")
+    return bank_interest_base
+
+
+def apply_bank_interest(level_number):
+    global bank_interest_base
+    if not bank_bought or bank_interest_base is None:
+        return 0.0
+    try:
+        base = float(bank_interest_base or 0)
+    except (TypeError, ValueError):
+        base = 0.0
+    bank_interest_base = None
+    if base < BANK_MIN_INTEREST_BASE:
+        return 0.0
+    interest = _round_bank_interest(base * BANK_INTEREST_PERCENT / 100)
+    if interest <= 0:
+        return 0.0
+    add_napoleondors(level_number, interest)
+    print(f"Bank interest applied: base={base}, interest={interest}")
+    return interest
+
+
+def clear_bank_offer():
+    global bank_bought, bank_interest_base
+    if bank_bought or bank_interest_base is not None:
+        print(f"Cleared Bank offer: bought={bank_bought}, base={bank_interest_base}")
+    bank_bought = False
+    bank_interest_base = None
+
+
 def clear_profit_bonus():
     global profit_reward_bonus
     if profit_reward_bonus:
@@ -1191,6 +1418,26 @@ def clear_updown_probability_bonus():
     updown_probability_bonus = 0
 
 
+def add_start_c_shares_bonus(amount):
+    global global_start_c_shares_bonus
+    try:
+        bonus = int(amount or 0)
+    except (TypeError, ValueError):
+        bonus = 0
+    if bonus <= 0:
+        return global_start_c_shares_bonus
+    global_start_c_shares_bonus += bonus
+    print(f"Start C shares bonus increased to {global_start_c_shares_bonus}.")
+    return global_start_c_shares_bonus
+
+
+def clear_start_c_shares_bonus():
+    global global_start_c_shares_bonus
+    if global_start_c_shares_bonus:
+        print(f"Cleared start C shares bonus: {global_start_c_shares_bonus}")
+    global_start_c_shares_bonus = 0
+
+
 def get_victory_napoleondor_reward(base_amount):
     try:
         base = float(base_amount or 0)
@@ -1202,6 +1449,9 @@ def get_victory_napoleondor_reward(base_amount):
 def get_shop_special_cost(offer_id):
     if offer_id == "profit" and int(profit_reward_bonus or 0) > 0:
         return 10
+    if offer_id == "issuer":
+        cost = get_issuer_offer_cost()
+        return cost if cost is not None else SHOP_SPECIAL_COSTS.get(offer_id, 1)
     return SHOP_SPECIAL_COSTS.get(offer_id, 1)
 
 
@@ -1371,14 +1621,23 @@ def build_shop_special_offer_pool(level_number=1):
     underwriter_hit = is_underwriter_offer_available(level_number) and random.randint(1, 100) <= 15
     bailout_hit = (not is_bailout_active()) and random.randint(1, 100) <= 50
     long_hit = is_long_offer_available() and random.randint(1, 100) <= 50
+    junk_bond_hit = random.randint(1, 100) <= 40
+    issuer_hit = is_issuer_offer_available() and random.randint(1, 100) <= 25
+    bank_hit = is_bank_offer_available() and random.randint(1, 100) <= 50
     derivative_hit = is_derivative_offer_available() and random.randint(1, 100) <= 45
 
     if underwriter_hit:
         rolled.append("underwriter")
     if bailout_hit:
         rolled.append("bailout")
+    if bank_hit:
+        rolled.append("bank")
     if long_hit:
         rolled.append("long")
+    if junk_bond_hit:
+        rolled.append("junk_bond")
+    if issuer_hit:
+        rolled.append("issuer")
     if derivative_hit:
         rolled.append("derivative")
     if trader_hit:

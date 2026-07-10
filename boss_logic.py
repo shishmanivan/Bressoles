@@ -19,12 +19,14 @@ BOSS_LEVELS = {
     "5_SamuelSlater.png": 1,
     "6_Arkwright.png": 1,
     "7_Kolbe.png": 1,
+    "10_Stephenson.png": 1,
     "8_List.png": 2,
-    "Laffitte.png": 2,
+    "9_Laffitte.png": 2,
 }
 
 BOSS_NUMBERS = {
-    "Laffitte.png": 9,
+    "9_Laffitte.png": 9,
+    "10_Stephenson.png": 10,
 }
 
 
@@ -74,7 +76,6 @@ def _generate_level3_boss_roster(bosses_required: int):
         "4_NicolasApper.png",
         "5_SamuelSlater.png",
         "6_Arkwright.png",
-        "7_Kolbe.png",
     ]
     random.shuffle(candidates)
     try:
@@ -90,7 +91,20 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
     """Ensure bp_state has a stable roster for the current Level 3 run (and matches bosses_required)."""
     roster = bp_state.get("roster")
     if isinstance(roster, list) and roster and len(roster) == max(1, int(bosses_required or 1)):
-        return roster
+        level3_pool = {
+            "2_AdamSmith.png",
+            "3_RobertFulton.png",
+            "4_NicolasApper.png",
+            "5_SamuelSlater.png",
+            "6_Arkwright.png",
+        }
+        roster_bosses = {
+            boss_filename
+            for step in roster
+            for boss_filename in (step or [])
+        }
+        if roster_bosses and roster_bosses.issubset(level3_pool):
+            return roster
     roster = _generate_level3_boss_roster(bosses_required)
     bp_state["roster"] = roster
     return roster
@@ -344,6 +358,17 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print("Applied boss reward UpDownPlus4: Upside/Downside bonus increased by 4")
             return
 
+        if normalized_reward in (
+            "startcsharesplus2",
+            "startcplus2",
+            "csharesplus2",
+            "cshares=cshares+2",
+            "cquantity=cquantity+2",
+        ):
+            game_state.add_start_c_shares_bonus(2)
+            print("Applied boss reward StartCPlus2: future rounds start with +2 C shares")
+            return
+
         # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
         if normalized_reward in (
             "gaindropcard",
@@ -511,6 +536,16 @@ def apply_boss_functionality(func_string, gameplay_instance):
         ):
             setattr(gameplay_instance, "boss_forbid_price_2_buys", True)
             print("Applied boss functionality: buying stocks priced at 2 is disabled")
+            return
+
+        if normalized_func in (
+            "oneredonegaindropperturn",
+            "one_red_one_gain_drop_per_turn",
+            "limitredgaindrop",
+            "stephensoncardlimit",
+        ):
+            setattr(gameplay_instance, "boss_limit_red_gain_drop_per_turn", True)
+            print("Applied boss functionality: one red and one Gain/Drop card per turn")
             return
 
         if normalized_func in ("simplestockbot", "stockbot", "bot"):

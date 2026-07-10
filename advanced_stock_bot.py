@@ -4,7 +4,7 @@ from simple_stock_bot import MARKETS, SimpleStockBot
 class AdvancedStockBot(SimpleStockBot):
     """Stock bot that knows exact market probabilities, but not cards."""
 
-    display_name = "Бот2 - Процентный"
+    display_name = "Босс"
 
     def trade(self, prices, probabilities):
         scores = self._score_markets(prices, probabilities)

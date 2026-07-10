@@ -24,6 +24,11 @@ def get_stats_file(slot):
     return os.path.join(PROFILES_DIR, f"GameStats_profile_{int(slot)}.csv")
 
 
+def get_shop_card_stats_file(slot):
+    ensure_profiles_dir()
+    return os.path.join(PROFILES_DIR, f"ShopCardStats_profile_{int(slot)}.csv")
+
+
 def load_index():
     ensure_profiles_dir()
     if not os.path.exists(INDEX_FILE):
@@ -75,7 +80,11 @@ def _empty_progress():
         "global_start_money_bonus": 0,
         "global_last_turn_bonus": 0,
         "global_hand_bonus": 0,
+        "global_start_c_shares_bonus": 0,
         "derivative_bought": False,
+        "issuer_bought_count": 0,
+        "bank_bought": False,
+        "bank_interest_base": None,
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
@@ -94,6 +103,7 @@ def _empty_progress():
         "active_black_cards": [],
         "gold_cards": [],
         "active_gold_cards": [],
+        "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "insurance_goal_debt": 0,
         "forced_start_hand_cards_by_level": {},
@@ -169,7 +179,24 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
     game_state.global_last_turn_bonus = int(progress.get("global_last_turn_bonus", 0) or 0)
     game_state.global_hand_bonus = int(progress.get("global_hand_bonus", 0) or 0)
+    game_state.global_start_c_shares_bonus = int(progress.get("global_start_c_shares_bonus", 0) or 0)
     game_state.derivative_bought = bool(progress.get("derivative_bought", False))
+    try:
+        game_state.issuer_bought_count = max(
+            0,
+            min(game_state.ISSUER_MAX_PURCHASES, int(progress.get("issuer_bought_count", 0) or 0)),
+        )
+    except (TypeError, ValueError):
+        game_state.issuer_bought_count = 0
+    game_state.bank_bought = bool(progress.get("bank_bought", False))
+    try:
+        game_state.bank_interest_base = (
+            float(progress.get("bank_interest_base"))
+            if progress.get("bank_interest_base") is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        game_state.bank_interest_base = None
     game_state.napoleondors = float(progress.get("napoleondors", 0) or 0)
     try:
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
@@ -208,6 +235,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.set_active_black_cards(_restore_int_list(progress.get("active_black_cards") or []))
     game_state.gold_cards = _restore_int_list(progress.get("gold_cards") or [])[: game_state.MAX_GOLD_CARDS]
     game_state.set_active_gold_cards(_restore_int_list(progress.get("active_gold_cards") or []))
+    game_state.set_active_lifecycle_card_order(progress.get("active_lifecycle_card_order") or [])
     try:
         game_state.bear_goal_reduction_steps = max(0, int(progress.get("bear_goal_reduction_steps", 0) or 0))
     except (TypeError, ValueError):
@@ -277,7 +305,11 @@ def _capture_progress():
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
         "global_last_turn_bonus": int(game_state.global_last_turn_bonus),
         "global_hand_bonus": int(game_state.global_hand_bonus),
+        "global_start_c_shares_bonus": int(game_state.global_start_c_shares_bonus),
         "derivative_bought": bool(game_state.derivative_bought),
+        "issuer_bought_count": game_state.get_issuer_bought_count(),
+        "bank_bought": bool(game_state.bank_bought),
+        "bank_interest_base": game_state.bank_interest_base,
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
@@ -296,6 +328,7 @@ def _capture_progress():
         "active_black_cards": _serialize_int_list(game_state.active_black_cards),
         "gold_cards": _serialize_int_list(game_state.gold_cards),
         "active_gold_cards": _serialize_int_list(game_state.active_gold_cards),
+        "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "forced_start_hand_cards_by_level": _serialize_int_key_lists(game_state.forced_start_hand_cards_by_level),
@@ -331,6 +364,26 @@ def _serialize_int_list(source):
 
 def _restore_int_list(source):
     return _serialize_int_list(source)
+
+
+def _serialize_lifecycle_card_order(source):
+    result = []
+    for entry in source or []:
+        if isinstance(entry, dict):
+            kind = entry.get("kind")
+            card_id = entry.get("card_id", entry.get("id"))
+        elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+            kind, card_id = entry[0], entry[1]
+        else:
+            continue
+        kind = str(kind or "").lower()
+        if kind not in ("black", "gold"):
+            continue
+        try:
+            result.append({"kind": kind, "card_id": int(card_id)})
+        except (TypeError, ValueError):
+            continue
+    return result
 
 
 def _serialize_int_value_dict(source):
@@ -465,7 +518,11 @@ def _serialize_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "global_start_c_shares_bonus": int(source.get("global_start_c_shares_bonus", 0) or 0),
         "derivative_bought": bool(source.get("derivative_bought", False)),
+        "issuer_bought_count": max(0, min(game_state.ISSUER_MAX_PURCHASES, int(source.get("issuer_bought_count", 0) or 0))),
+        "bank_bought": bool(source.get("bank_bought", False)),
+        "bank_interest_base": source.get("bank_interest_base"),
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
@@ -486,7 +543,11 @@ def _restore_reward_checkpoint(source):
         "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
         "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
         "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
+        "global_start_c_shares_bonus": int(source.get("global_start_c_shares_bonus", 0) or 0),
         "derivative_bought": bool(source.get("derivative_bought", False)),
+        "issuer_bought_count": max(0, min(game_state.ISSUER_MAX_PURCHASES, int(source.get("issuer_bought_count", 0) or 0))),
+        "bank_bought": bool(source.get("bank_bought", False)),
+        "bank_interest_base": source.get("bank_interest_base"),
         "napoleondors": float(source.get("napoleondors", 0) or 0),
         "napoleondor_level": source.get("napoleondor_level"),
         "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),

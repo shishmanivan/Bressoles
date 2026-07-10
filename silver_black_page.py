@@ -21,7 +21,6 @@ GOLD_CARD_TINT = (184, 134, 11, 70)
 PANEL_SIZE = (1440, 900)
 PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]) // 2)
 CARD_ROW_SLOTS = 8
-ACTIVE_CARD_SLOTS = 3
 CARD_WIDTH = 102
 CARD_ASPECT_RATIO = 99 / 171.0
 ACTIVE_ROW_Y = 59
@@ -88,6 +87,10 @@ CARD_TOOLTIPS = {
 
 CARD_TOOLTIPS.update(
     {
+        404: (
+            "Flat",
+            "Отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
+        ),
         406: (
             "Gambling",
             "Усиливает карты Upside и Downside на 7 процентных пунктов.",
@@ -108,6 +111,7 @@ class SilverBlackPage:
         gold_cards=None,
         active_black_cards=None,
         active_gold_cards=None,
+        active_lifecycle_card_order=None,
         is_boss_fight=False,
     ):
         self.screen = screen
@@ -118,6 +122,7 @@ class SilverBlackPage:
         self.gold_cards = list(gold_cards or [])[:CARD_ROW_SLOTS]
         self.is_boss_fight = bool(is_boss_fight)
         self.selected_entries = []
+        self.active_slot_count = game_state.get_lifecycle_card_slot_limit()
 
         round_page_assets = load_round_page_static_assets()
         self.round_background = round_page_assets["background"]
@@ -132,11 +137,15 @@ class SilverBlackPage:
         self.tooltip_title_font = pygame.font.Font(self.font_path, 27)
         self.tooltip_text_font = pygame.font.Font(self.font_path, 22)
 
-        self.active_rects = self._build_row_rects(ACTIVE_CARD_SLOTS, y=ACTIVE_ROW_Y, gap=ACTIVE_ROW_GAP)
+        self.active_rects = self._build_row_rects(self.active_slot_count, y=ACTIVE_ROW_Y, gap=ACTIVE_ROW_GAP)
         self.silver_rects = self._build_row_rects(CARD_ROW_SLOTS, y=SILVER_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.black_rects = self._build_row_rects(CARD_ROW_SLOTS, y=BLACK_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.gold_rects = self._build_row_rects(CARD_ROW_SLOTS, y=GOLD_ROW_Y, gap=INVENTORY_ROW_GAP)
-        self.selected_entries = self._build_initial_selected_entries(active_black_cards, active_gold_cards)
+        self.selected_entries = self._build_initial_selected_entries(
+            active_black_cards,
+            active_gold_cards,
+            active_lifecycle_card_order,
+        )
         self.drag_source = None
         self.drag_entry = None
         self.drag_active_slot = None
@@ -169,31 +178,56 @@ class SilverBlackPage:
             for idx in range(count)
         ]
 
-    def _build_initial_selected_entries(self, active_black_cards, active_gold_cards):
+    def _entry_for_card(self, kind, target, used_indices):
+        inventory_cards = self._row_cards(kind)
+        try:
+            target = int(target)
+        except (TypeError, ValueError):
+            return None
+        for index, card_id in enumerate(inventory_cards):
+            if index in used_indices:
+                continue
+            try:
+                if int(card_id) != target:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            used_indices.add(index)
+            return kind, index
+        return None
+
+    def _build_initial_selected_entries(self, active_black_cards, active_gold_cards, active_lifecycle_card_order=None):
         entries = []
+        used_by_kind = {"black": set(), "gold": set()}
+        for order_entry in active_lifecycle_card_order or []:
+            if len(entries) >= self.active_slot_count:
+                break
+            if isinstance(order_entry, dict):
+                kind = str(order_entry.get("kind") or "").lower()
+                card_id = order_entry.get("card_id", order_entry.get("id"))
+            elif isinstance(order_entry, (list, tuple)) and len(order_entry) >= 2:
+                kind = str(order_entry[0] or "").lower()
+                card_id = order_entry[1]
+            else:
+                continue
+            if kind not in used_by_kind:
+                continue
+            entry = self._entry_for_card(kind, card_id, used_by_kind[kind])
+            if entry is not None:
+                entries.append(entry)
+
         for kind, active_cards, inventory_cards in (
             ("black", active_black_cards, self.black_cards),
             ("gold", active_gold_cards, self.gold_cards),
         ):
-            used_indices = set()
+            used_indices = used_by_kind[kind]
             for active_card_id in active_cards or []:
-                if len(entries) >= ACTIVE_CARD_SLOTS:
+                if len(entries) >= self.active_slot_count:
                     break
-                try:
-                    target = int(active_card_id)
-                except (TypeError, ValueError):
+                entry = self._entry_for_card(kind, active_card_id, used_indices)
+                if entry is None or entry in entries:
                     continue
-                for index, card_id in enumerate(inventory_cards):
-                    if index in used_indices:
-                        continue
-                    try:
-                        if int(card_id) != target:
-                            continue
-                    except (TypeError, ValueError):
-                        continue
-                    entries.append((kind, index))
-                    used_indices.add(index)
-                    break
+                entries.append(entry)
         return entries
 
     def _get_card_image(self, card_id):
@@ -245,6 +279,14 @@ class SilverBlackPage:
             "active_silver_cards": self._selected_cards_by_kind("silver"),
             "active_black_cards": self._selected_cards_by_kind("black"),
             "active_gold_cards": self._selected_cards_by_kind("gold"),
+            "active_lifecycle_card_order": [
+                {"kind": entry[0], "card_id": self._card_id_for_entry(entry)}
+                for entry in self.selected_entries
+                if (
+                    self._card_id_for_entry(entry) is not None
+                    and not self._is_card_disabled(self._card_id_for_entry(entry))
+                )
+            ],
         }
 
     def _active_slot_at(self, pos):

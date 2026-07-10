@@ -14,6 +14,32 @@ FPS = 60
 BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
 
+ANIMATION_FRAME_SIZE = (100, 100)
+ANIMATION_SCALE_OVERRIDES = {
+    "9_Laffitte": 0.95,
+}
+
+
+def normalize_boss_animation_frame(frame_image, base_name):
+    scale = ANIMATION_SCALE_OVERRIDES.get(base_name, 1.0)
+    if scale == 1.0:
+        return pygame.transform.smoothscale(frame_image, ANIMATION_FRAME_SIZE).convert_alpha()
+
+    target_size = (
+        max(1, int(round(ANIMATION_FRAME_SIZE[0] * scale))),
+        max(1, int(round(ANIMATION_FRAME_SIZE[1] * scale))),
+    )
+    scaled = pygame.transform.smoothscale(frame_image, target_size).convert_alpha()
+    canvas = pygame.Surface(ANIMATION_FRAME_SIZE, pygame.SRCALPHA)
+    canvas.blit(
+        scaled,
+        (
+            (ANIMATION_FRAME_SIZE[0] - target_size[0]) // 2,
+            (ANIMATION_FRAME_SIZE[1] - target_size[1]) // 2,
+        ),
+    )
+    return canvas
+
 
 class BossPage:
     def __init__(
@@ -164,7 +190,7 @@ class BossPage:
                                     frame_path = os.path.join(boss_folder, matching_frames[0])
                             if os.path.exists(frame_path):
                                 frame_image = pygame.image.load(frame_path).convert_alpha()
-                                frame_image = pygame.transform.smoothscale(frame_image, (100, 100)).convert_alpha()
+                                frame_image = normalize_boss_animation_frame(frame_image, base_name)
                                 animation_frames.append(frame_image)
                             else:
                                 print(f"WARNING: Animation frame not found: {frame_path}")
@@ -327,6 +353,8 @@ class BossPage:
 
         current_time = pygame.time.get_ticks()
         for i, (boss_image, boss_rect) in enumerate(zip(self.bosses, self.boss_rects)):
+            if boss_image is None:
+                continue
             if i in self.boss_hover_states and len(self.boss_animation_frames[i]) > 0:
                 hover_state = self.boss_hover_states[i]
                 time_since_last_frame = current_time - hover_state["last_frame_time"]

@@ -119,6 +119,7 @@ class GameplayPage:
         active_silver_cards=None,
         active_black_cards=None,
         active_gold_cards=None,
+        active_lifecycle_card_order=None,
         insurance_goal_debt=0,
         rounds_required=None,
     ):
@@ -144,6 +145,7 @@ class GameplayPage:
         self.active_silver_cards = list(active_silver_cards or [])
         self.active_black_cards = list(active_black_cards or [])
         self.active_gold_cards = list(active_gold_cards or [])
+        self.active_lifecycle_card_order = self._normalize_active_lifecycle_card_order(active_lifecycle_card_order)
         try:
             self.insurance_goal_debt = max(0, int(insurance_goal_debt or 0))
         except (TypeError, ValueError):
@@ -156,6 +158,7 @@ class GameplayPage:
         self.boss_steals_shares = False
         self.boss_odd_turn_trading_only = False
         self.boss_forbid_price_2_buys = False
+        self.boss_limit_red_gain_drop_per_turn = False
         self.stock_bot_enabled = False
         self.stock_bot = None
         self._stock_bot_saved_state = None
@@ -237,7 +240,7 @@ class GameplayPage:
         # Initialize quantity variables
         self.Aquantity = 2
         self.Bquantity = 0
-        self.Cquantity = 0
+        self.Cquantity = int(game_state.global_start_c_shares_bonus or 0)
 
         # Initialize price variables
         self.Aprice = 2
@@ -940,6 +943,10 @@ class GameplayPage:
             "active_silver_cards": list(self.active_silver_cards or []),
             "active_black_cards": list(self.active_black_cards or []),
             "active_gold_cards": list(self.active_gold_cards or []),
+            "active_lifecycle_card_order": [
+                {"kind": entry["kind"], "card_id": entry["card_id"]}
+                for entry in self.active_lifecycle_card_order
+            ],
         }
 
     def _current_prices(self):
@@ -996,6 +1003,7 @@ class GameplayPage:
         return build_market_probabilities(
             self.market_cards,
             probability_card_bonus=self._get_probability_card_bonus(),
+            force_flat=self._is_flat_random_active(),
         )
 
     def _run_stock_bot_turn(self):
@@ -1308,6 +1316,56 @@ class GameplayPage:
         """Return card Type from Cards.csv (defaults to 1)."""
         return get_card_type_from_config(self.card_types, card_id)
 
+    def _is_red_play_limit_reached(self):
+        if not getattr(self, "boss_limit_red_gain_drop_per_turn", False):
+            return False
+        for slot, card_id in enumerate(self.side_cards_top):
+            if card_id is None or self.side_cards_locked_top.get(slot):
+                continue
+            if self.get_card_type(card_id) == 2:
+                return True
+        return False
+
+    def _is_gain_drop_play_limit_reached(self, card_id=None):
+        if not getattr(self, "boss_limit_red_gain_drop_per_turn", False):
+            return False
+        if card_id is not None and not game_state.is_gain_drop_card(card_id):
+            return False
+        for market in (0, 1, 2):
+            for slot, existing_card_id in self.market_cards[market].items():
+                if existing_card_id is None or self.market_cards_locked[market].get(slot):
+                    continue
+                if game_state.is_gain_drop_card(existing_card_id):
+                    return True
+        return False
+
+    def _can_play_dragged_hand_card_on_market(self, card_id):
+        return not self._is_gain_drop_play_limit_reached(card_id)
+
+    def _can_play_dragged_hand_card_on_side_top(self, card_id):
+        if self.get_card_type(card_id) != 2:
+            return False
+        return not self._is_red_play_limit_reached()
+
+    def _placeholder_hit_candidates(self, placeholders, pos, margin=10):
+        x, y = pos
+        candidates = []
+        for index, ph_info in enumerate(placeholders or []):
+            rect = ph_info.get("rect")
+            if rect is None:
+                continue
+            hit_rect = rect.inflate(margin * 2, margin * 2)
+            if not hit_rect.collidepoint(pos):
+                continue
+            direct_hit = rect.collidepoint(pos)
+            distance_sq = (rect.centerx - x) ** 2 + (rect.centery - y) ** 2
+            candidates.append((0 if direct_hit else 1, distance_sq, index, ph_info))
+        direct_candidates = [item for item in candidates if item[0] == 0]
+        if direct_candidates:
+            candidates = direct_candidates
+        candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+        return [item[3] for item in candidates]
+
     def _is_arrow_trading_disabled(self):
         if not getattr(self, "boss_odd_turn_trading_only", False):
             return False
@@ -1581,16 +1639,13 @@ class GameplayPage:
                     if not dropped and self.dragged_card_source == "side_top":
                         src_slot = self.dragged_card_side_slot
                         # Cancel drag if dropped back onto the same side placeholder
-                        for ph_info in self.side_placeholders_top:
-                            if ph_info["rect"].collidepoint(event.pos):
-                                if ph_info.get("slot") == src_slot:
-                                    dropped = True
+                        for ph_info in self._placeholder_hit_candidates(self.side_placeholders_top, event.pos):
+                            if ph_info.get("slot") == src_slot:
+                                dropped = True
                                 break
                         if not dropped:
                             # Only allow drop to the ORIGINAL hand slot of this card
-                            for ph_info in self.bottom_placeholders:
-                                if not ph_info["rect"].collidepoint(event.pos):
-                                    continue
+                            for ph_info in self._placeholder_hit_candidates(self.bottom_placeholders, event.pos):
                                 slot = ph_info["slot"]
                                 origin_slot = self.side_card_origins_top.get(src_slot)
                                 if origin_slot is not None and slot == origin_slot and self.hand_cards[slot] is None:
@@ -1612,35 +1667,36 @@ class GameplayPage:
                         and self.dragged_card_index is not None
                         and dragged_hand_card_type == 2
                     ):
-                        for ph_info in self.side_placeholders_top:
-                            if ph_info["rect"].collidepoint(event.pos):
-                                slot = ph_info["slot"]
-                                # Only allow drop to the FIRST free slot
-                                first_free = None
-                                for s in range(len(self.side_cards_top)):
-                                    if self.side_cards_top[s] is None:
-                                        first_free = s
-                                        break
-                                if first_free is None or slot != first_free:
-                                    continue
-                                card_id = dragged_hand_card_id
-                                if card_id is not None:
-                                    self.side_cards_top[slot] = card_id
-                                    # Remember original hand slot and mark as not locked for this turn
-                                    self.side_card_origins_top[slot] = self.dragged_card_index
-                                    self.side_cards_locked_top[slot] = False
-                                    self.hand_cards[self.dragged_card_index] = None
-                                    self.pending_draws += 1
-                                    dropped = True
+                        for ph_info in self._placeholder_hit_candidates(self.side_placeholders_top, event.pos):
+                            slot = ph_info["slot"]
+                            # Only allow drop to the FIRST free slot
+                            first_free = None
+                            for s in range(len(self.side_cards_top)):
+                                if self.side_cards_top[s] is None:
+                                    first_free = s
                                     break
+                            if first_free is None or slot != first_free:
+                                continue
+                            card_id = dragged_hand_card_id
+                            if card_id is not None:
+                                if not self._can_play_dragged_hand_card_on_side_top(card_id):
+                                    continue
+                                self.side_cards_top[slot] = card_id
+                                # Remember original hand slot and mark as not locked for this turn
+                                self.side_card_origins_top[slot] = self.dragged_card_index
+                                self.side_cards_locked_top[slot] = False
+                                self.hand_cards[self.dragged_card_index] = None
+                                self.pending_draws += 1
+                                dropped = True
+                                break
 
                     # Try to drop card on market placeholder (only if NOT dragging a Type=2 card from hand)
                     if not (
                         self.dragged_card_source == "side_top"
                         or (self.dragged_card_source == "hand" and dragged_hand_card_type == 2)
                     ):
-                        for ph_info in self.market_placeholders:
-                            if ph_info['rect'].collidepoint(event.pos):
+                        for ph_info in self._placeholder_hit_candidates(self.market_placeholders, event.pos):
+                            if ph_info:
                                 # Drop card on market placeholder
                                 market = ph_info['market']
                                 slot = ph_info['slot']
@@ -1666,6 +1722,8 @@ class GameplayPage:
                                     if self.dragged_card_index < len(self.hand_cards):
                                         card_id = self.hand_cards[self.dragged_card_index]
                                         if card_id is not None:
+                                            if not self._can_play_dragged_hand_card_on_market(card_id):
+                                                continue
                                             self.market_cards[market][slot] = card_id
                                             # Remember original hand slot for this market card
                                             self.market_card_origins[market][slot] = self.dragged_card_index
@@ -1717,8 +1775,8 @@ class GameplayPage:
                                         break
                     # Try to drop card on hand placeholder (return or move to another hand slot)
                     if not dropped:
-                        for ph_info in self.bottom_placeholders:
-                            if ph_info['rect'].collidepoint(event.pos):
+                        for ph_info in self._placeholder_hit_candidates(self.bottom_placeholders, event.pos):
+                            if ph_info:
                                 slot = ph_info['slot']
                                 # From hand to another hand slot (reposition)
                                 if self.dragged_card_source == "hand" and self.dragged_card_index is not None:
@@ -1816,11 +1874,45 @@ class GameplayPage:
         return any(card_id == target_card_id for card_id in self.side_cards_top)
 
     def _active_lifecycle_cards(self):
-        return (
-            list(self.active_silver_cards or [])
-            + list(self.active_black_cards or [])
-            + list(self.active_gold_cards or [])
-        )
+        if self.active_lifecycle_card_order:
+            return [entry["card_id"] for entry in self.active_lifecycle_card_order]
+        return list(self.active_silver_cards or []) + list(self.active_black_cards or []) + list(self.active_gold_cards or [])
+
+    def _normalize_active_lifecycle_card_order(self, selected_order):
+        available = {
+            "silver": list(self.active_silver_cards or []),
+            "black": list(self.active_black_cards or []),
+            "gold": list(self.active_gold_cards or []),
+        }
+        ordered = []
+        for entry in selected_order or []:
+            if isinstance(entry, dict):
+                kind = str(entry.get("kind") or "").lower()
+                card_id = entry.get("card_id", entry.get("id"))
+            elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                kind = str(entry[0] or "").lower()
+                card_id = entry[1]
+            else:
+                continue
+            if kind not in available:
+                continue
+            try:
+                normalized_id = int(card_id)
+            except (TypeError, ValueError):
+                continue
+            try:
+                available[kind].remove(normalized_id)
+            except ValueError:
+                continue
+            ordered.append({"kind": kind, "card_id": normalized_id})
+
+        if not ordered:
+            for kind in ("silver", "black", "gold"):
+                ordered.extend({"kind": kind, "card_id": card_id} for card_id in available[kind])
+        else:
+            for kind in ("silver", "black", "gold"):
+                ordered.extend({"kind": kind, "card_id": card_id} for card_id in available[kind])
+        return ordered
 
     def _has_active_silver_card(self, target_card_id):
         for card_id in self._active_lifecycle_cards():
@@ -1846,6 +1938,9 @@ class GameplayPage:
 
     def _get_probability_card_bonus(self):
         return self._get_gambling_probability_bonus() + game_state.get_updown_probability_bonus()
+
+    def _is_flat_random_active(self):
+        return self._count_active_silver_card(404) > 0
 
     def _apply_insurance_if_needed(self, next_state, reason):
         if next_state != "lose" or self.is_boss_fight or not self._has_active_silver_card(220):
@@ -2214,7 +2309,10 @@ class GameplayPage:
         """Calculate price changes based on probability distributions after EndTurn.
         Returns list of {'market': 0-2, 'type': 'unchanged'|'rise'|'fall', 'price_change': int} 
         Prices are NOT updated here - they will be updated when animation starts."""
+        is_flat_random_active = self._is_flat_random_active()
         forced_rise_markets = {2} if self._consume_insider_c_growth_turn() else None
+        if is_flat_random_active:
+            print("Active card 404 Flat forced all random stock movements to Flat.")
         return build_stock_price_animation_queue(
             self.StepA,
             self.StepB,
@@ -2222,6 +2320,7 @@ class GameplayPage:
             self.market_cards,
             forced_rise_markets=forced_rise_markets,
             probability_card_bonus=self._get_probability_card_bonus(),
+            force_flat=is_flat_random_active,
         )
 
     def _consume_insider_c_growth_turn(self):
@@ -3139,6 +3238,7 @@ class GameplayPage:
         probs = build_market_probabilities(
             self.market_cards,
             probability_card_bonus=self._get_probability_card_bonus(),
+            force_flat=self._is_flat_random_active(),
         ).get(market)
         if not probs:
             return
@@ -3212,6 +3312,7 @@ class GameplayPage:
                 SCREEN_HEIGHT,
                 side_ph,
                 bottom_frame=self.bottom_frame,
+                bottom_slots=game_state.get_lifecycle_card_slot_limit(),
             )
             right_frame_x = right_panel_layout["x"]
             right_frame_w = right_panel_layout["width"]
@@ -3268,6 +3369,7 @@ class GameplayPage:
                 side_ph,
                 bottom_frame=self.bottom_frame,
                 desired_top_y=desired_top_y,
+                bottom_slots=game_state.get_lifecycle_card_slot_limit(),
             )
             right_top_y = right_panel_layout["top_y"]
             right_top_h = right_panel_layout["top_height"]
@@ -3511,7 +3613,11 @@ class GameplayPage:
                         # Highlight available market placeholder for dropping a card
                         highlight = False
                         # When dragging from hand: only FIRST free slot in each market is valid
-                        if self.dragged_card_source == "hand" and dragged_hand_card_type != 2:
+                        if (
+                            self.dragged_card_source == "hand"
+                            and dragged_hand_card_type != 2
+                            and self._can_play_dragged_hand_card_on_market(dragged_hand_card_id)
+                        ):
                             # find first free slot for this market
                             first_free = None
                             for s in range(len(market_placeholders)):
@@ -3580,7 +3686,11 @@ class GameplayPage:
                 # If dragging a Type=2 card from hand, highlight ONLY the first free slot
                 # on the TOP right-side panel (6 slots). Bottom (3 slots) must NOT be used.
                 first_free_side_top = None
-                if self.dragged_card_source == "hand" and dragged_hand_card_type == 2:
+                if (
+                    self.dragged_card_source == "hand"
+                    and dragged_hand_card_type == 2
+                    and self._can_play_dragged_hand_card_on_side_top(dragged_hand_card_id)
+                ):
                     for s in range(len(self.side_cards_top)):
                         if self.side_cards_top[s] is None:
                             first_free_side_top = s

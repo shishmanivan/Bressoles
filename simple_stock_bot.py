@@ -26,7 +26,7 @@ QUALITATIVE_MARKET_RULES = {
 class SimpleStockBot:
     """A minimal stock-only bot with no exact probability knowledge."""
 
-    display_name = "Бот"
+    display_name = "Босс"
 
     def __init__(self, money=0, quantities=None, last_prices=None, blocked_buy_prices=None):
         self.money = int(money or 0)

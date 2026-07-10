@@ -98,6 +98,7 @@ def compute_right_panel_layout(
     side_placeholder,
     bottom_frame=None,
     desired_top_y=None,
+    bottom_slots=3,
 ):
     """Compute right-side panel frame geometry used by GameplayPage."""
     if not market_layout:
@@ -142,6 +143,7 @@ def compute_right_panel_layout(
         "label_start_x": right_frame_x + 10,
         "top_rows": top_rows,
         "bottom_rows": bottom_rows,
+        "bottom_slots": max(1, int(bottom_slots or 3)),
     }
 
 
@@ -188,10 +190,19 @@ def build_side_panel_placeholders(right_panel_layout, placeholder_image):
 
     bottom_placeholders = []
     rows = right_panel_layout["bottom_rows"]
-    pad_x = max(10.0, (frame_w - cols * ph_w) / (cols + 1))
+    bottom_slots = max(1, int(right_panel_layout.get("bottom_slots", cols) or cols))
     pad_y = max(10.0, (right_panel_layout["bottom_height"] - rows * ph_h) / (rows + 1))
-    for col in range(cols):
-        x = frame_x + pad_x * (col + 1) + ph_w * col
+    if bottom_slots <= cols:
+        pad_x = max(10.0, (frame_w - cols * ph_w) / (cols + 1))
+        x_positions = [frame_x + pad_x * (col + 1) + ph_w * col for col in range(bottom_slots)]
+    else:
+        side_margin = 10.0
+        available_width = max(ph_w, frame_w - side_margin * 2)
+        step = (available_width - ph_w) / max(1, bottom_slots - 1)
+        total_width = ph_w + step * (bottom_slots - 1)
+        start_x = frame_x + (frame_w - total_width) / 2
+        x_positions = [start_x + step * col for col in range(bottom_slots)]
+    for col, x in enumerate(x_positions):
         y = right_panel_layout["bottom_y"] + pad_y
         rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
         bottom_placeholders.append({"slot": col, "rect": rect})

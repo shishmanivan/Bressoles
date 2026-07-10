@@ -12,6 +12,7 @@ from gameplay_card_rendering import (
     draw_preview_card_turns,
 )
 from round_page_assets import load_round_page_static_assets
+from shop_card_stats import record_shop_card_offers
 
 
 SCREEN_WIDTH = 1680
@@ -36,6 +37,9 @@ SPECIAL_ASSETS = {
     "bailout": ("Бейлаут", os.path.join("Shop", "Bailout.png")),
     "long": ("Лонг", os.path.join("Shop", "Long.png")),
     "derivative": ("Дериватив", os.path.join("Shop", "Derivative.png")),
+    "junk_bond": ("Джанк-бонд", os.path.join("Shop", "Junk Bond.png")),
+    "issuer": ("Эмитент", os.path.join("Shop", "Issuer.png")),
+    "bank": ("Банк", os.path.join("Shop", "Bank.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -58,6 +62,9 @@ SPECIAL_DESCRIPTIONS.update(
         "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
         "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
         "derivative": "Увеличивает руку на одну карту до конца забега.",
+        "junk_bond": "Вложите 2 наполеондора. С шансом 40% сразу получите 6 наполеондоров.",
+        "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
+        "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
     }
 )
 
@@ -113,10 +120,11 @@ CARD_NAMES = {
 
 CARD_DESCRIPTIONS.update(
     {
+        404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
         406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
     }
 )
-CARD_NAMES.update({406: "Gambling"})
+CARD_NAMES.update({404: "Flat", 406: "Gambling"})
 
 LICENSE_EFFECT_DESCRIPTIONS = {
     118: "BID 10. Pool chance: 60%.",
@@ -209,6 +217,7 @@ class ShopPage:
         napoleondors=0,
         lang_dict=None,
         discount_percent=0,
+        stats_enabled=False,
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
@@ -221,6 +230,8 @@ class ShopPage:
             level_number=self.level_number,
             discount_percent=self.discount_percent,
         )
+        if stats_enabled:
+            record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
         self.sold_offer_indexes = set()
         self.message = ""
         self.offer_image_cache = {}
@@ -572,6 +583,35 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Long активирован"
+            return
+
+        if special_id == "junk_bond":
+            game_state.spend_napoleondors(cost)
+            is_success = game_state.resolve_junk_bond(self.level_number)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Ваша ставка сыграла" if is_success else "Не повезло"
+            return
+
+        if special_id == "issuer":
+            new_slot_limit = game_state.buy_issuer_slot()
+            if new_slot_limit is None:
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = f"Открыто слотов: {new_slot_limit}"
+            return
+
+        if special_id == "bank":
+            if not game_state.buy_bank_offer():
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Банк открыт"
             return
 
         if special_id == "derivative":
