@@ -55,7 +55,6 @@ bank_interest_base = None
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
-    "investment": 4,
     "trader": 0,
     "profit": 6,
     "underwriter": 4,
@@ -77,6 +76,7 @@ ISSUER_MAX_PURCHASES = 2
 BANK_INTEREST_PERCENT = 25
 BANK_INTEREST_STEP = 0.5
 BANK_MIN_INTEREST_BASE = 2.5
+INVESTMENT_SECTION_COST = 3
 
 SHOP_CARD_COSTS = {
     17: 10,
@@ -84,7 +84,7 @@ SHOP_CARD_COSTS = {
     117: 7,
     401: 15,
     402: 10,
-    403: 15,
+    403: 7,
     404: 5,
     405: 15,
     406: 5,
@@ -710,7 +710,7 @@ def get_starting_napoleondors_for_level(level_number):
     starting_amount = 0
     if level >= 3 and level_2_boss_defeated:
         starting_amount += 2
-    if level >= 5 and level_3_boss_defeated:
+    if level >= 4 and level_3_boss_defeated:
         starting_amount += 3
     return starting_amount
 
@@ -1105,6 +1105,14 @@ def get_current_gain_drop_deck_cards(level_number):
     return result
 
 
+def is_investment_section_available(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        return False
+    return level >= 5 and bool(level_4_boss_defeated)
+
+
 def invest_gain_drop_card(card_id, level_number=None):
     try:
         normalized = int(card_id)
@@ -1488,7 +1496,6 @@ def is_underwriter_offer_available(level_number):
 def build_shop_special_offer_pool(level_number=1):
     rolled = []
     delisting_hit = random.randint(1, 100) <= 80
-    investment_hit = random.randint(1, 100) <= 35
     trader_hit = random.randint(1, 100) <= 80
     underwriter_hit = is_underwriter_offer_available(level_number) and random.randint(1, 100) <= 15
     bailout_hit = (not is_bailout_active()) and random.randint(1, 100) <= 50
@@ -1518,11 +1525,9 @@ def build_shop_special_offer_pool(level_number=1):
         rolled.append("profit")
     if delisting_hit:
         rolled.append("delisting")
-    if investment_hit:
-        rolled.append("investment")
 
     offers = rolled[:2]
-    for offer_id in ("delisting", "investment", "trader", "profit"):
+    for offer_id in ("delisting", "trader", "profit"):
         if len(offers) >= 2:
             break
         if offer_id not in offers:
@@ -1560,7 +1565,10 @@ def generate_shop_offers(level_number=1, card_slots=None, special_slots=2, licen
         {"kind": "license", "card_id": int(card_id), "cost": get_license_cost(card_id)}
         for card_id in license_pool[:license_slots]
     ]
-    offers = card_offers + special_offers + license_offers
+    investment_offers = []
+    if is_investment_section_available(level):
+        investment_offers.append({"kind": "investment", "cost": INVESTMENT_SECTION_COST})
+    offers = card_offers + special_offers + license_offers + investment_offers
     try:
         discount = max(0, min(100, int(discount_percent or 0)))
     except (TypeError, ValueError):

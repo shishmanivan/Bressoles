@@ -101,14 +101,6 @@ def draw_card_turns_on_surface(surface, turns_value, card_id, card_width, card_h
         turns_x = card_center_x + 10 * scale_factor
         turns_y = card_height - offset_from_bottom
 
-        if card_id in (17, 18):
-            base_market_width = 99.0
-            base_market_height = 171.0
-            x_scale = card_width / base_market_width if card_width else 1.0
-            y_scale = card_height / base_market_height if card_height else 1.0
-            turns_x -= 7.0 * x_scale
-            turns_y += 2.0 * y_scale
-
         surface.blit(turns_text, (int(turns_x), int(turns_y)))
     except Exception as e:
         print(f"ERROR drawing CardTurns on reward card: {e}")

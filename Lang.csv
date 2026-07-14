@@ -66,7 +66,7 @@ RewardFinalBoss;Поздравляем! Вы разблокировали сле
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
 RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
-RewardLevel4FinalBoss;Вы завершили четвёртый уровень!;You completed level four!
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции».;You completed level four! The Investments section is now open.
 RewardLevel5FinalBoss;Вы завершили пятый уровень!;You completed level five!
 BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
 LoseWindowText;Вы проиграли!;You lost!

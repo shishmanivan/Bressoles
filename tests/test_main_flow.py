@@ -339,6 +339,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
         saved_state = {"Day": 5, "Money": 42, "hand_cards": [100, 11]}
         profile_manager.save_active_game(1, context, saved_state)
         gameplay_instances = []
+        round_page_instances = []
 
         class FakeGameplayPage:
             def __init__(self, *args, **kwargs):
@@ -348,10 +349,18 @@ class MainFlowIntegrationTests(unittest.TestCase):
             def run(self):
                 return "round_select"
 
-        start_page = self._sequenced_page(["start", "quit"])
+        class FakeRoundPage:
+            def __init__(self, *args, **kwargs):
+                round_page_instances.append(self)
+
+            def run(self):
+                return "quit"
+
+        start_page = self._sequenced_page(["start"])
         with (
             patch.object(Main, "StartPage", start_page),
             patch.object(Main, "GameplayPage", FakeGameplayPage),
+            patch.object(Main, "RoundPage", FakeRoundPage),
         ):
             Main.main()
 
@@ -361,6 +370,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(progress["completed_rounds"], [1])
         self.assertEqual(progress["round_selections"], {1: {"key": "m"}})
         self.assertIsNone(profile_manager.get_active_game(1))
+        self.assertEqual(len(round_page_instances), 1)
 
     def test_resumed_loss_is_reset_once_by_the_main_flow(self):
         level = 2

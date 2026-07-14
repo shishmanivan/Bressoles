@@ -74,7 +74,7 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertEqual(game_state.get_starting_napoleondors_for_level(3), 2)
 
         game_state.level_3_boss_defeated = True
-        self.assertEqual(game_state.get_starting_napoleondors_for_level(4), 2)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(4), 5)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(5), 5)
 
     def test_loss_clears_run_state_but_preserves_profile_inventory(self):
@@ -102,7 +102,7 @@ class RunResetRulesTests(GameStateTestCase):
 
         self.assertEqual(game_state.boss_progress[level]["defeated"], 0)
         self.assertEqual(game_state.global_dobor, 1)
-        self.assertEqual(game_state.napoleondors, 2)
+        self.assertEqual(game_state.napoleondors, 5)
         self.assertEqual(game_state.earned_reward_cards[level], [])
         self.assertNotIn(level, game_state.round_reward_cards)
         self.assertEqual(game_state.shop_deck_cards, [])

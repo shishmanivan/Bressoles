@@ -412,6 +412,7 @@ def main():
                 if active_game:
                     active_context = dict(active_game.get("context") or {})
                     resume_result = run_saved_gameplay(active_game)
+                    continue_resumed_level = False
                     if resume_result == "quit":
                         result = "quit"
                         break
@@ -466,6 +467,7 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                 elif level == 5:
                                     game_state.level_5_boss_defeated = True
+                                save_progress_if_needed()
                             else:
                                 award_napoleondors_and_open_shop(
                                     level,
@@ -477,6 +479,7 @@ def main():
                                     ),
                                     clear_active_game=True,
                                 )
+                                continue_resumed_level = True
                         elif resume_result == "round_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
@@ -487,6 +490,7 @@ def main():
                                 show_shop=should_open_shop_after_regular_round(level),
                                 clear_active_game=True,
                             )
+                            continue_resumed_level = True
                         elif resume_result == "level_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
@@ -503,6 +507,8 @@ def main():
                             mark_level_run_result(bp_state, level, False)
                             reset_level_attempt(level)
                         profile_manager.clear_active_game(selected_slot)
+                        if continue_resumed_level:
+                            pending_level_number = level
                     continue
 
             rounds_config = load_rounds_config()
@@ -880,6 +886,7 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                 elif boss_level == 5:
                                     game_state.level_5_boss_defeated = True
+                                save_progress_if_needed(test_mode)
                                 if selected_slot and not test_mode:
                                     profile_manager.clear_active_game(selected_slot)
                                 break

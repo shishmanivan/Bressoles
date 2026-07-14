@@ -31,7 +31,6 @@ GAMEPLAY_CARD_SIZE = (142, 244)
 
 SPECIAL_ASSETS = {
     "delisting": ("Делистинг", os.path.join("Shop", "Delisting.png")),
-    "investment": ("Инвестиция", os.path.join("Shop", "Investment.png")),
     "trader": ("Трейдер", os.path.join("Shop", "Trader.png")),
     "profit": ("Прибыль", os.path.join("Shop", "Profit.png")),
     "underwriter": ("Андеррайтер", os.path.join("Shop", "Underwriter.png")),
@@ -45,7 +44,6 @@ SPECIAL_ASSETS = {
 
 SPECIAL_DESCRIPTIONS = {
     "delisting": "Удаляет одну выбранную карту из колоды.",
-    "investment": "Навсегда усиливает выбранную карту роста или падения на 1 до конца забега.",
     "trader": "Позволяет продать одну карту из колоды.",
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
@@ -56,6 +54,12 @@ SPECIAL_DESCRIPTIONS = {
     "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
     "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
 }
+
+INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
+INVESTMENT_DESCRIPTION = (
+    "Усиливает одну постоянную карту роста, падения, взлёта или снижения на 1 до конца забега. "
+    "Доступно одно усиление за магазин."
+)
 
 CARD_DESCRIPTIONS = {
     118: "Устанавливает цены всех акций на 10.",
@@ -224,6 +228,7 @@ class ShopPage:
             ("card", [offer for offer in self.offers if offer.get("kind") == "card"]),
             ("special", [offer for offer in self.offers if offer.get("kind") == "special"]),
             ("license", [offer for offer in self.offers if offer.get("kind") == "license"]),
+            ("investment", [offer for offer in self.offers if offer.get("kind") == "investment"]),
         ]
         groups = [(kind, offers) for kind, offers in groups if offers]
         total_width = sum(len(offers) * width + max(0, len(offers) - 1) * slot_gap for _kind, offers in groups)
@@ -247,6 +252,8 @@ class ShopPage:
             if offer.get("kind") == "license":
                 return name
             return name
+        if offer.get("kind") == "investment":
+            return INVESTMENT_ASSET[0]
         return SPECIAL_ASSETS.get(offer.get("special_id"), (str(offer.get("special_id")), None))[0]
 
     def _offer_image(self, offer):
@@ -254,6 +261,8 @@ class ShopPage:
         if offer.get("kind") in ("card", "license"):
             card_id = int(offer.get("card_id", 0) or 0)
             path = os.path.join("Cards", f"Card_{get_card_image_base_id(card_id)}.png")
+        elif offer.get("kind") == "investment":
+            _label, path = INVESTMENT_ASSET
         else:
             _label, path = SPECIAL_ASSETS.get(offer.get("special_id"), ("", None))
             if not path:
@@ -324,6 +333,8 @@ class ShopPage:
         if offer.get("kind") == "card":
             card_id = int(offer.get("card_id", 0) or 0)
             return CARD_DESCRIPTIONS.get(card_id, f"Добавляет карту {card_id} в вашу колоду.")
+        if offer.get("kind") == "investment":
+            return INVESTMENT_DESCRIPTION
         return SPECIAL_DESCRIPTIONS.get(offer.get("special_id"), "")
 
     def _draw_hover_description(self):
@@ -438,6 +449,18 @@ class ShopPage:
             self.message = f"Лицензия куплена: {CARD_NAMES.get(card_id, f'Карта {card_id}')}"
             return
 
+        if offer.get("kind") == "investment":
+            selected_card = InvestmentDeckPage(self.screen, self.font_path, self.level_number).run()
+            if selected_card is None:
+                self.message = ""
+                return
+            if game_state.invest_gain_drop_card(selected_card, self.level_number):
+                game_state.spend_napoleondors(cost)
+                self._sync_balance()
+                self.sold_offer_indexes.add(index)
+                self.message = "Карта усилена"
+            return
+
         special_id = offer.get("special_id")
         if special_id == "delisting":
             selected_card = DelistingDeckPage(self.screen, self.font_path, self.level_number).run()
@@ -449,18 +472,6 @@ class ShopPage:
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
                 self.message = "Карта удалена"
-            return
-
-        if special_id == "investment":
-            selected_card = InvestmentDeckPage(self.screen, self.font_path, self.level_number).run()
-            if selected_card is None:
-                self.message = ""
-                return
-            if game_state.invest_gain_drop_card(selected_card, self.level_number):
-                game_state.spend_napoleondors(cost)
-                self._sync_balance()
-                self.sold_offer_indexes.add(index)
-                self.message = "Карта усилена"
             return
 
         if special_id == "trader":
@@ -583,7 +594,12 @@ class ShopPage:
         self._draw_centered_text("Магазин", self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 145))
         self._draw_coin_amount(self.napoleondors, (self.panel_rect.right - 170, self.panel_rect.y + 150), self.balance_font)
 
-        category_labels = {"card": "Карты", "special": "Предложения", "license": "Лицензии"}
+        category_labels = {
+            "card": "Карты",
+            "special": "Предложения",
+            "license": "Лицензии",
+            "investment": "Инвестиции",
+        }
         for kind, rect in getattr(self, "category_rects", []):
             self._draw_centered_text(category_labels.get(kind, kind.title()), self.small_font, rect.center)
 
@@ -827,9 +843,9 @@ class DelistingDeckPage(DeckCardPage):
 
 
 class InvestmentDeckPage(DeckCardPage):
-    title = "Инвестиция"
-    prompt = "Выберите карту роста или падения для усиления"
-    empty_text = "В колоде нет карт роста или падения"
+    title = "Инвестиции"
+    prompt = "Выберите карту роста, падения, взлёта или снижения"
+    empty_text = "В постоянной колоде нет доступных карт"
     confirm_text = "Усилить"
 
     def __init__(self, screen, font_path, level_number):

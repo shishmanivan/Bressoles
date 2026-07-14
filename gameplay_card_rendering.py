@@ -135,9 +135,6 @@ def draw_preview_card_turns(surface, turns_value, card_id, card_width, card_heig
         card_center_x = card_width / 2
         turns_x = card_center_x + 10 * scale_factor
         turns_y = card_height - offset_from_bottom
-        if card_id in (17, 18):
-            turns_x -= 10 * scale_factor
-            turns_y += 3 * height_scale
 
         surface.blit(turns_text, (int(turns_x), int(turns_y)))
     except Exception as e:
@@ -229,9 +226,6 @@ def draw_card_turns_text(
             height_scale = current_height / base_bottom_height if base_bottom_height > 0 else 1.0
             offset_from_bottom = 75.0 * height_scale
             turns_y = card_y + card_size[1] - offset_from_bottom
-            if card_id in (17, 18):
-                turns_x -= 10 * scale_factor
-                turns_y += 3 * height_scale
 
             screen.blit(turns_text, (turns_x, turns_y))
     except Exception as e:
@@ -302,7 +296,7 @@ def draw_bid_modifier_text(
         font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
         text = font.render(str(amount), True, (18, 18, 18))
         x = card_x + card_size[0] * 0.56
-        y = card_y + card_size[1] * 0.08
+        y = card_y + card_size[1] * 0.055
         screen.blit(text, (int(x), int(y)))
     except Exception as e:
         print(f"ERROR rendering BID modifier text: {e}")

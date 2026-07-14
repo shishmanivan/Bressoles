@@ -14,6 +14,7 @@ SHOP_STATE_FIELDS = (
     "level_1_boss_defeated",
     "level_2_boss_defeated",
     "level_3_boss_defeated",
+    "level_4_boss_defeated",
     "global_hand_bonus",
     "napoleondors",
     "napoleondor_level",
@@ -45,6 +46,7 @@ class ShopEconomyTestCase(unittest.TestCase):
         }
         game_state.napoleondors = 0
         game_state.napoleondor_level = 5
+        game_state.level_4_boss_defeated = False
         game_state.shop_deck_cards = []
         game_state.removed_deck_cards_by_level = {}
         game_state.investment_card_bonuses = {}
@@ -79,6 +81,44 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_investments_are_a_separate_section_unlocked_by_level4_completion(self):
+        game_state.level_4_boss_defeated = False
+        locked_offers = game_state.generate_shop_offers(5, card_slots=0, special_slots=0, license_slots=0)
+        self.assertFalse(any(offer["kind"] == "investment" for offer in locked_offers))
+
+        game_state.level_4_boss_defeated = True
+        level4_offers = game_state.generate_shop_offers(4, card_slots=0, special_slots=0, license_slots=0)
+        level5_offers = game_state.generate_shop_offers(5, card_slots=0, special_slots=0, license_slots=0)
+
+        self.assertFalse(any(offer["kind"] == "investment" for offer in level4_offers))
+        self.assertEqual(level5_offers, [{"kind": "investment", "cost": 3}])
+
+    def test_investor_is_not_a_random_special_offer_anymore(self):
+        with mock.patch.object(game_state.random, "randint", return_value=1):
+            offers = game_state.build_shop_special_offer_pool(5)
+
+        self.assertNotIn("investment", offers)
+
+    def test_investment_section_upgrades_one_card_and_returns_to_shop(self):
+        game_state.napoleondors = 6
+        game_state.shop_deck_cards = [15]
+        page = self._shop({"kind": "investment", "cost": 3})
+        page.screen = object()
+        page.font_path = "font.ttf"
+
+        with mock.patch("shop_page.InvestmentDeckPage") as deck_page:
+            deck_page.return_value.run.return_value = 15
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 3)
+        self.assertEqual(game_state.get_investment_bonus(15), 1)
+        self.assertEqual(page.sold_offer_indexes, {0})
+        self.assertEqual(page.message, "Карта усилена")
+
+        page._buy_offer(0)
+        self.assertEqual(game_state.napoleondors, 3)
+        self.assertEqual(game_state.get_investment_bonus(15), 1)
+
     def test_card_offer_category_is_available_from_level3(self):
         for level in (1, 2):
             with self.subTest(level=level):
