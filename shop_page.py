@@ -4,14 +4,15 @@ import sys
 import pygame
 
 import game_state
+from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_TURNS, get_card_image_base_id
 from gameplay_card_rendering import (
     draw_bear_modifier_text,
     draw_bid_modifier_text,
-    get_bid_card_base_id,
     draw_preview_card_action,
     draw_preview_card_turns,
 )
 from round_page_assets import load_round_page_static_assets
+from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
 
 
@@ -50,37 +51,27 @@ SPECIAL_DESCRIPTIONS = {
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
     "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
+    "derivative": "Увеличивает руку на одну карту до конца забега.",
+    "junk_bond": "Вложите 2 наполеондора. С шансом 40% сразу получите 6 наполеондоров.",
+    "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
+    "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
 }
 
-SPECIAL_DESCRIPTIONS.update(
-    {
-        "delisting": "Удаляет одну выбранную карту из колоды.",
-        "investment": "Навсегда усиливает выбранную карту роста или падения на 1 до конца забега.",
-        "trader": "Позволяет продать одну карту из колоды.",
-        "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
-        "underwriter": "Даёт две разные случайные редкие серебряные карты.",
-        "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
-        "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
-        "derivative": "Увеличивает руку на одну карту до конца забега.",
-        "junk_bond": "Вложите 2 наполеондора. С шансом 40% сразу получите 6 наполеондоров.",
-        "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
-        "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
-    }
-)
-
 CARD_DESCRIPTIONS = {
-    118: "BID 10.",
-    119: "BID 20.",
-    120: "BID 30.",
-    121: "BID 50.",
-    122: "BID 100.",
+    118: "Устанавливает цены всех акций на 10.",
+    119: "Устанавливает цены всех акций на 20.",
+    120: "Устанавливает цены всех акций на 30.",
+    121: "Устанавливает цены всех акций на 50.",
+    122: "Устанавливает цены всех акций на 100.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
-    402: "Форвардная торговля: каждый сыгранный акционер добавляет один ход.",
+    402: "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
     403: "Грант: добавляет 8 к стартовым деньгам.",
+    404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
     405: "Insider: первые два хода акции C гарантированно растут.",
+    406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
 }
 
 CARD_NAMES = {
@@ -115,23 +106,17 @@ CARD_NAMES = {
     401: "Медведь",
     402: "Форвардная торговля",
     403: "Грант",
+    404: "Flat",
     405: "Insider",
+    406: "Gambling",
 }
 
-CARD_DESCRIPTIONS.update(
-    {
-        404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
-        406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
-    }
-)
-CARD_NAMES.update({404: "Flat", 406: "Gambling"})
-
 LICENSE_EFFECT_DESCRIPTIONS = {
-    118: "BID 10. Pool chance: 60%.",
-    119: "BID 20. Pool chance: 40%.",
-    120: "BID 30. Pool chance: 30%.",
-    121: "BID 50. Pool chance: 10%.",
-    122: "BID 100. Pool chance: 2%.",
+    118: "Устанавливает цены всех акций на 10. Шанс попадания в пул: 60%.",
+    119: "Устанавливает цены всех акций на 20. Шанс попадания в пул: 40%.",
+    120: "Устанавливает цены всех акций на 30. Шанс попадания в пул: 30%.",
+    121: "Устанавливает цены всех акций на 50. Шанс попадания в пул: 10%.",
+    122: "Устанавливает цены всех акций на 100. Шанс попадания в пул: 2%.",
     112: "Продлевает действие всех карт роста и падения на 1 ход, включая уже сыгранные.",
     113: "Устанавливает цену акций компании A на 2.",
     114: "Устанавливает цену акций компании B на 2.",
@@ -147,53 +132,11 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     220: "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
 }
 
-SHOP_CARD_ACTIONS = {
-    17: 2,
-    18: 2,
-}
-
-SHOP_CARD_TURNS = {
-    17: 1,
-    18: 2,
-}
-
-DECK_CARD_BASES = {
-    11: 11,
-    12: 11,
-    13: 11,
-    14: 11,
-    15: 15,
-    16: 15,
-    17: 17,
-    18: 17,
-    118: 118,
-    119: 118,
-    120: 118,
-    121: 118,
-    122: 118,
-}
-
-DECK_CARD_ACTIONS = {
-    11: 2,
-    12: 2,
-    13: 4,
-    14: 4,
-    15: -2,
-    16: -2,
-    17: 2,
-    18: 2,
-}
-
-DECK_CARD_TURNS = {
-    11: 1,
-    12: 2,
-    13: 1,
-    14: 2,
-    15: 1,
-    16: 2,
-    17: 1,
-    18: 2,
-}
+SHOP_CARD_ACTIONS = dict(PRICE_CARD_ACTIONS)
+SHOP_CARD_TURNS = dict(PRICE_CARD_TURNS)
+DECK_CARD_BASES = dict(CARD_IMAGE_BASE_IDS)
+DECK_CARD_ACTIONS = dict(PRICE_CARD_ACTIONS)
+DECK_CARD_TURNS = dict(PRICE_CARD_TURNS)
 
 
 def format_napoleondors(value):
@@ -242,6 +185,10 @@ class ShopPage:
         self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
         self.coin_image = self._load_image(os.path.join("Shop", "Napoleondor.png"), (54, 54))
+        self._coin_image_cache = {}
+        if self.coin_image:
+            self._coin_image_cache[self.coin_image.get_size()] = self.coin_image
+        self._coin_text_cache = {}
 
         self.title_font = pygame.font.Font(font_path, 72)
         self.balance_font = pygame.font.Font(font_path, 48)
@@ -306,9 +253,7 @@ class ShopPage:
         card_id = None
         if offer.get("kind") in ("card", "license"):
             card_id = int(offer.get("card_id", 0) or 0)
-            path = os.path.join("Cards", f"Card_{get_bid_card_base_id(card_id)}.png")
-            if not os.path.exists(path) and card_id == 18:
-                path = os.path.join("Cards", "Card_17.png")
+            path = os.path.join("Cards", f"Card_{get_card_image_base_id(card_id)}.png")
         else:
             _label, path = SPECIAL_ASSETS.get(offer.get("special_id"), ("", None))
             if not path:
@@ -381,21 +326,6 @@ class ShopPage:
             return CARD_DESCRIPTIONS.get(card_id, f"Добавляет карту {card_id} в вашу колоду.")
         return SPECIAL_DESCRIPTIONS.get(offer.get("special_id"), "")
 
-    def _wrap_text(self, text, font, max_width):
-        words = str(text).split()
-        lines = []
-        current_line = ""
-        for word in words:
-            candidate = f"{current_line} {word}".strip()
-            if current_line and font.size(candidate)[0] > max_width:
-                lines.append(current_line)
-                current_line = word
-            else:
-                current_line = candidate
-        if current_line:
-            lines.append(current_line)
-        return lines
-
     def _draw_hover_description(self):
         offer_index = self._offer_at(pygame.mouse.get_pos())
         text = ""
@@ -406,7 +336,7 @@ class ShopPage:
         if not text:
             return
 
-        lines = self._wrap_text(text, self.small_font, 1080)
+        lines = wrap_text(text, self.small_font, 1080, color=PAPER_COLOR)
         line_height = self.small_font.get_linesize()
         center_y = self.panel_rect.bottom - 202
         start_y = center_y - ((len(lines) - 1) * line_height) // 2
@@ -418,7 +348,12 @@ class ShopPage:
             )
 
     def _draw_coin_amount(self, amount, center, font):
-        text = font.render(format_napoleondors(amount), True, PAPER_COLOR)
+        amount_text = format_napoleondors(amount)
+        text_key = (id(font), amount_text)
+        text = self._coin_text_cache.get(text_key)
+        if text is None:
+            text = font.render(amount_text, True, PAPER_COLOR)
+            self._coin_text_cache[text_key] = text
         coin_width = 0
         if self.coin_image:
             coin_width = 54 if font is self.balance_font else 30
@@ -426,9 +361,10 @@ class ShopPage:
         start_x = center[0] - total_width // 2
         if self.coin_image:
             coin_size = (coin_width, coin_width)
-            coin = self.coin_image
-            if coin.get_size() != coin_size:
+            coin = self._coin_image_cache.get(coin_size)
+            if coin is None:
                 coin = pygame.transform.smoothscale(self.coin_image, coin_size).convert_alpha()
+                self._coin_image_cache[coin_size] = coin
             coin_rect = coin.get_rect(midleft=(start_x, center[1]))
             self.screen.blit(coin, coin_rect.topleft)
             start_x = coin_rect.right + 12

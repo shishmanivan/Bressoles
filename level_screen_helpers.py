@@ -35,7 +35,7 @@ def compute_picture_position(card_position, card_height, picture):
 
 
 def load_primary_level_assets():
-    """Load the first four level pictures."""
+    """Load the first five level pictures."""
     level1_picture = load_fitted_image(
         [os.path.join("LevelPage", "Level1Picture.png"), os.path.join("LevelPage", "Level1Picture.jpg")],
         warning_message="WARNING: Level1Picture.png and Level1Picture.jpg not found in LevelPage folder",
@@ -50,7 +50,11 @@ def load_primary_level_assets():
     )
     level4_picture = load_fitted_image(
         [os.path.join("LevelPage", "Level4Picture.png"), os.path.join("LevelPage", "Level4Picture.jpg")],
-        warning_message="WARNING: Level4Picture.png and Level4Picture.jpg not found in LevelPage folder",
+        warning_message=None,
+    )
+    level5_picture = load_fitted_image(
+        [os.path.join("LevelPage", "Level5Picture.png"), os.path.join("LevelPage", "Level5Picture.jpg")],
+        warning_message=None,
     )
 
     return {
@@ -58,6 +62,7 @@ def load_primary_level_assets():
         "level2_picture": level2_picture,
         "level3_picture": level3_picture,
         "level4_picture": level4_picture,
+        "level5_picture": level5_picture,
     }
 
 
@@ -140,15 +145,19 @@ def build_normal_mode_layout(levelcard_image, startarrow_image, screen_width, pa
         "card2_position": None,
         "card3_position": None,
         "card4_position": None,
+        "card5_position": None,
         "arrow_position": (0, 0),
         "arrow2_position": (0, 0),
         "arrow3_position": (0, 0),
         "arrow4_position": (0, 0),
+        "arrow5_position": (0, 0),
         "arrow_rect": None,
         "arrow2_rect": None,
         "arrow3_rect": None,
         "arrow4_rect": None,
+        "arrow5_rect": None,
         "card1_rect": None,
+        "max_scroll_y": 0,
     }
     if not levelcard_image:
         return layout
@@ -162,6 +171,7 @@ def build_normal_mode_layout(levelcard_image, startarrow_image, screen_width, pa
     card2_position = (centered_x + card_width + card_spacing, padding_y)
     card3_position = (centered_x, padding_y + card_height + card_spacing)
     card4_position = (centered_x + card_width + card_spacing, padding_y + card_height + card_spacing)
+    card5_position = (centered_x, padding_y + 2 * (card_height + card_spacing))
 
     layout.update(
         {
@@ -169,6 +179,8 @@ def build_normal_mode_layout(levelcard_image, startarrow_image, screen_width, pa
             "card2_position": card2_position,
             "card3_position": card3_position,
             "card4_position": card4_position,
+            "card5_position": card5_position,
+            "max_scroll_y": max(0, card5_position[1] + card_height + padding_y - 1050),
             "card1_rect": pygame.Rect(card_position[0], card_position[1], card_width, card_height),
         }
     )
@@ -179,5 +191,6 @@ def build_normal_mode_layout(levelcard_image, startarrow_image, screen_width, pa
         layout["arrow2_position"], layout["arrow2_rect"] = make_arrow_rect(card2_position, (card_width, card_height), arrow_size)
         layout["arrow3_position"], layout["arrow3_rect"] = make_arrow_rect(card3_position, (card_width, card_height), arrow_size)
         layout["arrow4_position"], layout["arrow4_rect"] = make_arrow_rect(card4_position, (card_width, card_height), arrow_size)
+        layout["arrow5_position"], layout["arrow5_rect"] = make_arrow_rect(card5_position, (card_width, card_height), arrow_size)
 
     return layout

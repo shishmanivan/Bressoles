@@ -5,55 +5,71 @@ MenuOption;Настройки;Options
 MenuTestMode;Тестовый режим;Test Mode
 MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
+PauseTitle;Пауза;Pause
+PauseContinue;Продолжить;Continue
+PauseSaveExit;Сохранить и выйти;Save and exit
+PauseRestartLevel;Начать заново;Start over
+PauseRestartConfirm;Начать уровень заново?;Start this level over?
+PauseRestartWarning;Прогресс текущей попытки будет потерян.;Current run progress will be lost.
+PauseCancel;Отмена;Cancel
+LifecycleSelected;Выбрано;Selected
+LifecycleSilver;Серебряные карты;Silver cards
+LifecycleBlack;Чёрные карты;Black cards
+LifecycleGold;Золотые карты;Gold cards
+LifecycleContinue;Продолжить;Continue
 Level1Year;1815;1815
 Level2Year;1825;1825
 Level3Year;1830;1830
-Level4Year;1845;1845
-Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять как всё работает.;You start the game in 1815. Beat one boss to understand how it all works.
-Level3Cond;В 1830 открывается линии Ливерпуль-Манчестер. Акции начинают покупать обычные люди. Победите трёх боссов.;In 1830, the opening of the Liverpool-Manchester line begins. Stocks begin to be purchased by ordinary people. Beat three bosses.
-Level4Cond;Пик железнодорожной мании. Победите 4-х боссов.;Peak of railway mania. Beat 4 bosses.
-Boss1Text;Джеймс Уатт - самый простой босс. Нет никаких специальных условий - просто победите его.;James Watt is the easiest boss. There are no special conditions - just beat him:
-Boss1Reward;Награда за победу над боссом;Reward for defeating the boss:
-Boss2Text;Адам Смит. В каждом раунде на один ход меньше. ;Adam Smith. One turn less in each round.:
-Boss2Reward;После окончания хода вы тянете две карты и получаете случайную красную карту;After your turn, you draw two cards and gain a random red card:
-Boss3Text;Роберт Фултон. Придётся сыграть на один раунд больше.;Robert Fulton. You'll have to play one more round.:
-Boss3Reward;Вы начинаете раунд с 2$ и получаете случайную Gain/Drop карту;You start the round with 2$ and gain a random Gain/Drop card:
-Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.:
-Boss4Reward;В стартовой руке будут до двух красных карт, если они есть в колоде;Your starting hand contains up to two red cards, if they are in your deck.:
-Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. One card less in your hand.:
-Boss5Reward;Игра длится на два хода дольше, и вы получаете случайную серебряную карту;The game lasts two turns longer, and you gain a random silver card:
-Boss6Text;Ричард Аркрайт. Есть шанс, что на каждом ходу у вас будут воровать акции.;Richard Arkwright. There is a chance that your shares will be stolen each turn.:
-Boss6Reward;Размер руки увеличивается на 1, и вы получаете случайную серебряную карту;Hand size increases by 1, and you gain a random silver card:
+Level4Year;1830;1830
+Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.
+Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.
+Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.
+Level5Cond;Пик железнодорожной мании. Победите четырёх боссов.;The peak of railway mania. Beat four bosses.
+Boss1Text;Джеймс Уатт - самый простой босс. Особых условий нет: просто победите его.;James Watt is the easiest boss. There are no special conditions: just beat him.
+Boss1Reward;Персональной награды нет.;No personal reward.
+Boss2Text;Адам Смит. В каждом раунде на один ход меньше.;Adam Smith. Each round is one turn shorter.
+Boss2Reward;После хода вы добираете две карты. Случайная красная карта добавляется в колоду и раздаётся по общим правилам.;After each turn, you draw two cards. A random red card is added to your deck and dealt normally.
+Boss3Text;Роберт Фултон. Придётся сыграть на один обычный раунд больше.;Robert Fulton. You must play one additional regular round.
+Boss3Reward;Следующие раунды начинаются с 2$. Случайная Gain/Drop-карта добавляется в колоду.;Following rounds start with $2. A random Gain/Drop card is added to your deck.
+Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.
+Boss4Reward;В стартовой руке будут до двух случайно выбранных красных карт, уже находящихся в колоде.;Your starting hand contains up to two randomly selected red cards already present in your deck.
+Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.
+Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;The game lasts two turns longer. A random silver card enters your separate inventory. Playing it is optional.
+Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.
+Boss6Reward;Рука увеличивается на 1. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;Your hand grows by 1. A random silver card enters your separate inventory. Playing it is optional.
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
 Boss7Reward;20 Наполеондоров;20 Napoleondors
 Boss8Text;Фридрих Лист. Босс торгует акциями. На старте у него 10 акций B, а на последнем ходу он продаёт весь портфель.;Friedrich List. The boss trades stocks. He starts with 10 B shares and sells his portfolio on the final turn.
 Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
 Boss9Text;Жак Лаффит. Босс торгует акциями. На старте у него 4 акции A. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. The boss trades stocks. He starts with 4 A shares. Stocks priced at 2 dollars cannot be bought.
 Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
-Boss10Text;Роберт Стефенсон. За ход можно сыграть не более одной красной и не более одной Gain/Drop карты.;Robert Stephenson. You can play no more than one red card and no more than one Gain/Drop card per turn.
+Boss10Text;Роберт Стефенсон. За ход можно сыграть одну карту в поле Рынка (включая Shareholder) и одну Gain/Drop карту.;Robert Stephenson. Per turn, play one card in the Market field (including Shareholder) and one Gain/Drop card.
 Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
-PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop карта и один Shareholder;Random Gain/Drop card and Shareholder
-PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop карта и два Shareholder;Random Gain/Drop card and two Shareholders
+PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop-карта и одна карта Shareholder;Random Gain/Drop card and one Shareholder
+PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop-карта и две карты Shareholder;Random Gain/Drop card and two Shareholders
 PopUpRewardRandomGain+RedCard;Случайная Gain/Drop карта и красная карта;Random Gain/Drop card and red card
-PopUpRedCard+Shareholder;Красная карта и один Shareholder;Red card and Shareholder
-PopUpRedCard+Shareholder+Shareholder;Красная карта и два Shareholder;Red card and two Shareholders
-PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и два Shareholder;Silver card and two Shareholders
-PopUpReward2RandomGain;Две случайные Gain/Drop карты;Two random Gain/Drop cards
-PopUpReward2RandomGain+Shareholder;Две случайные Gain/Drop карты и один Shareholder;Two random Gain/Drop cards and one Shareholder
-PopUpReward2RandomGain+RedCard;Две случайные Gain/Drop карты и красная карта;Two random Gain/Drop cards and red card
-PopUpRedCard+RandomGain+Shareholder;Красная карта, случайная Gain/Drop карта и один Shareholder;Red card, random Gain/Drop card and one Shareholder
-PopUp2RedCards+RandomGain;Две красные карты и случайная Gain/Drop карта;Two red cards and random Gain/Drop card
-PopUpSilverCard+RedCard+Shareholder;Серебряная карта, красная карта и один Shareholder;Silver card, red card and one Shareholder
+PopUpRedCard+Shareholder;Красная карта и одна карта Shareholder;Red card and one Shareholder
+PopUpRedCard+Shareholder+Shareholder;Красная карта и две карты Shareholder;Red card and two Shareholders
+PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и две карты Shareholder;Silver card and two Shareholders
+PopUpReward2RandomGain;Две случайные Gain/Drop-карты;Two random Gain/Drop cards
+PopUpReward2RandomGain+Shareholder;Две случайные Gain/Drop-карты и одна карта Shareholder;Two random Gain/Drop cards and one Shareholder
+PopUpReward2RandomGain+RedCard;Две случайные Gain/Drop-карты и красная карта;Two random Gain/Drop cards and one red card
+PopUpRedCard+RandomGain+Shareholder;Красная карта, случайная Gain/Drop-карта и одна карта Shareholder;Red card, one random Gain/Drop card and one Shareholder
+PopUp2RedCards+RandomGain;Две красные карты и случайная Gain/Drop-карта;Two red cards and one random Gain/Drop card
+PopUpSilverCard+RedCard+Shareholder;Серебряная карта, красная карта и одна карта Shareholder;Silver card, one red card and one Shareholder
 PopUp2RedCards+SilverCard;Две красные карты и серебряная карта;Two red cards and silver card
 PopUp2RedCards;Две красные карты;Two red cards
-RewardWindowText;Поздравляем! Теперь ваша колода стала больше!;Congratulations! Your deck is now bigger!
+RewardWindowText;Вы получили награду за победу!;You received a victory reward!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
-RewardLevel3FinalBoss;Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.;You unlocked the fourth level. You received your first black card.
-BossVictoryDeckReset;Колода сброшена до базовой.;Deck reset to the base deck.
+RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень!;You completed level four!
+RewardLevel5FinalBoss;Вы завершили пятый уровень!;You completed level five!
+BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
 LoseWindowText;Вы проиграли!;You lost!
-Level2Cond;В 1825-ом году произошёл первый биржевой кризис. Победите двух боссов; In 1825, the first stock market crash occurred. Beat two bosses.
+Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.
 LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.
+LastBossRewardLevel5;Завершает забег пятого уровня.;Completes the level five run.

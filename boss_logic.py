@@ -2,6 +2,7 @@ import math
 import random
 
 import game_state
+from boss_effects import parse_boss_functionality_spec, parse_boss_reward_spec
 from game_data import (
     get_level_rounds_required,
     load_levels_config,
@@ -10,7 +11,7 @@ from game_data import (
 
 
 # Boss difficulty tiers. Watt is the test/easy boss; tier 2 bosses appear on
-# Level 4's second boss step.
+# Level 5's second boss step.
 BOSS_LEVELS = {
     "1_Watt.png": 0,
     "2_AdamSmith.png": 1,
@@ -24,12 +25,6 @@ BOSS_LEVELS = {
     "9_Laffitte.png": 2,
 }
 
-BOSS_NUMBERS = {
-    "9_Laffitte.png": 9,
-    "10_Stephenson.png": 10,
-}
-
-
 def get_bosses_for_boss_level(boss_level: int):
     """Return all boss filenames assigned to a boss difficulty tier."""
     try:
@@ -40,7 +35,7 @@ def get_bosses_for_boss_level(boss_level: int):
 
 
 def _build_level4_default_roster():
-    """Fallback Level 4 roster: first step uses level-1 bosses, second uses level-2 bosses."""
+    """Fallback for the former level-4 route, now used by level 5."""
     level_one_bosses = get_bosses_for_boss_level(1)
     level_two_bosses = get_bosses_for_boss_level(2)
     if not level_one_bosses and not level_two_bosses:
@@ -62,7 +57,7 @@ LEVEL_BOSS_ROUNDS = {
     1: [["1_Watt.png"]],
     2: [["2_AdamSmith.png", "3_RobertFulton.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
-    4: _build_level4_default_roster(),
+    5: _build_level4_default_roster(),
 }
 
 # -------------------------------
@@ -90,20 +85,21 @@ def _generate_level3_boss_roster(bosses_required: int):
 def _ensure_level3_roster(bp_state: dict, bosses_required: int):
     """Ensure bp_state has a stable roster for the current Level 3 run (and matches bosses_required)."""
     roster = bp_state.get("roster")
-    if isinstance(roster, list) and roster and len(roster) == max(1, int(bosses_required or 1)):
-        level3_pool = {
-            "2_AdamSmith.png",
-            "3_RobertFulton.png",
-            "4_NicolasApper.png",
-            "5_SamuelSlater.png",
-            "6_Arkwright.png",
-        }
-        roster_bosses = {
-            boss_filename
-            for step in roster
-            for boss_filename in (step or [])
-        }
-        if roster_bosses and roster_bosses.issubset(level3_pool):
+    expected_len = max(1, int(bosses_required or 1))
+    level3_pool = {
+        "2_AdamSmith.png",
+        "3_RobertFulton.png",
+        "4_NicolasApper.png",
+        "5_SamuelSlater.png",
+        "6_Arkwright.png",
+    }
+    if isinstance(roster, list) and len(roster) == expected_len:
+        roster_bosses = [step[0] for step in roster if isinstance(step, list) and len(step) == 1]
+        if (
+            len(roster_bosses) == expected_len
+            and len(set(roster_bosses)) == expected_len
+            and set(roster_bosses).issubset(level3_pool)
+        ):
             return roster
     roster = _generate_level3_boss_roster(bosses_required)
     bp_state["roster"] = roster
@@ -111,10 +107,10 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
 
 
 # -------------------------------
-# Level 4 dynamic boss roster
+# Former level-4 dynamic boss roster, now used by level 5
 # -------------------------------
 def _generate_level4_boss_roster(bosses_required: int):
-    """Level 4: first step offers level-1 bosses, second step offers level-2 bosses."""
+    """Level 5: first step offers level-1 bosses, second step offers level-2 bosses."""
     level_one_bosses = get_bosses_for_boss_level(1)
     level_two_bosses = get_bosses_for_boss_level(2)
     random.shuffle(level_one_bosses)
@@ -146,19 +142,34 @@ def _generate_level4_boss_roster(bosses_required: int):
 
 
 def _ensure_level4_roster(bp_state: dict, bosses_required: int):
-    """Ensure bp_state has a stable roster for the current Level 4 run."""
+    """Ensure bp_state has a stable roster for the current level-5 run."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
+    level_one_bosses = set(get_bosses_for_boss_level(1))
     level_two_bosses = set(get_bosses_for_boss_level(2))
-    current_second_step = set(roster[1] or []) if isinstance(roster, list) and len(roster) > 1 else set()
-    has_level_two_step = (
-        isinstance(roster, list)
-        and len(roster) > 1
-        and bool(level_two_bosses)
-        and level_two_bosses.issubset(current_second_step)
-    )
-    if isinstance(roster, list) and roster and len(roster) == expected_len and has_level_two_step:
-        return roster
+    if isinstance(roster, list) and len(roster) == expected_len:
+        first_step = roster[0] if roster and isinstance(roster[0], list) else []
+        expected_first_size = min(2, len(level_one_bosses))
+        first_step_valid = (
+            len(first_step) == expected_first_size
+            and len(set(first_step)) == len(first_step)
+            and set(first_step).issubset(level_one_bosses)
+        )
+        second_step_valid = True
+        later_steps = roster[1:]
+        if expected_len > 1 and level_two_bosses:
+            second_step = roster[1] if isinstance(roster[1], list) else []
+            second_step_valid = set(second_step) == level_two_bosses and len(second_step) == len(level_two_bosses)
+            later_steps = roster[2:]
+        later_bosses = [step[0] for step in later_steps if isinstance(step, list) and len(step) == 1]
+        tier_one_route = list(first_step) + later_bosses
+        later_steps_valid = (
+            len(later_bosses) == len(later_steps)
+            and set(later_bosses).issubset(level_one_bosses)
+            and len(set(tier_one_route)) == len(tier_one_route)
+        )
+        if first_step_valid and second_step_valid and later_steps_valid:
+            return roster
     roster = _generate_level4_boss_roster(bosses_required)
     bp_state["roster"] = roster
     return roster
@@ -176,38 +187,6 @@ def apper_goal_boost(goal_value, multiplier=1.3):
         return goal_value
     boosted = g * float(multiplier)
     return int(math.ceil(boosted / 10.0) * 10)
-
-
-def get_boss_selection_from_filename(level_number, boss_filename):
-    """
-    Determine boss choice index (0/1/...) within the current boss list from boss filename.
-    
-    Note: `LEVEL_BOSS_ROUNDS[level]` is a list of boss-lists (one list per boss "step"/round index),
-    and each boss-list can contain multiple bosses to choose from. This function returns the index
-    INSIDE that boss-list (e.g. Adam=0, Fulton=1), not the outer round index.
-    
-    IMPORTANT (Level 2 goals): GoalsLevel2.csv uses (0/1) to select the STAGE of the level
-    (before first boss vs before second boss), NOT which boss was chosen. Do not use this value
-    to select GoalsLevel2.csv columns.
-    
-    Args:
-        level_number: Level number
-        boss_filename: Boss filename (e.g., "2_AdamSmith.png")
-    
-    Returns:
-        Boss selection index (0..n-1) or 0 if not found
-    """
-    if level_number != 2 or not boss_filename:
-        return 0
-    
-    bosses_for_level = LEVEL_BOSS_ROUNDS.get(level_number, [])
-    for round_index, boss_list in enumerate(bosses_for_level):
-        if boss_filename in boss_list:
-            try:
-                return boss_list.index(boss_filename)
-            except ValueError:
-                return 0
-    return 0
 
 
 def get_bosses_required(level_num, rounds_config):
@@ -245,10 +224,17 @@ def get_configured_levels(rounds_config, levels_config=None):
 
     out = []
     for level in candidates:
-        r = get_level_rounds_required(level, rounds_config=rounds_config, levels_config=levels_config)
-        if r is not None and r > 0:
+        primary_rounds = (levels_config.get(level, {}) or {}).get("Rounds")
+        legacy_rounds = (rounds_config.get(level, {}) or {}).get("Rounds")
+        if (primary_rounds and primary_rounds > 0) or (legacy_rounds and legacy_rounds > 0):
             out.append(level)
     return sorted(out)
+
+
+def _append_last_earned_card(gameplay_instance, card_id):
+    earned_cards = getattr(gameplay_instance, "last_earned_cards", None)
+    if isinstance(earned_cards, list):
+        earned_cards.append(card_id)
 
 
 def validate_levels_and_rounds_config():
@@ -297,32 +283,30 @@ def apply_boss_reward(reward_string, gameplay_instance):
         return
     
     try:
-        reward_parts = [part.strip() for part in str(reward_string).split(",") if part.strip()]
-        if len(reward_parts) > 1:
-            for reward_part in reward_parts:
-                apply_boss_reward(reward_part, gameplay_instance)
+        parsed_effects = parse_boss_reward_spec(reward_string)
+        if len(parsed_effects) > 1:
+            for effect in parsed_effects:
+                apply_boss_reward(effect.raw, gameplay_instance)
+            return
+        if not parsed_effects:
             return
 
-        # Special reward: RedCard (pick a random available red card and force it into starting hand)
+        # Special reward: RedCard (pick a random available red card for the level deck)
         if str(reward_string).strip().lower() == "redcard":
             level_num = getattr(gameplay_instance, "level_number", None)
-            red_card = game_state.draw_red_card_for_level(int(level_num or 0))
+            level = int(level_num or 0)
+            red_card = game_state.draw_red_card_for_level(level)
             if red_card is None:
                 print(f"WARNING: RedCard reward requested but no available red cards pool for level {level_num}.")
                 return
 
-            forced = game_state.forced_start_hand_cards_by_level.setdefault(int(level_num or 0), [])
-            if red_card not in forced:
-                forced.append(red_card)
+            earned = game_state.earned_reward_cards.setdefault(level, [])
+            if red_card not in earned:
+                earned.append(red_card)
 
-            # Also show it in reward UI if applicable
-            try:
-                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
-                    gameplay_instance.last_earned_cards.append(red_card)
-            except Exception:
-                pass
+            _append_last_earned_card(gameplay_instance, red_card)
 
-            print(f"Applied boss reward RedCard: forced starting-hand card for level {level_num}: {red_card}")
+            print(f"Applied boss reward RedCard: added card to level {level_num} deck: {red_card}")
             return
 
         normalized_reward = str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
@@ -350,7 +334,7 @@ def apply_boss_reward(reward_string, gameplay_instance):
             "updownplus4",
             "updownsideplus4",
             "upsideanddownsideplus4",
-            "upside_downside_plus4",
+            "upsidedownsideplus4",
             "upside/downside+4",
             "probabilitycardsplus4",
         ):
@@ -383,11 +367,7 @@ def apply_boss_reward(reward_string, gameplay_instance):
 
             game_state.earned_reward_cards.setdefault(level_num, []).append(gain_drop_card)
 
-            try:
-                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
-                    gameplay_instance.last_earned_cards.append(gain_drop_card)
-            except Exception:
-                pass
+            _append_last_earned_card(gameplay_instance, gain_drop_card)
 
             print(f"Applied boss reward GainDropCard: card for level {level_num}: {gain_drop_card}")
             return
@@ -405,11 +385,7 @@ def apply_boss_reward(reward_string, gameplay_instance):
                 print("WARNING: SilverCard reward requested but no available silver cards pool.")
                 return
 
-            try:
-                if hasattr(gameplay_instance, "last_earned_cards") and isinstance(gameplay_instance.last_earned_cards, list):
-                    gameplay_instance.last_earned_cards.append(silver_card)
-            except Exception:
-                pass
+            _append_last_earned_card(gameplay_instance, silver_card)
 
             print(f"Applied boss reward SilverCard: card {silver_card}")
             return
@@ -510,10 +486,17 @@ def apply_boss_functionality(func_string, gameplay_instance):
         return
     
     try:
-        func_parts = [part.strip() for part in str(func_string).split(",") if part.strip()]
-        if len(func_parts) > 1:
-            for func_part in func_parts:
-                apply_boss_functionality(func_part, gameplay_instance)
+        parsed_effects = parse_boss_functionality_spec(func_string)
+        if len(parsed_effects) > 1:
+            for effect in parsed_effects:
+                apply_boss_functionality(effect.raw, gameplay_instance)
+            return
+        if not parsed_effects:
+            return
+
+        parsed_effect = parsed_effects[0]
+        if parsed_effect.kind == "assignment" and parsed_effect.target == "LevelRounds":
+            print("Applied boss functionality: LevelRounds modifier is handled by RoundPage")
             return
 
         normalized_func = str(func_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
@@ -545,7 +528,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
             "stephensoncardlimit",
         ):
             setattr(gameplay_instance, "boss_limit_red_gain_drop_per_turn", True)
-            print("Applied boss functionality: one red and one Gain/Drop card per turn")
+            print("Applied boss functionality: one side-field and one Gain/Drop card per turn")
             return
 
         if normalized_func in ("simplestockbot", "stockbot", "bot"):
@@ -561,7 +544,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                     boss_number = gameplay_instance._get_active_boss_number()
             except Exception:
                 boss_number = None
-            if level_num == 4 and boss_number == 8:
+            if level_num == 5 and boss_number == 8:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "simple")
                 setattr(
@@ -599,7 +582,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                     boss_number = gameplay_instance._get_active_boss_number()
             except Exception:
                 boss_number = None
-            if level_num == 4:
+            if level_num == 5:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "advanced")
                 start_quantities = {"Aquantity": 0, "Bquantity": 10, "Cquantity": 0}
@@ -694,14 +677,12 @@ def get_boss_number_from_filename(boss_filename):
     """
     if not boss_filename:
         return None
-    if boss_filename in BOSS_NUMBERS:
-        return BOSS_NUMBERS[boss_filename]
     try:
         # Extract number from filename (format: "X_Name.png")
         parts = boss_filename.split("_")
         if parts and parts[0].isdigit():
             return int(parts[0])
-    except (ValueError, AttributeError):
+    except (TypeError, ValueError, AttributeError):
         pass
     return None
 
@@ -731,3 +712,13 @@ def get_boss_number_from_index(level_number, boss_index, defeated_count=0):
             boss_filename = boss_list[boss_index]
             return get_boss_number_from_filename(boss_filename)
     return None
+
+
+def resolve_boss_number(level_number, boss_index=None, defeated_count=0, boss_filename=None):
+    """Resolve a boss by saved filename first, then by the static roster position."""
+    boss_number = get_boss_number_from_filename(boss_filename)
+    if boss_number:
+        return boss_number
+    if boss_index is None:
+        return None
+    return get_boss_number_from_index(level_number, boss_index, defeated_count)

@@ -3,12 +3,15 @@ import sys
 import pygame
 
 import game_state
+from boss_effects import parse_boss_functionality_spec
+from boss_logic import resolve_boss_number
 from round_page_assets import (
     build_round_button_base_rects,
     load_boss_icon_assets,
     load_round_page_static_assets,
 )
 from round_page_helpers import (
+    build_completed_round_lines,
     refresh_button_goals_for_round,
     resolve_boss_goal,
     resolve_boss_reward_text,
@@ -16,8 +19,6 @@ from round_page_helpers import (
     resolve_initial_button_goals,
 )
 from round_reward_preview import (
-    draw_card_action_on_surface as draw_round_reward_action_on_surface,
-    draw_card_turns_on_surface as draw_round_reward_turns_on_surface,
     load_reward_card_preview,
     load_round_reward_assets,
 )
@@ -78,10 +79,11 @@ class RoundPage:
         self._apper_goal_boost = apper_goal_boost
         self.reward_token_random_red = reward_token_random_red
 
-        self.boss_number = (
-            self._get_boss_number_from_index(self.level_number, self.boss_index, self.defeated_count)
-            if self.boss_index is not None
-            else None
+        self.boss_number = resolve_boss_number(
+            self.level_number,
+            self.boss_index,
+            self.defeated_count,
+            self.boss_filename,
         )
         self.is_apper_boss = self.boss_number == 4
 
@@ -103,29 +105,13 @@ class RoundPage:
             rounds_cfg_value = level_cfg.get("Rounds")
         self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
 
-        boss_number = self.boss_number
-        print(
-            f"DEBUG RoundPage.__init__: level_number={self.level_number}, "
-            f"boss_index={self.boss_index}, defeated_count={self.defeated_count}, "
-            f"boss_number={boss_number}, rounds_required before={self.rounds_required}"
-        )
-        if boss_number:
+        if self.boss_number:
             boss_rewards = self._load_boss_rewards()
-            boss_entry = boss_rewards.get(boss_number)
-            print(f"DEBUG: boss_entry={boss_entry}, type={type(boss_entry)}")
+            boss_entry = boss_rewards.get(self.boss_number)
             if boss_entry and isinstance(boss_entry, dict):
                 func_string = boss_entry.get("Functionalities", "").strip()
-                print(f"DEBUG: func_string='{func_string}'")
                 if func_string:
-                    old_rounds = self.rounds_required
                     self._apply_level_rounds_functionality(func_string)
-                    print(f"DEBUG: Applied functionality. rounds_required: {old_rounds} -> {self.rounds_required}")
-                else:
-                    print("DEBUG: func_string is empty or None")
-            else:
-                print("DEBUG: boss_entry is None or not a dict")
-        else:
-            print("DEBUG: boss_number is None or falsy")
 
         round_progress = round_progress or {}
         self.completed_rounds = {
@@ -231,6 +217,15 @@ class RoundPage:
             for line in (round_progress.get("saved_lines") or [])
             if isinstance(line, (list, tuple)) and len(line) == 4
         ]
+        rebuilt_lines = build_completed_round_lines(
+            self.completed_rounds,
+            self.round_selections,
+            self.button_base_rects,
+            self._get_round_offset,
+            origin=(235, SCREEN_HEIGHT - 218),
+        )
+        if len(self.saved_lines) < len(rebuilt_lines):
+            self.saved_lines = rebuilt_lines
         self.last_hovered_button = None
         self.round_button_hover_scale = 0.96
         self._round_button_hover_images = {}
@@ -318,7 +313,7 @@ class RoundPage:
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3, 4):
+        if self.level_number in (2, 3, 4, 5):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(
@@ -435,28 +430,6 @@ class RoundPage:
             self.screen.blit(surface, (card_x, card_y))
             card_x += width + spacing
 
-    def _draw_card_action_on_surface(self, surface, action_value, card_id, card_width, card_height):
-        draw_round_reward_action_on_surface(
-            surface,
-            action_value,
-            card_id,
-            card_width,
-            card_height,
-            self.font_path,
-            paper_color=PAPER_COLOR,
-        )
-
-    def _draw_card_turns_on_surface(self, surface, turns_value, card_id, card_width, card_height):
-        draw_round_reward_turns_on_surface(
-            surface,
-            turns_value,
-            card_id,
-            card_width,
-            card_height,
-            self.font_path,
-            paper_color=PAPER_COLOR,
-        )
-
     def _load_boss_icon_if_needed(self):
         self._refresh_button_rects()
         level_rounds = self.rounds_required
@@ -475,41 +448,17 @@ class RoundPage:
         )
 
     def _apply_level_rounds_functionality(self, func_string: str):
-        if not func_string or "=" not in func_string:
-            return
-        try:
-            left, right = func_string.split("=", 1)
-            var_name = left.strip()
-            if var_name != "LevelRounds":
-                return
-            right = right.strip()
-            if right.startswith("LevelRounds"):
-                operation = right[len("LevelRounds"):]
-                if not operation:
-                    return
-                sign = operation[0]
-                try:
-                    amount = int(operation[1:].strip())
-                except (TypeError, ValueError):
-                    return
-                if sign == "+":
-                    self.rounds_required += amount
-                elif sign == "-":
-                    self.rounds_required -= amount
-                if self.level_number == 2:
-                    if self.rounds_required < 1:
-                        self.rounds_required = 1
-                    if self.rounds_required > 4:
-                        self.rounds_required = 4
-            else:
-                try:
-                    value = int(right)
-                    if value > 0:
-                        self.rounds_required = value
-                except (TypeError, ValueError):
-                    return
-        except Exception as e:
-            print(f"ERROR applying LevelRounds functionality '{func_string}': {e}")
+        for effect in parse_boss_functionality_spec(func_string):
+            if effect.kind != "assignment" or effect.target != "LevelRounds":
+                continue
+            if effect.operator == "+":
+                self.rounds_required += effect.value
+            elif effect.operator == "-":
+                self.rounds_required -= effect.value
+            elif effect.value > 0:
+                self.rounds_required = effect.value
+            if self.level_number == 2:
+                self.rounds_required = max(1, min(self.rounds_required, 4))
 
     def mark_round_completed(self, round_num):
         if round_num is None:
@@ -621,7 +570,6 @@ class RoundPage:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     if can_play_round and self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos) and self.button_goals.get("e") is not None:
-                        print("LevelButtonE (bottom) clicked")
                         if self.current_line:
                             self.saved_lines.append(self.current_line)
                         if self.test_mode:
@@ -634,7 +582,6 @@ class RoundPage:
                         self.round_selections[current_active_round] = {"key": "e"}
                         return "button_e"
                     if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
-                        print("LevelButtonM (middle) clicked")
                         if self.current_line:
                             self.saved_lines.append(self.current_line)
                         if self.test_mode:
@@ -647,7 +594,6 @@ class RoundPage:
                         self.round_selections[current_active_round] = {"key": "m"}
                         return "button_m"
                     if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
-                        print("LevelButtonH (upper) clicked")
                         if self.current_line:
                             self.saved_lines.append(self.current_line)
                         if self.test_mode:
@@ -662,7 +608,6 @@ class RoundPage:
                     current_active_round = self.get_current_active_round()
                     all_rounds_completed = current_active_round is None
                     if self.boss_icon_rect and self.boss_icon_rect.collidepoint(mouse_pos) and all_rounds_completed:
-                        print("Boss clicked")
                         if self.test_mode:
                             self.Goal = 2
                         else:
@@ -766,28 +711,18 @@ class RoundPage:
 
             if self.popup_button is not None:
                 if self.popup_button == "boss":
-                    if self.level_number == 2:
-                        e_boss_goal = self._get_level2_goal(None, "e", self.boss_selection, True)
-                        m_boss_goal = self._get_level2_goal(None, "m", self.boss_selection, True)
-                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
-                    elif self.level_number == 3:
-                        e_boss_goal = self._get_level3_goal(None, "e", self.defeated_count, True)
-                        m_boss_goal = self._get_level3_goal(None, "m", self.defeated_count, True)
-                        goal_value = e_boss_goal if e_boss_goal is not None else (m_boss_goal if m_boss_goal is not None else 0)
-                    elif self.level_number == 4:
-                        e_boss_goal = self._get_level4_goal(None, "e", self.defeated_count, True)
-                        m_boss_goal = self._get_level4_goal(None, "m", self.defeated_count, True)
-                        h_boss_goal = self._get_level4_goal(None, "h", self.defeated_count, True)
-                        goal_value = (
-                            e_boss_goal
-                            if e_boss_goal is not None
-                            else (m_boss_goal if m_boss_goal is not None else (h_boss_goal if h_boss_goal is not None else 70))
-                        )
-                    else:
-                        boss_key = (self.level_number, self.boss_index)
-                        goal_value = self.boss_goals.get(boss_key, 0)
-                    if self.is_apper_boss:
-                        goal_value = self._apper_goal_boost(goal_value) or 0
+                    goal_value = resolve_boss_goal(
+                        self.level_number,
+                        self.boss_index,
+                        self.boss_selection,
+                        self.defeated_count,
+                        self.is_apper_boss,
+                        self.boss_goals,
+                        self._get_level2_goal,
+                        self._get_level3_goal,
+                        self._get_level4_goal,
+                        self._apper_goal_boost,
+                    )
                     goal_value = game_state.apply_bailout_goal_modifier(goal_value)
                     full_text = f"{self.popup_round_text} {goal_value}$"
                 else:

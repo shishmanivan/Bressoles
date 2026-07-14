@@ -2,17 +2,8 @@ import os
 
 import pygame
 
+from card_catalog import BID_CARD_VALUES, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
-
-
-BID_CARD_VALUES = {
-    118: 10,
-    119: 20,
-    120: 30,
-    121: 50,
-    122: 100,
-}
-BID_CARD_BASE_ID = 118
 
 
 def is_bid_card(card_id):
@@ -20,12 +11,6 @@ def is_bid_card(card_id):
         return int(card_id) in BID_CARD_VALUES
     except (TypeError, ValueError):
         return False
-
-
-def get_bid_card_base_id(card_id):
-    return BID_CARD_BASE_ID if is_bid_card(card_id) else card_id
-
-
 def load_winlose_card_preview(
     card_number,
     winlose_card_images,
@@ -59,18 +44,7 @@ def load_winlose_card_preview(
         winlose_card_images[card_number] = card_surface
         return card_surface
 
-    if card_number in (1, 2, 3, 4, 100):
-        base_card_id = card_number
-    elif card_number in [11, 12, 13, 14]:
-        base_card_id = 11
-    elif card_number in [15, 16]:
-        base_card_id = 15
-    elif card_number in [17, 18]:
-        base_card_id = 17
-    elif is_bid_card(card_number):
-        base_card_id = BID_CARD_BASE_ID
-    else:
-        base_card_id = card_number
+    base_card_id = get_card_image_base_id(card_number)
 
     card_path = os.path.join("Cards", f"Card_{base_card_id}.png")
     if not os.path.exists(card_path):

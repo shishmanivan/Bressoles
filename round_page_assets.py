@@ -10,6 +10,7 @@ SCREEN_HEIGHT = 1050
 
 
 _round_page_static_assets_cache = None
+_boss_visual_assets_cache = {}
 
 
 def load_round_page_static_assets():
@@ -118,12 +119,9 @@ def load_boss_icon_assets(level_number, boss_index, boss_filename, completed_cou
     if not resolved_boss_filename:
         return None, None, []
 
-    boss_path = os.path.join("Bosses", resolved_boss_filename)
-    if not os.path.exists(boss_path):
+    boss_icon, animation_frames = _load_boss_visual_assets(resolved_boss_filename)
+    if boss_icon is None:
         return None, None, []
-
-    boss_image = pygame.image.load(boss_path).convert_alpha()
-    boss_icon = pygame.transform.smoothscale(boss_image, (100, 100)).convert_alpha()
 
     boss_icon_rect = None
     anchor_rect = prev_selection_rect or fallback_anchor_rect
@@ -134,6 +132,19 @@ def load_boss_icon_assets(level_number, boss_index, boss_filename, completed_cou
         if boss_icon_rect.top < 0:
             boss_icon_rect.top = 0
 
+    return boss_icon, boss_icon_rect, list(animation_frames)
+
+
+def _load_boss_visual_assets(resolved_boss_filename):
+    cached = _boss_visual_assets_cache.get(resolved_boss_filename)
+    if cached is not None:
+        return cached
+
+    boss_path = os.path.join("Bosses", resolved_boss_filename)
+    if not os.path.exists(boss_path):
+        return None, ()
+
+    boss_icon = load_scaled_image(boss_path, target_size=(100, 100))
     base_name = os.path.splitext(resolved_boss_filename)[0]
     boss_folder = os.path.join("Bosses", base_name)
     if not os.path.isdir(boss_folder):
@@ -167,7 +178,9 @@ def load_boss_icon_assets(level_number, boss_index, boss_filename, completed_cou
     else:
         print(f"WARNING: Boss animation folder not found: {boss_folder}")
 
-    return boss_icon, boss_icon_rect, animation_frames
+    assets = (boss_icon, tuple(animation_frames))
+    _boss_visual_assets_cache[resolved_boss_filename] = assets
+    return assets
 
 
 def _load_scaled_button(button_path, warning_message):

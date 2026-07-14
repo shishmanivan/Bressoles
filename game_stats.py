@@ -1,6 +1,8 @@
 import csv
 import os
 
+from csv_storage import write_semicolon_csv_atomically
+
 
 STATS_FILE = "GameStats.csv"
 ARKWRIGHT_STAT_FIELDS = {
@@ -38,6 +40,10 @@ BOSS_NAMES = {
     4: "Николя Аппер",
     5: "Сэмюэль Слейтер",
     6: "Ричард Аркрайт",
+    7: "Адольф Кольбе",
+    8: "Фридрих Лист",
+    9: "Жак Лаффит",
+    10: "Роберт Стефенсон",
 }
 
 
@@ -272,10 +278,20 @@ def _read_rows():
             if not row:
                 continue
             normalized = {field: row.get(field, "") for field in FIELDNAMES}
+            if _is_encounter_stats_row(normalized):
+                normalized["Босс"] = get_boss_name(normalized.get("БоссНомер"))
             for field in ARKWRIGHT_STAT_FIELDS.values():
                 normalized[field] = normalized.get(field) or "0"
             rows.append(normalized)
         return rows
+
+
+def _is_encounter_stats_row(row):
+    round_label = str(row.get("Раунд") or "")
+    difficulty = _normalize_difficulty_label(row.get("Сложность"))
+    return (
+        round_label == "Босс" or round_label.startswith("Раунд")
+    ) and difficulty in ("", "E", "M", "H", "Boss")
 
 
 def _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficulty_label):
@@ -318,10 +334,7 @@ def _normalize_difficulty_label(difficulty_label):
 
 def _write_rows(rows):
     rows = sorted(rows, key=_sort_key)
-    with open(STATS_FILE, "w", encoding="utf-8-sig", newline="") as stats_file:
-        writer = csv.DictWriter(stats_file, fieldnames=FIELDNAMES, delimiter=";")
-        writer.writeheader()
-        writer.writerows(rows)
+    write_semicolon_csv_atomically(STATS_FILE, FIELDNAMES, rows)
 
 
 def _sort_key(row):

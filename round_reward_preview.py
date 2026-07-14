@@ -2,6 +2,7 @@ import os
 
 import pygame
 
+from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_TURNS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text
 
@@ -41,36 +42,13 @@ def load_round_reward_assets():
     else:
         print(f"WARNING: Silver reward image not found: {random_silver_path}")
 
-    card_base_mapping = {}
-    for card_id in (1, 2, 3, 4, 100):
-        card_base_mapping[card_id] = card_id
-    card_base_mapping[11] = 11
-    card_base_mapping[12] = 11
-    card_base_mapping[13] = 11
-    card_base_mapping[14] = 11
-    card_base_mapping[15] = 15
-    card_base_mapping[16] = 15
-    card_base_mapping[17] = 17
-    card_base_mapping[18] = 17
-    for card_id in (118, 119, 120, 121, 122):
-        card_base_mapping[card_id] = 118
-
-    card_actions = {
-        11: 2, 12: 2, 13: 4, 14: 4,
-        15: -2, 16: -2, 17: 2, 18: 2,
-    }
-    card_turns = {
-        11: 1, 13: 1, 12: 2, 14: 2,
-        15: 1, 16: 2, 17: 1, 18: 2,
-    }
-
     return {
         "random_drop_image": random_drop_image,
         "random_red_image": random_red_image,
         "random_silver_image": random_silver_image,
-        "card_base_mapping": card_base_mapping,
-        "card_actions": card_actions,
-        "card_turns": card_turns,
+        "card_base_mapping": dict(CARD_IMAGE_BASE_IDS),
+        "card_actions": dict(PRICE_CARD_ACTIONS),
+        "card_turns": dict(PRICE_CARD_TURNS),
     }
 
 

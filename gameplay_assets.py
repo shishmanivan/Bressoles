@@ -2,6 +2,7 @@ import os
 
 import pygame
 
+from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_IDS, PRICE_CARD_TURNS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
 
@@ -216,7 +217,7 @@ def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, ca
     except Exception:
         config_card_ids = []
 
-    all_card_ids = sorted(set(base_card_ids + [11, 12, 13, 14, 15, 16, 17, 18, REWARD_TOKEN_RANDOM_SILVER] + config_card_ids))
+    all_card_ids = sorted(set(base_card_ids + list(PRICE_CARD_IDS) + [REWARD_TOKEN_RANDOM_SILVER] + config_card_ids))
     card_images_original = {}
     card_images_bottom = {}
     card_images_market = {}
@@ -460,46 +461,15 @@ def _load_sound(path, warning_message):
 
 
 def _build_card_base_mapping():
-    card_base_mapping = {}
-    for card_id in (1, 2, 3, 4, 100):
-        card_base_mapping[card_id] = card_id
-    card_base_mapping[11] = 11
-    card_base_mapping[12] = 11
-    card_base_mapping[13] = 11
-    card_base_mapping[14] = 11
-    card_base_mapping[15] = 15
-    card_base_mapping[16] = 15
-    card_base_mapping[17] = 17
-    card_base_mapping[18] = 17
-    for card_id in (118, 119, 120, 121, 122):
-        card_base_mapping[card_id] = 118
-    return card_base_mapping
+    return dict(CARD_IMAGE_BASE_IDS)
 
 
 def _build_card_actions():
-    return {
-        11: 2,
-        12: 2,
-        13: 4,
-        14: 4,
-        15: -2,
-        16: -2,
-        17: 2,
-        18: 2,
-    }
+    return dict(PRICE_CARD_ACTIONS)
 
 
 def _build_card_turns():
-    return {
-        11: 1,
-        13: 1,
-        12: 2,
-        14: 2,
-        15: 1,
-        16: 2,
-        17: 1,
-        18: 2,
-    }
+    return dict(PRICE_CARD_TURNS)
 
 
 def _load_ok_button(path, warning_message):

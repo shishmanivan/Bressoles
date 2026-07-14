@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 import pygame
 
@@ -13,6 +14,28 @@ MAX_PROFILES = 4
 
 def ensure_profiles_dir():
     os.makedirs(PROFILES_DIR, exist_ok=True)
+
+
+def _write_json_atomically(path, data):
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    file_descriptor, temporary_path = tempfile.mkstemp(
+        prefix=f".{os.path.basename(path)}.",
+        suffix=".tmp",
+        dir=directory,
+    )
+    try:
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as output_file:
+            json.dump(data, output_file, ensure_ascii=False, indent=2)
+            output_file.flush()
+            os.fsync(output_file.fileno())
+        os.replace(temporary_path, path)
+    except Exception:
+        try:
+            os.remove(temporary_path)
+        except OSError:
+            pass
+        raise
 
 
 def get_profile_path(slot):
@@ -43,8 +66,7 @@ def load_index():
 
 def save_index(index_data):
     ensure_profiles_dir()
-    with open(INDEX_FILE, "w", encoding="utf-8") as index_file:
-        json.dump(index_data, index_file, ensure_ascii=False, indent=2)
+    _write_json_atomically(INDEX_FILE, index_data)
 
 
 def get_selected_slot():
@@ -62,7 +84,7 @@ def set_selected_slot(slot):
 
 def _default_profile(slot):
     return {
-        "version": 1,
+        "version": 2,
         "slot": int(slot),
         "name": "",
         "progress": _empty_progress(),
@@ -75,6 +97,8 @@ def _empty_progress():
         "level_1_boss_defeated": False,
         "level_2_boss_defeated": False,
         "level_3_boss_defeated": False,
+        "level_4_boss_defeated": False,
+        "level_5_boss_defeated": False,
         "boss_progress": {},
         "global_dobor": 1,
         "global_start_money_bonus": 0,
@@ -106,7 +130,6 @@ def _empty_progress():
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "insurance_goal_debt": 0,
-        "forced_start_hand_cards_by_level": {},
         "guaranteed_start_hand_cards_by_level": {},
         "active_red_cards_level": None,
         "active_red_cards_deck": [],
@@ -133,15 +156,70 @@ def load_profile(slot):
     profile["slot"] = slot
     profile.setdefault("progress", _capture_progress())
     profile.setdefault("active_game", None)
+    if _migrate_campaign_v2(profile):
+        _write_json_atomically(path, profile)
     return profile
+
+
+def _migrate_campaign_v2(profile):
+    """Move saved state from the former level 4 into its new level-5 slot."""
+    try:
+        version = int(profile.get("version", 1) or 1)
+    except (TypeError, ValueError):
+        version = 1
+    if version >= 2:
+        return False
+
+    progress = profile.get("progress")
+    if not isinstance(progress, dict):
+        progress = {}
+        profile["progress"] = progress
+
+    for field in (
+        "boss_progress",
+        "earned_reward_cards",
+        "round_reward_cards",
+        "removed_deck_cards_by_level",
+        "forced_start_hand_cards_by_level",
+        "guaranteed_start_hand_cards_by_level",
+    ):
+        values = progress.get(field)
+        if isinstance(values, dict) and "4" in values and "5" not in values:
+            values["5"] = values.pop("4")
+
+    for field in ("napoleondor_level", "active_red_cards_level", "active_silver_cards_level"):
+        try:
+            if int(progress.get(field)) == 4:
+                progress[field] = 5
+        except (TypeError, ValueError):
+            pass
+
+    active_game = profile.get("active_game")
+    if isinstance(active_game, dict):
+        context = active_game.get("context")
+        if isinstance(context, dict):
+            try:
+                if int(context.get("level_number")) == 4:
+                    context["level_number"] = 5
+            except (TypeError, ValueError):
+                pass
+
+    migrated_level5 = (progress.get("boss_progress") or {}).get("5") or {}
+    try:
+        level5_completed = int(migrated_level5.get("defeated", 0) or 0) >= 4
+    except (TypeError, ValueError):
+        level5_completed = False
+    progress["level_4_boss_defeated"] = False
+    progress["level_5_boss_defeated"] = level5_completed
+    profile["version"] = 2
+    return True
 
 
 def save_profile(profile):
     ensure_profiles_dir()
     slot = int(profile.get("slot") or 1)
     profile["slot"] = slot
-    with open(get_profile_path(slot), "w", encoding="utf-8") as profile_file:
-        json.dump(profile, profile_file, ensure_ascii=False, indent=2)
+    _write_json_atomically(get_profile_path(slot), profile)
 
 
 def list_profiles():
@@ -162,11 +240,6 @@ def select_profile(slot, name=None):
     return profile
 
 
-def get_selected_profile():
-    slot = get_selected_slot()
-    return load_profile(slot) if slot else None
-
-
 def apply_profile_to_game_state(profile_or_slot):
     profile = load_profile(profile_or_slot) if isinstance(profile_or_slot, int) else profile_or_slot
     progress = profile.get("progress") or {}
@@ -174,6 +247,8 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.level_1_boss_defeated = bool(progress.get("level_1_boss_defeated", False))
     game_state.level_2_boss_defeated = bool(progress.get("level_2_boss_defeated", False))
     game_state.level_3_boss_defeated = bool(progress.get("level_3_boss_defeated", False))
+    game_state.level_4_boss_defeated = bool(progress.get("level_4_boss_defeated", False))
+    game_state.level_5_boss_defeated = bool(progress.get("level_5_boss_defeated", False))
     game_state.boss_progress = _restore_boss_progress(progress.get("boss_progress") or {})
     game_state.global_dobor = int(progress.get("global_dobor", 1) or 1)
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
@@ -251,6 +326,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.guaranteed_start_hand_cards_by_level = _restore_int_key_lists(
         progress.get("guaranteed_start_hand_cards_by_level") or {}
     )
+    game_state.migrate_legacy_forced_start_hand_cards()
     game_state.active_red_cards_level = progress.get("active_red_cards_level")
     game_state.active_red_cards_deck = list(progress.get("active_red_cards_deck") or [])
     game_state.active_silver_cards_level = progress.get("active_silver_cards_level")
@@ -300,6 +376,8 @@ def _capture_progress():
         "level_1_boss_defeated": bool(game_state.level_1_boss_defeated),
         "level_2_boss_defeated": bool(game_state.level_2_boss_defeated),
         "level_3_boss_defeated": bool(game_state.level_3_boss_defeated),
+        "level_4_boss_defeated": bool(game_state.level_4_boss_defeated),
+        "level_5_boss_defeated": bool(game_state.level_5_boss_defeated),
         "boss_progress": _serialize_boss_progress(game_state.boss_progress),
         "global_dobor": int(game_state.global_dobor),
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
@@ -331,7 +409,6 @@ def _capture_progress():
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
-        "forced_start_hand_cards_by_level": _serialize_int_key_lists(game_state.forced_start_hand_cards_by_level),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(
             game_state.guaranteed_start_hand_cards_by_level
         ),
@@ -472,7 +549,6 @@ def _serialize_boss_progress(source):
             "roster": state.get("roster"),
             "round_progress": _serialize_round_progress(state.get("round_progress") or {}),
             "current_boss": _serialize_current_boss(state.get("current_boss")),
-            "reward_checkpoint": _serialize_reward_checkpoint(state.get("reward_checkpoint")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
         }
@@ -503,61 +579,10 @@ def _restore_boss_progress(source):
             "roster": state.get("roster"),
             "round_progress": _restore_round_progress(state.get("round_progress") or {}),
             "current_boss": _restore_current_boss(state.get("current_boss")),
-            "reward_checkpoint": _restore_reward_checkpoint(state.get("reward_checkpoint")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
         }
     return result
-
-
-def _serialize_reward_checkpoint(source):
-    if not isinstance(source, dict):
-        return None
-    return {
-        "global_dobor": int(source.get("global_dobor", 1) or 1),
-        "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
-        "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
-        "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
-        "global_start_c_shares_bonus": int(source.get("global_start_c_shares_bonus", 0) or 0),
-        "derivative_bought": bool(source.get("derivative_bought", False)),
-        "issuer_bought_count": max(0, min(game_state.ISSUER_MAX_PURCHASES, int(source.get("issuer_bought_count", 0) or 0))),
-        "bank_bought": bool(source.get("bank_bought", False)),
-        "bank_interest_base": source.get("bank_interest_base"),
-        "napoleondors": float(source.get("napoleondors", 0) or 0),
-        "napoleondor_level": source.get("napoleondor_level"),
-        "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
-        "updown_probability_bonus": int(source.get("updown_probability_bonus", 0) or 0),
-        "active_long_investments": list(source.get("active_long_investments") or []),
-        "earned_reward_cards": list(source.get("earned_reward_cards") or []),
-        "removed_deck_cards": list(source.get("removed_deck_cards") or []),
-        "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
-        "guaranteed_start_hand_cards": list(source.get("guaranteed_start_hand_cards") or []),
-    }
-
-
-def _restore_reward_checkpoint(source):
-    if not isinstance(source, dict):
-        return None
-    return {
-        "global_dobor": int(source.get("global_dobor", 1) or 1),
-        "global_start_money_bonus": int(source.get("global_start_money_bonus", 0) or 0),
-        "global_last_turn_bonus": int(source.get("global_last_turn_bonus", 0) or 0),
-        "global_hand_bonus": int(source.get("global_hand_bonus", 0) or 0),
-        "global_start_c_shares_bonus": int(source.get("global_start_c_shares_bonus", 0) or 0),
-        "derivative_bought": bool(source.get("derivative_bought", False)),
-        "issuer_bought_count": max(0, min(game_state.ISSUER_MAX_PURCHASES, int(source.get("issuer_bought_count", 0) or 0))),
-        "bank_bought": bool(source.get("bank_bought", False)),
-        "bank_interest_base": source.get("bank_interest_base"),
-        "napoleondors": float(source.get("napoleondors", 0) or 0),
-        "napoleondor_level": source.get("napoleondor_level"),
-        "profit_reward_bonus": int(source.get("profit_reward_bonus", 0) or 0),
-        "updown_probability_bonus": int(source.get("updown_probability_bonus", 0) or 0),
-        "active_long_investments": list(source.get("active_long_investments") or []),
-        "earned_reward_cards": list(source.get("earned_reward_cards") or []),
-        "removed_deck_cards": list(source.get("removed_deck_cards") or []),
-        "forced_start_hand_cards": list(source.get("forced_start_hand_cards") or []),
-        "guaranteed_start_hand_cards": list(source.get("guaranteed_start_hand_cards") or []),
-    }
 
 
 def _serialize_current_boss(source):

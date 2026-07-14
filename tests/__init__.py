@@ -1,0 +1,1 @@
+"""Bressoles characterization tests."""

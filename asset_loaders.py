@@ -79,26 +79,6 @@ def load_fitted_image(candidate_paths, box_size=262, padding_scale=0.9, warning_
     return fitted
 
 
-def load_animation_frames(folder_path, target_size=None):
-    """Load all PNG frames from a folder, sorted by filename."""
-    frames = []
-    if not os.path.exists(folder_path):
-        print("WARNING: Level1Animation folder not found:", folder_path)
-        return frames
-
-    frame_files = sorted([file_name for file_name in os.listdir(folder_path) if file_name.lower().endswith(".png")])
-    for frame_file in frame_files:
-        frame_path = os.path.join(folder_path, frame_file)
-        try:
-            frame_img = pygame.image.load(frame_path).convert_alpha()
-            if target_size is not None:
-                frame_img = pygame.transform.smoothscale(frame_img, target_size).convert_alpha()
-            frames.append(frame_img)
-        except Exception as e:
-            print(f"WARNING: Could not load animation frame {frame_file}: {e}")
-    return frames
-
-
 def load_main_background(screen_size):
     """Load the shared main background image."""
     bg_path = os.path.join("UI", "Background.png")

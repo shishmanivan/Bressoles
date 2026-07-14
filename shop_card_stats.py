@@ -1,6 +1,8 @@
 import csv
 import os
 
+from csv_storage import write_semicolon_csv_atomically
+
 
 STATS_FILE = "ShopCardStats.csv"
 FIELDNAMES = [
@@ -104,10 +106,7 @@ def _find_or_create_row(rows, level_key, card_key, card_name):
 
 def _write_rows(rows):
     rows = sorted(rows, key=lambda row: (_to_int(row.get("Уровень")), _to_int(row.get("КартаНомер"))))
-    with open(STATS_FILE, "w", encoding="utf-8-sig", newline="") as stats_file:
-        writer = csv.DictWriter(stats_file, fieldnames=FIELDNAMES, delimiter=";")
-        writer.writeheader()
-        writer.writerows(rows)
+    write_semicolon_csv_atomically(STATS_FILE, FIELDNAMES, rows)
 
 
 def _format_percent(value):

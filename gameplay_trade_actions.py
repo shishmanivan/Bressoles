@@ -46,9 +46,11 @@ def apply_arrow_trade(money, quantities, prices, frame_idx, arrow_type, blocked_
 
     # Bottom arrow: sell all shares from this market.
     elif arrow_type == 3:
-        updated_money += updated_quantities[quantity_key] * price
-        updated_quantities[quantity_key] = 0
-        changed = True
+        quantity = updated_quantities[quantity_key]
+        if quantity > 0:
+            updated_money += quantity * price
+            updated_quantities[quantity_key] = 0
+            changed = True
 
     return {
         "money": updated_money,

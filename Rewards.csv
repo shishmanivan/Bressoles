@@ -32,3 +32,15 @@
 4;4;E;Red Card;100;100;PopUpRedCard+Shareholder+Shareholder
 4;4;M;Silver Card;Red Card;100;PopUpSilverCard+RedCard+Shareholder
 4;4;H;Red Card;Red Card;Silver Card;PopUp2RedCards+SilverCard
+5;1;E;11,12,13,14,15,16;100;100;PopUpRewardRandomGain+Shareholder+Shareholder
+5;1;M;11,12,13,14,15,16;11,12,13,14,15,16;100;PopUpReward2RandomGain+Shareholder
+5;1;H;11,12,13,14,15,16;11,12,13,14,15,16;Red Card;PopUpReward2RandomGain+RedCard
+5;2;E;11,12,13,14,15,16;100;100;PopUpRewardRandomGain+Shareholder+Shareholder
+5;2;M;Red Card;11,12,13,14,15,16;100;PopUpRedCard+RandomGain+Shareholder
+5;2;H;Red Card;Red Card;11,12,13,14,15,16;PopUp2RedCards+RandomGain
+5;3;E;Red Card;100;100;PopUpRedCard+Shareholder+Shareholder
+5;3;M;Silver Card;Red Card;100;PopUpSilverCard+RedCard+Shareholder
+5;3;H;Red Card;Red Card;Silver Card;PopUp2RedCards+SilverCard
+5;4;E;Red Card;100;100;PopUpRedCard+Shareholder+Shareholder
+5;4;M;Silver Card;Red Card;100;PopUpSilverCard+RedCard+Shareholder
+5;4;H;Red Card;Red Card;Silver Card;PopUp2RedCards+SilverCard

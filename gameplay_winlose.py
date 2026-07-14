@@ -1,7 +1,10 @@
 import random
 
+import pygame
+
 import game_state
 from game_data import REWARD_TOKEN_RANDOM_SILVER
+from shared_utils import wrap_text
 
 
 GAIN_DROP_REWARD_WEIGHTS = {
@@ -14,11 +17,113 @@ GAIN_DROP_REWARD_WEIGHTS = {
 }
 
 
+WIN_RESULT_CARD_RATIO = 99 / 171.0
+
+
+def build_win_result_layout(
+    font_path,
+    text_blocks,
+    window_rect,
+    ok_button_rect,
+    card_count,
+    max_font_size=36,
+    min_font_size=22,
+):
+    """Fit result text and reward cards inside the newspaper window."""
+    text_top = window_rect.top + 75
+    text_width = window_rect.width - 40
+    card_bottom = window_rect.bottom - 18
+    card_area_left = window_rect.left + 20
+    card_area_right = min(window_rect.right - 20, ok_button_rect.left - 15)
+    card_gap = 10
+    normalized_card_count = max(0, int(card_count or 0))
+
+    selected = None
+    for font_size in range(max_font_size, min_font_size - 1, -2):
+        font = pygame.font.Font(font_path, font_size)
+        lines = []
+        for text in text_blocks:
+            if text:
+                lines.extend(wrap_text(str(text), font, text_width))
+        line_height = font.get_height() + 5
+        text_bottom = text_top + len(lines) * line_height
+
+        card_width = 0
+        card_height = 0
+        if normalized_card_count:
+            horizontal_width = (
+                card_area_right
+                - card_area_left
+                - card_gap * (normalized_card_count - 1)
+            ) // normalized_card_count
+            vertical_height = card_bottom - text_bottom - 5
+            card_width = min(100, horizontal_width, int(vertical_height * WIN_RESULT_CARD_RATIO))
+            card_height = int(card_width / WIN_RESULT_CARD_RATIO) if card_width > 0 else 0
+            if card_width < 48:
+                continue
+
+        selected = {
+            "font": font,
+            "font_size": font_size,
+            "lines": lines,
+            "line_height": line_height,
+            "text_top": text_top,
+            "text_bottom": text_bottom,
+            "card_width": card_width,
+            "card_height": card_height,
+            "card_gap": card_gap,
+            "card_bottom": card_bottom,
+            "card_area_left": card_area_left,
+            "card_area_right": card_area_right,
+        }
+        break
+
+    if selected is None:
+        font = pygame.font.Font(font_path, min_font_size)
+        lines = []
+        for text in text_blocks:
+            if text:
+                lines.extend(wrap_text(str(text), font, text_width))
+        line_height = font.get_height() + 5
+        text_bottom = text_top + len(lines) * line_height
+        horizontal_width = (
+            card_area_right
+            - card_area_left
+            - card_gap * max(0, normalized_card_count - 1)
+        ) // max(1, normalized_card_count)
+        vertical_height = max(1, card_bottom - text_bottom - 5)
+        card_width = max(1, min(100, horizontal_width, int(vertical_height * WIN_RESULT_CARD_RATIO)))
+        selected = {
+            "font": font,
+            "font_size": min_font_size,
+            "lines": lines,
+            "line_height": line_height,
+            "text_top": text_top,
+            "text_bottom": text_bottom,
+            "card_width": card_width if normalized_card_count else 0,
+            "card_height": int(card_width / WIN_RESULT_CARD_RATIO) if normalized_card_count else 0,
+            "card_gap": card_gap,
+            "card_bottom": card_bottom,
+            "card_area_left": card_area_left,
+            "card_area_right": card_area_right,
+        }
+
+    total_cards_width = (
+        normalized_card_count * selected["card_width"]
+        + max(0, normalized_card_count - 1) * selected["card_gap"]
+    )
+    selected["card_start_x"] = card_area_left + (
+        card_area_right - card_area_left - total_cards_width
+    ) // 2
+    selected["card_y"] = selected["card_bottom"] - selected["card_height"]
+    return selected
+
+
 def resolve_win_lose_state(current_state, money, goal, day, last_turn):
     """Return the next win/lose state and reason, or (None, None)."""
     if current_state is not None:
         return None, None
-    if day == last_turn:
+    if day >= last_turn:
         if money >= goal:
             return "win", "last_turn"
         return "lose", "last_turn"
@@ -44,6 +149,7 @@ def apply_win_reward(
     apply_boss_reward,
     pick_random_red_card_for_level,
     add_silver_card,
+    get_boss_number_from_filename=None,
 ):
     """Apply boss or regular round reward after a win."""
     if gameplay_instance.is_boss_fight and gameplay_instance.boss_index is not None:
@@ -79,11 +185,17 @@ def apply_win_reward(
             )
             return
 
-        boss_number = get_boss_number_from_index(
-            gameplay_instance.level_number,
-            gameplay_instance.boss_index,
-            gameplay_instance.defeated_count,
-        )
+        boss_number = None
+        if get_boss_number_from_filename:
+            boss_number = get_boss_number_from_filename(
+                getattr(gameplay_instance, "boss_filename", None)
+            )
+        if not boss_number:
+            boss_number = get_boss_number_from_index(
+                gameplay_instance.level_number,
+                gameplay_instance.boss_index,
+                gameplay_instance.defeated_count,
+            )
         if boss_number:
             boss_rewards = load_boss_rewards()
             boss_entry = boss_rewards.get(boss_number) or {}
@@ -141,11 +253,8 @@ def apply_win_reward(
             gameplay_instance.level_number,
             reward_token_random_red,
             pick_random_red_card_for_level,
-            allow_missing_random_red=index > 0,
         )
         if reward_card_number is None:
-            if index == 0:
-                return
             print(
                 f"Skipped {reward_key_part} for level {gameplay_instance.level_number}, "
                 f"round {round_num}, button {button}"
@@ -178,33 +287,13 @@ def apply_win_reward(
     )
 
 
-def reset_level_loss_state(
-    level_number,
-    earned_reward_cards,
-    forced_start_hand_cards_by_level,
-    guaranteed_start_hand_cards_by_level=None,
-):
-    """Reset level-scoped rewards after defeat and return default Dobor."""
-    if level_number in earned_reward_cards:
-        earned_reward_cards[level_number] = []
-        print(f"Reset earned cards for level {level_number} due to defeat")
-    if level_number in forced_start_hand_cards_by_level:
-        forced_start_hand_cards_by_level[level_number] = []
-        print(f"Reset forced starting-hand cards for level {level_number} due to defeat")
-    if guaranteed_start_hand_cards_by_level is not None and level_number in guaranteed_start_hand_cards_by_level:
-        guaranteed_start_hand_cards_by_level[level_number] = []
-        print(f"Reset guaranteed starting-hand cards for level {level_number} due to defeat")
-    print("Reset Dobor to 1 due to defeat")
-    return 1
-
-
-def _select_reward_card(reward_list, level_number, reward_token_random_red, pick_random_red_card_for_level, allow_missing_random_red=False):
+def _select_reward_card(reward_list, level_number, reward_token_random_red, pick_random_red_card_for_level):
     reward_card_number = _choose_reward_card(reward_list)
     if reward_card_number == reward_token_random_red:
         picked = pick_random_red_card_for_level(level_number)
         if picked is None:
             print(f"WARNING: 'Red Card' reward requested but no available red cards for level {level_number}.")
-            return None if allow_missing_random_red else None
+            return None
         reward_card_number = picked
     if reward_card_number == REWARD_TOKEN_RANDOM_SILVER:
         return REWARD_TOKEN_RANDOM_SILVER

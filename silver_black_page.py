@@ -7,6 +7,7 @@ import game_state
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bear_modifier_text
 from round_page_assets import load_round_page_static_assets
+from shared_utils import wrap_text
 
 
 SCREEN_WIDTH = 1680
@@ -18,6 +19,8 @@ GOLD = (184, 134, 11)
 SILVER = (165, 165, 170)
 BLACK_CARD_TINT = (18, 16, 16, 125)
 GOLD_CARD_TINT = (184, 134, 11, 70)
+BUTTON_COLOR = (238, 228, 205)
+BUTTON_HOVER_COLOR = (248, 239, 216)
 PANEL_SIZE = (1440, 900)
 PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]) // 2)
 CARD_ROW_SLOTS = 8
@@ -113,6 +116,7 @@ class SilverBlackPage:
         active_gold_cards=None,
         active_lifecycle_card_order=None,
         is_boss_fight=False,
+        lang_dict=None,
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
@@ -121,6 +125,7 @@ class SilverBlackPage:
         self.black_cards = list(black_cards or [])[:CARD_ROW_SLOTS]
         self.gold_cards = list(gold_cards or [])[:CARD_ROW_SLOTS]
         self.is_boss_fight = bool(is_boss_fight)
+        self.lang = lang_dict or {}
         self.selected_entries = []
         self.active_slot_count = game_state.get_lifecycle_card_slot_limit()
 
@@ -136,11 +141,26 @@ class SilverBlackPage:
         self.card_images = {}
         self.tooltip_title_font = pygame.font.Font(self.font_path, 27)
         self.tooltip_text_font = pygame.font.Font(self.font_path, 22)
+        self.row_label_font = pygame.font.Font(self.font_path, 23)
+        self.continue_button_font = pygame.font.Font(self.font_path, 32)
 
         self.active_rects = self._build_row_rects(self.active_slot_count, y=ACTIVE_ROW_Y, gap=ACTIVE_ROW_GAP)
         self.silver_rects = self._build_row_rects(CARD_ROW_SLOTS, y=SILVER_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.black_rects = self._build_row_rects(CARD_ROW_SLOTS, y=BLACK_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.gold_rects = self._build_row_rects(CARD_ROW_SLOTS, y=GOLD_ROW_Y, gap=INVENTORY_ROW_GAP)
+        self.row_label_surfaces = self._build_row_label_surfaces()
+        self.row_label_rects = {
+            kind: surface.get_rect(midright=(rects[0].left - 24, rects[0].centery))
+            for kind, surface, rects in (
+                ("active", self.row_label_surfaces["active"], self.active_rects),
+                ("silver", self.row_label_surfaces["silver"], self.silver_rects),
+                ("black", self.row_label_surfaces["black"], self.black_rects),
+                ("gold", self.row_label_surfaces["gold"], self.gold_rects),
+            )
+            if rects
+        }
+        self.continue_button_rect = pygame.Rect(0, 0, 260, 54)
+        self.continue_button_rect.midright = (self.panel_rect.right - 40, self.active_rects[0].centery)
         self.selected_entries = self._build_initial_selected_entries(
             active_black_cards,
             active_gold_cards,
@@ -152,6 +172,21 @@ class SilverBlackPage:
         self.drag_card_id = None
         self.drag_offset = (0, 0)
         self.drag_pos = (0, 0)
+
+    def _get_text(self, key, default):
+        return self.lang.get(key, default)
+
+    def _build_row_label_surfaces(self):
+        labels = {
+            "active": self._get_text("LifecycleSelected", "Выбрано"),
+            "silver": self._get_text("LifecycleSilver", "Серебряные карты"),
+            "black": self._get_text("LifecycleBlack", "Чёрные карты"),
+            "gold": self._get_text("LifecycleGold", "Золотые карты"),
+        }
+        return {
+            kind: self.row_label_font.render(label, True, PAPER_COLOR)
+            for kind, label in labels.items()
+        }
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -288,6 +323,12 @@ class SilverBlackPage:
                 )
             ],
         }
+
+    def _handle_mouse_down(self, position):
+        if self.continue_button_rect.collidepoint(position):
+            return self._selected_payload()
+        self._begin_drag(position)
+        return None
 
     def _active_slot_at(self, pos):
         for active_slot, rect in enumerate(self.active_rects):
@@ -485,21 +526,6 @@ class SilverBlackPage:
         title = f"{kind_names.get(kind, 'Карта')} · Card {normalized}"
         return title, "Описание эффекта этой карты пока не задано."
 
-    def _wrap_tooltip_text(self, text, font, max_width):
-        lines = []
-        current = ""
-        for word in str(text).split():
-            candidate = word if not current else f"{current} {word}"
-            if font.size(candidate)[0] <= max_width:
-                current = candidate
-            else:
-                if current:
-                    lines.append(current)
-                current = word
-        if current:
-            lines.append(current)
-        return lines or [""]
-
     def _draw_card_tooltip(self):
         if self.drag_source is not None:
             return
@@ -513,10 +539,11 @@ class SilverBlackPage:
         width = 460
         padding = 16
         text_width = width - padding * 2
-        description_lines = self._wrap_tooltip_text(
+        description_lines = wrap_text(
             description,
             self.tooltip_text_font,
             text_width,
+            color=PAPER_COLOR,
         )
         title_height = self.tooltip_title_font.get_height()
         line_height = self.tooltip_text_font.get_height() + 4
@@ -571,6 +598,19 @@ class SilverBlackPage:
         self._draw_inventory_row("black", self.black_rects, PAPER_COLOR, BLACK_CARD_TINT)
         self._draw_inventory_row("gold", self.gold_rects, GOLD, GOLD_CARD_TINT)
 
+        for kind, surface in self.row_label_surfaces.items():
+            rect = self.row_label_rects.get(kind)
+            if rect:
+                self.screen.blit(surface, rect)
+
+        mouse_pos = pygame.mouse.get_pos()
+        button_color = BUTTON_HOVER_COLOR if self.continue_button_rect.collidepoint(mouse_pos) else BUTTON_COLOR
+        pygame.draw.rect(self.screen, button_color, self.continue_button_rect, border_radius=4)
+        pygame.draw.rect(self.screen, PAPER_COLOR, self.continue_button_rect, 3, border_radius=4)
+        continue_label = self._get_text("LifecycleContinue", "Продолжить")
+        continue_surface = self.continue_button_font.render(continue_label, True, PAPER_COLOR)
+        self.screen.blit(continue_surface, continue_surface.get_rect(center=self.continue_button_rect.center))
+
         if self.drag_card_id is not None:
             draw_x = self.drag_pos[0] - self.drag_offset[0]
             draw_y = self.drag_pos[1] - self.drag_offset[1]
@@ -591,7 +631,9 @@ class SilverBlackPage:
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                         return self._selected_payload()
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self._begin_drag(event.pos)
+                    result = self._handle_mouse_down(event.pos)
+                    if result is not None:
+                        return result
                 if event.type == pygame.MOUSEMOTION:
                     self._move_drag(event.pos)
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:

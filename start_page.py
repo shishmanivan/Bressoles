@@ -166,8 +166,6 @@ class StartPage:
                 return "start"
             if result == "profile":
                 return "profile"
-            if result == "options":
-                print("Opening options…")
             if result == "test_mode":
                 return "test_mode"
 

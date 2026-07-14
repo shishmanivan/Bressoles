@@ -18,6 +18,12 @@ ANIMATION_FRAME_SIZE = (100, 100)
 ANIMATION_SCALE_OVERRIDES = {
     "9_Laffitte": 0.95,
 }
+_boss_animation_frames_cache = {}
+POPUP_FONT_MAX_SIZE = 24
+POPUP_FONT_MIN_SIZE = 18
+POPUP_TEXT_TOP = 120
+POPUP_TEXT_BOTTOM_PADDING = 14
+POPUP_TEXT_WIDTH = 200
 
 
 def normalize_boss_animation_frame(frame_image, base_name):
@@ -39,6 +45,84 @@ def normalize_boss_animation_frame(frame_image, base_name):
         ),
     )
     return canvas
+
+
+def build_boss_popup_text_layout(font_path, popup_height, condition_text, reward_header, reward_text):
+    last_layout = None
+    for font_size in range(POPUP_FONT_MAX_SIZE, POPUP_FONT_MIN_SIZE - 1, -1):
+        font = pygame.font.Font(font_path, font_size)
+        line_height = font.get_height() + 4
+        condition_lines = wrap_text(condition_text, font, POPUP_TEXT_WIDTH)
+        reward_lines = wrap_text(reward_text, font, POPUP_TEXT_WIDTH) if reward_text else []
+
+        condition_y = POPUP_TEXT_TOP
+        cursor_y = condition_y + len(condition_lines) * line_height
+        header_y = None
+        reward_y = None
+        if reward_lines:
+            cursor_y += 10
+            header_y = cursor_y
+            cursor_y += line_height
+            reward_y = cursor_y
+            cursor_y += len(reward_lines) * line_height
+
+        last_layout = {
+            "font": font,
+            "font_size": font_size,
+            "line_height": line_height,
+            "condition_lines": condition_lines,
+            "condition_y": condition_y,
+            "header_y": header_y,
+            "reward_lines": reward_lines,
+            "reward_y": reward_y,
+            "content_bottom": cursor_y,
+        }
+        if cursor_y <= popup_height - POPUP_TEXT_BOTTOM_PADDING:
+            return last_layout
+    return last_layout
+
+
+def _load_boss_animation_frames(boss_filename):
+    cached = _boss_animation_frames_cache.get(boss_filename)
+    if cached is not None:
+        return list(cached)
+
+    base_name = os.path.splitext(boss_filename)[0]
+    boss_folder = os.path.join("Bosses", base_name)
+    if not os.path.isdir(boss_folder):
+        matching_folders = sorted(
+            folder_name
+            for folder_name in os.listdir("Bosses")
+            if os.path.isdir(os.path.join("Bosses", folder_name))
+            and folder_name.lower().endswith(f"_{base_name.lower()}")
+        )
+        if matching_folders:
+            boss_folder = os.path.join("Bosses", matching_folders[0])
+
+    animation_frames = []
+    if os.path.isdir(boss_folder):
+        for frame_num in range(7):
+            frame_filename = f"{base_name}{frame_num}.png"
+            frame_path = os.path.join(boss_folder, frame_filename)
+            if not os.path.exists(frame_path):
+                matching_frames = sorted(
+                    filename
+                    for filename in os.listdir(boss_folder)
+                    if filename.lower().endswith(f"{frame_num}.png")
+                )
+                if matching_frames:
+                    frame_path = os.path.join(boss_folder, matching_frames[0])
+            if os.path.exists(frame_path):
+                frame_image = pygame.image.load(frame_path).convert_alpha()
+                animation_frames.append(normalize_boss_animation_frame(frame_image, base_name))
+            else:
+                print(f"WARNING: Animation frame not found: {frame_path}")
+    else:
+        print(f"WARNING: Boss animation folder not found: {boss_folder}")
+
+    cached_frames = tuple(animation_frames)
+    _boss_animation_frames_cache[boss_filename] = cached_frames
+    return list(cached_frames)
 
 
 class BossPage:
@@ -129,6 +213,7 @@ class BossPage:
 
         self.boss_texts = {}
         self.boss_rewards = {}
+        self.boss_popup_text_layouts = {}
 
         for boss_idx, boss_filename in enumerate(self.current_boss_filenames):
             is_last_boss = self.defeated_count == self.bosses_required - 1
@@ -141,6 +226,16 @@ class BossPage:
                 else:
                     reward_key = f"Boss{boss_number}Reward"
                     self.boss_rewards[boss_idx] = self._get_text(reward_key, reward_key)
+
+        popup_height = self.popup_image.get_height() if self.popup_image else 375
+        for boss_idx, condition_text in self.boss_texts.items():
+            self.boss_popup_text_layouts[boss_idx] = build_boss_popup_text_layout(
+                font_path,
+                popup_height,
+                condition_text,
+                self.popup_reward_header,
+                self.boss_rewards.get(boss_idx, ""),
+            )
 
         pen_sound_path = os.path.join("Sounds", "Pen.mp3")
         if os.path.exists(pen_sound_path):
@@ -158,45 +253,12 @@ class BossPage:
             for boss_filename in self.current_boss_filenames:
                 boss_path = os.path.join("Bosses", boss_filename)
                 if os.path.exists(boss_path):
-                    boss_image = pygame.image.load(boss_path).convert_alpha()
-                    boss_image = pygame.transform.smoothscale(boss_image, (100, 100)).convert_alpha()
+                    boss_image = load_scaled_image(boss_path, target_size=(100, 100))
                     self.bosses.append(boss_image)
 
                     base_name = os.path.splitext(boss_filename)[0]
                     self.boss_base_names.append(base_name)
-
-                    boss_folder = os.path.join("Bosses", base_name)
-                    if not os.path.isdir(boss_folder):
-                        matching_folders = sorted(
-                            folder_name
-                            for folder_name in os.listdir("Bosses")
-                            if os.path.isdir(os.path.join("Bosses", folder_name))
-                            and folder_name.lower().endswith(f"_{base_name.lower()}")
-                        )
-                        if matching_folders:
-                            boss_folder = os.path.join("Bosses", matching_folders[0])
-                    animation_frames = []
-                    if os.path.exists(boss_folder) and os.path.isdir(boss_folder):
-                        for frame_num in range(7):
-                            frame_filename = f"{base_name}{frame_num}.png"
-                            frame_path = os.path.join(boss_folder, frame_filename)
-                            if not os.path.exists(frame_path):
-                                matching_frames = sorted(
-                                    filename
-                                    for filename in os.listdir(boss_folder)
-                                    if filename.lower().endswith(f"{frame_num}.png")
-                                )
-                                if matching_frames:
-                                    frame_path = os.path.join(boss_folder, matching_frames[0])
-                            if os.path.exists(frame_path):
-                                frame_image = pygame.image.load(frame_path).convert_alpha()
-                                frame_image = normalize_boss_animation_frame(frame_image, base_name)
-                                animation_frames.append(frame_image)
-                            else:
-                                print(f"WARNING: Animation frame not found: {frame_path}")
-                    else:
-                        print(f"WARNING: Boss animation folder not found: {boss_folder}")
-                    self.boss_animation_frames.append(animation_frames)
+                    self.boss_animation_frames.append(_load_boss_animation_frames(boss_filename))
                 else:
                     print(f"WARNING: Boss file not found: {boss_path}")
                     self.bosses.append(None)
@@ -345,8 +407,7 @@ class BossPage:
                 path = os.path.join("Bosses", filename)
                 img = None
                 if os.path.exists(path):
-                    img = pygame.image.load(path).convert_alpha()
-                    img = pygame.transform.smoothscale(img, (100, 100)).convert_alpha()
+                    img = load_scaled_image(path, target_size=(100, 100))
                 self.boss_image_cache[filename] = img
             if img:
                 self.screen.blit(img, rect.topleft)
@@ -375,26 +436,28 @@ class BossPage:
             self.screen.blit(self.popup_image, (self.popup_x, popup_y_draw))
 
             if self.popup_boss_index is not None and self.popup_boss_index in self.boss_texts:
-                text = self.boss_texts[self.popup_boss_index]
-                lines = wrap_text(text, self.popup_font, 200)
+                layout = self.boss_popup_text_layouts.get(self.popup_boss_index)
+                font = layout["font"] if layout else self.popup_font
+                lines = layout["condition_lines"] if layout else wrap_text(
+                    self.boss_texts[self.popup_boss_index], font, POPUP_TEXT_WIDTH
+                )
                 text_start_x = self.popup_x + 15
-                text_start_y = popup_y_draw + 120
-                line_height = self.popup_font.get_height() + 5
+                text_start_y = popup_y_draw + (layout["condition_y"] if layout else POPUP_TEXT_TOP)
+                line_height = layout["line_height"] if layout else font.get_height() + 4
 
                 for i, line in enumerate(lines):
-                    text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                    text_surface = font.render(line, True, PAPER_COLOR)
                     self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
 
                 if self.popup_boss_index in self.boss_rewards:
-                    reward_header_y = text_start_y + len(lines) * line_height + 15
-                    header_surface = self.popup_font.render(self.popup_reward_header, True, PAPER_COLOR)
+                    reward_header_y = popup_y_draw + layout["header_y"]
+                    header_surface = font.render(self.popup_reward_header, True, PAPER_COLOR)
                     self.screen.blit(header_surface, (text_start_x, reward_header_y))
-                    reward_text = self.boss_rewards[self.popup_boss_index]
-                    reward_lines = wrap_text(reward_text, self.popup_font, 200)
-                    reward_start_y = reward_header_y + line_height + 5
+                    reward_lines = layout["reward_lines"]
+                    reward_start_y = popup_y_draw + layout["reward_y"]
 
                     for i, line in enumerate(reward_lines):
-                        reward_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                        reward_surface = font.render(line, True, PAPER_COLOR)
                         self.screen.blit(reward_surface, (text_start_x, reward_start_y + i * line_height))
         else:
             if self.popup_boss_index is not None:

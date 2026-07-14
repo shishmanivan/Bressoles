@@ -11,8 +11,20 @@ _levels_config_cache = None
 _goals_level2_cache = None
 _goals_level3_cache = None
 _goals_level4_cache = None
+_goals_level5_cache = None
 _rewards_config_cache = None
 _boss_rewards_cache = None
+
+
+def _parse_positive_int_field(row, key):
+    raw = (row.get(key, "") or "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
 
 
 def parse_reward_card_token(token: str):
@@ -133,19 +145,9 @@ def load_levels_config():
                 if level <= 0:
                     continue
 
-                def _parse_value(key):
-                    raw = (row.get(key, "") or "").strip()
-                    if raw == "":
-                        return None
-                    try:
-                        val = int(raw)
-                        return val if val > 0 else None
-                    except (TypeError, ValueError):
-                        return None
-
                 config[level] = {
-                    "Rounds": _parse_value("Rounds"),
-                    "Bosses": _parse_value("Bosses"),
+                    "Rounds": _parse_positive_int_field(row, "Rounds"),
+                    "Bosses": _parse_positive_int_field(row, "Bosses"),
                 }
     except Exception as e:
         print(f"ERROR loading LevelsData.csv: {e}")
@@ -289,9 +291,6 @@ def get_level3_goal(round_num, button, defeated_count, is_boss_round=False):
             boss_idx = int(defeated_count or 0) + 1
         except (TypeError, ValueError):
             boss_idx = 1
-        available = [k[1] for k in goals[button_upper].keys() if isinstance(k, tuple) and k[:1] == ("boss",)]
-        if available:
-            boss_idx = max(1, min(boss_idx, max(available)))
         return goals[button_upper].get(("boss", boss_idx))
 
     try:
@@ -387,6 +386,92 @@ def get_level4_goal(round_num, button, defeated_count, is_boss_round=False):
     return goals[button_upper].get((boss_idx, r), goals[button_upper].get(r))
 
 
+def load_goals_level5():
+    """Load the former level-4 goals, now used by level 5."""
+    global _goals_level5_cache
+    if _goals_level5_cache is not None:
+        return _goals_level5_cache
+
+    goals = {"E": {}, "M": {}, "H": {}}
+    goals_file = "GoalsLevel5.csv"
+    if not os.path.exists(goals_file):
+        print(f"WARNING: GoalsLevel5.csv not found: {goals_file}")
+        _goals_level5_cache = goals
+        return goals
+
+    try:
+        with open(goals_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            for row in reader:
+                button = (row.get("", "") or "").strip().upper()
+                if button not in ("E", "M", "H"):
+                    continue
+
+                for key, raw in (row or {}).items():
+                    if key is None:
+                        continue
+                    k = str(key).strip()
+                    v = (raw or "").strip()
+                    if not v:
+                        continue
+
+                    if k.isdigit():
+                        try:
+                            goals[button][int(k)] = int(v)
+                        except (TypeError, ValueError):
+                            pass
+                        continue
+
+                    norm = k.replace(" ", "")
+                    if norm.lower().startswith("bossround"):
+                        suffix = norm[len("BossRound"):]
+                        if suffix.isdigit():
+                            try:
+                                goals[button][("boss", int(suffix))] = int(v)
+                            except (TypeError, ValueError):
+                                pass
+                        continue
+
+                    stage_round = norm.replace("-", "_")
+                    if stage_round.upper().startswith("B") and "_" in stage_round:
+                        stage_raw, round_raw = stage_round[1:].split("_", 1)
+                        if stage_raw.isdigit() and round_raw.isdigit():
+                            try:
+                                goals[button][(int(stage_raw), int(round_raw))] = int(v)
+                            except (TypeError, ValueError):
+                                pass
+    except Exception as e:
+        print(f"ERROR loading GoalsLevel5.csv: {e}")
+
+    _goals_level5_cache = goals
+    return goals
+
+
+def get_level5_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Get a goal for level 5 from GoalsLevel5.csv."""
+    goals = load_goals_level5()
+    button_upper = (button or "").strip().upper()
+    if button_upper not in goals:
+        return None
+
+    if round_num is None or is_boss_round:
+        try:
+            boss_idx = int(defeated_count or 0) + 1
+        except (TypeError, ValueError):
+            boss_idx = 1
+        return goals[button_upper].get(("boss", boss_idx))
+
+    try:
+        round_index = int(round_num)
+    except (TypeError, ValueError):
+        return None
+    try:
+        boss_idx = int(defeated_count or 0) + 1
+    except (TypeError, ValueError):
+        boss_idx = 1
+    return goals[button_upper].get((boss_idx, round_index), goals[button_upper].get(round_index))
+
+
 def get_level2_goal(round_num, button, boss_selection, is_boss_round=False):
     """Get goal for level 2 based on round number, button, and boss selection."""
     round_key = "boss" if round_num is None or is_boss_round else round_num
@@ -423,22 +508,12 @@ def load_rounds_config():
                 if level <= 0:
                     continue
 
-                def _parse_value(key):
-                    raw = (row.get(key, "") or "").strip()
-                    if raw == "":
-                        return None
-                    try:
-                        val = int(raw)
-                        return val if val > 0 else None
-                    except (TypeError, ValueError):
-                        return None
-
                 config[level] = {
-                    "E": _parse_value("E"),
-                    "M": _parse_value("M"),
-                    "H": _parse_value("H"),
-                    "Rounds": _parse_value("Rounds"),
-                    "Bosses": _parse_value("Bosses"),
+                    "E": _parse_positive_int_field(row, "E"),
+                    "M": _parse_positive_int_field(row, "M"),
+                    "H": _parse_positive_int_field(row, "H"),
+                    "Rounds": _parse_positive_int_field(row, "Rounds"),
+                    "Bosses": _parse_positive_int_field(row, "Bosses"),
                 }
     except Exception as e:
         print(f"ERROR loading RoundsData.csv: {e}")
@@ -562,5 +637,4 @@ def load_boss_rewards():
         print(f"ERROR loading BossRewards.csv: {e}")
 
     _boss_rewards_cache = rewards
-    print(f"DEBUG load_boss_rewards: loaded {len(rewards)} boss entries: {rewards}")
     return rewards

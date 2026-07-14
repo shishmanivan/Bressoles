@@ -85,12 +85,16 @@ class GameScreen:
         self.card4_position = None
         self.arrow4_rect = None
         self.arrow4_position = (0, 0)
+        self.card5_position = None
+        self.arrow5_rect = None
+        self.arrow5_position = (0, 0)
 
         primary_assets = load_primary_level_assets()
         self.level1_picture = primary_assets["level1_picture"]
         self.level2_picture = primary_assets["level2_picture"]
         self.level3_picture = primary_assets["level3_picture"]
         self.level4_picture = primary_assets["level4_picture"]
+        self.level5_picture = primary_assets["level5_picture"]
 
         self.scroll_y = 0
         self.max_scroll_y = 0
@@ -122,15 +126,19 @@ class GameScreen:
             self.card2_position = normal_layout["card2_position"]
             self.card3_position = normal_layout["card3_position"]
             self.card4_position = normal_layout["card4_position"]
+            self.card5_position = normal_layout["card5_position"]
             self.arrow_position = normal_layout["arrow_position"]
             self.arrow2_position = normal_layout["arrow2_position"]
             self.arrow3_position = normal_layout["arrow3_position"]
             self.arrow4_position = normal_layout["arrow4_position"]
+            self.arrow5_position = normal_layout["arrow5_position"]
             self.arrow_rect = normal_layout["arrow_rect"]
             self.arrow2_rect = normal_layout["arrow2_rect"]
             self.arrow3_rect = normal_layout["arrow3_rect"]
             self.arrow4_rect = normal_layout["arrow4_rect"]
+            self.arrow5_rect = normal_layout["arrow5_rect"]
             self.card1_rect = normal_layout["card1_rect"]
+            self.max_scroll_y = normal_layout["max_scroll_y"]
 
     def _get_text(self, key, default=None):
         if default is None:
@@ -185,14 +193,21 @@ class GameScreen:
                             if adjusted_rect.collidepoint(mouse_pos):
                                 return f"level_{level_num}"
                 else:
-                    if self.arrow_rect and self.arrow_rect.collidepoint(mouse_pos):
+                    def arrow_hit(rect):
+                        if rect is None:
+                            return False
+                        return rect.move(0, -self.scroll_y).collidepoint(mouse_pos)
+
+                    if arrow_hit(self.arrow_rect):
                         return "level_1"
-                    if self._is_unlocked("level_1_boss_defeated") and self.arrow2_rect and self.arrow2_rect.collidepoint(mouse_pos):
+                    if self._is_unlocked("level_1_boss_defeated") and arrow_hit(self.arrow2_rect):
                         return "level_2"
-                    if self._is_unlocked("level_2_boss_defeated") and self.arrow3_rect and self.arrow3_rect.collidepoint(mouse_pos):
+                    if self._is_unlocked("level_2_boss_defeated") and arrow_hit(self.arrow3_rect):
                         return "level_3"
-                    if self._is_unlocked("level_3_boss_defeated") and self.arrow4_rect and self.arrow4_rect.collidepoint(mouse_pos):
+                    if self._is_unlocked("level_3_boss_defeated") and arrow_hit(self.arrow4_rect):
                         return "level_4"
+                    if self._is_unlocked("level_3_boss_defeated") and arrow_hit(self.arrow5_rect):
+                        return "level_5"
 
         return None
 
@@ -213,7 +228,7 @@ class GameScreen:
         if desc_text and desc_text != desc_key:
             year_key = f"Level{level_num}Year"
             year_text = self._get_text(year_key, None)
-            card_text = year_text if year_text and year_text != year_key else str(1815 + (level_num - 1) * 10)
+            card_text = year_text if year_text and year_text != year_key else ""
             text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
             text_x = card_position[0] + 390
             text_y = card_position[1] + 8
@@ -251,6 +266,26 @@ class GameScreen:
                         self._draw_level_card(card_position, level_num, level_picture)
             pygame.display.flip()
             return
+
+        cards = [
+            (1, self.card_position, self.level1_picture, True),
+            (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated")),
+            (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated")),
+            (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated")),
+            (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated")),
+        ]
+        for level_num, position, picture, unlocked in cards:
+            if not unlocked or position is None:
+                continue
+            adjusted_position = (position[0], position[1] - self.scroll_y)
+            if self.levelcard_image and (
+                adjusted_position[1] > SCREEN_HEIGHT
+                or adjusted_position[1] + self.levelcard_image.get_height() < 0
+            ):
+                continue
+            self._draw_level_card(adjusted_position, level_num, picture)
+        pygame.display.flip()
+        return
 
         if self.levelcard_image:
             self.screen.blit(self.levelcard_image, self.card_position)
