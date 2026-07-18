@@ -6,6 +6,25 @@ from card_catalog import BID_CARD_VALUES, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
+# Card_17.png uses a noticeably narrower baked-in "Turns:" label than the
+# Card_11/Card_15 artwork. Values are measured in the 99 px market-card scale.
+_TURNS_X_OFFSET_BY_CARD = {17: -7.75, 18: -7.75}
+_TURNS_Y_OFFSET_BY_CARD = {17: 1.5, 18: 1.5}
+
+
+def get_turns_text_position(card_id, card_width, card_height, origin_x=0, origin_y=0):
+    """Return the overlay position immediately after the card's baked-in label."""
+    base_market_width = 99.0
+    base_bottom_height = 244.0
+    width_scale = card_width / base_market_width
+    height_scale = card_height / base_bottom_height
+    x_offset = _TURNS_X_OFFSET_BY_CARD.get(card_id, 0.0)
+    y_offset = _TURNS_Y_OFFSET_BY_CARD.get(card_id, 0.0)
+    turns_x = origin_x + card_width / 2 + (10.0 + x_offset) * width_scale
+    turns_y = origin_y + card_height - 75.0 * height_scale + y_offset * height_scale
+    return turns_x, turns_y
+
+
 def is_bid_card(card_id):
     try:
         return int(card_id) in BID_CARD_VALUES
@@ -129,12 +148,7 @@ def draw_preview_card_turns(surface, turns_value, card_id, card_width, card_heig
     try:
         font = pygame.font.Font(font_path_use, turns_font_size)
         turns_text = font.render(str(turns_value), True, paper_color)
-        base_bottom_height = 244.0
-        height_scale = card_height / base_bottom_height if base_bottom_height > 0 else 1.0
-        offset_from_bottom = 75.0 * height_scale
-        card_center_x = card_width / 2
-        turns_x = card_center_x + 10 * scale_factor
-        turns_y = card_height - offset_from_bottom
+        turns_x, turns_y = get_turns_text_position(card_id, card_width, card_height)
 
         surface.blit(turns_text, (int(turns_x), int(turns_y)))
     except Exception as e:
@@ -219,13 +233,13 @@ def draw_card_turns_text(
     try:
         turns_text = scaled_font.render(str(turns_value), True, paper_color)
         if turns_text:
-            card_center_x = card_x + card_size[0] / 2
-            turns_x = card_center_x + 10 * scale_factor
-            base_bottom_height = 244.0
-            current_height = float(card_size[1])
-            height_scale = current_height / base_bottom_height if base_bottom_height > 0 else 1.0
-            offset_from_bottom = 75.0 * height_scale
-            turns_y = card_y + card_size[1] - offset_from_bottom
+            turns_x, turns_y = get_turns_text_position(
+                card_id,
+                card_size[0],
+                card_size[1],
+                origin_x=card_x,
+                origin_y=card_y,
+            )
 
             screen.blit(turns_text, (turns_x, turns_y))
     except Exception as e:

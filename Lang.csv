@@ -20,7 +20,8 @@ LifecycleContinue;Продолжить;Continue
 Level1Year;1815;1815
 Level2Year;1825;1825
 Level3Year;1830;1830
-Level4Year;1830;1830
+Level4Year;1845;1845
+Level5Year;1847;1847
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.
 Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.
 Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.
@@ -66,7 +67,7 @@ RewardFinalBoss;Поздравляем! Вы разблокировали сле
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
 RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
-RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции».;You completed level four! The Investments section is now open.
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт шестой уровень. Вы получили 2 Наполеона и чёрную карту Golden Stocks.;You completed level four! Level six is now unlocked. You received 2 Napoleondors and the Golden Stocks black card.
 RewardLevel5FinalBoss;Вы завершили пятый уровень!;You completed level five!
 BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
 LoseWindowText;Вы проиграли!;You lost!

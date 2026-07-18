@@ -132,7 +132,17 @@ def main():
         else:
             game_state.clear_pending_shop_discount()
 
+    def award_level_completion_napoleondors(level_number):
+        completion_reward = game_state.get_level_completion_napoleondor_reward(level_number)
+        if completion_reward > 0:
+            game_state.add_napoleondors(level_number, completion_reward)
+
+    def get_round_victory_napoleondor_amount(level_number):
+        return 3 if int(level_number or 0) == 3 else 1
+
     def get_boss_victory_napoleondor_amount(level_number, boss_index=None, boss_filename=None, defeated_count=0):
+        if int(level_number or 0) == 3:
+            return 4
         boss_number = get_boss_number_from_filename(boss_filename)
         if not boss_number:
             try:
@@ -457,6 +467,7 @@ def main():
                                 )
                                 mark_level_run_result(bp_state, level, True)
                                 game_state.complete_level_run(level)
+                                award_level_completion_napoleondors(level)
                                 if level == 1:
                                     game_state.level_1_boss_defeated = True
                                 elif level == 2:
@@ -486,7 +497,7 @@ def main():
                             mark_context_round_completed(bp_state, active_context)
                             award_napoleondors_and_open_shop(
                                 level,
-                                1,
+                                get_round_victory_napoleondor_amount(level),
                                 show_shop=should_open_shop_after_regular_round(level),
                                 clear_active_game=True,
                             )
@@ -776,7 +787,7 @@ def main():
                                 profile_manager.save_progress_from_game_state(selected_slot)
                             award_napoleondors_and_open_shop(
                                 boss_level,
-                                1,
+                                get_round_victory_napoleondor_amount(boss_level),
                                 test_mode=test_mode,
                                 show_shop=should_open_shop_after_regular_round(boss_level),
                                 clear_active_game=True,
@@ -873,6 +884,7 @@ def main():
                                 )
                                 mark_level_run_result(bp_state, boss_level, True)
                                 game_state.complete_level_run(boss_level)
+                                award_level_completion_napoleondors(boss_level)
                                 if boss_level == 1:
                                     game_state.level_1_boss_defeated = True
                                     print("Level 1 boss defeated! Unlocking level 2")

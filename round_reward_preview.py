@@ -4,7 +4,7 @@ import pygame
 
 from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_TURNS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
-from gameplay_card_rendering import draw_bid_modifier_text
+from gameplay_card_rendering import draw_bid_modifier_text, get_turns_text_position
 
 
 PAPER_COLOR = (83, 76, 70)
@@ -94,12 +94,7 @@ def draw_card_turns_on_surface(surface, turns_value, card_id, card_width, card_h
     try:
         font = pygame.font.Font(font_path_use, turns_font_size)
         turns_text = font.render(str(turns_value), True, paper_color)
-        base_bottom_height = 244.0
-        height_scale = card_height / base_bottom_height if base_bottom_height > 0 else 1.0
-        offset_from_bottom = 75.0 * height_scale
-        card_center_x = card_width / 2
-        turns_x = card_center_x + 10 * scale_factor
-        turns_y = card_height - offset_from_bottom
+        turns_x, turns_y = get_turns_text_position(card_id, card_width, card_height)
 
         surface.blit(turns_text, (int(turns_x), int(turns_y)))
     except Exception as e:

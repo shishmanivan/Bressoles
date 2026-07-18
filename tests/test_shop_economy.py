@@ -30,6 +30,7 @@ SHOP_STATE_FIELDS = (
     "issuer_bought_count",
     "bank_bought",
     "bank_interest_base",
+    "multibagger_bought",
     "licensed_card_ids",
     "silver_cards",
     "gold_cards",
@@ -59,6 +60,7 @@ class ShopEconomyTestCase(unittest.TestCase):
         game_state.issuer_bought_count = 0
         game_state.bank_bought = False
         game_state.bank_interest_base = None
+        game_state.multibagger_bought = False
         game_state.licensed_card_ids = set(game_state.DEFAULT_LICENSED_CARDS)
         game_state.silver_cards = []
         game_state.gold_cards = []
@@ -81,6 +83,66 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_multibagger_shop_chance_is_70_only_on_level3(self):
+        self.assertEqual(game_state.get_multibagger_shop_chance(3), 70)
+        for level in (1, 2, 4, 5):
+            with self.subTest(level=level):
+                self.assertEqual(game_state.get_multibagger_shop_chance(level), 10)
+
+    def test_multibagger_cost_is_3_on_level3_and_5_elsewhere(self):
+        self.assertEqual(game_state.get_multibagger_shop_cost(3), 3)
+        for level in (1, 2, 4, 5):
+            with self.subTest(level=level):
+                self.assertEqual(game_state.get_multibagger_shop_cost(level), 5)
+
+        with mock.patch.object(game_state, "build_shop_special_offer_pool", return_value=["multibagger"]):
+            discounted_offer = game_state.generate_shop_offers(
+                3,
+                card_slots=0,
+                special_slots=1,
+                license_slots=0,
+                discount_percent=50,
+            )
+        self.assertEqual(discounted_offer, [{"kind": "special", "special_id": "multibagger", "cost": 1.5}])
+
+    def test_multibagger_roll_gets_a_shop_slot_and_disappears_after_purchase(self):
+        with mock.patch.object(game_state.random, "randint", return_value=1):
+            offers = game_state.build_shop_special_offer_pool(3)
+        self.assertEqual(offers[0], "multibagger")
+
+        game_state.multibagger_bought = True
+        with mock.patch.object(game_state.random, "randint", return_value=1):
+            offers_after_purchase = game_state.build_shop_special_offer_pool(3)
+        self.assertNotIn("multibagger", offers_after_purchase)
+
+    def test_multibagger_uses_probability_pool_and_is_bought_only_once(self):
+        game_state.napoleondors = 20
+        page = self._shop({"kind": "special", "special_id": "multibagger", "cost": 5})
+
+        with (
+            mock.patch.object(game_state, "build_gold_cards_pool", return_value=[401, 405]),
+            mock.patch.object(game_state.random, "choice", return_value=405),
+        ):
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.gold_cards, [405])
+        self.assertTrue(game_state.multibagger_bought)
+        self.assertEqual(game_state.napoleondors, 15)
+        self.assertEqual(page.message, "Карта добавлена")
+        self.assertFalse(game_state.is_multibagger_offer_available())
+
+    def test_multibagger_falls_back_to_all_open_unowned_gold_cards(self):
+        game_state.gold_cards = [401]
+        with (
+            mock.patch.object(game_state, "build_gold_cards_pool", return_value=[]),
+            mock.patch.object(game_state, "build_open_gold_cards_pool", return_value=[401, 402, 403]),
+            mock.patch.object(game_state.random, "choice", return_value=403),
+        ):
+            awarded = game_state.buy_multibagger_gold_card()
+
+        self.assertEqual(awarded, 403)
+        self.assertEqual(game_state.gold_cards, [401, 403])
+
     def test_investments_are_a_separate_section_unlocked_by_level4_completion(self):
         game_state.level_4_boss_defeated = False
         locked_offers = game_state.generate_shop_offers(5, card_slots=0, special_slots=0, license_slots=0)
@@ -98,6 +160,27 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers = game_state.build_shop_special_offer_pool(5)
 
         self.assertNotIn("investment", offers)
+
+    def test_level2_shop_only_offers_short_level_specials(self):
+        allowed = {"bailout", "junk_bond", "trader", "multibagger"}
+
+        for roll in (1, 100):
+            with self.subTest(roll=roll), mock.patch.object(
+                game_state.random, "randint", return_value=roll
+            ):
+                offers = game_state.build_shop_special_offer_pool(2)
+
+            self.assertEqual(len(offers), 2)
+            self.assertTrue(set(offers).issubset(allowed))
+
+    def test_level2_has_no_licenses_and_its_license_pool_starts_at_level3(self):
+        level2_offers = game_state.generate_shop_offers(
+            2, card_slots=0, special_slots=0, license_slots=None
+        )
+        self.assertFalse(any(offer["kind"] == "license" for offer in level2_offers))
+
+        level3_license_pool = game_state.build_license_offer_pool(3)
+        self.assertTrue({112, 113, 114, 115}.issubset(level3_license_pool))
 
     def test_investment_section_upgrades_one_card_and_returns_to_shop(self):
         game_state.napoleondors = 6
@@ -282,6 +365,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.issuer_bought_count = 1
         game_state.bank_bought = True
         game_state.bank_interest_base = 7.5
+        game_state.multibagger_bought = True
         game_state.licensed_card_ids.add(121)
         game_state.gold_cards = [401]
         game_state.bear_goal_reduction_steps = 2
@@ -301,6 +385,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.issuer_bought_count = 0
         game_state.bank_bought = False
         game_state.bank_interest_base = None
+        game_state.multibagger_bought = False
         game_state.licensed_card_ids = set(game_state.DEFAULT_LICENSED_CARDS)
         game_state.gold_cards = []
         game_state.bear_goal_reduction_steps = 0
@@ -321,6 +406,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         self.assertEqual(game_state.get_issuer_bought_count(), 1)
         self.assertTrue(game_state.bank_bought)
         self.assertEqual(game_state.bank_interest_base, 7.5)
+        self.assertTrue(game_state.multibagger_bought)
         self.assertTrue(game_state.is_card_licensed(121))
         self.assertEqual(game_state.gold_cards, [401])
         self.assertEqual(game_state.bear_goal_reduction_steps, 2)
@@ -339,6 +425,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.issuer_bought_count = 2
         game_state.bank_bought = True
         game_state.bank_interest_base = 20
+        game_state.multibagger_bought = True
         game_state.licensed_card_ids.add(121)
         game_state.gold_cards = [401]
         game_state.bear_goal_reduction_steps = 3
@@ -357,6 +444,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         self.assertEqual(game_state.get_issuer_bought_count(), 0)
         self.assertFalse(game_state.bank_bought)
         self.assertIsNone(game_state.bank_interest_base)
+        self.assertFalse(game_state.multibagger_bought)
         self.assertEqual(game_state.gold_cards, [])
         self.assertEqual(game_state.bear_goal_reduction_steps, 0)
         self.assertTrue(game_state.is_card_licensed(121))

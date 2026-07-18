@@ -347,6 +347,49 @@ class RebateLiquidationTests(unittest.TestCase):
         self.assertEqual(liquidation["proceeds"], 48)
         self.assertEqual(liquidation["target_money"], 55)
 
+    def test_gold_rebate_uses_base_synergies_and_a_fall_bonus(self):
+        cases = (
+            (False, False, 0, 52),
+            (True, False, 0, 56),
+            (False, True, 0, 56),
+            (True, True, 0, 60),
+            (True, True, 4, 61),
+        )
+        for red_rebate, silver_rebate, fall_bonus, expected_proceeds in cases:
+            with self.subTest(
+                red_rebate=red_rebate,
+                silver_rebate=silver_rebate,
+                fall_bonus=fall_bonus,
+            ):
+                page = self._page()
+                page.rebate_a_fall_bonus_percent = fall_bonus
+                page._has_active_silver_card = mock.Mock(
+                    side_effect=lambda card_id: card_id == 407 or (card_id == 201 and silver_rebate),
+                )
+                page._has_played_side_card = mock.Mock(
+                    side_effect=lambda card_id: card_id == 110 and red_rebate,
+                )
+
+                self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+
+                liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+                self.assertEqual(liquidation["gross_value"], 40)
+                self.assertEqual(liquidation["proceeds"], expected_proceeds)
+
+    def test_gold_rebate_adds_two_percent_only_when_a_actually_falls(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.rebate_a_fall_bonus_percent = 0
+        page.lifecycle_card_jump_animations = {}
+        page._has_active_silver_card = mock.Mock(return_value=True)
+        page._active_lifecycle_cards = mock.Mock(return_value=[407])
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._record_rebate_a_fall(10, 8, "test"))
+        self.assertEqual(page.rebate_a_fall_bonus_percent, 2)
+        self.assertFalse(page._record_rebate_a_fall(2, 2, "minimum"))
+        self.assertEqual(page.rebate_a_fall_bonus_percent, 2)
+        page._start_card_jump_animation.assert_called_once()
+
     def test_no_rebate_leaves_terminal_shares_for_the_normal_loss_check(self):
         page = self._page()
         page._has_active_silver_card = mock.Mock(return_value=False)

@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 
 import pygame
@@ -44,6 +45,18 @@ class GameScreen:
             scale_factor=0.8,
             warning_message="WARNING: LevelCard.jpg not found:",
         )
+
+        self.stamp_image = None
+        self._rotated_stamps = {}
+        if self.levelcard_image:
+            # A circular stamp covering roughly one eighth of the card's area.
+            card_area = self.levelcard_image.get_width() * self.levelcard_image.get_height()
+            stamp_size = max(1, round((card_area / 8) ** 0.5))
+            self.stamp_image = load_scaled_image(
+                os.path.join("LevelPage", "Stamp.png"),
+                target_size=(stamp_size, stamp_size),
+                warning_message="WARNING: Stamp.png not found:",
+            )
 
         padding_x = 40
         padding_y = 75
@@ -164,6 +177,27 @@ class GameScreen:
             self._wrapped_text_cache[cache_key] = lines
         return lines
 
+    def _draw_completed_stamp(self, card_position, level_num):
+        if not self.stamp_image or not self._is_unlocked(f"level_{level_num}_boss_defeated"):
+            return
+
+        rotated_stamp = self._rotated_stamps.get(level_num)
+        if rotated_stamp is None:
+            rng = random.Random(0x5A17 + level_num * 7919)
+            angle = rng.choice((-27, -22, -17, -12, 11, 16, 21, 26))
+            rotated_stamp = pygame.transform.rotozoom(self.stamp_image, angle, 1.0)
+            self._rotated_stamps[level_num] = rotated_stamp
+
+        # Keep the apparently hand-stamped placement stable between frames and
+        # visits, while giving every level its own position and tilt.
+        rng = random.Random(0xC0DE + level_num * 3571)
+        margin = 12
+        max_x = max(margin, self.levelcard_image.get_width() - rotated_stamp.get_width() - margin)
+        max_y = max(margin, self.levelcard_image.get_height() - rotated_stamp.get_height() - margin)
+        offset_x = rng.randint(margin, max_x)
+        offset_y = rng.randint(margin, max_y)
+        self.screen.blit(rotated_stamp, (card_position[0] + offset_x, card_position[1] + offset_y))
+
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
 
@@ -242,6 +276,8 @@ class GameScreen:
             for i, line in enumerate(lines):
                 line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
                 self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+
+        self._draw_completed_stamp(card_position, level_num)
 
         if self.startarrow_image:
             arrow_x = card_position[0] + card_width - self.startarrow_image.get_width() - 15
@@ -368,7 +404,7 @@ class GameScreen:
 
             year_key = "Level4Year"
             year_text = self._get_text(year_key, None)
-            card_text = year_text if year_text and year_text != year_key else "1840"
+            card_text = year_text if year_text and year_text != year_key else "1845"
             text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
             text_x = self.card4_position[0] + 390
             text_y = self.card4_position[1] + 8

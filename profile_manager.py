@@ -109,6 +109,7 @@ def _empty_progress():
         "issuer_bought_count": 0,
         "bank_bought": False,
         "bank_interest_base": None,
+        "multibagger_bought": False,
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
@@ -121,6 +122,8 @@ def _empty_progress():
         "pending_shop_discount_percent": 0,
         "bailout_rounds_remaining": 0,
         "active_long_investments": [],
+        "golden_stocks_chance_percent": game_state.GOLDEN_STOCKS_BASE_CHANCE,
+        "golden_stocks_triggered": False,
         "licensed_card_ids": _serialize_int_list(game_state.DEFAULT_LICENSED_CARDS),
         "silver_cards": [],
         "black_cards": [],
@@ -272,6 +275,7 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.bank_interest_base = None
+    game_state.multibagger_bought = bool(progress.get("multibagger_bought", False))
     game_state.napoleondors = float(progress.get("napoleondors", 0) or 0)
     try:
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
@@ -301,6 +305,14 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.active_long_investments = _restore_int_list(progress.get("active_long_investments") or [])[
         : game_state.LONG_MAX_ACTIVE
     ]
+    try:
+        game_state.golden_stocks_chance_percent = max(
+            0,
+            min(100, int(progress.get("golden_stocks_chance_percent", game_state.GOLDEN_STOCKS_BASE_CHANCE) or 0)),
+        )
+    except (TypeError, ValueError):
+        game_state.golden_stocks_chance_percent = game_state.GOLDEN_STOCKS_BASE_CHANCE
+    game_state.golden_stocks_triggered = bool(progress.get("golden_stocks_triggered", False))
     if "licensed_card_ids" in progress:
         game_state.licensed_card_ids = game_state.normalize_license_ids(progress.get("licensed_card_ids"))
     else:
@@ -388,6 +400,7 @@ def _capture_progress():
         "issuer_bought_count": game_state.get_issuer_bought_count(),
         "bank_bought": bool(game_state.bank_bought),
         "bank_interest_base": game_state.bank_interest_base,
+        "multibagger_bought": bool(game_state.multibagger_bought),
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
@@ -400,6 +413,8 @@ def _capture_progress():
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
+        "golden_stocks_chance_percent": game_state.get_golden_stocks_chance_percent(),
+        "golden_stocks_triggered": game_state.is_golden_stocks_triggered(),
         "licensed_card_ids": _serialize_int_list(game_state.licensed_card_ids),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),

@@ -154,6 +154,7 @@ class GameplayPage:
         if active_gold_cards is not None:
             game_state.set_active_gold_cards(self.active_gold_cards)
         self.insider_c_growth_turns_remaining = 2 if self._count_active_silver_card(405) > 0 else 0
+        self.rebate_a_fall_bonus_percent = 0
         self.active_silver_cards_spent = False
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
@@ -328,6 +329,15 @@ class GameplayPage:
         self.defeated_boss_icon_cache = {}
         self.current_boss_icon_cache = {}
         self.deck_view_silver_card_cache = {}
+        self.deck_view_card_entries = []
+        self.hedger_used_this_round = False
+        self.hedger_selected_card_id = None
+        self.hedger_confirm_active = False
+        self.hedger_message = ""
+        self.hedger_message_until = 0
+        self.hedger_add_button_rect = None
+        self.hedger_yes_button_rect = None
+        self.hedger_no_button_rect = None
         
         # Use global Dobor value (can be modified by boss rewards)
         self.Dobor = game_state.global_dobor
@@ -469,6 +479,7 @@ class GameplayPage:
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
         self.long_payout_amount = 0
+        self.golden_stocks_reward_card = None
         
         # Load WinLose window texts from Lang.csv
         self.reward_window_text = self._get_text("RewardWindowText", "RewardWindowText")
@@ -528,6 +539,63 @@ class GameplayPage:
 
     def _collect_current_deck_cards(self):
         return sorted(card_id for card_id in self.deck if card_id is not None)
+
+    def _is_hedger_available(self):
+        return self._count_active_silver_card(408) > 0 and not self.hedger_used_this_round
+
+    def _find_free_hand_slot(self):
+        for index, card_id in enumerate(self.hand_cards):
+            if card_id is None:
+                return index
+        return None
+
+    def _set_hedger_message(self, text, duration_ms=1600):
+        self.hedger_message = str(text or "")
+        self.hedger_message_until = pygame.time.get_ticks() + int(duration_ms or 0)
+
+    def _clear_hedger_selection(self):
+        self.hedger_selected_card_id = None
+        self.hedger_confirm_active = False
+        self.hedger_add_button_rect = None
+        self.hedger_yes_button_rect = None
+        self.hedger_no_button_rect = None
+
+    def _select_hedger_deck_card(self, card_id):
+        if not self._is_hedger_available():
+            return False
+        try:
+            selected = int(card_id)
+        except (TypeError, ValueError):
+            return False
+        if selected not in self.deck:
+            return False
+        self.hedger_selected_card_id = selected
+        self.hedger_confirm_active = False
+        self.hedger_message = ""
+        return True
+
+    def _add_hedger_selected_card_to_hand(self):
+        if not self._is_hedger_available() or self.hedger_selected_card_id is None:
+            return False
+        free_slot = self._find_free_hand_slot()
+        if free_slot is None:
+            self._set_hedger_message("Нет места")
+            self.hedger_confirm_active = False
+            return False
+
+        try:
+            self.deck.remove(self.hedger_selected_card_id)
+        except ValueError:
+            self._set_hedger_message("Карта не найдена")
+            self._clear_hedger_selection()
+            return False
+
+        self.hand_cards[free_slot] = self.hedger_selected_card_id
+        self.hedger_used_this_round = True
+        self._set_hedger_message("Карта добавлена")
+        self._clear_hedger_selection()
+        self._save_active_game()
+        return True
 
     def _load_defeated_boss_icon(self, boss_filename):
         if not boss_filename:
@@ -638,6 +706,7 @@ class GameplayPage:
         pygame.draw.rect(self.screen, PAPER_COLOR, panel, 3)
 
         cards = self._collect_current_deck_cards()
+        self.deck_view_card_entries = []
         card_w, card_h = self.card_size_market
         gap_x = 22
         gap_y = 34
@@ -662,13 +731,65 @@ class GameplayPage:
             image = self.card_images_market.get(card_id) or self.card_images_bottom.get(card_id)
             if not image:
                 continue
+            card_rect = pygame.Rect(card_x, card_y, card_w, card_h)
+            self.deck_view_card_entries.append({"card_id": card_id, "rect": card_rect})
             self.screen.blit(image, (card_x, card_y))
             self.draw_card_action(card_id, card_x, card_y, self.card_size_market)
             self.draw_card_turns(card_id, card_x, card_y, self.card_size_market)
+            if self._is_hedger_available() and self.hedger_selected_card_id == card_id:
+                pygame.draw.rect(self.screen, GOLD, card_rect.inflate(8, 8), 4, border_radius=4)
 
         self._draw_silver_deck_preview(panel)
         self._draw_defeated_boss_rewards(panel)
+        self._draw_hedger_deck_controls(panel)
         self._draw_deck_toggle()
+
+    def _draw_hedger_deck_controls(self, panel):
+        self.hedger_add_button_rect = None
+        self.hedger_yes_button_rect = None
+        self.hedger_no_button_rect = None
+
+        if not self._count_active_silver_card(408):
+            return
+
+        y = panel.bottom - 64
+        if self.hedger_used_this_round:
+            text = self.font_small.render("Hedger использован", True, PAPER_COLOR)
+            self.screen.blit(text, text.get_rect(center=(panel.centerx, y)))
+            return
+
+        if self.hedger_message and pygame.time.get_ticks() < self.hedger_message_until:
+            text = self.font_small.render(self.hedger_message, True, PAPER_COLOR)
+            self.screen.blit(text, text.get_rect(center=(panel.centerx, y - 48)))
+
+        if self.hedger_selected_card_id is None:
+            prompt = self.font_small.render("Выберите карту из колоды", True, PAPER_COLOR)
+            self.screen.blit(prompt, prompt.get_rect(center=(panel.centerx, y)))
+            return
+
+        if self.hedger_confirm_active:
+            prompt = self.font_small.render(
+                f"Добавить карту {self.hedger_selected_card_id} в руку?",
+                True,
+                PAPER_COLOR,
+            )
+            self.screen.blit(prompt, prompt.get_rect(center=(panel.centerx, y - 46)))
+            self.hedger_yes_button_rect = pygame.Rect(panel.centerx - 150, y - 20, 120, 54)
+            self.hedger_no_button_rect = pygame.Rect(panel.centerx + 30, y - 20, 120, 54)
+            self._draw_deck_view_button(self.hedger_yes_button_rect, "Да")
+            self._draw_deck_view_button(self.hedger_no_button_rect, "Нет")
+            return
+
+        self.hedger_add_button_rect = pygame.Rect(panel.centerx - 170, y - 24, 340, 58)
+        self._draw_deck_view_button(self.hedger_add_button_rect, "Добавить в руку")
+
+    def _draw_deck_view_button(self, rect, text):
+        mouse_pos = pygame.mouse.get_pos()
+        color = (248, 239, 216) if rect.collidepoint(mouse_pos) else (238, 228, 205)
+        pygame.draw.rect(self.screen, color, rect, border_radius=7)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2, border_radius=7)
+        label = self.font_small.render(text, True, PAPER_COLOR)
+        self.screen.blit(label, label.get_rect(center=rect.center))
 
     def _get_deck_view_silver_card_image(self, card_id, size):
         cache_key = (int(card_id), int(size[0]), int(size[1]))
@@ -1250,10 +1371,13 @@ class GameplayPage:
             "win_lose_y": self.win_lose_y,
             "last_earned_cards": list(self.last_earned_cards or []),
             "long_payout_amount": int(self.long_payout_amount or 0),
+            "golden_stocks_reward_card": self.golden_stocks_reward_card,
             "active_silver_cards": list(self.active_silver_cards or []),
             "active_black_cards": list(self.active_black_cards or []),
             "active_gold_cards": list(self.active_gold_cards or []),
             "insider_c_growth_turns_remaining": int(self.insider_c_growth_turns_remaining or 0),
+            "rebate_a_fall_bonus_percent": int(self.rebate_a_fall_bonus_percent or 0),
+            "hedger_used_this_round": bool(self.hedger_used_this_round),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "shareholder_effect_count": int(self.shareholder_effect_count or 0),
@@ -1289,6 +1413,8 @@ class GameplayPage:
             "pending_draws",
             "win_lose_y",
             "insider_c_growth_turns_remaining",
+            "rebate_a_fall_bonus_percent",
+            "hedger_used_this_round",
         )
         for field in scalar_fields:
             if field in state:
@@ -1323,6 +1449,7 @@ class GameplayPage:
             self.reward_window_text = self._get_final_boss_reward_text()
         self.last_earned_cards = list(state.get("last_earned_cards") or [])
         self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
+        self.golden_stocks_reward_card = state.get("golden_stocks_reward_card")
         self.active_silver_cards = list(state.get("active_silver_cards", self.active_silver_cards) or [])
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
@@ -1618,6 +1745,46 @@ class GameplayPage:
 
     def _reset_drag_state(self):
         self._apply_drag_state(cleared_drag_state())
+
+    def _close_deck_view(self):
+        self.deck_view_active = False
+        self._clear_hedger_selection()
+
+    def _handle_deck_view_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self._close_deck_view()
+            return None
+
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return None
+
+        if self.deck_toggle_rect.collidepoint(event.pos):
+            self._play_deck_toggle_sound()
+            self._close_deck_view()
+            return None
+
+        if not self._is_hedger_available():
+            return None
+
+        if self.hedger_confirm_active:
+            if self.hedger_yes_button_rect and self.hedger_yes_button_rect.collidepoint(event.pos):
+                self._add_hedger_selected_card_to_hand()
+                return None
+            if self.hedger_no_button_rect and self.hedger_no_button_rect.collidepoint(event.pos):
+                self._clear_hedger_selection()
+                return None
+
+        if self.hedger_add_button_rect and self.hedger_add_button_rect.collidepoint(event.pos):
+            self.hedger_confirm_active = True
+            return None
+
+        for entry in reversed(self.deck_view_card_entries or []):
+            rect = entry.get("rect")
+            if rect and rect.collidepoint(event.pos):
+                self._select_hedger_deck_card(entry.get("card_id"))
+                return None
+
+        return None
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -1633,14 +1800,7 @@ class GameplayPage:
                 continue
 
             if self.deck_view_active:
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.deck_view_active = False
-                    continue
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.deck_toggle_rect.collidepoint(event.pos):
-                        self._play_deck_toggle_sound()
-                        self.deck_view_active = False
-                    continue
+                self._handle_deck_view_event(event)
                 continue
             
             # Handle Ok button click if WinLose screen is shown
@@ -1997,6 +2157,7 @@ class GameplayPage:
         self._record_stats_result(next_state == "win")
         self._spend_active_silver_cards_if_needed()
         self.long_payout_amount = 0
+        self.golden_stocks_reward_card = None
         if next_state == "win":
             if self.is_final_boss:
                 self.reward_window_text = self._get_final_boss_reward_text()
@@ -2015,6 +2176,7 @@ class GameplayPage:
             self._apply_obligation_win_bonus()
             self._record_bear_victory_progress()
             self.long_payout_amount = self._apply_long_investment_payout()
+            self.golden_stocks_reward_card = self._apply_golden_stocks_reward()
             game_state.advance_bailout_round()
         else:
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
@@ -2091,6 +2253,23 @@ class GameplayPage:
 
     def _is_flat_random_active(self):
         return self._count_active_silver_card(404) > 0
+
+    def _record_rebate_a_fall(self, previous_price, current_price, source):
+        if not self._has_active_silver_card(407) or current_price >= previous_price:
+            return False
+        self.rebate_a_fall_bonus_percent += 2
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                if int(card_id) == 407:
+                    self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+            except (TypeError, ValueError):
+                continue
+        print(
+            "Active card 407 Gold Rebate gained 2 percentage points from an A fall: "
+            f"source={source}, A={previous_price}->{current_price}, "
+            f"bonus={self.rebate_a_fall_bonus_percent}%"
+        )
+        return True
 
     def _apply_insurance_if_needed(self, next_state, reason):
         if next_state != "lose" or self.is_boss_fight or not self._has_active_silver_card(220):
@@ -2193,8 +2372,9 @@ class GameplayPage:
             return False
 
         full_price = self._has_active_silver_card(201)
+        gold_rebate = self._has_active_silver_card(407)
         discounted = self._has_played_side_card(110)
-        if not full_price and not discounted:
+        if not full_price and not discounted and not gold_rebate:
             return False
 
         gross_value = (
@@ -2206,7 +2386,15 @@ class GameplayPage:
             self.final_auto_liquidation_applied = True
             return False
 
-        if full_price and discounted:
+        if gold_rebate:
+            sale_percent = 130 + int(self.rebate_a_fall_bonus_percent or 0)
+            if discounted:
+                sale_percent += 10
+            if full_price:
+                sale_percent += 10
+            proceeds = (gross_value * sale_percent) // 100
+            source = f"Active card 407 Gold Rebate ({sale_percent}%)"
+        elif full_price and discounted:
             proceeds = (gross_value * 120) // 100
             source = "Cards 110+201 Rebate"
         elif full_price:
@@ -2261,7 +2449,7 @@ class GameplayPage:
 
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                is_rebate = int(card_id) == 201
+                is_rebate = int(card_id) in (201, 407)
             except (TypeError, ValueError):
                 is_rebate = False
             if is_rebate:
@@ -2362,6 +2550,19 @@ class GameplayPage:
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
         return int(payout)
+
+    def _apply_golden_stocks_reward(self):
+        if self.is_boss_fight:
+            return None
+        awarded_card = game_state.resolve_golden_stocks_round(self._active_lifecycle_cards())
+        if awarded_card is None:
+            if self.profile_slot and not self.test_mode:
+                profile_manager.save_progress_from_game_state(self.profile_slot)
+            return None
+        self.last_earned_cards.append(awarded_card)
+        if self.profile_slot and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        return awarded_card
 
     def _apply_bill_of_exchange_shop_discount(self):
         if not self._has_active_silver_card(215):
@@ -2720,6 +2921,7 @@ class GameplayPage:
             if turns_remaining is not None and turns_remaining > 0:
                 # Apply CardAction to price
                 card_action = self.card_actions.get(card_id, 0)
+                previous_a_price = self.Aprice
                 prices = apply_price_card_action(
                     {"Aprice": self.Aprice, "BPrice": self.BPrice, "CPrice": self.CPrice},
                     market,
@@ -2729,6 +2931,7 @@ class GameplayPage:
                 self.Aprice = prices["Aprice"]
                 self.BPrice = prices["BPrice"]
                 self.CPrice = prices["CPrice"]
+                self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                 
                 # Start jump animation for the card
                 self._start_card_jump_animation(self.card_jump_animations[market], slot)
@@ -2802,6 +3005,7 @@ class GameplayPage:
     
     def _apply_price_change(self, market, price_change):
         """Apply price change to the specified market. Ensures price doesn't drop below 2."""
+        previous_a_price = self.Aprice
         prices = apply_market_price_change(
             {"Aprice": self.Aprice, "BPrice": self.BPrice, "CPrice": self.CPrice},
             market,
@@ -2810,6 +3014,7 @@ class GameplayPage:
         self.Aprice = prices["Aprice"]
         self.BPrice = prices["BPrice"]
         self.CPrice = prices["CPrice"]
+        self._record_rebate_a_fall(previous_a_price, self.Aprice, "market movement")
 
     def _lock_market_cards(self):
         """Помечает все текущие карты на рынке как сыгранные и заблокированные до конца игры."""
@@ -2914,8 +3119,10 @@ class GameplayPage:
 
     def _set_market_price_to_minimum(self, market):
         if market == 0:
-            changed = self.Aprice != 2
+            previous_a_price = self.Aprice
+            changed = previous_a_price != 2
             self.Aprice = 2
+            self._record_rebate_a_fall(previous_a_price, self.Aprice, "Bankruptcy A")
             return changed
         elif market == 1:
             changed = self.BPrice != 2
@@ -2957,10 +3164,12 @@ class GameplayPage:
         count = self._count_fresh_side_card(117)
         if count <= 0:
             return False
+        previous_a_price = self.Aprice
         changed = any(price != 2 for price in (self.Aprice, self.BPrice, self.CPrice))
         self.Aprice = 2
         self.BPrice = 2
         self.CPrice = 2
+        self._record_rebate_a_fall(previous_a_price, self.Aprice, "Market Crash")
         if not changed:
             return False
         self._start_fresh_side_card_jump_animation_for_card(117)
@@ -2983,9 +3192,11 @@ class GameplayPage:
             if bid_value is None:
                 continue
 
+            previous_a_price = self.Aprice
             self.Aprice = bid_value
             self.BPrice = bid_value
             self.CPrice = bid_value
+            self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
             applied_values.append(bid_value)
 
@@ -4055,6 +4266,8 @@ class GameplayPage:
                     text_blocks.append(
                         f"Long принес прибыль: {self.long_payout_amount} наполеондоров"
                     )
+                if self.golden_stocks_reward_card:
+                    text_blocks.append("Golden Stocks сработал!")
                 window_rect = pygame.Rect(
                     self.win_lose_x,
                     win_lose_y_draw,

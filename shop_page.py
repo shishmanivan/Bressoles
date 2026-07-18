@@ -40,6 +40,7 @@ SPECIAL_ASSETS = {
     "junk_bond": ("Джанк-бонд", os.path.join("Shop", "Junk Bond.png")),
     "issuer": ("Эмитент", os.path.join("Shop", "Issuer.png")),
     "bank": ("Банк", os.path.join("Shop", "Bank.png")),
+    "multibagger": ("Мультбэггер", os.path.join("Shop", "Multibagger.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -53,6 +54,7 @@ SPECIAL_DESCRIPTIONS = {
     "junk_bond": "Вложите 2 наполеондора. С шансом 40% сразу получите 6 наполеондоров.",
     "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
     "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
+    "multibagger": "Добавляет случайную золотую карту в текущем забеге.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
@@ -114,6 +116,14 @@ CARD_NAMES = {
     405: "Insider",
     406: "Gambling",
 }
+
+CARD_DESCRIPTIONS.update(
+    {
+        407: "Продаёт акции за 130% от их стоимости. Каждый раз, когда акции A падают, это число увеличивается ещё на 2%.",
+        408: "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+    }
+)
+CARD_NAMES.update({407: "Rebate", 408: "Hedger"})
 
 LICENSE_EFFECT_DESCRIPTIONS = {
     118: "Устанавливает цены всех акций на 10. Шанс попадания в пул: 60%.",
@@ -340,7 +350,7 @@ class ShopPage:
     def _draw_hover_description(self):
         offer_index = self._offer_at(pygame.mouse.get_pos())
         text = ""
-        if offer_index is not None:
+        if offer_index is not None and offer_index not in self.sold_offer_indexes:
             text = self._offer_description(self.offers[offer_index])
         elif self.message:
             text = self.message
@@ -559,6 +569,18 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Банк открыт"
+            return
+
+        if special_id == "multibagger":
+            awarded_card = game_state.buy_multibagger_gold_card()
+            if awarded_card is None:
+                self.message = "Нет доступных золотых карт"
+                self.sold_offer_indexes.add(index)
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Карта добавлена"
             return
 
         if special_id == "derivative":
