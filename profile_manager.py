@@ -110,6 +110,7 @@ def _empty_progress():
         "bank_bought": False,
         "bank_interest_base": None,
         "multibagger_bought": False,
+        "loan_boss_positions_by_level": {},
         "napoleondors": 0,
         "napoleondor_level": None,
         "earned_reward_cards": {},
@@ -276,6 +277,9 @@ def apply_profile_to_game_state(profile_or_slot):
     except (TypeError, ValueError):
         game_state.bank_interest_base = None
     game_state.multibagger_bought = bool(progress.get("multibagger_bought", False))
+    game_state.loan_boss_positions_by_level = _restore_int_key_lists(
+        progress.get("loan_boss_positions_by_level") or {}
+    )
     game_state.napoleondors = float(progress.get("napoleondors", 0) or 0)
     try:
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
@@ -401,6 +405,9 @@ def _capture_progress():
         "bank_bought": bool(game_state.bank_bought),
         "bank_interest_base": game_state.bank_interest_base,
         "multibagger_bought": bool(game_state.multibagger_bought),
+        "loan_boss_positions_by_level": _serialize_int_key_lists(
+            game_state.loan_boss_positions_by_level
+        ),
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),

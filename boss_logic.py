@@ -585,9 +585,8 @@ def apply_boss_functionality(func_string, gameplay_instance):
             if level_num == 5:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "advanced")
-                start_quantities = {"Aquantity": 0, "Bquantity": 10, "Cquantity": 0}
+                start_quantities = {"Aquantity": 0, "Bquantity": 8, "Cquantity": 0}
                 if boss_number == 9:
-                    start_quantities = {"Aquantity": 4, "Bquantity": 0, "Cquantity": 0}
                     setattr(gameplay_instance, "boss_forbid_price_2_buys", True)
                     setattr(gameplay_instance, "stock_bot_blocked_buy_prices", {2})
                 setattr(gameplay_instance, "stock_bot_start_quantities", start_quantities)

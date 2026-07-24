@@ -1,4 +1,4 @@
-from card_catalog import PRICE_CARD_IDS, get_price_card_spec
+from card_catalog import MARKET_DURATION_CARD_IDS, PRICE_CARD_IDS, get_price_card_spec
 
 
 def lock_market_cards(market_cards, market_cards_locked):
@@ -57,12 +57,12 @@ def advance_price_animation_frame(current_price_animation, frame_count, interval
 
 
 def build_price_cards_processing_queue(market_cards, market_card_turns):
-    """Build the persistent price-card queue in market/slot order."""
+    """Build the persistent market-effect queue in market/slot order."""
     queue = []
     for market in (0, 1, 2):
         for slot in (0, 1, 2):
             card_id = market_cards[market].get(slot)
-            if card_id not in PRICE_CARD_IDS:
+            if card_id not in MARKET_DURATION_CARD_IDS:
                 continue
             turns_remaining = market_card_turns[market].get(slot)
             if turns_remaining is not None and turns_remaining > 0:

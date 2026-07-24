@@ -2,7 +2,7 @@ import os
 
 import pygame
 
-from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_IDS, PRICE_CARD_TURNS
+from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, PRICE_CARD_IDS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
 
@@ -469,7 +469,7 @@ def _build_card_actions():
 
 
 def _build_card_turns():
-    return dict(PRICE_CARD_TURNS)
+    return dict(MARKET_CARD_TURNS)
 
 
 def _load_ok_button(path, warning_message):

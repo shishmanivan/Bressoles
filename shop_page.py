@@ -4,7 +4,7 @@ import sys
 import pygame
 
 import game_state
-from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_TURNS, get_card_image_base_id
+from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from gameplay_card_rendering import (
     draw_bear_modifier_text,
     draw_bid_modifier_text,
@@ -41,6 +41,9 @@ SPECIAL_ASSETS = {
     "issuer": ("Эмитент", os.path.join("Shop", "Issuer.png")),
     "bank": ("Банк", os.path.join("Shop", "Bank.png")),
     "multibagger": ("Мультбэггер", os.path.join("Shop", "Multibagger.png")),
+    "variance": ("Дисперсия", os.path.join("Shop", "Variance.png")),
+    "loan": ("Ссуда", os.path.join("Shop", "Loan.png")),
+    "correction": ("Коррекция", os.path.join("Shop", "Correction.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -55,6 +58,9 @@ SPECIAL_DESCRIPTIONS = {
     "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
     "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
     "multibagger": "Добавляет случайную золотую карту в текущем забеге.",
+    "variance": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
+    "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 50%.",
+    "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
@@ -69,8 +75,12 @@ CARD_DESCRIPTIONS = {
     120: "Устанавливает цены всех акций на 30.",
     121: "Устанавливает цены всех акций на 50.",
     122: "Устанавливает цены всех акций на 100.",
+    123: "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
+    124: "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
+    20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
+    21: "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
@@ -78,6 +88,7 @@ CARD_DESCRIPTIONS = {
     404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
     405: "Insider: первые два хода акции C гарантированно растут.",
     406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
+    409: "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз. Изменения цен от карт не учитываются.",
 }
 
 CARD_NAMES = {
@@ -86,6 +97,8 @@ CARD_NAMES = {
     120: "BID 30",
     121: "BID 50",
     122: "BID 100",
+    123: "Parity",
+    124: "Accumulation",
     110: "Рибейт",
     111: "Снижение долга",
     112: "Ролловер",
@@ -97,6 +110,7 @@ CARD_NAMES = {
     202: "Фьючерс",
     203: "Фьючерс",
     204: "Контанго",
+    205: "Controlling Stake",
     206: "Корзинная торговля",
     207: "Форвардная торговля",
     208: "Ролловер",
@@ -108,6 +122,8 @@ CARD_NAMES = {
     220: "Страхование",
     17: "Рост",
     18: "Рост",
+    20: "Regulation",
+    21: "Regulation",
     117: "Крах",
     401: "Медведь",
     402: "Форвардная торговля",
@@ -121,11 +137,25 @@ CARD_DESCRIPTIONS.update(
     {
         407: "Продаёт акции за 130% от их стоимости. Каждый раз, когда акции A падают, это число увеличивается ещё на 2%.",
         408: "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+        410: "Добавляет к эффекту Rebate по 1% за каждый имеющийся наполеондор.",
+        411: "На четвёртом ходу акции, которыми владеет игрок, гарантированно растут.",
+        412: "На четвёртом и восьмом ходах акции, которыми владеет игрок, гарантированно растут.",
     }
 )
-CARD_NAMES.update({407: "Rebate", 408: "Hedger"})
+CARD_NAMES.update(
+    {
+        407: "Rebate",
+        408: "Hedger",
+        409: "Momentum",
+        410: "Uptrend",
+        411: "Spoofing",
+        412: "Spoofing+",
+    }
+)
 
 LICENSE_EFFECT_DESCRIPTIONS = {
+    123: "Устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого. Шанс попадания в пул: 40%.",
+    124: "Удваивает номинал и количество ходов следующей выложенной Gain/Drop-карты. Действует, пока такая карта не будет выложена, но усиление не переходит в следующий раунд. Шанс попадания в пул: 10%.",
     118: "Устанавливает цены всех акций на 10. Шанс попадания в пул: 60%.",
     119: "Устанавливает цены всех акций на 20. Шанс попадания в пул: 40%.",
     120: "Устанавливает цены всех акций на 30. Шанс попадания в пул: 30%.",
@@ -137,6 +167,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     115: "Устанавливает цену акций компании C на 2.",
     203: "Добавляет 2 хода к длительности раунда.",
     204: "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
+    205: "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями. Шанс попадания в пул: 25%.",
     207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
     214: "Добавляет 4 к стартовым деньгам в начале раунда.",
     215: "После победы снижает цены всех предложений в следующем магазине на 50%.",
@@ -147,10 +178,10 @@ LICENSE_EFFECT_DESCRIPTIONS = {
 }
 
 SHOP_CARD_ACTIONS = dict(PRICE_CARD_ACTIONS)
-SHOP_CARD_TURNS = dict(PRICE_CARD_TURNS)
+SHOP_CARD_TURNS = dict(MARKET_CARD_TURNS)
 DECK_CARD_BASES = dict(CARD_IMAGE_BASE_IDS)
 DECK_CARD_ACTIONS = dict(PRICE_CARD_ACTIONS)
-DECK_CARD_TURNS = dict(PRICE_CARD_TURNS)
+DECK_CARD_TURNS = dict(MARKET_CARD_TURNS)
 
 
 def format_napoleondors(value):
@@ -583,6 +614,45 @@ class ShopPage:
             self.message = "Карта добавлена"
             return
 
+        if special_id == "variance":
+            game_state.spend_napoleondors(cost)
+            game_state.add_updown_probability_bonus(1)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Все карты усилены на 1%"
+            return
+
+        if special_id == "loan":
+            if not game_state.buy_loan(self.level_number):
+                self.sold_offer_indexes.add(index)
+                self.message = "Ссуда недоступна"
+                return
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Получено 5 наполеондоров"
+            return
+
+        if special_id == "correction":
+            selected_cards = CorrectionDeckPage(self.screen, self.font_path, self.level_number).run()
+            if not selected_cards:
+                self.message = ""
+                return
+            sale_value, sold_cards = game_state.sell_correction_cards(
+                self.level_number,
+                selected_cards,
+            )
+            if not sold_cards:
+                self.message = "Карта недоступна"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = (
+                f"Продано карт: {len(sold_cards)} на сумму "
+                f"{format_napoleondors(sale_value)}"
+            )
+            return
+
         if special_id == "derivative":
             if not game_state.is_derivative_offer_available():
                 self.sold_offer_indexes.add(index)
@@ -901,8 +971,11 @@ class TraderDeckPage(DeckCardPage):
     empty_text = "В колоде нет карт для продажи"
     confirm_text = "Продать"
 
+    def _sale_value(self, card_id):
+        return game_state.get_card_sale_value(card_id)
+
     def _is_sellable(self, card_id):
-        return game_state.get_card_sale_value(card_id) is not None
+        return self._sale_value(card_id) is not None
 
     def _card_at(self, pos):
         for index, rect in enumerate(self.card_rects):
@@ -928,7 +1001,7 @@ class TraderDeckPage(DeckCardPage):
                 pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
                 pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
 
-            sale_value = game_state.get_card_sale_value(card_id)
+            sale_value = self._sale_value(card_id)
             if sale_value is None:
                 overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
                 overlay.fill(DISABLED_OVERLAY)
@@ -946,7 +1019,7 @@ class TraderDeckPage(DeckCardPage):
                 pygame.draw.rect(self.screen, (184, 134, 11), selected_rect.inflate(10, 10), 4, border_radius=4)
 
         if self.confirming and self.selected_index is not None:
-            sale_value = game_state.get_card_sale_value(self.deck[self.selected_index])
+            sale_value = self._sale_value(self.deck[self.selected_index])
             self._draw_centered_text(
                 f"Продать карту за {format_napoleondors(sale_value)}?",
                 self.button_font,
@@ -983,6 +1056,106 @@ class TraderDeckPage(DeckCardPage):
                         continue
                     self.selected_index = card_index
                     self.confirming = True
+
+            self.draw()
+            self.clock.tick(FPS)
+
+
+class CorrectionDeckPage(TraderDeckPage):
+    title = "Коррекция"
+    prompt = "Выберите до трёх серебряных или золотых карт"
+    empty_text = "Нет серебряных или золотых карт для продажи"
+
+    def __init__(self, screen, font_path, level_number):
+        deck = (
+            [("silver", card_id) for card_id in game_state.silver_cards]
+            + [("gold", card_id) for card_id in game_state.gold_cards]
+        )
+        super().__init__(screen, font_path, level_number, deck=deck)
+        self.selected_indices = []
+
+    def _card_image(self, entry):
+        return super()._card_image(entry[1])
+
+    def _sale_value(self, entry):
+        kind = entry[0]
+        if kind == "silver":
+            return game_state.CORRECTION_SILVER_SALE_VALUE
+        if kind == "gold":
+            return game_state.CORRECTION_GOLD_SALE_VALUE
+        return None
+
+    def _selected_sale_value(self):
+        return sum(self._sale_value(self.deck[index]) or 0 for index in self.selected_indices)
+
+    def draw(self):
+        self._draw_background()
+        self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 120))
+        self._draw_centered_text(self.prompt, self.button_font, (self.panel_rect.centerx, self.panel_rect.y + 175))
+        if not self.deck:
+            self._draw_centered_text(self.empty_text, self.button_font, (self.panel_rect.centerx, self.panel_rect.centery))
+
+        for index, entry in enumerate(self.deck):
+            rect = self.card_rects[index]
+            image = self._card_image(entry)
+            if image:
+                self.screen.blit(image, rect.topleft)
+            else:
+                pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
+                pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
+
+            sale_value = self._sale_value(entry)
+            price = self.small_font.render(format_napoleondors(sale_value), True, PAPER_COLOR)
+            label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
+            pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
+            self.screen.blit(price, price.get_rect(center=label_rect.center))
+
+            if index in self.selected_indices:
+                selected_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height + self.sale_label_height + 2)
+                pygame.draw.rect(self.screen, (184, 134, 11), selected_rect.inflate(10, 10), 4, border_radius=4)
+
+        if self.selected_indices:
+            count = len(self.selected_indices)
+            total = format_napoleondors(self._selected_sale_value())
+            self._draw_centered_text(
+                f"Выбрано: {count} из {game_state.CORRECTION_MAX_CARDS}. Получите: {total}",
+                self.button_font,
+                (self.panel_rect.centerx, self.panel_rect.bottom - 185),
+            )
+            self._draw_button(self.confirm_rect, self.confirm_text)
+            self._draw_button(self.cancel_rect, self.cancel_text)
+        else:
+            self._draw_button(self.cancel_rect, self.back_text)
+
+        pygame.display.flip()
+
+    def run(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return None
+                if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+                    continue
+
+                if self.selected_indices and self.confirm_rect.collidepoint(event.pos):
+                    return [self.deck[index] for index in self.selected_indices]
+                if self.cancel_rect.collidepoint(event.pos):
+                    if self.selected_indices:
+                        self.selected_indices.clear()
+                    else:
+                        return None
+                    continue
+
+                card_index = self._card_at(event.pos)
+                if card_index is None:
+                    continue
+                if card_index in self.selected_indices:
+                    self.selected_indices.remove(card_index)
+                elif len(self.selected_indices) < game_state.CORRECTION_MAX_CARDS:
+                    self.selected_indices.append(card_index)
 
             self.draw()
             self.clock.tick(FPS)

@@ -4,6 +4,7 @@ from unittest import mock
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
+import game_state
 from boss_logic import apply_boss_functionality
 from gameplay_page import GameplayPage
 from gameplay_trade_actions import apply_arrow_trade
@@ -220,10 +221,42 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertEqual(page.stock_bot_type, "advanced")
         self.assertEqual(
             page.stock_bot_start_quantities,
-            {"Aquantity": 4, "Bquantity": 0, "Cquantity": 0},
+            {"Aquantity": 0, "Bquantity": 8, "Cquantity": 0},
         )
         self.assertTrue(page.boss_forbid_price_2_buys)
         self.assertEqual(page.stock_bot_blocked_buy_prices, {2})
+
+    def test_level5_first_boss_starts_even_with_player_on_two_a_shares(self):
+        page = self._page()
+        page.level_number = 5
+        page.boss_index = 0
+        page.defeated_count = 0
+
+        page._configure_level5_boss_stock_bot()
+
+        self.assertTrue(page.stock_bot_enabled)
+        self.assertEqual(page.stock_bot_type, "simple")
+        self.assertEqual(
+            page.stock_bot_start_quantities,
+            {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0},
+        )
+
+    def test_level5_later_bosses_use_percentage_bot_with_eight_b_shares(self):
+        for defeated_count in (1, 2, 3):
+            with self.subTest(defeated_count=defeated_count):
+                page = self._page()
+                page.level_number = 5
+                page.boss_index = 0
+                page.defeated_count = defeated_count
+
+                page._configure_level5_boss_stock_bot()
+
+                self.assertTrue(page.stock_bot_enabled)
+                self.assertEqual(page.stock_bot_type, "advanced")
+                self.assertEqual(
+                    page.stock_bot_start_quantities,
+                    {"Aquantity": 0, "Bquantity": 8, "Cquantity": 0},
+                )
 
 
 class ShareholderMarketShutdownTests(unittest.TestCase):
@@ -297,6 +330,26 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
 
         roll.assert_not_called()
         self.assertIsNone(page.shareholder_blocked_market)
+
+    def test_controlling_stake_prevents_and_clears_shareholder_button_lockout(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 4
+        page.win_lose_state = None
+        page.shareholder_effect_count = 7
+        page.shareholder_blocked_market = 1
+        page.active_silver_cards = [205]
+        page.boss_odd_turn_trading_only = False
+        page.boss_forbid_price_2_buys = False
+        page.Day = 2
+        page.Aprice = page.BPrice = page.CPrice = 10
+
+        with mock.patch("gameplay_page.random.random") as roll:
+            self.assertIsNone(page._roll_shareholder_market_shutdown())
+
+        roll.assert_not_called()
+        self.assertIsNone(page.shareholder_blocked_market)
+        for arrow_type in range(4):
+            self.assertFalse(page._is_arrow_disabled(1, arrow_type))
 
 
 class RebateLiquidationTests(unittest.TestCase):
@@ -389,6 +442,48 @@ class RebateLiquidationTests(unittest.TestCase):
         self.assertFalse(page._record_rebate_a_fall(2, 2, "minimum"))
         self.assertEqual(page.rebate_a_fall_bonus_percent, 2)
         page._start_card_jump_animation.assert_called_once()
+
+    def test_uptrend_adds_current_napoleondors_after_rebate_synergies(self):
+        cases = (
+            (True, False, False, 0, 38),
+            (True, True, False, 0, 50),
+            (True, True, True, 4, 63),
+        )
+        with mock.patch.object(game_state, "napoleondors", 5):
+            for red_rebate, silver_rebate, gold_rebate, fall_bonus, expected_proceeds in cases:
+                with self.subTest(
+                    red_rebate=red_rebate,
+                    silver_rebate=silver_rebate,
+                    gold_rebate=gold_rebate,
+                ):
+                    page = self._page()
+                    page.rebate_a_fall_bonus_percent = fall_bonus
+                    page._has_active_silver_card = mock.Mock(
+                        side_effect=lambda card_id: (
+                            card_id == 410
+                            or (card_id == 201 and silver_rebate)
+                            or (card_id == 407 and gold_rebate)
+                        ),
+                    )
+                    page._has_played_side_card = mock.Mock(
+                        side_effect=lambda card_id: card_id == 110 and red_rebate,
+                    )
+
+                    self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+
+                    liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+                    self.assertEqual(liquidation["proceeds"], expected_proceeds)
+
+    def test_uptrend_requires_rebate_and_counts_only_whole_napoleondors(self):
+        page = self._page()
+        page._has_active_silver_card = mock.Mock(
+            side_effect=lambda card_id: card_id == 410,
+        )
+        page._has_played_side_card = mock.Mock(return_value=False)
+
+        with mock.patch.object(game_state, "napoleondors", 5.5):
+            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 5)
+            self.assertFalse(page._apply_final_auto_liquidation_if_needed())
 
     def test_no_rebate_leaves_terminal_shares_for_the_normal_loss_check(self):
         page = self._page()

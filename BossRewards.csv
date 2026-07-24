@@ -5,6 +5,6 @@ Boss;Reward;Functionalities
 5;LastTurn=LastTurn+2,SilverCard;Self.hand=Self.hand-1
 6;hand=hand+1,SilverCard;ArkwrightStealShares
 7;;OddTurnTradingOnly
-8;FreeShop;ListStockBot
-9;UpDownPlus4;Bot2Percent,NoPrice2Buys
+8;FreeShop;
+9;UpDownPlus4;NoPrice2Buys
 10;StartCPlus2;OneRedOneGainDropPerTurn

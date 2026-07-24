@@ -11,6 +11,7 @@ import pygame
 from card_catalog import (
     BID_CARD_VALUES,
     CARD_IMAGE_BASE_IDS,
+    MARKET_CARD_TURNS,
     PRICE_CARD_ACTIONS,
     PRICE_CARD_IDS,
     PRICE_CARD_TURNS,
@@ -44,13 +45,13 @@ class CardCatalogTests(unittest.TestCase):
 
         self.assertEqual(_build_card_base_mapping(), CARD_IMAGE_BASE_IDS)
         self.assertEqual(_build_card_actions(), PRICE_CARD_ACTIONS)
-        self.assertEqual(_build_card_turns(), PRICE_CARD_TURNS)
+        self.assertEqual(_build_card_turns(), MARKET_CARD_TURNS)
         self.assertEqual(round_assets["card_base_mapping"], CARD_IMAGE_BASE_IDS)
         self.assertEqual(round_assets["card_actions"], PRICE_CARD_ACTIONS)
         self.assertEqual(round_assets["card_turns"], PRICE_CARD_TURNS)
         self.assertEqual(DECK_CARD_BASES, CARD_IMAGE_BASE_IDS)
         self.assertEqual(DECK_CARD_ACTIONS, PRICE_CARD_ACTIONS)
-        self.assertEqual(DECK_CARD_TURNS, PRICE_CARD_TURNS)
+        self.assertEqual(DECK_CARD_TURNS, MARKET_CARD_TURNS)
 
     def test_price_card_queue_uses_the_catalog_instead_of_a_numeric_range(self):
         card_ids = sorted(PRICE_CARD_IDS)
@@ -79,7 +80,7 @@ class CardCatalogTests(unittest.TestCase):
         self.assertEqual(added["Aprice"], 7)
         self.assertEqual(multiplied["Aprice"], 10)
 
-    def test_gain_drop_modifiers_iterate_metadata_not_fixed_ids(self):
+    def test_gain_drop_modifiers_do_not_extend_non_gain_drop_durations(self):
         page = GameplayPage.__new__(GameplayPage)
         page.card_actions = {11: 2, 99: 3}
         page.card_turns = {11: 1, 99: 4}
@@ -90,7 +91,7 @@ class CardCatalogTests(unittest.TestCase):
         page._apply_silver_rollover_bonus()
 
         self.assertEqual(page.card_actions, {11: 4, 99: 6})
-        self.assertEqual(page.card_turns, {11: 2, 99: 5})
+        self.assertEqual(page.card_turns, {11: 2, 99: 4})
 
     def test_missing_catalog_card_is_reported(self):
         cards = copy.deepcopy(load_cards_config())
@@ -121,7 +122,14 @@ class CardCatalogTests(unittest.TestCase):
         self.assertEqual(get_card_image_base_id(12), 11)
         self.assertEqual(get_card_image_base_id(16), 15)
         self.assertEqual(get_card_image_base_id(18), 17)
+        self.assertEqual(get_card_image_base_id(21), 20)
         self.assertEqual(get_card_image_base_id(122), 118)
+
+    def test_regulation_cards_have_market_durations_without_price_actions(self):
+        self.assertEqual(MARKET_CARD_TURNS[20], 2)
+        self.assertEqual(MARKET_CARD_TURNS[21], 3)
+        self.assertNotIn(20, PRICE_CARD_ACTIONS)
+        self.assertNotIn(21, PRICE_CARD_ACTIONS)
 
     def test_bid_values_match_the_printed_card_variants(self):
         self.assertEqual(

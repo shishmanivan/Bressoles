@@ -333,7 +333,16 @@ class RoundPage:
     def _build_display_button_goals(self):
         debt = game_state.get_insurance_goal_debt()
         return {
-            key: (game_state.apply_bailout_goal_modifier(value) + debt if value is not None else None)
+            key: (
+                game_state.apply_loan_goal_modifier(
+                    game_state.apply_bailout_goal_modifier(value),
+                    self.level_number,
+                    self.defeated_count,
+                )
+                + debt
+                if value is not None
+                else None
+            )
             for key, value in self.base_button_goals.items()
         }
 
@@ -624,6 +633,11 @@ class RoundPage:
                                 self._apper_goal_boost,
                             )
                             self.Goal = game_state.apply_bailout_goal_modifier(self.Goal)
+                            self.Goal = game_state.apply_loan_goal_modifier(
+                                self.Goal,
+                                self.level_number,
+                                self.defeated_count,
+                            )
                         return "boss_clicked"
         return None
 
@@ -724,6 +738,11 @@ class RoundPage:
                         self._apper_goal_boost,
                     )
                     goal_value = game_state.apply_bailout_goal_modifier(goal_value)
+                    goal_value = game_state.apply_loan_goal_modifier(
+                        goal_value,
+                        self.level_number,
+                        self.defeated_count,
+                    )
                     full_text = f"{self.popup_round_text} {goal_value}$"
                 else:
                     goal_value = self.button_goals.get(self.popup_button, 0) or 0

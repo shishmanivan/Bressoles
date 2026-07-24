@@ -52,6 +52,38 @@ class RewardPoolTestCase(unittest.TestCase):
 
 
 class RedRewardPoolTests(RewardPoolTestCase):
+    def test_accumulation_uses_a_ten_percent_pool_roll_after_licensing(self):
+        cards = {124: {"Type": 2, "Open": 1, "Variable": 10}}
+        game_state.licensed_card_ids.add(124)
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=10),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [124])
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=11),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [])
+
+    def test_parity_uses_a_forty_percent_pool_roll_after_licensing(self):
+        cards = {123: {"Type": 2, "Open": 1, "Variable": 40}}
+        game_state.licensed_card_ids.add(123)
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=40),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [123])
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=41),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [])
+
     def test_red_pool_excludes_owned_cards_and_draws_without_replacement(self):
         game_state.earned_reward_cards[4] = [111, 113]
         game_state.round_reward_cards[4] = [112]
@@ -88,6 +120,22 @@ class RedRewardPoolTests(RewardPoolTestCase):
 
 
 class SilverRewardPoolTests(RewardPoolTestCase):
+    def test_controlling_stake_uses_a_twenty_five_percent_pool_roll(self):
+        cards = {205: {"Type": 3, "Open": 1, "Variable": 25}}
+        game_state.licensed_card_ids.add(205)
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=25),
+        ):
+            self.assertEqual(game_state.build_silver_cards_pool(), [205])
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=26),
+        ):
+            self.assertEqual(game_state.build_silver_cards_pool(), [])
+
     def test_silver_pool_stays_stable_and_draws_with_replacement(self):
         with (
             mock.patch.object(game_state, "build_silver_cards_pool", return_value=[201, 204]),

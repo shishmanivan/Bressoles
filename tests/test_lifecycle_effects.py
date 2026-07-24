@@ -83,7 +83,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(page.card_turns[11], 3)
         self.assertEqual(page.market_card_turns[0][0], 3)
 
-    def test_basket_trading_uses_the_documented_stack_values(self):
+    def test_basket_trading_queues_equal_growth_animations_for_all_markets(self):
         page = self._page(silver=[206, 206])
         page.stock_price_turn_results = [
             {"market": 0, "type": "rise"},
@@ -91,12 +91,30 @@ class LifecycleEffectTests(unittest.TestCase):
             {"market": 2, "type": "rise"},
         ]
         page.Aprice = page.BPrice = page.CPrice = 10
+        page.price_animation_queue = []
         page.lifecycle_card_jump_animations = {}
         page._start_card_jump_animation = mock.Mock()
 
         self.assertTrue(page._apply_basket_trading_if_needed())
 
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+        self.assertEqual(
+            page.price_animation_queue,
+            [
+                {
+                    "market": (0, 1, 2),
+                    "type": "rise",
+                    "price_change": 6,
+                    "source": "basket_trading",
+                },
+            ],
+        )
+        page.typewriter_sound = None
+        self.assertTrue(page._start_next_price_animation(now=100))
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (16, 16, 16))
+        self.assertEqual(page.current_price_animation["market"], (0, 1, 2))
+        self.assertEqual(page.current_price_animation["frame_idx"], 0)
+        self.assertFalse(page._apply_basket_trading_if_needed())
 
     def test_forward_trading_synergy_awards_four_turns_per_pair(self):
         page = self._page(silver=[207], gold=[402])
@@ -146,6 +164,121 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(page._get_gambling_probability_bonus(), gameplay_page.GAMBLING_PROBABILITY_BONUS)
         self.assertTrue(page._consume_insider_c_growth_turn())
         self.assertEqual(page.insider_c_growth_turns_remaining, 1)
+
+    def test_gold_momentum_repeats_natural_rises_and_falls_every_turn(self):
+        page = self._page(gold=[409])
+        movements = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 1, "type": "fall", "price_change": -3},
+            {"market": 2, "type": "rise", "price_change": 4},
+        ]
+
+        expected = [
+            movements[0],
+            {**movements[0], "source": "momentum"},
+            movements[1],
+            {**movements[1], "source": "momentum"},
+            movements[2],
+        ]
+        self.assertEqual(
+            page._apply_momentum_to_random_movements(movements, forced_rise_markets={2}),
+            expected,
+        )
+        self.assertEqual(
+            page._apply_momentum_to_random_movements(movements, forced_rise_markets={2}),
+            expected,
+        )
+
+    def test_momentum_is_inactive_when_not_selected(self):
+        page = self._page()
+        movements = [{"market": 0, "type": "rise", "price_change": 2}]
+
+        self.assertEqual(page._apply_momentum_to_random_movements(movements), movements)
+
+    def test_spoofing_targets_only_held_stocks_on_turn_four(self):
+        page = self._page(gold=[411])
+        page.Day = 4
+        page.Aquantity = 3
+        page.Bquantity = 0
+        page.Cquantity = 1
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertEqual(page._get_spoofing_forced_rise_markets(), {0, 2})
+        page._start_card_jump_animation.assert_called_once()
+
+        page.Day = 3
+        self.assertEqual(page._get_spoofing_forced_rise_markets(), set())
+
+    def test_spoofing_overrides_flat_for_held_stocks_only(self):
+        page = self._page(gold=[404, 411])
+        page.Day = 4
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 1
+        page.Aprice = page.BPrice = page.CPrice = 10
+        page.StepA = 2
+        page.StepB = 3
+        page.StepC = 4
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        movements = page.update_stock_prices()
+
+        self.assertEqual(
+            [(entry["market"], entry["type"], entry["price_change"]) for entry in movements],
+            [(0, "rise", 2), (1, "unchanged", 0), (2, "rise", 4)],
+        )
+
+    def test_spoofing_plus_triggers_on_turns_four_and_eight_only(self):
+        page = self._page(gold=[412])
+        page.Aquantity = 1
+        page.Bquantity = 2
+        page.Cquantity = 0
+        page.LastTurn = 8
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        for day in (4, 8):
+            page.Day = day
+            self.assertEqual(page._get_spoofing_forced_rise_markets(), {0, 1})
+
+        page.LastTurn = 7
+        page.Day = 7
+        self.assertEqual(page._get_spoofing_forced_rise_markets(), set())
+        self.assertEqual(page._start_card_jump_animation.call_count, 2)
+
+    def test_momentum_repeats_spoofing_guaranteed_growth(self):
+        page = self._page(gold=[404, 409, 412])
+        page.Day = 4
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 1
+        page.StepA = 2
+        page.StepB = 3
+        page.StepC = 4
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        movements = page.update_stock_prices()
+
+        self.assertEqual(
+            [
+                (entry["market"], entry["type"], entry["price_change"], entry.get("source"))
+                for entry in movements
+            ],
+            [
+                (0, "rise", 2, None),
+                (0, "rise", 2, "momentum"),
+                (1, "unchanged", 0, None),
+                (2, "rise", 4, None),
+                (2, "rise", 4, "momentum"),
+            ],
+        )
 
     def test_synergies_stay_hidden_in_player_facing_descriptions(self):
         self.assertNotIn("красную Rollover", CARD_TOOLTIPS[208][1])

@@ -28,6 +28,18 @@ class CardTurnsPositionTests(unittest.TestCase):
             (multiplier_x, multiplier_y),
         )
 
+    def test_regulation_variant_uses_card_11_counter_math(self):
+        card_width = 140
+        card_height = 242
+        self.assertEqual(
+            get_turns_text_position(20, card_width, card_height),
+            get_turns_text_position(11, card_width, card_height),
+        )
+        self.assertEqual(
+            get_turns_text_position(21, card_width, card_height),
+            get_turns_text_position(11, card_width, card_height),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

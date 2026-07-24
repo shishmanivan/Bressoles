@@ -62,7 +62,12 @@ def _apply_probability_shift(probs, target, donors, amount):
     probs[target] += taken
 
 
-def build_market_probabilities(market_cards=None, probability_card_bonus=0, force_flat=False):
+def build_market_probabilities(
+    market_cards=None,
+    probability_card_bonus=0,
+    force_flat=False,
+    force_flat_markets=None,
+):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
         return {
@@ -74,6 +79,7 @@ def build_market_probabilities(market_cards=None, probability_card_bonus=0, forc
         market: dict(values)
         for market, values in BASE_MARKET_PROBABILITIES.items()
     }
+    forced_flat = _normalize_market_set(force_flat_markets)
     try:
         probability_card_bonus = max(0.0, float(probability_card_bonus or 0))
     except (TypeError, ValueError):
@@ -81,6 +87,9 @@ def build_market_probabilities(market_cards=None, probability_card_bonus=0, forc
 
     for market, slots in (market_cards or {}).items():
         if market not in probabilities:
+            continue
+        if market in forced_flat:
+            probabilities[market] = {"fall": 0.0, "flat": 100.0, "rise": 0.0}
             continue
         probs = probabilities[market]
         for slot in sorted((slots or {}).keys()):
@@ -103,9 +112,9 @@ def build_market_probabilities(market_cards=None, probability_card_bonus=0, forc
     return probabilities
 
 
-def _normalize_forced_rise_markets(forced_rise_markets):
+def _normalize_market_set(markets):
     forced = set()
-    for market in forced_rise_markets or []:
+    for market in markets or []:
         try:
             forced.add(int(market))
         except (TypeError, ValueError):
@@ -134,9 +143,10 @@ def build_stock_price_animation_queue(
     forced_rise_markets=None,
     probability_card_bonus=0,
     force_flat=False,
+    force_flat_markets=None,
 ):
     """Build price animation queue from the stock probability rules."""
-    forced_rise_markets = _normalize_forced_rise_markets(forced_rise_markets)
+    forced_rise_markets = _normalize_market_set(forced_rise_markets)
     if force_flat:
         steps = {0: step_a, 1: step_b, 2: step_c}
         return [
@@ -151,6 +161,7 @@ def build_stock_price_animation_queue(
     probabilities = build_market_probabilities(
         market_cards,
         probability_card_bonus=probability_card_bonus,
+        force_flat_markets=force_flat_markets,
     )
 
     return [

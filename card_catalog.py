@@ -25,6 +25,11 @@ PRICE_CARD_SPECS = {
     )
 }
 
+REGULATION_CARD_TURNS = {
+    20: 2,
+    21: 3,
+}
+
 BID_CARD_VALUES = {
     118: 10,
     119: 20,
@@ -40,17 +45,22 @@ CARD_IMAGE_BASE_IDS = {
     4: 4,
     100: 100,
     **{card_id: spec.image_base_id for card_id, spec in PRICE_CARD_SPECS.items()},
+    20: 20,
+    21: 20,
     **{card_id: 118 for card_id in BID_CARD_VALUES},
 }
 PRICE_CARD_IDS = frozenset(PRICE_CARD_SPECS)
 PRICE_CARD_ACTIONS = {card_id: spec.action for card_id, spec in PRICE_CARD_SPECS.items()}
 PRICE_CARD_TURNS = {card_id: spec.turns for card_id, spec in PRICE_CARD_SPECS.items()}
+MARKET_CARD_TURNS = {**PRICE_CARD_TURNS, **REGULATION_CARD_TURNS}
+MARKET_DURATION_CARD_IDS = frozenset(MARKET_CARD_TURNS)
+REGULATION_CARD_IDS = frozenset(REGULATION_CARD_TURNS)
 SUPPORTED_CARD_IDS_BY_TYPE = {
-    1: frozenset({1, 2, 3, 4}) | PRICE_CARD_IDS,
-    2: frozenset({100, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122}),
-    3: frozenset({201, 202, 203, 204, 206, 207, 208, 214, 215, 217, 218, 219, 220}),
+    1: frozenset({1, 2, 3, 4}) | PRICE_CARD_IDS | REGULATION_CARD_IDS,
+    2: frozenset({100, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124}),
+    3: frozenset({201, 202, 203, 204, 205, 206, 207, 208, 214, 215, 217, 218, 219, 220}),
     4: frozenset({301, 302}),
-    5: frozenset({401, 402, 403, 404, 405, 406, 407, 408}),
+    5: frozenset({401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412}),
 }
 
 
@@ -86,6 +96,16 @@ def validate_card_catalog(cards, cards_dir="Cards", check_assets=True):
         card_row = cards.get(card_id) or cards.get(str(card_id)) or {}
         if card_row.get("Type") != 1:
             errors.append(f"Card catalog: price card {card_id} must have Type=1")
+
+    for card_id, turns in REGULATION_CARD_TURNS.items():
+        if card_id not in configured_ids:
+            errors.append(f"Card catalog: regulation card {card_id} is absent from Cards.csv")
+            continue
+        if turns <= 0:
+            errors.append(f"Card catalog: regulation card {card_id} must have positive turns")
+        card_row = cards.get(card_id) or cards.get(str(card_id)) or {}
+        if card_row.get("Type") != 1:
+            errors.append(f"Card catalog: regulation card {card_id} must have Type=1")
 
     for card_id, card_row in cards.items():
         normalized_id = int(card_id)

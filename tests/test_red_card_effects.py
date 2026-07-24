@@ -14,7 +14,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.boss_limit_red_gain_drop_per_turn = False
         page.side_cards_top = [None] * 6
         page.side_cards_locked_top = {}
-        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 123)}}
+        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 125)}}
         page.active_silver_cards = []
         page.active_black_cards = []
         page.active_gold_cards = []
@@ -25,6 +25,8 @@ class RedCardEffectTests(unittest.TestCase):
         page.market_card_origins = {0: {}, 1: {}, 2: {}}
         page.market_cards_locked = {0: {}, 1: {}, 2: {}}
         page.market_card_turns = {0: {}, 1: {}, 2: {}}
+        page.market_card_actions = {0: {}, 1: {}, 2: {}}
+        page.accumulation_pending_sources = []
         page.card_actions = {}
         page.card_turns = {}
         page.price_card_queue = []
@@ -172,6 +174,59 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (50, 50, 50))
         self.assertEqual(page._start_card_jump_animation.call_count, 2)
 
+    def test_parity_sets_all_prices_to_the_nearest_whole_average(self):
+        page = self._page()
+        page.side_cards_top[1] = 123
+        page.side_cards_locked_top[1] = False
+        page.Aprice, page.BPrice, page.CPrice = 10, 11, 14
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._apply_parity_effect_if_needed())
+
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (12, 12, 12))
+        page._start_card_jump_animation.assert_called_once_with(
+            page.side_card_jump_animations,
+            1,
+        )
+
+    def test_locked_parity_does_not_apply_again_on_later_turns(self):
+        page = self._page()
+        page.side_cards_top[0] = 123
+        page.side_cards_locked_top[0] = True
+        page.Aprice, page.BPrice, page.CPrice = 3, 9, 30
+
+        self.assertFalse(page._apply_parity_effect_if_needed())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (3, 9, 30))
+
+    def test_accumulation_waits_and_doubles_the_next_gain_drop_instance(self):
+        page = self._page()
+        page.side_cards_top[2] = 124
+        page.side_cards_locked_top[2] = False
+        page.market_cards[1][0] = 12
+        page.market_card_turns[1][0] = 2
+        page.card_actions = {12: 2}
+        page.card_turns = {12: 2}
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._activate_accumulation_charge(124, 2))
+        page._lock_side_cards()
+        self.assertEqual(page.accumulation_pending_sources, [2])
+        self.assertTrue(page._consume_accumulation_charge(12, 1, 0))
+
+        self.assertEqual(page.market_card_actions[1][0], 4)
+        self.assertEqual(page.market_card_turns[1][0], 4)
+        self.assertEqual(page.card_actions[12], 2)
+        self.assertEqual(page.card_turns[12], 2)
+        self.assertTrue(page.market_cards_locked[1][0])
+        self.assertEqual(page.accumulation_pending_sources, [])
+
+    def test_accumulation_does_not_consume_on_non_gain_drop_cards(self):
+        page = self._page()
+        page.side_cards_top[0] = 124
+        page.accumulation_pending_sources = [0]
+
+        self.assertFalse(page._consume_accumulation_charge(1, 0, 0))
+        self.assertEqual(page.accumulation_pending_sources, [0])
 
 if __name__ == "__main__":
     unittest.main()

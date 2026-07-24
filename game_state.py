@@ -55,6 +55,7 @@ issuer_bought_count = 0
 bank_bought = False
 bank_interest_base = None
 multibagger_bought = False
+loan_boss_positions_by_level = {}
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
@@ -66,8 +67,11 @@ SHOP_SPECIAL_COSTS = {
     "derivative": 8,
     "junk_bond": 2,
     "issuer": 10,
-    "bank": 5,
+    "bank": 3,
     "multibagger": 5,
+    "variance": 3,
+    "loan": 0,
+    "correction": 2,
 }
 
 LONG_MAX_ACTIVE = 2
@@ -83,8 +87,16 @@ BANK_MIN_INTEREST_BASE = 2.5
 INVESTMENT_SECTION_COST = 3
 GOLDEN_STOCKS_CARD_ID = 302
 GOLDEN_STOCKS_BASE_CHANCE = 5
+LOAN_PAYOUT = 5
+LOAN_MAX_PER_RUN = 2
+LOAN_GOAL_INCREASE_PERCENT = 50
+CORRECTION_SILVER_SALE_VALUE = 2
+CORRECTION_GOLD_SALE_VALUE = 4
+CORRECTION_MAX_CARDS = 3
 
 SHOP_CARD_COSTS = {
+    20: 4,
+    21: 6,
     17: 10,
     18: 15,
     117: 7,
@@ -96,6 +108,10 @@ SHOP_CARD_COSTS = {
     406: 5,
     407: 8,
     408: 10,
+    409: 5,
+    410: 8,
+    411: 5,
+    412: 7,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -109,8 +125,11 @@ LICENSE_COSTS = {
     120: 7,
     121: 12,
     122: 15,
+    123: 4,
+    124: 7,
     203: 5,
     204: 7,
+    205: 5,
     207: 7,
     214: 7,
     215: 7,
@@ -120,8 +139,14 @@ LICENSE_COSTS = {
     220: 10,
 }
 LICENSES_BY_LEVEL = {
-    3: [112, 113, 114, 115, 203, 204, 207, 214, 215, 217, 218, 219, 220],
+    3: [112, 113, 114, 115, 123, 124, 203, 204, 207, 214, 215, 217, 218, 219, 220],
+    4: [205],
     5: [118, 119, 120, 121, 122],
+}
+# These licenses counter mechanics that exist only on the listed levels, so
+# unlike regular licenses they must not roll forward into later shops.
+LICENSE_LEVEL_RESTRICTIONS = {
+    205: {4},
 }
 licensed_card_ids = set(DEFAULT_LICENSED_CARDS)
 
@@ -392,6 +417,9 @@ def build_license_offer_pool(level_number):
     ordered_levels.extend(unlock_level for unlock_level in eligible_levels if unlock_level != level)
     for unlock_level in ordered_levels:
         for card_id in LICENSES_BY_LEVEL.get(unlock_level, []):
+            allowed_levels = LICENSE_LEVEL_RESTRICTIONS.get(card_id)
+            if allowed_levels is not None and level not in allowed_levels:
+                continue
             if not is_card_licensed(card_id):
                 pool.append(int(card_id))
     random.shuffle(pool)
@@ -557,6 +585,58 @@ def set_active_lifecycle_card_order(selected_order):
     return _sync_active_lifecycle_card_order(selected_order)
 
 
+def is_correction_offer_available():
+    return bool(silver_cards or gold_cards)
+
+
+def sell_correction_cards(level_number, selected_cards):
+    entries = list(selected_cards or [])
+    if not entries or len(entries) > CORRECTION_MAX_CARDS:
+        return 0, []
+
+    available = {
+        "silver": list(silver_cards),
+        "gold": list(gold_cards),
+    }
+    sale_values = {
+        "silver": CORRECTION_SILVER_SALE_VALUE,
+        "gold": CORRECTION_GOLD_SALE_VALUE,
+    }
+    normalized_entries = []
+    total_value = 0
+    for entry in entries:
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            return 0, []
+        kind = str(entry[0] or "").lower()
+        normalized = _normalize_card_id(entry[1])
+        if kind not in available or normalized is None:
+            return 0, []
+        try:
+            available[kind].remove(normalized)
+        except ValueError:
+            return 0, []
+        normalized_entries.append((kind, normalized))
+        total_value += sale_values[kind]
+
+    silver_cards[:] = available["silver"]
+    gold_cards[:] = available["gold"]
+    for kind, card_id in normalized_entries:
+        if kind != "gold":
+            continue
+        while _count_card_instances(active_gold_cards, card_id) > _count_card_instances(gold_cards, card_id):
+            active_gold_cards.remove(card_id)
+    _sync_active_lifecycle_card_order(active_lifecycle_card_order)
+
+    add_napoleondors(level_number, total_value)
+    print(f"Correction sold cards {normalized_entries} for {total_value} napoleondor(s).")
+    return total_value, normalized_entries
+
+
+def sell_correction_card(level_number, card_kind, card_id):
+    total_value, sold_cards = sell_correction_cards(level_number, [(card_kind, card_id)])
+    return total_value if sold_cards else None
+
+
 def _count_card_instances(cards, target_card_id):
     count = 0
     for card_id in cards or []:
@@ -681,6 +761,99 @@ def clear_bailout_bonus():
     if get_bailout_rounds_remaining():
         print(f"Cleared Bailout bonus: {bailout_rounds_remaining}")
     bailout_rounds_remaining = 0
+
+
+def get_current_boss_position(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    state = boss_progress.get(level) or {}
+    current_boss = state.get("current_boss")
+    if isinstance(current_boss, dict):
+        position = current_boss.get("defeated_count", state.get("defeated", 0))
+    else:
+        position = state.get("defeated", 0)
+    try:
+        return max(0, int(position or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_loan_purchase_count():
+    purchased_positions = set()
+    for level, positions in (loan_boss_positions_by_level or {}).items():
+        try:
+            normalized_level = int(level)
+        except (TypeError, ValueError):
+            continue
+        for position in positions or []:
+            try:
+                purchased_positions.add((normalized_level, max(0, int(position))))
+            except (TypeError, ValueError):
+                continue
+    return len(purchased_positions)
+
+
+def is_loan_active_for_boss(level_number, defeated_count=None):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    if defeated_count is None:
+        position = get_current_boss_position(level)
+    else:
+        try:
+            position = max(0, int(defeated_count or 0))
+        except (TypeError, ValueError):
+            position = 0
+    positions = set()
+    for value in loan_boss_positions_by_level.get(level) or []:
+        try:
+            positions.add(max(0, int(value)))
+        except (TypeError, ValueError):
+            continue
+    return position in positions
+
+
+def is_loan_offer_available(level_number):
+    return (
+        get_loan_purchase_count() < LOAN_MAX_PER_RUN
+        and not is_loan_active_for_boss(level_number)
+    )
+
+
+def buy_loan(level_number):
+    if not is_loan_offer_available(level_number):
+        return False
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    position = get_current_boss_position(level)
+    positions = loan_boss_positions_by_level.setdefault(level, [])
+    positions.append(position)
+    add_napoleondors(level, LOAN_PAYOUT)
+    print(f"Loan activated for level {level}, boss position {position}.")
+    return True
+
+
+def apply_loan_goal_modifier(goal_value, level_number, defeated_count=None):
+    if goal_value is None or not is_loan_active_for_boss(level_number, defeated_count):
+        return goal_value
+    try:
+        base_goal = float(goal_value)
+    except (TypeError, ValueError):
+        return goal_value
+    if base_goal <= 0:
+        return goal_value
+    return max(1, int(base_goal * (100 + LOAN_GOAL_INCREASE_PERCENT) / 100))
+
+
+def clear_loan_offers():
+    if get_loan_purchase_count():
+        print(f"Cleared Loan offers: {loan_boss_positions_by_level}")
+    loan_boss_positions_by_level.clear()
 
 
 def get_active_long_investments():
@@ -975,6 +1148,7 @@ def reset_level_attempt(level_number):
     clear_silver_cards_deck()
     clear_insurance_goal_debt()
     clear_bailout_bonus()
+    clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
     active_black_cards[:] = active_black_cards[:get_lifecycle_card_slot_limit()]
@@ -1038,6 +1212,7 @@ def complete_level_run(level_number):
     clear_silver_cards_deck()
     clear_insurance_goal_debt()
     clear_bailout_bonus()
+    clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
     active_black_cards[:] = active_black_cards[:get_lifecycle_card_slot_limit()]
@@ -1606,7 +1781,7 @@ def build_shop_card_offer_pool(level_number=1):
 
     bought_cards = get_bought_shop_card_ids()
     pool = []
-    for card_id, chance in ((17, 5), (18, 5), (117, 50)):
+    for card_id, chance in ((17, 5), (18, 5), (20, 35), (21, 30), (117, 50)):
         if card_id not in bought_cards and random.randint(1, 100) <= chance:
             pool.append(card_id)
 
@@ -1626,7 +1801,7 @@ def build_all_available_shop_cards(level_number=1):
         return []
 
     bought_cards = get_bought_shop_card_ids()
-    cards = [17, 18, 117]
+    cards = [17, 18, 20, 21, 117]
     cfg = load_cards_config() or {}
     for card_id, row in cfg.items():
         try:
@@ -1656,7 +1831,15 @@ def build_shop_special_offer_pool(level_number=1):
     # Level 2 is deliberately short, so only its immediately useful offers
     # are available. The rest of the special shop assortment starts at level 3.
     if level < 3:
-        allowed_offers = {"bailout", "junk_bond", "trader", "multibagger"}
+        allowed_offers = {
+            "bailout",
+            "junk_bond",
+            "trader",
+            "multibagger",
+            "variance",
+            "loan",
+            "correction",
+        }
         fallback_offers = ("trader", "bailout", "junk_bond")
     else:
         allowed_offers = set(SHOP_SPECIAL_COSTS)
@@ -1676,9 +1859,18 @@ def build_shop_special_offer_pool(level_number=1):
         is_multibagger_offer_available()
         and random.randint(1, 100) <= get_multibagger_shop_chance(level)
     )
+    variance_hit = random.randint(1, 100) <= 30
+    loan_hit = is_loan_offer_available(level) and random.randint(1, 100) <= 30
+    correction_hit = is_correction_offer_available() and random.randint(1, 100) <= 25
 
     if multibagger_hit:
         rolled.append("multibagger")
+    if variance_hit:
+        rolled.append("variance")
+    if loan_hit:
+        rolled.append("loan")
+    if correction_hit:
+        rolled.append("correction")
     if underwriter_hit:
         rolled.append("underwriter")
     if bailout_hit:

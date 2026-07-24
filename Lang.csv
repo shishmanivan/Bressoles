@@ -40,9 +40,9 @@ Boss6Text;Ричард Аркрайт. В конце каждого хода о�
 Boss6Reward;Рука увеличивается на 1. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;Your hand grows by 1. A random silver card enters your separate inventory. Playing it is optional.
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
 Boss7Reward;20 Наполеондоров;20 Napoleondors
-Boss8Text;Фридрих Лист. Босс торгует акциями. На старте у него 10 акций B, а на последнем ходу он продаёт весь портфель.;Friedrich List. The boss trades stocks. He starts with 10 B shares and sells his portfolio on the final turn.
+Boss8Text;Фридрих Лист. Босс торгует акциями и на последнем ходу продаёт весь портфель.;Friedrich List. The boss trades stocks and sells his portfolio on the final turn.
 Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
-Boss9Text;Жак Лаффит. Босс торгует акциями. На старте у него 4 акции A. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. The boss trades stocks. He starts with 4 A shares. Stocks priced at 2 dollars cannot be bought.
+Boss9Text;Жак Лаффит. Босс торгует акциями. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. The boss trades stocks. Stocks priced at 2 dollars cannot be bought.
 Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
 Boss10Text;Роберт Стефенсон. За ход можно сыграть одну карту в поле Рынка (включая Shareholder) и одну Gain/Drop карту.;Robert Stephenson. Per turn, play one card in the Market field (including Shareholder) and one Gain/Drop card.
 Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.
