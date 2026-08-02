@@ -27,7 +27,7 @@ class LocalizationContractTests(unittest.TestCase):
         self.assertNotIn("базовой", russian["BossVictoryDeckReset"])
         self.assertNotIn("base deck", english["BossVictoryDeckReset"])
 
-    def test_level5_final_text_does_not_promise_another_level(self):
+    def test_level5_final_text_describes_its_campaign_reward(self):
         russian = load_language("RU")
         english = load_language("ENG")
         popup_text = resolve_boss_reward_text(
@@ -51,7 +51,8 @@ class LocalizationContractTests(unittest.TestCase):
 
         self.assertEqual(popup_text, russian["LastBossRewardLevel5"])
         self.assertEqual(page._get_final_boss_reward_text(), english["RewardLevel5FinalBoss"])
-        self.assertNotIn("next level", page._get_final_boss_reward_text().lower())
+        self.assertIn("levels seven and eight", page._get_final_boss_reward_text().lower())
+        self.assertIn("commission", page._get_final_boss_reward_text().lower())
 
 
 if __name__ == "__main__":

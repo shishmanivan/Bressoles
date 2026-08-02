@@ -180,11 +180,11 @@ class MainFlowIntegrationTests(unittest.TestCase):
             5: {
                 "roster": [
                     ["7_Kolbe.png", "10_Stephenson.png"],
+                    ["2_AdamSmith.png", "4_NicolasApper.png"],
                     ["8_List.png", "9_Laffitte.png"],
-                    ["2_AdamSmith.png"],
-                    ["4_NicolasApper.png"],
+                    ["11_Malthus.png", "12_Ricardo.png"],
                 ],
-                "choices": [1, 1, 0, 0],
+                "choices": [1, 1, 0, 1],
                 "rounds": [3, 3, 3, 3],
                 "completion_card": None,
             },
@@ -277,7 +277,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
                     state["roster"] = copy.deepcopy(roster)
                     return state["roster"]
 
-                def pin_level4(state, bosses_required):
+                def pin_level5(state, bosses_required):
                     state["roster"] = copy.deepcopy(roster)
                     return state["roster"]
 
@@ -292,7 +292,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
                     patch.object(Main, "GameplayPage", FakeGameplayPage),
                     patch.object(Main, "ShopPage", FakeShopPage),
                     patch.object(Main, "_ensure_level3_roster", side_effect=pin_level3),
-                    patch.object(Main, "_ensure_level4_roster", side_effect=pin_level4),
+                    patch.object(Main, "_ensure_level5_roster", side_effect=pin_level5),
                 ):
                     Main.main()
 

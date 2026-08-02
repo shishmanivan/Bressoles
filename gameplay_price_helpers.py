@@ -67,6 +67,8 @@ def build_market_probabilities(
     probability_card_bonus=0,
     force_flat=False,
     force_flat_markets=None,
+    double_fall_markets=None,
+    double_fall_bonus=0,
 ):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
@@ -80,10 +82,15 @@ def build_market_probabilities(
         for market, values in BASE_MARKET_PROBABILITIES.items()
     }
     forced_flat = _normalize_market_set(force_flat_markets)
+    doubled_fall = _normalize_market_set(double_fall_markets)
     try:
         probability_card_bonus = max(0.0, float(probability_card_bonus or 0))
     except (TypeError, ValueError):
         probability_card_bonus = 0.0
+    try:
+        double_fall_bonus = max(0.0, float(double_fall_bonus or 0))
+    except (TypeError, ValueError):
+        double_fall_bonus = 0.0
 
     for market, slots in (market_cards or {}).items():
         if market not in probabilities:
@@ -108,6 +115,17 @@ def build_market_probabilities(
                     ("flat", "rise"),
                     DOWNSIDE_CARD_BONUSES[card_id] + probability_card_bonus,
                 )
+
+    for market in doubled_fall:
+        if market not in probabilities or market in forced_flat:
+            continue
+        probs = probabilities[market]
+        _apply_probability_shift(
+            probs,
+            "fall",
+            ("flat", "rise"),
+            probs["fall"] + double_fall_bonus,
+        )
 
     return probabilities
 
@@ -144,6 +162,8 @@ def build_stock_price_animation_queue(
     probability_card_bonus=0,
     force_flat=False,
     force_flat_markets=None,
+    double_fall_markets=None,
+    double_fall_bonus=0,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -162,6 +182,8 @@ def build_stock_price_animation_queue(
         market_cards,
         probability_card_bonus=probability_card_bonus,
         force_flat_markets=force_flat_markets,
+        double_fall_markets=double_fall_markets,
+        double_fall_bonus=double_fall_bonus,
     )
 
     return [

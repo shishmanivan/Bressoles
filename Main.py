@@ -11,7 +11,7 @@ from boss_logic import (
     get_bosses_required,
     validate_levels_and_rounds_config,
     _ensure_level3_roster,
-    _ensure_level4_roster,
+    _ensure_level5_roster,
 )
 from boss_progress import complete_boss_position, remember_current_boss
 from content_validation import assert_valid_game_content
@@ -34,6 +34,7 @@ from game_stats import (
     update_level_run_result,
     update_level_run_started,
 )
+from menu_music import MenuMusic
 from shop_card_stats import set_shop_card_stats_file
 from boss_page import BossPage
 from game_screen import GameScreen
@@ -62,6 +63,8 @@ def main():
     # Initialize screen
     screen = create_game_display((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Bressoles")
+    menu_music = MenuMusic()
+    menu_music.play()
     
     # Load shared resources
     background = load_main_background((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -98,6 +101,13 @@ def main():
         if selected_slot and not test_mode:
             profile_manager.save_progress_from_game_state(selected_slot)
 
+    def run_gameplay(gameplay_page):
+        menu_music.pause()
+        try:
+            return gameplay_page.run()
+        finally:
+            menu_music.play()
+
     def open_shop(level_number, test_mode=False):
         game_state.apply_bank_interest(level_number)
         discount_percent = game_state.consume_pending_shop_discount()
@@ -132,13 +142,10 @@ def main():
         else:
             game_state.clear_pending_shop_discount()
 
-    def award_level_completion_napoleondors(level_number):
-        completion_reward = game_state.get_level_completion_napoleondor_reward(level_number)
-        if completion_reward > 0:
-            game_state.add_napoleondors(level_number, completion_reward)
-
-    def get_round_victory_napoleondor_amount(level_number):
-        return 3 if int(level_number or 0) == 3 else 1
+    def get_round_victory_napoleondor_amount(level_number, boss_filename=None):
+        base_amount = 3 if int(level_number or 0) == 3 else 1
+        boss_number = get_boss_number_from_filename(boss_filename)
+        return game_state.get_regular_round_napoleondor_reward(base_amount, boss_number)
 
     def get_boss_victory_napoleondor_amount(level_number, boss_index=None, boss_filename=None, defeated_count=0):
         if int(level_number or 0) == 3:
@@ -185,7 +192,7 @@ def main():
             active_lifecycle_card_order=context.get("active_lifecycle_card_order") or [],
             rounds_required=context.get("rounds_required"),
         )
-        return gameplay_page.run()
+        return run_gameplay(gameplay_page)
 
     def new_boss_progress_state():
         return game_state.new_boss_progress_state()
@@ -467,7 +474,6 @@ def main():
                                 )
                                 mark_level_run_result(bp_state, level, True)
                                 game_state.complete_level_run(level)
-                                award_level_completion_napoleondors(level)
                                 if level == 1:
                                     game_state.level_1_boss_defeated = True
                                 elif level == 2:
@@ -497,7 +503,10 @@ def main():
                             mark_context_round_completed(bp_state, active_context)
                             award_napoleondors_and_open_shop(
                                 level,
-                                get_round_victory_napoleondor_amount(level),
+                                get_round_victory_napoleondor_amount(
+                                    level,
+                                    active_context.get("boss_filename"),
+                                ),
                                 show_shop=should_open_shop_after_regular_round(level),
                                 clear_active_game=True,
                             )
@@ -613,15 +622,12 @@ def main():
                 if selected_slot and not test_mode and not run_stats_started_before and bp_state.get("run_stats_started"):
                     profile_manager.save_progress_from_game_state(selected_slot)
 
-                # Levels 3 and 4 share the same three-boss route.
                 if level_num in (3, 4):
                     roster = _ensure_level3_roster(bp_state, bosses_required=bosses_required)
                     LEVEL_BOSS_ROUNDS[level_num] = roster
 
-                # Level 5 is the former level 4, including its boss choices.
-                # The first boss step offers two level-1 bosses, matching Level 2's choice flow.
                 if level_num == 5:
-                    roster = _ensure_level4_roster(bp_state, bosses_required=bosses_required)
+                    roster = _ensure_level5_roster(bp_state, bosses_required=bosses_required)
                     LEVEL_BOSS_ROUNDS[5] = roster
 
                 # Boss selection loop
@@ -767,7 +773,7 @@ def main():
                             insurance_goal_debt=insurance_goal_debt,
                             rounds_required=round_page.rounds_required,
                         )
-                        gameplay_result = gameplay_page.run()
+                        gameplay_result = run_gameplay(gameplay_page)
 
                         if gameplay_result == "back":
                             if insurance_goal_debt:
@@ -787,7 +793,10 @@ def main():
                                 profile_manager.save_progress_from_game_state(selected_slot)
                             award_napoleondors_and_open_shop(
                                 boss_level,
-                                get_round_victory_napoleondor_amount(boss_level),
+                                get_round_victory_napoleondor_amount(
+                                    boss_level,
+                                    boss_filename,
+                                ),
                                 test_mode=test_mode,
                                 show_shop=should_open_shop_after_regular_round(boss_level),
                                 clear_active_game=True,
@@ -855,7 +864,7 @@ def main():
                             active_lifecycle_card_order=active_cards.get("active_lifecycle_card_order") or [],
                             rounds_required=round_page.rounds_required,
                         )
-                        gameplay_result = gameplay_page.run()
+                        gameplay_result = run_gameplay(gameplay_page)
 
                         if gameplay_result == "round_select":
                             current_boss = get_current_boss(bp_state) or {
@@ -884,7 +893,6 @@ def main():
                                 )
                                 mark_level_run_result(bp_state, boss_level, True)
                                 game_state.complete_level_run(boss_level)
-                                award_level_completion_napoleondors(boss_level)
                                 if boss_level == 1:
                                     game_state.level_1_boss_defeated = True
                                     print("Level 1 boss defeated! Unlocking level 2")
@@ -960,6 +968,7 @@ def main():
         elif result == "quit":
             break
     
+    menu_music.stop()
     pygame.quit()
     sys.exit()
 

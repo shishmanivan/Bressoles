@@ -16,15 +16,19 @@ class LifecycleEffectTests(unittest.TestCase):
         self.original_state = {
             "bear_goal_reduction_steps": game_state.bear_goal_reduction_steps,
             "insurance_goal_debt": game_state.insurance_goal_debt,
+            "Frugality": game_state.Frugality,
             "napoleondors": game_state.napoleondors,
             "napoleondor_level": game_state.napoleondor_level,
             "pending_shop_discount_percent": game_state.pending_shop_discount_percent,
+            "silver_cards": list(game_state.silver_cards),
         }
         game_state.bear_goal_reduction_steps = 0
         game_state.insurance_goal_debt = 0
+        game_state.Frugality = 0
         game_state.napoleondors = 0
         game_state.napoleondor_level = 1
         game_state.pending_shop_discount_percent = 0
+        game_state.silver_cards = []
 
     def tearDown(self):
         for name, value in self.original_state.items():
@@ -49,6 +53,40 @@ class LifecycleEffectTests(unittest.TestCase):
         page._apply_silver_last_turn_bonuses()
 
         self.assertEqual(page.LastTurn, 12)
+
+    def test_frugality_banks_unused_turns_and_consumes_them_next_round(self):
+        game_state.silver_cards = [209]
+        page = self._page(silver=[209])
+        page.Day = 3
+        page.LastTurn = 8
+        page.active_silver_cards_spent = False
+
+        self.assertEqual(page._settle_frugality_for_finished_round(), 5)
+        page._spend_active_silver_cards_if_needed()
+
+        self.assertEqual(game_state.silver_cards, [])
+        self.assertEqual(game_state.Frugality, 5)
+
+        next_round = self._page()
+        next_round.LastTurn = 8
+        next_round._initial_saved_state = None
+        self.assertEqual(next_round._apply_frugality_turn_bonus(), 5)
+        self.assertEqual(next_round.LastTurn, 13)
+        self.assertEqual(game_state.Frugality, 0)
+
+        next_round.active_silver_cards = []
+        self.assertEqual(next_round._settle_frugality_for_finished_round(), 0)
+        self.assertEqual(game_state.Frugality, 0)
+
+    def test_restored_finished_frugality_round_preserves_carry_for_next_round(self):
+        game_state.Frugality = 5
+        page = self._page(silver=[209])
+        page.LastTurn = 8
+        page._initial_saved_state = {"Day": 3, "win_lose_state": "win"}
+
+        self.assertEqual(page._apply_frugality_turn_bonus(), 0)
+        self.assertEqual(page.LastTurn, 8)
+        self.assertEqual(game_state.Frugality, 5)
 
     def test_grant_synergy_upgrades_each_silver_grant(self):
         page = self._page(silver=[214, 214], gold=[403])
@@ -165,6 +203,70 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertTrue(page._consume_insider_c_growth_turn())
         self.assertEqual(page.insider_c_growth_turns_remaining, 1)
 
+    def test_catalyst_strengthens_bear_gambling_bill_rebate_and_uptrend(self):
+        page = self._page(silver=[210, 215], gold=[401, 406, 407, 410])
+        page.Goal = 100
+        page.rebate_a_fall_bonus_percent = 0
+        page.side_cards_top = []
+
+        self.assertEqual(page._get_catalyst_percentage_bonus(), 10)
+        self.assertEqual(page._get_gambling_probability_bonus(), 17)
+        self.assertEqual(page._get_probability_card_bonus(), 27)
+
+        page._apply_bear_goal_modifier()
+        self.assertEqual(page.Goal, 88)
+
+        page._apply_bill_of_exchange_shop_discount()
+        self.assertEqual(game_state.pending_shop_discount_percent, 60)
+
+        game_state.napoleondors = 5
+        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 15)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 155)
+
+    def test_gold_catalyst_stacks_with_silver_catalyst_for_twenty_five_points(self):
+        page = self._page(silver=[210, 215], gold=[401, 406, 407, 410, 414])
+        page.Goal = 100
+        page.rebate_a_fall_bonus_percent = 0
+        page.side_cards_top = []
+
+        self.assertEqual(page._get_gold_catalyst_percentage_bonus(), 15)
+        self.assertEqual(page._get_percentage_amplifier_bonus(), 25)
+        self.assertEqual(page._get_gambling_probability_bonus(), 32)
+        self.assertEqual(page._get_probability_card_bonus(), 57)
+
+        page._apply_bear_goal_modifier()
+        self.assertEqual(page.Goal, 73)
+
+        page._apply_bill_of_exchange_shop_discount()
+        self.assertEqual(game_state.pending_shop_discount_percent, 75)
+
+        game_state.napoleondors = 5
+        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 30)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 185)
+
+    def test_catalyst_adds_ten_points_to_golden_stocks_roll_without_storing_them(self):
+        original_chance = game_state.golden_stocks_chance_percent
+        original_triggered = game_state.golden_stocks_triggered
+        original_gold_cards = list(game_state.gold_cards)
+        try:
+            game_state.golden_stocks_chance_percent = 5
+            game_state.golden_stocks_triggered = False
+            game_state.gold_cards = []
+            with (
+                mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
+                mock.patch.object(game_state.random, "randint", return_value=15),
+                mock.patch.object(game_state.random, "choice", return_value=402),
+            ):
+                self.assertEqual(
+                    game_state.resolve_golden_stocks_round([302, 210], chance_bonus=10),
+                    402,
+                )
+            self.assertEqual(game_state.golden_stocks_chance_percent, 5)
+        finally:
+            game_state.golden_stocks_chance_percent = original_chance
+            game_state.golden_stocks_triggered = original_triggered
+            game_state.gold_cards = original_gold_cards
+
     def test_gold_momentum_repeats_natural_rises_and_falls_every_turn(self):
         page = self._page(gold=[409])
         movements = [
@@ -279,6 +381,17 @@ class LifecycleEffectTests(unittest.TestCase):
                 (2, "rise", 4, "momentum"),
             ],
         )
+
+    def test_shakeout_targets_only_markets_without_player_shares(self):
+        page = self._page(gold=[413])
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 0
+
+        self.assertEqual(page._get_shakeout_markets(), {1, 2})
+
+        page.active_gold_cards = []
+        self.assertEqual(page._get_shakeout_markets(), set())
 
     def test_synergies_stay_hidden_in_player_facing_descriptions(self):
         self.assertNotIn("красную Rollover", CARD_TOOLTIPS[208][1])

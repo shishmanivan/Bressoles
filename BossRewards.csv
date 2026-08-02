@@ -8,3 +8,7 @@ Boss;Reward;Functionalities
 8;FreeShop;
 9;UpDownPlus4;NoPrice2Buys
 10;StartCPlus2;OneRedOneGainDropPerTurn
+11;LifecycleSlotPlus1;BlockCardTurnExtensions
+12;RandomGoldCard;TwoMarketSlots
+13;SayRandomReward;SevenTurnSeconds
+14;ShopOfferPlus1;HalfRoundNapoleondors

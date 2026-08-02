@@ -193,7 +193,7 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertFalse(page._is_arrow_disabled(0, 3))
         self.assertFalse(page._is_arrow_disabled(1, 0))
 
-    def test_list_effect_enables_simple_bot_with_ten_b_shares(self):
+    def test_list_effect_starts_with_twelve_b_shares(self):
         page = self._page()
         page.level_number = 5
         page.stock_bot_enabled = False
@@ -205,7 +205,7 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertEqual(page.stock_bot_type, "simple")
         self.assertEqual(
             page.stock_bot_start_quantities,
-            {"Aquantity": 0, "Bquantity": 10, "Cquantity": 0},
+            {"Aquantity": 0, "Bquantity": 12, "Cquantity": 0},
         )
 
     def test_laffitte_effect_enables_advanced_bot_and_price_two_block(self):
@@ -221,7 +221,7 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertEqual(page.stock_bot_type, "advanced")
         self.assertEqual(
             page.stock_bot_start_quantities,
-            {"Aquantity": 0, "Bquantity": 8, "Cquantity": 0},
+            {"Aquantity": 0, "Bquantity": 4, "Cquantity": 0},
         )
         self.assertTrue(page.boss_forbid_price_2_buys)
         self.assertEqual(page.stock_bot_blocked_buy_prices, {2})
@@ -231,6 +231,7 @@ class BossTradingConstraintTests(unittest.TestCase):
         page.level_number = 5
         page.boss_index = 0
         page.defeated_count = 0
+        page._get_active_boss_number = mock.Mock(return_value=2)
 
         page._configure_level5_boss_stock_bot()
 
@@ -241,22 +242,49 @@ class BossTradingConstraintTests(unittest.TestCase):
             {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0},
         )
 
-    def test_level5_later_bosses_use_percentage_bot_with_eight_b_shares(self):
-        for defeated_count in (1, 2, 3):
-            with self.subTest(defeated_count=defeated_count):
+    def test_category_two_bosses_use_their_balanced_b_shares_on_level5(self):
+        for boss_number, expected_b_shares in ((8, 12), (9, 4), (11, 4), (12, 4), (13, 4), (14, 4)):
+            with self.subTest(boss_number=boss_number):
                 page = self._page()
                 page.level_number = 5
                 page.boss_index = 0
-                page.defeated_count = defeated_count
+                page.defeated_count = 2
+                page._get_active_boss_number = mock.Mock(return_value=boss_number)
 
-                page._configure_level5_boss_stock_bot()
+                page._configure_boss_stock_bot()
 
                 self.assertTrue(page.stock_bot_enabled)
                 self.assertEqual(page.stock_bot_type, "advanced")
                 self.assertEqual(
                     page.stock_bot_start_quantities,
-                    {"Aquantity": 0, "Bquantity": 8, "Cquantity": 0},
+                    {"Aquantity": 0, "Bquantity": expected_b_shares, "Cquantity": 0},
                 )
+
+    def test_category_one_bosses_start_with_two_a_shares_on_level5(self):
+        page = self._page()
+        page.level_number = 5
+        page.boss_index = 0
+        page.defeated_count = 1
+        page._get_active_boss_number = mock.Mock(return_value=4)
+
+        page._configure_boss_stock_bot()
+
+        self.assertTrue(page.stock_bot_enabled)
+        self.assertEqual(page.stock_bot_type, "simple")
+        self.assertEqual(
+            page.stock_bot_start_quantities,
+            {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0},
+        )
+
+    def test_level4_does_not_enable_boss_stock_trading(self):
+        page = self._page()
+        page.level_number = 4
+        page.boss_index = 0
+        page._get_active_boss_number = mock.Mock(return_value=8)
+
+        page._configure_boss_stock_bot()
+
+        self.assertFalse(getattr(page, "stock_bot_enabled", False))
 
 
 class ShareholderMarketShutdownTests(unittest.TestCase):
@@ -429,6 +457,42 @@ class RebateLiquidationTests(unittest.TestCase):
                 self.assertEqual(liquidation["gross_value"], 40)
                 self.assertEqual(liquidation["proceeds"], expected_proceeds)
 
+    def test_catalyst_is_added_once_after_combining_all_rebate_synergies(self):
+        page = self._page()
+        page.rebate_a_fall_bonus_percent = 0
+        page.active_silver_cards = [201, 210]
+        page.active_black_cards = []
+        page.active_gold_cards = [407]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = [110]
+
+        # Gold Rebate 130% + red synergy 10% + silver synergy 10%
+        # + one Catalyst bonus 10% = 160% total, not 180% per three Rebates.
+        self.assertEqual(page._get_current_rebate_sale_percent(), 160)
+
+        self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+        liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+        self.assertEqual(liquidation["gross_value"], 40)
+        self.assertEqual(liquidation["proceeds"], 64)
+
+    def test_both_catalysts_are_added_once_to_combined_rebate_effect(self):
+        page = self._page()
+        page.rebate_a_fall_bonus_percent = 0
+        page.active_silver_cards = [201, 210]
+        page.active_black_cards = []
+        page.active_gold_cards = [407, 414]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = [110]
+
+        # Gold Rebate 130% + red synergy 10% + silver synergy 10%
+        # + silver Catalyst 10% + gold Catalyst 15% = 175% total.
+        self.assertEqual(page._get_current_rebate_sale_percent(), 175)
+
+        self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+        liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+        self.assertEqual(liquidation["gross_value"], 40)
+        self.assertEqual(liquidation["proceeds"], 70)
+
     def test_gold_rebate_adds_two_percent_only_when_a_actually_falls(self):
         page = GameplayPage.__new__(GameplayPage)
         page.rebate_a_fall_bonus_percent = 0
@@ -494,6 +558,50 @@ class RebateLiquidationTests(unittest.TestCase):
 
         page._start_final_auto_liquidation_animation.assert_not_called()
         self.assertEqual((page.Aquantity, page.Bquantity, page.Cquantity), (2, 1, 0))
+
+
+class DisclosureGameplayTests(unittest.TestCase):
+    @staticmethod
+    def _page():
+        page = GameplayPage.__new__(GameplayPage)
+        page.rebate_a_fall_bonus_percent = 2
+        page._has_active_silver_card = mock.Mock(
+            side_effect=lambda card_id: card_id in (302, 407, 410),
+        )
+        page._has_played_side_card = mock.Mock(return_value=False)
+        return page
+
+    def test_market_probabilities_are_hidden_without_disclosure(self):
+        page = GameplayPage.__new__(GameplayPage)
+        with (
+            mock.patch.object(game_state, "disclosure_rounds_remaining", 0),
+            mock.patch("gameplay_page.build_market_probabilities") as build_probabilities,
+        ):
+            page._draw_market_probability_debug(0, 10, 10)
+
+        build_probabilities.assert_not_called()
+
+    def test_disclosure_tooltips_show_current_dynamic_percentages(self):
+        page = self._page()
+        with (
+            mock.patch.object(game_state, "disclosure_rounds_remaining", 5),
+            mock.patch.object(game_state, "golden_stocks_chance_percent", 9),
+            mock.patch.object(game_state, "napoleondors", 12.5),
+        ):
+            golden = page._get_disclosure_card_tooltip_content(302)
+            rebate = page._get_disclosure_card_tooltip_content(407)
+            uptrend = page._get_disclosure_card_tooltip_content(410)
+
+        self.assertIn("9%", golden[1])
+        self.assertIn("144%", rebate[1])
+        self.assertIn("+12%", uptrend[1])
+
+    def test_disclosure_card_percentages_are_hidden_after_expiration(self):
+        page = self._page()
+        with mock.patch.object(game_state, "disclosure_rounds_remaining", 0):
+            self.assertIsNone(page._get_disclosure_card_tooltip_content(302))
+            self.assertIsNone(page._get_disclosure_card_tooltip_content(407))
+            self.assertIsNone(page._get_disclosure_card_tooltip_content(410))
 
 
 if __name__ == "__main__":

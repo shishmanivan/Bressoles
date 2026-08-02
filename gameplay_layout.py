@@ -147,9 +147,18 @@ def compute_right_panel_layout(
     }
 
 
-def build_market_placeholders(frame_rect, market, placeholder_width=96, placeholder_height=168):
+def build_market_placeholders(
+    frame_rect,
+    market,
+    placeholder_width=96,
+    placeholder_height=168,
+    num_placeholders=3,
+):
     """Build placeholder records for one market frame."""
-    num_placeholders = 3
+    try:
+        num_placeholders = max(1, int(num_placeholders or 3))
+    except (TypeError, ValueError):
+        num_placeholders = 3
     spacing = (frame_rect.width - placeholder_width * num_placeholders) / (num_placeholders + 1)
     ph_start_x = frame_rect.x + spacing
     ph_start_y = frame_rect.y + frame_rect.height - placeholder_height - 30
@@ -159,7 +168,7 @@ def build_market_placeholders(frame_rect, market, placeholder_width=96, placehol
         ph_x = ph_start_x + slot * (placeholder_width + spacing)
         if slot == 0:
             ph_x += 7
-        elif slot == 2:
+        elif slot == num_placeholders - 1:
             ph_x -= 7
         rect = pygame.Rect(ph_x, ph_start_y, placeholder_width, placeholder_height)
         placeholders.append({"market": market, "slot": slot, "rect": rect})

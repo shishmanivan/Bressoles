@@ -44,6 +44,10 @@ SPECIAL_ASSETS = {
     "variance": ("Дисперсия", os.path.join("Shop", "Variance.png")),
     "loan": ("Ссуда", os.path.join("Shop", "Loan.png")),
     "correction": ("Коррекция", os.path.join("Shop", "Correction.png")),
+    "diversification": ("Диверсификация", os.path.join("Shop", "Diversification.png")),
+    "expansion": ("Экспансия", os.path.join("Shop", "Expansion.png")),
+    "disclosure": ("Disclousure", os.path.join("Shop", "Disclousure.png")),
+    "compounding": ("Compounding", os.path.join("Shop", "Compouding.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -61,11 +65,15 @@ SPECIAL_DESCRIPTIONS = {
     "variance": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
     "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 50%.",
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
+    "diversification": "Увеличивает количество карт, предлагаемых в каждом следующем магазине, с одной до двух.",
+    "expansion": "Добавляет ещё одно предложение в каждый следующий магазин. Складывается с наградой Пибоди.",
+    "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
+    "compounding": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
 INVESTMENT_DESCRIPTION = (
-    "Усиливает одну постоянную карту роста, падения, взлёта или снижения на 1 до конца забега. "
+    "Усиливает одну постоянную карту роста, падения, взлёта или снижения на {amount} до конца забега. "
     "Доступно одно усиление за магазин."
 )
 
@@ -77,6 +85,7 @@ CARD_DESCRIPTIONS = {
     122: "Устанавливает цены всех акций на 100.",
     123: "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
     124: "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
+    125: "Breakout: на последнем игровом ходу даёт 50% шанс удвоить цены акций, которыми владеет игрок. Catalyst повышает шанс.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
     20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
@@ -99,6 +108,7 @@ CARD_NAMES = {
     122: "BID 100",
     123: "Parity",
     124: "Accumulation",
+    125: "Breakout",
     110: "Рибейт",
     111: "Снижение долга",
     112: "Ролловер",
@@ -114,6 +124,8 @@ CARD_NAMES = {
     206: "Корзинная торговля",
     207: "Форвардная торговля",
     208: "Ролловер",
+    209: "Frugality",
+    210: "Catalyst",
     214: "Грант",
     215: "Вексель",
     217: "Облигация",
@@ -140,6 +152,8 @@ CARD_DESCRIPTIONS.update(
         410: "Добавляет к эффекту Rebate по 1% за каждый имеющийся наполеондор.",
         411: "На четвёртом ходу акции, которыми владеет игрок, гарантированно растут.",
         412: "На четвёртом и восьмом ходах акции, которыми владеет игрок, гарантированно растут.",
+        413: "Удваивает вероятность падения акций, которыми игрок не владеет.",
+        414: "Усиливает числовые процентные эффекты карт на 15 процентных пунктов, сохраняя полезное направление эффекта.",
     }
 )
 CARD_NAMES.update(
@@ -150,12 +164,15 @@ CARD_NAMES.update(
         410: "Uptrend",
         411: "Spoofing",
         412: "Spoofing+",
+        413: "Shakeout",
+        414: "Catalyst",
     }
 )
 
 LICENSE_EFFECT_DESCRIPTIONS = {
     123: "Устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого. Шанс попадания в пул: 40%.",
     124: "Удваивает номинал и количество ходов следующей выложенной Gain/Drop-карты. Действует, пока такая карта не будет выложена, но усиление не переходит в следующий раунд. Шанс попадания в пул: 10%.",
+    125: "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок. Catalyst повышает этот шанс. Шанс попадания в пул: 20%.",
     118: "Устанавливает цены всех акций на 10. Шанс попадания в пул: 60%.",
     119: "Устанавливает цены всех акций на 20. Шанс попадания в пул: 40%.",
     120: "Устанавливает цены всех акций на 30. Шанс попадания в пул: 30%.",
@@ -169,6 +186,8 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     204: "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
     205: "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями. Шанс попадания в пул: 25%.",
     207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
+    209: "Переносит все неиспользованные ходы в следующий раунд. Шанс попадания в пул: 20%.",
+    210: "Усиливает числовые процентные эффекты карт на 10 процентных пунктов, сохраняя полезное направление эффекта. Шанс попадания в пул: 20%.",
     214: "Добавляет 4 к стартовым деньгам в начале раунда.",
     215: "После победы снижает цены всех предложений в следующем магазине на 50%.",
     217: "После победы приносит дополнительно 5 наполеондоров.",
@@ -241,9 +260,10 @@ class ShopPage:
         self.button_font = pygame.font.Font(font_path, 42)
         self.button_rect = pygame.Rect(0, 0, 260, 86)
         self.button_rect.center = (self.panel_rect.centerx, self.panel_rect.bottom - 120)
-        self.offer_rects = self._build_offer_rects()
         self.offer_image_box = (200, 296)
         self.card_offer_size = GAMEPLAY_CARD_SIZE
+        self._offer_label_surface_cache = {}
+        self.offer_rects = self._build_offer_rects()
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -272,6 +292,19 @@ class ShopPage:
             ("investment", [offer for offer in self.offers if offer.get("kind") == "investment"]),
         ]
         groups = [(kind, offers) for kind, offers in groups if offers]
+        offer_count = sum(len(offers) for _kind, offers in groups)
+        if offer_count >= 8:
+            width = 142
+            slot_gap = 12
+            group_gap = 50
+            self.offer_image_box = (136, 296)
+        elif offer_count >= 7:
+            width = 158
+            slot_gap = 16
+            group_gap = 60
+            self.offer_image_box = (150, 296)
+        elif offer_count >= 6:
+            group_gap = 80
         total_width = sum(len(offers) * width + max(0, len(offers) - 1) * slot_gap for _kind, offers in groups)
         total_width += max(0, len(groups) - 1) * group_gap
         x = self.panel_rect.centerx - total_width // 2
@@ -285,6 +318,18 @@ class ShopPage:
                 x += width + slot_gap
             x += group_gap - slot_gap
         return rects
+
+    def _offer_label_surface(self, text, max_width):
+        cache_key = (str(text), int(max_width))
+        cached = self._offer_label_surface_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        for size in range(30, 17, -2):
+            font = self.small_font if size == 30 else pygame.font.Font(self.font_path, size)
+            surface = font.render(str(text), True, PAPER_COLOR)
+            if surface.get_width() <= max_width or size == 18:
+                self._offer_label_surface_cache[cache_key] = surface
+                return surface
 
     def _offer_label(self, offer):
         if offer.get("kind") in ("card", "license"):
@@ -375,7 +420,9 @@ class ShopPage:
             card_id = int(offer.get("card_id", 0) or 0)
             return CARD_DESCRIPTIONS.get(card_id, f"Добавляет карту {card_id} в вашу колоду.")
         if offer.get("kind") == "investment":
-            return INVESTMENT_DESCRIPTION
+            return INVESTMENT_DESCRIPTION.format(
+                amount=game_state.get_investment_upgrade_amount()
+            )
         return SPECIAL_DESCRIPTIONS.get(offer.get("special_id"), "")
 
     def _draw_hover_description(self):
@@ -429,7 +476,7 @@ class ShopPage:
         if image:
             self.screen.blit(image, image_rect.topleft)
 
-        label = self.small_font.render(self._offer_label(offer), True, PAPER_COLOR)
+        label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
         self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
         self._draw_coin_amount(offer.get("cost", 0), (rect.centerx, rect.y + 360), self.small_font)
 
@@ -499,7 +546,8 @@ class ShopPage:
                 game_state.spend_napoleondors(cost)
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
-                self.message = "Карта усилена"
+                amount = game_state.get_investment_upgrade_amount()
+                self.message = "Карта усилена" if amount == 1 else f"Карта усилена на {amount}"
             return
 
         special_id = offer.get("special_id")
@@ -620,6 +668,50 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Все карты усилены на 1%"
+            return
+
+        if special_id == "diversification":
+            if not game_state.buy_diversification():
+                self.sold_offer_indexes.add(index)
+                self.message = "Диверсификация уже куплена"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "В магазине теперь предлагаются две карты"
+            return
+
+        if special_id == "expansion":
+            if not game_state.buy_expansion():
+                self.sold_offer_indexes.add(index)
+                self.message = "Экспансия уже куплена"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "В магазине теперь больше предложений"
+            return
+
+        if special_id == "disclosure":
+            if not game_state.buy_disclosure():
+                self.sold_offer_indexes.add(index)
+                self.message = "Disclousure уже действует"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Вероятности открыты на 5 раундов"
+            return
+
+        if special_id == "compounding":
+            if not game_state.buy_compounding(self.level_number):
+                self.sold_offer_indexes.add(index)
+                self.message = "Compounding уже куплен"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Инвестиции теперь усиливают карты на 2"
             return
 
         if special_id == "loan":

@@ -13,6 +13,8 @@ STATE_FIELDS = (
     "level_1_boss_defeated",
     "level_2_boss_defeated",
     "level_3_boss_defeated",
+    "level_4_boss_defeated",
+    "level_5_boss_defeated",
     "boss_progress",
     "global_dobor",
     "global_start_money_bonus",
@@ -48,6 +50,7 @@ STATE_FIELDS = (
     "active_red_cards_deck",
     "active_silver_cards_level",
     "active_silver_cards_deck",
+    "Frugality",
 )
 
 
@@ -67,6 +70,8 @@ class RunResetRulesTests(GameStateTestCase):
     def test_starting_napoleondors_follow_completed_level_progression(self):
         game_state.level_2_boss_defeated = False
         game_state.level_3_boss_defeated = False
+        game_state.level_4_boss_defeated = False
+        game_state.level_5_boss_defeated = False
         self.assertEqual(game_state.get_starting_napoleondors_for_level(1), 0)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(2), 0)
 
@@ -76,6 +81,35 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.level_3_boss_defeated = True
         self.assertEqual(game_state.get_starting_napoleondors_for_level(4), 5)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(5), 5)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(6), 5)
+
+        game_state.level_4_boss_defeated = True
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(5), 7)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(6), 7)
+
+        game_state.level_5_boss_defeated = True
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(6), 9)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(7), 9)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(8), 9)
+
+    def test_level5_completion_unlocks_levels7_and8_and_awards_commission(self):
+        game_state.level_5_boss_defeated = False
+        self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
+        self.assertFalse(game_state.get_progress_flags()["level_8_unlocked"])
+
+        game_state.level_5_boss_defeated = True
+
+        self.assertTrue(game_state.get_progress_flags()["level_7_unlocked"])
+        self.assertTrue(game_state.get_progress_flags()["level_8_unlocked"])
+        self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [])
+        self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303])
+
+    def test_golden_stocks_already_owned_is_not_removed_by_the_new_level5_reward(self):
+        game_state.black_cards[:] = [301, 302]
+
+        game_state.complete_level_run(5)
+
+        self.assertEqual(game_state.black_cards, [301, 302])
 
     def test_loss_clears_run_state_but_preserves_profile_inventory(self):
         level = 4
@@ -97,6 +131,7 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.licensed_card_ids = {110, 112}
         game_state.silver_cards[:] = [201]
         game_state.black_cards[:] = [301]
+        game_state.Frugality = 4
 
         game_state.reset_level_attempt(level)
 
@@ -117,6 +152,7 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertEqual(game_state.licensed_card_ids, {110, 112})
         self.assertEqual(game_state.silver_cards, [201])
         self.assertEqual(game_state.black_cards, [301])
+        self.assertEqual(game_state.Frugality, 0)
 
     def test_direct_attempt_restart_clears_all_temporary_level_rewards(self):
         level = 3
@@ -322,6 +358,31 @@ class RewardLifecycleRulesTests(GameStateTestCase):
         apply_reward.assert_not_called()
         self.assertEqual(gameplay.last_earned_cards, [12])
         self.assertNotIn(1, game_state.round_reward_cards)
+
+    def test_level5_final_boss_awards_commission_black_card(self):
+        gameplay = mock.Mock()
+        gameplay.is_boss_fight = True
+        gameplay.is_final_boss = True
+        gameplay.level_number = 5
+        gameplay.boss_index = 0
+        gameplay.defeated_count = 3
+        gameplay.last_earned_cards = []
+        game_state.black_cards = [301, 302]
+
+        apply_win_reward(
+            gameplay,
+            earned_reward_cards={},
+            rewards={},
+            reward_token_random_red=-1001,
+            load_boss_rewards=mock.Mock(),
+            get_boss_number_from_index=get_boss_number_from_index,
+            apply_boss_reward=mock.Mock(),
+            pick_random_red_card_for_level=mock.Mock(),
+            add_silver_card=mock.Mock(),
+        )
+
+        self.assertEqual(game_state.black_cards, [301, 302, 303])
+        self.assertEqual(gameplay.last_earned_cards, [303])
 
 
 if __name__ == "__main__":

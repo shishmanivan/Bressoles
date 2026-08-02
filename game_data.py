@@ -387,7 +387,7 @@ def get_level4_goal(round_num, button, defeated_count, is_boss_round=False):
 
 
 def load_goals_level5():
-    """Load the former level-4 goals, now used by level 5."""
+    """Load goals for level 5 from GoalsLevel5.csv."""
     global _goals_level5_cache
     if _goals_level5_cache is not None:
         return _goals_level5_cache

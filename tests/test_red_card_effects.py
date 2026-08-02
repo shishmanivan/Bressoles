@@ -14,7 +14,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.boss_limit_red_gain_drop_per_turn = False
         page.side_cards_top = [None] * 6
         page.side_cards_locked_top = {}
-        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 125)}}
+        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 126)}}
         page.active_silver_cards = []
         page.active_black_cards = []
         page.active_gold_cards = []
@@ -227,6 +227,46 @@ class RedCardEffectTests(unittest.TestCase):
 
         self.assertFalse(page._consume_accumulation_charge(1, 0, 0))
         self.assertEqual(page.accumulation_pending_sources, [0])
+
+    def test_breakout_can_be_played_only_on_the_last_playable_turn(self):
+        page = self._page()
+        page.Day = 1
+        page.LastTurn = 8
+
+        self.assertFalse(page._can_play_dragged_hand_card_on_side_top(125))
+        page.Day = 6
+        self.assertFalse(page._can_play_dragged_hand_card_on_side_top(125))
+        page.Day = 7
+        self.assertTrue(page._can_play_dragged_hand_card_on_side_top(125))
+
+    def test_breakout_doubles_only_owned_markets_and_uses_catalyst_bonus(self):
+        page = self._page()
+        page.side_cards_top[0] = 125
+        page.side_cards_locked_top[0] = False
+        page.active_silver_cards = [210]
+        page.Aquantity, page.Bquantity, page.Cquantity = 2, 0, 1
+        page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
+        page._start_card_jump_animation = mock.Mock()
+
+        with mock.patch("gameplay_page.random.randint", return_value=60) as roll:
+            self.assertTrue(page._apply_breakout_effect_if_needed())
+
+        roll.assert_called_once_with(1, 100)
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (20, 20, 60))
+
+    def test_breakout_misses_above_catalyst_adjusted_chance(self):
+        page = self._page()
+        page.side_cards_top[0] = 125
+        page.side_cards_locked_top[0] = False
+        page.active_silver_cards = [210]
+        page.Aquantity, page.Bquantity, page.Cquantity = 1, 1, 1
+        page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
+        page._start_card_jump_animation = mock.Mock()
+
+        with mock.patch("gameplay_page.random.randint", return_value=61):
+            self.assertFalse(page._apply_breakout_effect_if_needed())
+
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 20, 30))
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,7 +25,7 @@ Level5Year;1847;1847
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.
 Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.
 Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.
-Level5Cond;Пик железнодорожной мании. Победите четырёх боссов.;The peak of railway mania. Beat four bosses.
+Level5Cond;Пик железнодорожной мании. Победите четырёх боссов: сначала двух первой категории, затем двух второй.;The peak of railway mania. Defeat four bosses: first two from category one, then two from category two.
 Boss1Text;Джеймс Уатт - самый простой босс. Особых условий нет: просто победите его.;James Watt is the easiest boss. There are no special conditions: just beat him.
 Boss1Reward;Персональной награды нет.;No personal reward.
 Boss2Text;Адам Смит. В каждом раунде на один ход меньше.;Adam Smith. Each round is one turn shorter.
@@ -40,12 +40,29 @@ Boss6Text;Ричард Аркрайт. В конце каждого хода о�
 Boss6Reward;Рука увеличивается на 1. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;Your hand grows by 1. A random silver card enters your separate inventory. Playing it is optional.
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
 Boss7Reward;20 Наполеондоров;20 Napoleondors
-Boss8Text;Фридрих Лист. Босс торгует акциями и на последнем ходу продаёт весь портфель.;Friedrich List. The boss trades stocks and sells his portfolio on the final turn.
+Boss8Text;Фридрих Лист. Начинает с 12 акциями B, втрое больше обычного. На последнем ходу продаёт весь портфель.;Friedrich List. Starts with 12 B shares, three times the usual amount. Sells his entire portfolio on the final turn.
 Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
-Boss9Text;Жак Лаффит. Босс торгует акциями. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. The boss trades stocks. Stocks priced at 2 dollars cannot be bought.
+Boss9Text;Жак Лаффит. Начинает с 4 акциями B. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. Starts with 4 B shares. Stocks priced at 2 dollars cannot be bought.
 Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
 Boss10Text;Роберт Стефенсон. За ход можно сыграть одну карту в поле Рынка (включая Shareholder) и одну Gain/Drop карту.;Robert Stephenson. Per turn, play one card in the Market field (including Shareholder) and one Gain/Drop card.
 Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.
+Boss11Text;Томас Мальтус. Начинает с 4 акциями B. Игру нельзя продлить никакими картами. Бонусы ходов от ранее побеждённых боссов продолжают действовать.;Thomas Malthus. Starts with 4 B shares. The game cannot be extended by any cards. Turn bonuses from previously defeated bosses still apply.
+Boss11Reward;До конца забега доступно одно дополнительное общее место для чёрных, серебряных и золотых карт. После поражения бонус исчезает.;Until the end of the run, gain one additional shared slot for black, silver, and gold cards. The bonus is lost on defeat.
+Boss12Text;Давид Рикардо. Начинает с 4 акциями B. На каждом рынке доступно только два места для карт вместо трёх.;David Ricardo. Starts with 4 B shares. Each market has only two card slots instead of three.
+Boss12Reward;Случайная золотая карта. Сначала каждая доступная золотая карта с указанной для неё вероятностью попадает в пул, затем из пула случайно выбирается одна карта.;A random gold card. First, every available gold card enters the pool according to its own probability, then one card is selected randomly from that pool.
+Boss13Text;Жан-Батист Сей. Начинает с 4 акциями B. На каждый ход даётся 7 секунд. Когда таймер достигает нуля, ход завершается автоматически.;Jean-Baptiste Say. Starts with 4 B shares. Each turn lasts 7 seconds. When the timer reaches zero, the turn ends automatically.
+Boss13Reward;Случайный приз: 5 наполеондоров (30%), 7 наполеондоров (15%), 10 наполеондоров (15%), золотая карта (5%), две редкие серебряные карты (10%), +1 место в руке (15%) или +1 общее место для чёрных, серебряных и золотых карт (10%).;Random prize: 5 Napoleondors (30%), 7 Napoleondors (15%), 10 Napoleondors (15%), a gold card (5%), two rare silver cards (10%), +1 hand slot (15%), or +1 shared black, silver, and gold card slot (10%).
+Boss13PrizeNapoleondors5;Случайный приз: 5 наполеондоров.;Random prize: 5 Napoleondors.
+Boss13PrizeNapoleondors7;Случайный приз: 7 наполеондоров.;Random prize: 7 Napoleondors.
+Boss13PrizeNapoleondors10;Случайный приз: 10 наполеондоров.;Random prize: 10 Napoleondors.
+Boss13PrizeGoldCard;Случайный приз: золотая карта.;Random prize: a gold card.
+Boss13PrizeGoldCardEmpty;Пул золотых карт оказался пуст.;The gold-card pool was empty.
+Boss13PrizeRareSilver;Случайный приз: две редкие серебряные карты.;Random prize: two rare silver cards.
+Boss13PrizeRareSilverEmpty;Не удалось выдать две редкие серебряные карты.;Two rare silver cards could not be awarded.
+Boss13PrizeHandSlot;Случайный приз: +1 место в руке до конца забега.;Random prize: +1 hand slot until the end of the run.
+Boss13PrizeLifecycleSlot;Случайный приз: +1 общее место для чёрных, серебряных и золотых карт до конца забега.;Random prize: +1 shared black, silver, and gold card slot until the end of the run.
+Boss14Text;Джордж Пибоди. Начинает с 4 акциями B. Базовая награда уровня в наполеондорах за победу в обычном раунде уменьшается вдвое.;George Peabody. Starts with 4 B shares. The level's base Napoleondor reward for winning a regular round is halved.
+Boss14Reward;После победы магазины предлагают три специальных предложения вместо двух до конца забега.;After victory, shops offer three special offers instead of two until the end of the run.
 PopUpRound;Заработайте;Earn
 PopUpReward;Награда за победу:;Reward:
 PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop-карта и одна карта Shareholder;Random Gain/Drop card and one Shareholder
@@ -67,8 +84,8 @@ RewardFinalBoss;Поздравляем! Вы разблокировали сле
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
 RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
-RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт шестой уровень. Вы получили 2 Наполеона и чёрную карту Golden Stocks.;You completed level four! Level six is now unlocked. You received 2 Napoleondors and the Golden Stocks black card.
-RewardLevel5FinalBoss;Вы завершили пятый уровень!;You completed level five!
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Теперь вы начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You now start subsequent levels with 2 additional Napoleondors.
+RewardLevel5FinalBoss;Вы завершили пятый уровень! Открыты седьмой и восьмой уровни. Вы получили чёрную карту «Комиссия» и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level five! Levels seven and eight are now unlocked. You received the Commission black card and now start subsequent levels with 2 additional Napoleondors.
 BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
 LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.

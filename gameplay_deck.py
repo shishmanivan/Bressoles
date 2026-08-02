@@ -6,6 +6,50 @@ from game_data import REWARD_TOKEN_RANDOM_SILVER
 BASE_STARTING_DECK = [100, 1, 1, 2, 3, 4, 11]
 
 
+class InvestedCard(int):
+    """A single deck card carrying an instance-specific Investment bonus."""
+
+    def __new__(cls, card_id, investment_bonus=0):
+        instance = int.__new__(cls, int(card_id))
+        instance.investment_bonus = max(0, int(investment_bonus or 0))
+        return instance
+
+
+def get_card_investment_bonus(card_id):
+    try:
+        return max(0, int(getattr(card_id, "investment_bonus", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def serialize_card_instance(card_id):
+    if card_id is None:
+        return None
+    bonus = get_card_investment_bonus(card_id)
+    if bonus <= 0:
+        return int(card_id)
+    return {
+        "card_id": int(card_id),
+        "investment_bonus": bonus,
+    }
+
+
+def restore_card_instance(value):
+    if isinstance(value, dict):
+        try:
+            card_id = int(value.get("card_id"))
+            bonus = max(0, int(value.get("investment_bonus", 0) or 0))
+        except (TypeError, ValueError):
+            return None
+        return InvestedCard(card_id, bonus) if bonus > 0 else normalize_card_id(card_id)
+    if value is None:
+        return None
+    try:
+        return normalize_card_id(int(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def normalize_card_id(card_id):
     """Map legacy card 0 references to card 100."""
     return 100 if card_id == 0 else card_id
@@ -58,6 +102,7 @@ def build_initial_deck(
     removed_cards_by_level=None,
     shop_deck_cards=None,
     temporary_reward_cards=None,
+    investment_card_bonuses=None,
 ):
     """Build initial deck composition for a given level."""
     base_deck = list(BASE_STARTING_DECK)
@@ -81,18 +126,35 @@ def build_initial_deck(
         base_deck.extend(bought_cards)
         print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
 
-    temporary_cards = dedupe_red_cards(
-        card_id for card_id in (temporary_reward_cards or []) if not is_silver_reward_card(card_id)
-    )
-    if temporary_cards:
-        base_deck.extend(temporary_cards)
-        print(f"Added {len(temporary_cards)} temporary reward card(s) to level {level_number} deck: {temporary_cards}")
-
+    # Delisting and Investment operate only on permanent cards. Apply both
+    # before temporary round rewards are appended so a new reward with the
+    # same card id cannot inherit either operation.
     deck = dedupe_red_cards(base_deck)
     removed_cards = (removed_cards_by_level or {}).get(level_number, [])
     if removed_cards:
         deck = apply_removed_cards(deck, removed_cards)
         print(f"Removed {len(removed_cards)} card(s) from level {level_number} deck: {removed_cards}")
+
+    for raw_card_id, raw_bonus in (investment_card_bonuses or {}).items():
+        try:
+            invested_id = normalize_card_id(int(raw_card_id))
+            bonus = max(0, int(raw_bonus or 0))
+        except (TypeError, ValueError):
+            continue
+        if bonus <= 0:
+            continue
+        for index, card_id in enumerate(deck):
+            if card_id == invested_id:
+                deck[index] = InvestedCard(card_id, bonus)
+                break
+
+    temporary_cards = dedupe_red_cards(
+        card_id for card_id in (temporary_reward_cards or []) if not is_silver_reward_card(card_id)
+    )
+    if temporary_cards:
+        deck.extend(temporary_cards)
+        deck = dedupe_red_cards(deck)
+        print(f"Added {len(temporary_cards)} temporary reward card(s) to level {level_number} deck: {temporary_cards}")
 
     return deck
 
@@ -145,6 +207,7 @@ def setup_starting_deck_and_hand(
     shop_deck_cards=None,
     temporary_reward_cards_by_level=None,
     guaranteed_cards_by_level=None,
+    investment_card_bonuses=None,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -154,6 +217,7 @@ def setup_starting_deck_and_hand(
         removed_cards_by_level,
         shop_deck_cards,
         (temporary_reward_cards_by_level or {}).get(level_number, []),
+        investment_card_bonuses,
     )
     guaranteed_cards = list((guaranteed_cards_by_level or {}).get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, guaranteed_cards)

@@ -21,6 +21,7 @@ from card_catalog import (
 )
 from game_data import load_cards_config
 from gameplay_assets import _build_card_actions, _build_card_base_mapping, _build_card_turns
+from gameplay_deck import InvestedCard
 from gameplay_page import GameplayPage
 from gameplay_turn import apply_price_card_action, build_price_cards_processing_queue
 from round_reward_preview import load_round_reward_assets
@@ -92,6 +93,23 @@ class CardCatalogTests(unittest.TestCase):
 
         self.assertEqual(page.card_actions, {11: 4, 99: 6})
         self.assertEqual(page.card_turns, {11: 2, 99: 4})
+
+    def test_investment_changes_only_the_tagged_card_instance(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.card_actions = {15: -2}
+        page._get_contango_gain_drop_multiplier = lambda: 1
+
+        self.assertEqual(page._get_card_action(InvestedCard(15, 1)), -3)
+        self.assertEqual(page._get_card_action(15), -2)
+        self.assertEqual(page.card_actions, {15: -2})
+
+    def test_contango_multiplies_an_invested_cards_complete_nominal(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.card_actions = {15: -4}
+        page._get_contango_gain_drop_multiplier = lambda: 2
+
+        self.assertEqual(page._get_card_action(InvestedCard(15, 1)), -6)
+        self.assertEqual(page._get_card_action(15), -4)
 
     def test_missing_catalog_card_is_reported(self):
         cards = copy.deepcopy(load_cards_config())

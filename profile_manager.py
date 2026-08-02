@@ -107,9 +107,14 @@ def _empty_progress():
         "global_start_c_shares_bonus": 0,
         "derivative_bought": False,
         "issuer_bought_count": 0,
+        "boss_lifecycle_slot_bonus": 0,
+        "boss_shop_offer_bonus": 0,
         "bank_bought": False,
         "bank_interest_base": None,
         "multibagger_bought": False,
+        "diversification_bought": False,
+        "expansion_bought": False,
+        "compounding_bought": False,
         "loan_boss_positions_by_level": {},
         "napoleondors": 0,
         "napoleondor_level": None,
@@ -122,6 +127,7 @@ def _empty_progress():
         "updown_probability_bonus": 0,
         "pending_shop_discount_percent": 0,
         "bailout_rounds_remaining": 0,
+        "disclosure_rounds_remaining": 0,
         "active_long_investments": [],
         "golden_stocks_chance_percent": game_state.GOLDEN_STOCKS_BASE_CHANCE,
         "golden_stocks_triggered": False,
@@ -134,6 +140,7 @@ def _empty_progress():
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "insurance_goal_debt": 0,
+        "Frugality": 0,
         "guaranteed_start_hand_cards_by_level": {},
         "active_red_cards_level": None,
         "active_red_cards_deck": [],
@@ -267,6 +274,20 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.issuer_bought_count = 0
+    try:
+        game_state.boss_lifecycle_slot_bonus = max(
+            0,
+            int(progress.get("boss_lifecycle_slot_bonus", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.boss_lifecycle_slot_bonus = 0
+    try:
+        game_state.boss_shop_offer_bonus = max(
+            0,
+            int(progress.get("boss_shop_offer_bonus", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.boss_shop_offer_bonus = 0
     game_state.bank_bought = bool(progress.get("bank_bought", False))
     try:
         game_state.bank_interest_base = (
@@ -277,6 +298,9 @@ def apply_profile_to_game_state(profile_or_slot):
     except (TypeError, ValueError):
         game_state.bank_interest_base = None
     game_state.multibagger_bought = bool(progress.get("multibagger_bought", False))
+    game_state.diversification_bought = bool(progress.get("diversification_bought", False))
+    game_state.expansion_bought = bool(progress.get("expansion_bought", False))
+    game_state.compounding_bought = bool(progress.get("compounding_bought", False))
     game_state.loan_boss_positions_by_level = _restore_int_key_lists(
         progress.get("loan_boss_positions_by_level") or {}
     )
@@ -306,6 +330,13 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.bailout_rounds_remaining = 0
+    try:
+        game_state.disclosure_rounds_remaining = max(
+            0,
+            int(progress.get("disclosure_rounds_remaining", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.disclosure_rounds_remaining = 0
     game_state.active_long_investments = _restore_int_list(progress.get("active_long_investments") or [])[
         : game_state.LONG_MAX_ACTIVE
     ]
@@ -335,6 +366,10 @@ def apply_profile_to_game_state(profile_or_slot):
         game_state.insurance_goal_debt = max(0, int(progress.get("insurance_goal_debt", 0) or 0))
     except (TypeError, ValueError):
         game_state.insurance_goal_debt = 0
+    try:
+        game_state.Frugality = max(0, int(progress.get("Frugality", 0) or 0))
+    except (TypeError, ValueError):
+        game_state.Frugality = 0
     _migrate_silver_cards_from_earned_rewards()
     game_state.forced_start_hand_cards_by_level = _restore_int_key_lists(
         progress.get("forced_start_hand_cards_by_level") or {}
@@ -402,9 +437,14 @@ def _capture_progress():
         "global_start_c_shares_bonus": int(game_state.global_start_c_shares_bonus),
         "derivative_bought": bool(game_state.derivative_bought),
         "issuer_bought_count": game_state.get_issuer_bought_count(),
+        "boss_lifecycle_slot_bonus": max(0, int(game_state.boss_lifecycle_slot_bonus or 0)),
+        "boss_shop_offer_bonus": game_state.get_boss_shop_offer_bonus(),
         "bank_bought": bool(game_state.bank_bought),
         "bank_interest_base": game_state.bank_interest_base,
         "multibagger_bought": bool(game_state.multibagger_bought),
+        "diversification_bought": bool(game_state.diversification_bought),
+        "expansion_bought": bool(game_state.expansion_bought),
+        "compounding_bought": bool(game_state.compounding_bought),
         "loan_boss_positions_by_level": _serialize_int_key_lists(
             game_state.loan_boss_positions_by_level
         ),
@@ -419,6 +459,7 @@ def _capture_progress():
         "updown_probability_bonus": game_state.get_updown_probability_bonus(),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
+        "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
         "golden_stocks_chance_percent": game_state.get_golden_stocks_chance_percent(),
         "golden_stocks_triggered": game_state.is_golden_stocks_triggered(),
@@ -431,6 +472,7 @@ def _capture_progress():
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
+        "Frugality": max(0, int(game_state.Frugality or 0)),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(
             game_state.guaranteed_start_hand_cards_by_level
         ),

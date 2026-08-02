@@ -15,6 +15,8 @@ BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
 
 ANIMATION_FRAME_SIZE = (100, 100)
+DEFAULT_BOSS_VERTICAL_SPACING = 150
+LEVEL5_BOSS_VERTICAL_SPACING = 90
 ANIMATION_SCALE_OVERRIDES = {
     "9_Laffitte": 0.95,
 }
@@ -24,6 +26,105 @@ POPUP_FONT_MIN_SIZE = 18
 POPUP_TEXT_TOP = 120
 POPUP_TEXT_BOTTOM_PADDING = 14
 POPUP_TEXT_WIDTH = 200
+
+
+def get_boss_vertical_spacing(level_number, bosses_required):
+    try:
+        level = int(level_number or 0)
+        boss_count = int(bosses_required or 0)
+    except (TypeError, ValueError):
+        return DEFAULT_BOSS_VERTICAL_SPACING
+    if level == 5 and boss_count >= 4:
+        return LEVEL5_BOSS_VERTICAL_SPACING
+    return DEFAULT_BOSS_VERTICAL_SPACING
+
+
+def build_next_boss_positions(
+    anchor_center,
+    choice_count,
+    vertical_spacing,
+    screen_height,
+    horizontal_offset=200,
+    icon_size=100,
+    margin=20,
+):
+    """Place the next boss choices as a group without moving any icon off-screen."""
+    anchor_cx, anchor_cy = anchor_center
+    positions = [
+        (anchor_cx + horizontal_offset, anchor_cy - vertical_spacing * (index + 1))
+        for index in range(max(0, int(choice_count or 0)))
+    ]
+    if not positions:
+        return []
+
+    half_icon = icon_size / 2.0
+    minimum_center_y = margin + half_icon
+    maximum_center_y = screen_height - margin - half_icon
+    group_min_y = min(center_y for _, center_y in positions)
+    group_max_y = max(center_y for _, center_y in positions)
+
+    shift_y = max(0.0, minimum_center_y - group_min_y)
+    if group_max_y + shift_y > maximum_center_y:
+        shift_y += maximum_center_y - (group_max_y + shift_y)
+
+    return [
+        (int(round(center_x)), int(round(center_y + shift_y)))
+        for center_x, center_y in positions
+    ]
+
+
+def rebuild_boss_route_layout(
+    roster,
+    defeated_bosses,
+    vertical_spacing,
+    screen_height,
+    origin=(235, 832),
+    first_center=(400, 700),
+):
+    """Rebuild saved route geometry using the current spacing rules."""
+    normalized_bosses = []
+    lines = []
+    previous_rect = None
+
+    for position, defeated in enumerate(defeated_bosses or []):
+        if position >= len(roster or []) or not isinstance(defeated, dict):
+            return None
+        filename = defeated.get("filename")
+        choices = roster[position] if isinstance(roster[position], list) else []
+        if filename not in choices:
+            return None
+        choice_index = choices.index(filename)
+
+        if previous_rect is None:
+            centers = [
+                (first_center[0], first_center[1] - vertical_spacing * index)
+                for index in range(len(choices))
+            ]
+            line_start = origin
+        else:
+            centers = build_next_boss_positions(
+                previous_rect.center,
+                len(choices),
+                vertical_spacing,
+                screen_height,
+            )
+            line_start = previous_rect.center
+
+        if choice_index >= len(centers):
+            return None
+        center_x, center_y = centers[choice_index]
+        selected_rect = pygame.Rect(center_x - 50, center_y - 50, 100, 100)
+        normalized_entry = dict(defeated)
+        normalized_entry["rect"] = selected_rect
+        normalized_bosses.append(normalized_entry)
+        lines.append((line_start[0], line_start[1], center_x, center_y))
+        previous_rect = selected_rect
+
+    return {
+        "defeated_bosses": normalized_bosses,
+        "saved_lines": lines,
+        "last_defeated_rect": previous_rect,
+    }
 
 
 def normalize_boss_animation_frame(frame_image, base_name):
@@ -210,6 +311,21 @@ class BossPage:
         self.bosses_required = (
             self._get_bosses_required(self.level_number, rounds_config) if self._get_bosses_required else 1
         )
+        self.boss_vertical_spacing = get_boss_vertical_spacing(
+            self.level_number,
+            self.bosses_required,
+        )
+        if self.level_number == 5 and self.defeated_count > 0:
+            route_layout = rebuild_boss_route_layout(
+                bosses_for_round,
+                self.defeated_bosses[: self.defeated_count],
+                self.boss_vertical_spacing,
+                SCREEN_HEIGHT,
+            )
+            if route_layout and len(route_layout["defeated_bosses"]) == self.defeated_count:
+                self.defeated_bosses = route_layout["defeated_bosses"]
+                self.saved_lines = route_layout["saved_lines"]
+                self.last_defeated_rect = route_layout["last_defeated_rect"]
 
         self.boss_texts = {}
         self.boss_rewards = {}
@@ -270,18 +386,17 @@ class BossPage:
         elif hasattr(self, "saved_defeated_bosses"):
             self.defeated_bosses = list(self.saved_defeated_bosses)
 
-        self.boss_vertical_spacing = 150
         start_x = 350
         start_y = SCREEN_HEIGHT - 400
 
         if self.defeated_count > 0 and self.last_defeated_rect:
             anchor_cx, anchor_cy = self.last_defeated_rect.centerx, self.last_defeated_rect.centery
-            positions = []
-            if len(self.bosses) >= 1:
-                positions.append((anchor_cx + 200, anchor_cy - self.boss_vertical_spacing))
-            if len(self.bosses) >= 2:
-                prev_cx, prev_cy = positions[0]
-                positions.append((prev_cx, prev_cy - self.boss_vertical_spacing))
+            positions = build_next_boss_positions(
+                (anchor_cx, anchor_cy),
+                len(self.bosses),
+                self.boss_vertical_spacing,
+                SCREEN_HEIGHT,
+            )
 
             for i, boss_image in enumerate(self.bosses):
                 cx, cy = positions[i]

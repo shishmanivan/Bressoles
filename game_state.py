@@ -41,21 +41,27 @@ shop_deck_cards = []
 # Cards removed from the current level deck by shop offers.
 removed_deck_cards_by_level = {}
 
-# Permanent-until-defeat +1 bonuses for Gain/Drop cards bought through Investment.
+# Permanent-until-defeat bonuses for Gain/Drop cards bought through Investment.
 investment_card_bonuses = {}
 profit_reward_bonus = 0
 updown_probability_bonus = 0
 pending_shop_discount_percent = 0
 bailout_rounds_remaining = 0
+disclosure_rounds_remaining = 0
 active_long_investments = []
 golden_stocks_chance_percent = 5
 golden_stocks_triggered = False
 derivative_bought = False
 issuer_bought_count = 0
+boss_lifecycle_slot_bonus = 0
+boss_shop_offer_bonus = 0
 bank_bought = False
 bank_interest_base = None
 multibagger_bought = False
 loan_boss_positions_by_level = {}
+diversification_bought = False
+expansion_bought = False
+compounding_bought = False
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
@@ -72,8 +78,13 @@ SHOP_SPECIAL_COSTS = {
     "variance": 3,
     "loan": 0,
     "correction": 2,
+    "diversification": 5,
+    "expansion": 5,
+    "disclosure": 4,
+    "compounding": 7,
 }
 
+DISCLOSURE_ROUNDS = 5
 LONG_MAX_ACTIVE = 2
 LONG_ROUNDS_TO_PAYOUT = 4
 LONG_PAYOUT = 6
@@ -112,6 +123,8 @@ SHOP_CARD_COSTS = {
     410: 8,
     411: 5,
     412: 7,
+    413: 7,
+    414: 5,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -127,10 +140,13 @@ LICENSE_COSTS = {
     122: 15,
     123: 4,
     124: 7,
+    125: 6,
     203: 5,
     204: 7,
     205: 5,
     207: 7,
+    209: 5,
+    210: 5,
     214: 7,
     215: 7,
     217: 7,
@@ -139,7 +155,7 @@ LICENSE_COSTS = {
     220: 10,
 }
 LICENSES_BY_LEVEL = {
-    3: [112, 113, 114, 115, 123, 124, 203, 204, 207, 214, 215, 217, 218, 219, 220],
+    3: [112, 113, 114, 115, 123, 124, 125, 203, 204, 207, 209, 210, 214, 215, 217, 218, 219, 220],
     4: [205],
     5: [118, 119, 120, 121, 122],
 }
@@ -174,10 +190,7 @@ LEVEL_COMPLETION_REWARD_CARDS = {
 }
 LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
     3: [301],
-    4: [302],
-}
-LEVEL_COMPLETION_NAPOLEONDOR_REWARDS = {
-    4: 2,
+    5: [303],
 }
 
 # Silver cards are kept outside the regular deck. They are spent after the
@@ -198,6 +211,8 @@ active_gold_cards = []
 active_lifecycle_card_order = []
 bear_goal_reduction_steps = 0
 insurance_goal_debt = 0
+# Unused turns banked by silver card 209 for the immediately following round.
+Frugality = 0
 
 
 def is_red_card(card_id):
@@ -271,6 +286,19 @@ def add_gold_card(card_id):
     return _add_card_to_inventory(gold_cards, MAX_GOLD_CARDS, normalized, "Gold")
 
 
+def add_random_gold_card():
+    """Roll the probability pool, then award one available card from that pool."""
+    unavailable = get_bought_shop_card_ids()
+    probability_pool = [
+        card_id
+        for card_id in build_gold_cards_pool()
+        if card_id not in unavailable
+    ]
+    if not probability_pool:
+        return None
+    return add_gold_card(random.choice(probability_pool))
+
+
 def get_multibagger_shop_chance(level_number):
     try:
         level = int(level_number or 0)
@@ -316,6 +344,42 @@ def buy_multibagger_gold_card():
     multibagger_bought = True
     print(f"Multibagger awarded gold card {awarded}.")
     return awarded
+
+
+def is_diversification_offer_available():
+    return not bool(diversification_bought)
+
+
+def buy_diversification():
+    global diversification_bought
+    if not is_diversification_offer_available():
+        return False
+    diversification_bought = True
+    print("Diversification activated: shops can now offer two cards.")
+    return True
+
+
+def get_shop_card_offer_slots(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    if level < 3:
+        return 0
+    return 2 if diversification_bought else 1
+
+
+def is_expansion_offer_available():
+    return not bool(expansion_bought)
+
+
+def buy_expansion():
+    global expansion_bought
+    if not is_expansion_offer_available():
+        return False
+    expansion_bought = True
+    print("Expansion activated: shops can now offer one additional special offer.")
+    return True
 
 
 def _contains_card(cards, target_card_id):
@@ -704,6 +768,38 @@ def clear_insurance_goal_debt():
     insurance_goal_debt = 0
 
 
+def set_frugality(remaining_turns):
+    """Bank unused turns for the next round."""
+    global Frugality
+    try:
+        Frugality = max(0, int(remaining_turns or 0))
+    except (TypeError, ValueError):
+        Frugality = 0
+    if Frugality:
+        print(f"Frugality banked {Frugality} unused turn(s) for the next round.")
+    return Frugality
+
+
+def get_frugality():
+    try:
+        return max(0, int(Frugality or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def consume_frugality():
+    """Consume and return the turns banked by Frugality."""
+    global Frugality
+    bonus = get_frugality()
+    Frugality = 0
+    return bonus
+
+
+def clear_frugality():
+    global Frugality
+    Frugality = 0
+
+
 def get_bailout_rounds_remaining():
     try:
         return max(0, int(bailout_rounds_remaining or 0))
@@ -761,6 +857,54 @@ def clear_bailout_bonus():
     if get_bailout_rounds_remaining():
         print(f"Cleared Bailout bonus: {bailout_rounds_remaining}")
     bailout_rounds_remaining = 0
+
+
+def get_disclosure_rounds_remaining():
+    try:
+        return max(0, int(disclosure_rounds_remaining or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def is_disclosure_active():
+    return get_disclosure_rounds_remaining() > 0
+
+
+def is_disclosure_offer_available():
+    return not is_disclosure_active()
+
+
+def buy_disclosure(rounds=DISCLOSURE_ROUNDS):
+    global disclosure_rounds_remaining
+    if not is_disclosure_offer_available():
+        return 0
+    try:
+        duration = max(0, int(rounds or 0))
+    except (TypeError, ValueError):
+        duration = 0
+    if duration <= 0:
+        return 0
+    disclosure_rounds_remaining = duration
+    print(f"Disclosure activated for {disclosure_rounds_remaining} round(s).")
+    return disclosure_rounds_remaining
+
+
+def advance_disclosure_round():
+    global disclosure_rounds_remaining
+    remaining = get_disclosure_rounds_remaining()
+    if remaining <= 0:
+        disclosure_rounds_remaining = 0
+        return 0
+    disclosure_rounds_remaining = remaining - 1
+    print(f"Disclosure round consumed: remaining={disclosure_rounds_remaining}")
+    return disclosure_rounds_remaining
+
+
+def clear_disclosure():
+    global disclosure_rounds_remaining
+    if get_disclosure_rounds_remaining():
+        print(f"Cleared Disclosure: {disclosure_rounds_remaining}")
+    disclosure_rounds_remaining = 0
 
 
 def get_current_boss_position(level_number):
@@ -957,7 +1101,7 @@ def build_golden_stocks_reward_pool():
     return [card_id for card_id in build_open_gold_cards_pool() if card_id not in unavailable]
 
 
-def resolve_golden_stocks_round(active_cards):
+def resolve_golden_stocks_round(active_cards, chance_bonus=0):
     """Roll Golden Stocks once at round end and return the awarded gold card, if any."""
     global golden_stocks_chance_percent, golden_stocks_triggered
     if golden_stocks_triggered:
@@ -970,7 +1114,11 @@ def resolve_golden_stocks_round(active_cards):
         print("Golden Stocks skipped: no available gold cards.")
         return None
 
-    chance = get_golden_stocks_chance_percent()
+    base_chance = get_golden_stocks_chance_percent()
+    try:
+        chance = min(100, base_chance + max(0, int(chance_bonus or 0)))
+    except (TypeError, ValueError):
+        chance = base_chance
     if random.randint(1, 100) <= chance:
         selected_card = random.choice(pool)
         awarded = add_gold_card(selected_card)
@@ -981,7 +1129,7 @@ def resolve_golden_stocks_round(active_cards):
         print(f"Golden Stocks triggered at {chance}%: awarded gold card {awarded}")
         return awarded
 
-    golden_stocks_chance_percent = min(100, chance + 1)
+    golden_stocks_chance_percent = min(100, base_chance + 1)
     print(f"Golden Stocks missed at {chance}%; next chance={golden_stocks_chance_percent}%")
     return None
 
@@ -1023,6 +1171,10 @@ def get_starting_napoleondors_for_level(level_number):
         starting_amount += 2
     if level >= 4 and level_3_boss_defeated:
         starting_amount += 3
+    if level >= 5 and level_4_boss_defeated:
+        starting_amount += 2
+    if level >= 6 and level_5_boss_defeated:
+        starting_amount += 2
     return starting_amount
 
 
@@ -1123,7 +1275,7 @@ def new_boss_progress_state():
 
 def reset_level_attempt(level_number):
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
-    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count, multibagger_bought
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus, multibagger_bought, diversification_bought, expansion_bought, compounding_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -1137,7 +1289,12 @@ def reset_level_attempt(level_number):
     updown_probability_bonus = 0
     derivative_bought = False
     issuer_bought_count = 0
+    boss_lifecycle_slot_bonus = 0
+    boss_shop_offer_bonus = 0
     multibagger_bought = False
+    diversification_bought = False
+    expansion_bought = False
+    compounding_bought = False
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
     clear_removed_deck_cards(level_number)
@@ -1147,7 +1304,9 @@ def reset_level_attempt(level_number):
     clear_gold_cards()
     clear_silver_cards_deck()
     clear_insurance_goal_debt()
+    clear_frugality()
     clear_bailout_bonus()
+    clear_disclosure()
     clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
@@ -1169,7 +1328,7 @@ def reset_level_attempt(level_number):
 def complete_level_run(level_number):
     """Clear temporary run state after defeating the last boss of a level."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
-    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count, multibagger_bought
+    global profit_reward_bonus, updown_probability_bonus, derivative_bought, issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus, multibagger_bought, diversification_bought, expansion_bought, compounding_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -1184,7 +1343,12 @@ def complete_level_run(level_number):
     updown_probability_bonus = 0
     derivative_bought = False
     issuer_bought_count = 0
+    boss_lifecycle_slot_bonus = 0
+    boss_shop_offer_bonus = 0
     multibagger_bought = False
+    diversification_bought = False
+    expansion_bought = False
+    compounding_bought = False
 
     if level in earned_reward_cards:
         cleared = list(earned_reward_cards.get(level) or [])
@@ -1211,7 +1375,9 @@ def complete_level_run(level_number):
     clear_gold_cards(reason="level completion")
     clear_silver_cards_deck()
     clear_insurance_goal_debt()
+    clear_frugality()
     clear_bailout_bonus()
+    clear_disclosure()
     clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
@@ -1228,6 +1394,8 @@ def get_progress_flags():
         "level_3_boss_defeated": level_3_boss_defeated,
         "level_4_boss_defeated": level_4_boss_defeated,
         "level_5_boss_defeated": level_5_boss_defeated,
+        "level_7_unlocked": bool(level_5_boss_defeated),
+        "level_8_unlocked": bool(level_5_boss_defeated),
     }
 
 
@@ -1247,18 +1415,6 @@ def get_level_completion_black_reward_cards(level_number):
     except (TypeError, ValueError):
         level = 0
     return list(LEVEL_COMPLETION_BLACK_REWARD_CARDS.get(level, []) or [])
-
-
-def get_level_completion_napoleondor_reward(level_number):
-    """Return the napoleondor bonus awarded after completing a level."""
-    try:
-        level = int(level_number or 0)
-    except (TypeError, ValueError):
-        level = 0
-    try:
-        return float(LEVEL_COMPLETION_NAPOLEONDOR_REWARDS.get(level, 0) or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def get_completed_level_reward_cards():
@@ -1440,6 +1596,23 @@ def is_investment_section_available(level_number):
     return level >= 5 and bool(level_4_boss_defeated)
 
 
+def is_compounding_offer_available(level_number):
+    return is_investment_section_available(level_number) and not bool(compounding_bought)
+
+
+def buy_compounding(level_number):
+    global compounding_bought
+    if not is_compounding_offer_available(level_number):
+        return False
+    compounding_bought = True
+    print("Compounding activated: Investment upgrades now add 2.")
+    return True
+
+
+def get_investment_upgrade_amount():
+    return 2 if compounding_bought else 1
+
+
 def invest_gain_drop_card(card_id, level_number=None):
     try:
         normalized = int(card_id)
@@ -1450,7 +1623,10 @@ def invest_gain_drop_card(card_id, level_number=None):
     if level_number is not None and normalized not in get_current_gain_drop_deck_cards(level_number):
         print(f"WARNING: Gain/Drop card {normalized} is not permanent in level {level_number} deck.")
         return False
-    investment_card_bonuses[normalized] = int(investment_card_bonuses.get(normalized, 0) or 0) + 1
+    investment_card_bonuses[normalized] = (
+        int(investment_card_bonuses.get(normalized, 0) or 0)
+        + get_investment_upgrade_amount()
+    )
     print(f"Investment upgraded Gain/Drop card {normalized}: +{investment_card_bonuses[normalized]}")
     return True
 
@@ -1499,7 +1675,21 @@ def get_issuer_bought_count():
 
 
 def get_lifecycle_card_slot_limit():
-    return LIFECYCLE_CARD_BASE_SLOTS + get_issuer_bought_count()
+    try:
+        boss_bonus = max(0, int(boss_lifecycle_slot_bonus or 0))
+    except (TypeError, ValueError):
+        boss_bonus = 0
+    return LIFECYCLE_CARD_BASE_SLOTS + get_issuer_bought_count() + boss_bonus
+
+
+def add_boss_lifecycle_card_slot_bonus(amount=1):
+    global boss_lifecycle_slot_bonus
+    try:
+        bonus = max(0, int(amount or 0))
+    except (TypeError, ValueError):
+        bonus = 0
+    boss_lifecycle_slot_bonus = max(0, int(boss_lifecycle_slot_bonus or 0)) + bonus
+    return get_lifecycle_card_slot_limit()
 
 
 def get_issuer_offer_cost():
@@ -1635,6 +1825,46 @@ def get_victory_napoleondor_reward(base_amount):
     except (TypeError, ValueError):
         base = 0.0
     return base + int(profit_reward_bonus or 0)
+
+
+def get_regular_round_napoleondor_reward(base_amount, boss_number=None):
+    """Apply the active boss modifier to the level's base regular-round reward."""
+    try:
+        reward = float(base_amount or 0)
+    except (TypeError, ValueError):
+        reward = 0.0
+    try:
+        normalized_boss_number = int(boss_number or 0)
+    except (TypeError, ValueError):
+        normalized_boss_number = 0
+    if normalized_boss_number == 14:
+        reward /= 2
+    return reward
+
+
+def get_boss_shop_offer_bonus():
+    try:
+        return max(0, int(boss_shop_offer_bonus or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def add_boss_shop_offer_bonus(amount=1):
+    global boss_shop_offer_bonus
+    try:
+        bonus = max(0, int(amount or 0))
+    except (TypeError, ValueError):
+        bonus = 0
+    boss_shop_offer_bonus = min(1, get_boss_shop_offer_bonus() + bonus)
+    return get_shop_special_offer_slots()
+
+
+def get_shop_special_offer_slots():
+    return (
+        2
+        + get_boss_shop_offer_bonus()
+        + (1 if expansion_bought else 0)
+    )
 
 
 def get_shop_special_cost(offer_id, level_number=None):
@@ -1781,7 +2011,7 @@ def build_shop_card_offer_pool(level_number=1):
 
     bought_cards = get_bought_shop_card_ids()
     pool = []
-    for card_id, chance in ((17, 5), (18, 5), (20, 35), (21, 30), (117, 50)):
+    for card_id, chance in ((17, 5), (18, 5), (20, 35), (21, 30), (117, 40)):
         if card_id not in bought_cards and random.randint(1, 100) <= chance:
             pool.append(card_id)
 
@@ -1822,7 +2052,7 @@ def is_underwriter_offer_available(level_number):
     return level >= 3 and len(build_rare_silver_cards_pool()) >= 2
 
 
-def build_shop_special_offer_pool(level_number=1):
+def build_shop_special_offer_pool(level_number=1, max_offers=2):
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -1839,6 +2069,8 @@ def build_shop_special_offer_pool(level_number=1):
             "variance",
             "loan",
             "correction",
+            "expansion",
+            "disclosure",
         }
         fallback_offers = ("trader", "bailout", "junk_bond")
     else:
@@ -1862,6 +2094,23 @@ def build_shop_special_offer_pool(level_number=1):
     variance_hit = random.randint(1, 100) <= 30
     loan_hit = is_loan_offer_available(level) and random.randint(1, 100) <= 30
     correction_hit = is_correction_offer_available() and random.randint(1, 100) <= 25
+    diversification_hit = (
+        level >= 3
+        and is_diversification_offer_available()
+        and random.randint(1, 100) <= 30
+    )
+    expansion_hit = (
+        is_expansion_offer_available()
+        and random.randint(1, 100) <= 20
+    )
+    disclosure_hit = (
+        is_disclosure_offer_available()
+        and random.randint(1, 100) <= 35
+    )
+    compounding_hit = (
+        is_compounding_offer_available(level)
+        and random.randint(1, 100) <= 10
+    )
 
     if multibagger_hit:
         rolled.append("multibagger")
@@ -1871,6 +2120,14 @@ def build_shop_special_offer_pool(level_number=1):
         rolled.append("loan")
     if correction_hit:
         rolled.append("correction")
+    if diversification_hit:
+        rolled.append("diversification")
+    if expansion_hit:
+        rolled.append("expansion")
+    if disclosure_hit:
+        rolled.append("disclosure")
+    if compounding_hit:
+        rolled.append("compounding")
     if underwriter_hit:
         rolled.append("underwriter")
     if bailout_hit:
@@ -1892,22 +2149,28 @@ def build_shop_special_offer_pool(level_number=1):
     if delisting_hit:
         rolled.append("delisting")
 
-    offers = [offer_id for offer_id in rolled if offer_id in allowed_offers][:2]
+    try:
+        offer_limit = max(0, int(max_offers or 0))
+    except (TypeError, ValueError):
+        offer_limit = 2
+    offers = [offer_id for offer_id in rolled if offer_id in allowed_offers][:offer_limit]
     for offer_id in fallback_offers:
-        if len(offers) >= 2:
+        if len(offers) >= offer_limit:
             break
         if offer_id not in offers:
             offers.append(offer_id)
     return offers
 
 
-def generate_shop_offers(level_number=1, card_slots=None, special_slots=2, license_slots=1, discount_percent=0):
+def generate_shop_offers(level_number=1, card_slots=None, special_slots=None, license_slots=1, discount_percent=0):
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
     if card_slots is None:
-        card_slots = 1 if level >= 3 else 0
+        card_slots = get_shop_card_offer_slots(level)
+    if special_slots is None:
+        special_slots = get_shop_special_offer_slots()
 
     card_pool = list(build_shop_card_offer_pool(level))
     if not card_pool:
@@ -1919,7 +2182,7 @@ def generate_shop_offers(level_number=1, card_slots=None, special_slots=2, licen
         normalized = int(card_id)
         card_offers.append({"kind": "card", "card_id": normalized, "cost": SHOP_CARD_COSTS.get(normalized, 1)})
 
-    special_pool = build_shop_special_offer_pool(level)
+    special_pool = build_shop_special_offer_pool(level, max_offers=special_slots)
     special_offers = [
         {"kind": "special", "special_id": offer_id, "cost": get_shop_special_cost(offer_id, level)}
         for offer_id in special_pool[:special_slots]

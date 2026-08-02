@@ -8,7 +8,14 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 
 from asset_loaders import find_font_path_or_exit
-from boss_page import POPUP_TEXT_BOTTOM_PADDING, build_boss_popup_text_layout
+from boss_page import (
+    LEVEL5_BOSS_VERTICAL_SPACING,
+    POPUP_TEXT_BOTTOM_PADDING,
+    build_boss_popup_text_layout,
+    build_next_boss_positions,
+    get_boss_vertical_spacing,
+    rebuild_boss_route_layout,
+)
 from game_data import load_language
 from gameplay_winlose import build_win_result_layout
 from round_page_helpers import build_completed_round_lines
@@ -112,6 +119,68 @@ class UiLayoutTests(unittest.TestCase):
             ],
         )
 
+    def test_fourth_boss_choice_keeps_both_candidates_on_screen(self):
+        positions = build_next_boss_positions(
+            anchor_center=(800, 50),
+            choice_count=2,
+            vertical_spacing=150,
+            screen_height=1050,
+        )
+
+        self.assertEqual(len(positions), 2)
+        self.assertEqual(positions[0][0], positions[1][0])
+        self.assertEqual(abs(positions[0][1] - positions[1][1]), 150)
+        for _, center_y in positions:
+            self.assertGreaterEqual(center_y - 50, 20)
+            self.assertLessEqual(center_y + 50, 1030)
+
+    def test_level5_keeps_the_same_spacing_through_all_four_boss_choices(self):
+        self.assertEqual(get_boss_vertical_spacing(5, 4), LEVEL5_BOSS_VERTICAL_SPACING)
+        possible_anchor_centers = [700, 700 - LEVEL5_BOSS_VERTICAL_SPACING]
+        for position in range(1, 4):
+            next_anchor_centers = []
+            for anchor_y in possible_anchor_centers:
+                positions = build_next_boss_positions(
+                    anchor_center=(350 + (position - 1) * 200, anchor_y),
+                    choice_count=2,
+                    vertical_spacing=LEVEL5_BOSS_VERTICAL_SPACING,
+                    screen_height=1050,
+                )
+
+                self.assertEqual(anchor_y - positions[0][1], LEVEL5_BOSS_VERTICAL_SPACING)
+                self.assertEqual(
+                    positions[0][1] - positions[1][1],
+                    LEVEL5_BOSS_VERTICAL_SPACING,
+                )
+                self.assertTrue(all(center_y - 50 >= 20 for _, center_y in positions))
+                next_anchor_centers.extend(center_y for _, center_y in positions)
+            possible_anchor_centers = next_anchor_centers
+
+    def test_level5_reflows_saved_history_to_the_same_spacing(self):
+        roster = [
+            ["2_AdamSmith.png", "3_RobertFulton.png"],
+            ["4_NicolasApper.png", "5_SamuelSlater.png"],
+            ["8_List.png", "9_Laffitte.png"],
+            ["11_Malthus.png", "12_Ricardo.png"],
+        ]
+        old_history = [
+            {"filename": "3_RobertFulton.png", "rect": pygame.Rect(350, 500, 100, 100)},
+            {"filename": "5_SamuelSlater.png", "rect": pygame.Rect(550, 200, 100, 100)},
+            {"filename": "9_Laffitte.png", "rect": pygame.Rect(750, -100, 100, 100)},
+        ]
+
+        layout = rebuild_boss_route_layout(
+            roster,
+            old_history,
+            LEVEL5_BOSS_VERTICAL_SPACING,
+            1050,
+        )
+
+        centers = [entry["rect"].center for entry in layout["defeated_bosses"]]
+        self.assertEqual(centers, [(400, 610), (600, 430), (800, 250)])
+        self.assertEqual(layout["last_defeated_rect"].center, (800, 250))
+        self.assertTrue(all(rect.top >= 20 for rect in [entry["rect"] for entry in layout["defeated_bosses"]]))
+
     def test_long_final_victory_content_stays_inside_result_window(self):
         lang = load_language("RU")
         window = pygame.Rect(560, 350, 560, 350)
@@ -120,7 +189,7 @@ class UiLayoutTests(unittest.TestCase):
         layout = build_win_result_layout(
             self.font_path,
             [
-                lang["RewardLevel4FinalBoss"],
+                lang["RewardLevel5FinalBoss"],
                 lang["BossVictoryDeckReset"],
                 "Long принес прибыль: 5 наполеондоров",
             ],

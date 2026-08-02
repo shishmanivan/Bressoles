@@ -30,6 +30,15 @@ REGULATION_CARD_TURNS = {
     21: 3,
 }
 
+CATALYST_CARD_ID = 210
+CATALYST_PERCENTAGE_POINTS = 10
+GOLD_CATALYST_CARD_ID = 414
+GOLD_CATALYST_PERCENTAGE_POINTS = 15
+# Explicit contract shared by Catalyst cards 210 and 414. Pool inclusion chances
+# from Cards.csv are intentionally not card effects and are not modified.
+CATALYST_AFFECTED_CARD_IDS = frozenset({1, 2, 3, 4, 125, 215, 302, 401, 406, 407, 410, 413})
+CATALYST_REVERSE_PERCENTAGE_CARD_IDS = frozenset({3, 4, 215, 401})
+
 BID_CARD_VALUES = {
     118: 10,
     119: 20,
@@ -57,10 +66,10 @@ MARKET_DURATION_CARD_IDS = frozenset(MARKET_CARD_TURNS)
 REGULATION_CARD_IDS = frozenset(REGULATION_CARD_TURNS)
 SUPPORTED_CARD_IDS_BY_TYPE = {
     1: frozenset({1, 2, 3, 4}) | PRICE_CARD_IDS | REGULATION_CARD_IDS,
-    2: frozenset({100, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124}),
-    3: frozenset({201, 202, 203, 204, 205, 206, 207, 208, 214, 215, 217, 218, 219, 220}),
-    4: frozenset({301, 302}),
-    5: frozenset({401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412}),
+    2: frozenset({100, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125}),
+    3: frozenset({201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 214, 215, 217, 218, 219, 220}),
+    4: frozenset({301, 302, 303}),
+    5: frozenset({401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414}),
 }
 
 
