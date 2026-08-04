@@ -14,7 +14,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.boss_limit_red_gain_drop_per_turn = False
         page.side_cards_top = [None] * 6
         page.side_cards_locked_top = {}
-        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 126)}}
+        page.card_types = {100: 2, **{card_id: 2 for card_id in range(110, 127)}}
         page.active_silver_cards = []
         page.active_black_cards = []
         page.active_gold_cards = []
@@ -31,6 +31,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.card_turns = {}
         page.price_card_queue = []
         page.current_card_processing = None
+        page.c_price_fell_this_resolution = False
         return page
 
     def test_stephenson_counts_shareholder_toward_the_side_field_limit(self):
@@ -267,6 +268,46 @@ class RedCardEffectTests(unittest.TestCase):
             self.assertFalse(page._apply_breakout_effect_if_needed())
 
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 20, 30))
+
+    def test_manipulation_grants_four_a_shares_and_jumps_after_c_falls(self):
+        page = self._page()
+        page.side_cards_top[1] = 126
+        page.side_cards_locked_top[1] = False
+        page.Aquantity = 2
+        page.Cquantity = 1
+        page.c_price_fell_this_resolution = True
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._apply_manipulation_effect_if_needed())
+
+        self.assertEqual(page.Aquantity, 6)
+        page._start_card_jump_animation.assert_called_once_with(
+            page.side_card_jump_animations,
+            1,
+        )
+
+    def test_manipulation_requires_owned_c_and_an_actual_c_fall(self):
+        page = self._page()
+        page.side_cards_top[0] = 126
+        page.side_cards_locked_top[0] = False
+        page.Aquantity = 2
+        page.Cquantity = 0
+        page.c_price_fell_this_resolution = True
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertFalse(page._apply_manipulation_effect_if_needed())
+        page.Cquantity = 1
+        page.c_price_fell_this_resolution = False
+        self.assertFalse(page._apply_manipulation_effect_if_needed())
+        self.assertEqual(page.Aquantity, 2)
+        page._start_card_jump_animation.assert_not_called()
+
+    def test_c_fall_flag_survives_a_later_recovery_in_the_same_turn(self):
+        page = self._page()
+
+        self.assertTrue(page._record_c_price_fall(12, 8, "test fall"))
+        self.assertFalse(page._record_c_price_fall(8, 14, "test recovery"))
+        self.assertTrue(page.c_price_fell_this_resolution)
 
 if __name__ == "__main__":
     unittest.main()

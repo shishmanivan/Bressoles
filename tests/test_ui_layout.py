@@ -19,7 +19,7 @@ from boss_page import (
 from game_data import load_language
 from gameplay_winlose import build_win_result_layout
 from round_page_helpers import build_completed_round_lines
-from silver_black_page import SilverBlackPage
+from silver_black_page import ReplicationSilverPage, SilverBlackPage
 
 
 class UiLayoutTests(unittest.TestCase):
@@ -94,6 +94,23 @@ class UiLayoutTests(unittest.TestCase):
 
         self.assertEqual(result["active_black_cards"], [301])
         self.assertEqual(result["active_gold_cards"], [])
+
+    def test_replication_storage_shows_only_silver_slots_and_requires_selection(self):
+        page = ReplicationSilverPage(
+            self.screen,
+            self.font_path,
+            [201, 203],
+            lang_dict=load_language("RU"),
+        )
+
+        self.assertEqual(len(page.silver_rects), 8)
+        self.assertEqual(page.black_cards, [])
+        self.assertEqual(page.gold_cards, [])
+        self.assertIsNone(page._handle_mouse_down(page.confirm_button_rect.center))
+
+        self.assertIsNone(page._handle_mouse_down(page.silver_rects[1].center))
+        self.assertEqual(page.selected_index, 1)
+        self.assertEqual(page._handle_mouse_down(page.confirm_button_rect.center), 203)
 
     def test_completed_round_lines_can_be_rebuilt_from_saved_choices(self):
         base_rects = {

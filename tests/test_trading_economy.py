@@ -85,6 +85,30 @@ class ArrowTradeTests(unittest.TestCase):
         self.assertEqual(result["money"], 12)
         self.assertEqual(result["quantities"], self.quantities)
 
+    def test_successful_player_trade_resets_surge_counter_but_failed_trade_does_not(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.Money = 10
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 0
+        page.Aprice = page.BPrice = page.CPrice = 4
+        page.surge_turns_without_trade = 2
+        page.surge_traded_this_turn = False
+        page._is_arrow_disabled = mock.Mock(return_value=False)
+        page._blocked_buy_prices = mock.Mock(return_value=set())
+        page._check_win_lose = mock.Mock()
+
+        self.assertTrue(page._apply_arrow_trade(0, 1))
+        self.assertEqual(page.surge_turns_without_trade, 0)
+        self.assertTrue(page.surge_traded_this_turn)
+
+        page.Money = 0
+        page.surge_turns_without_trade = 2
+        page.surge_traded_this_turn = False
+        self.assertFalse(page._apply_arrow_trade(1, 1))
+        self.assertEqual(page.surge_turns_without_trade, 2)
+        self.assertFalse(page.surge_traded_this_turn)
+
 
 class StockBotTurnTests(unittest.TestCase):
     @staticmethod

@@ -82,6 +82,7 @@ SHOP_SPECIAL_COSTS = {
     "expansion": 5,
     "disclosure": 4,
     "compounding": 7,
+    "replication": 2,
 }
 
 DISCLOSURE_ROUNDS = 5
@@ -125,6 +126,7 @@ SHOP_CARD_COSTS = {
     412: 7,
     413: 7,
     414: 5,
+    415: 5,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -141,6 +143,7 @@ LICENSE_COSTS = {
     123: 4,
     124: 7,
     125: 6,
+    126: 4,
     203: 5,
     204: 7,
     205: 5,
@@ -155,7 +158,7 @@ LICENSE_COSTS = {
     220: 10,
 }
 LICENSES_BY_LEVEL = {
-    3: [112, 113, 114, 115, 123, 124, 125, 203, 204, 207, 209, 210, 214, 215, 217, 218, 219, 220],
+    3: [112, 113, 114, 115, 123, 124, 125, 126, 203, 204, 207, 209, 210, 214, 215, 217, 218, 219, 220],
     4: [205],
     5: [118, 119, 120, 121, 122],
 }
@@ -271,6 +274,21 @@ def add_silver_card(card_id=REWARD_TOKEN_RANDOM_SILVER, level_num=None):
             print("WARNING: Silver Card reward requested but no available silver cards pool.")
             return None
     return _add_card_to_inventory(silver_cards, MAX_SILVER_CARDS, card_id, "Silver")
+
+
+def is_replication_offer_available():
+    """Return whether an owned silver card can be copied into a free slot."""
+    return bool(silver_cards) and len(silver_cards) < MAX_SILVER_CARDS
+
+
+def buy_replication_card(card_id):
+    """Duplicate one currently owned silver card into the persistent inventory."""
+    if not is_replication_offer_available():
+        return None
+    normalized = _normalize_card_id(card_id)
+    if normalized is None or normalized not in silver_cards:
+        return None
+    return add_silver_card(normalized)
 
 
 def add_black_card(card_id):
@@ -2071,6 +2089,7 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
             "correction",
             "expansion",
             "disclosure",
+            "replication",
         }
         fallback_offers = ("trader", "bailout", "junk_bond")
     else:
@@ -2111,6 +2130,10 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         is_compounding_offer_available(level)
         and random.randint(1, 100) <= 10
     )
+    replication_hit = (
+        is_replication_offer_available()
+        and random.randint(1, 100) <= 20
+    )
 
     if multibagger_hit:
         rolled.append("multibagger")
@@ -2128,6 +2151,8 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         rolled.append("disclosure")
     if compounding_hit:
         rolled.append("compounding")
+    if replication_hit:
+        rolled.append("replication")
     if underwriter_hit:
         rolled.append("underwriter")
     if bailout_hit:

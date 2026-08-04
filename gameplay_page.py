@@ -183,6 +183,9 @@ class GameplayPage:
             game_state.set_active_gold_cards(self.active_gold_cards)
         self.insider_c_growth_turns_remaining = 2 if self._count_active_silver_card(405) > 0 else 0
         self.rebate_a_fall_bonus_percent = 0
+        self.surge_turns_without_trade = 0
+        self.surge_traded_this_turn = False
+        self.surge_triggered = False
         self.active_silver_cards_spent = False
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
@@ -269,6 +272,7 @@ class GameplayPage:
         self.stock_price_turn_results = []
         self.current_price_animation = None  # Current animation: {'market': 0-2, 'type': 'unchanged'|'rise', 'frame_idx': int, 'last_update': ms}
         self.basket_trading_applied_this_resolution = False
+        self.c_price_fell_this_resolution = False
         self.price_animation_speed = 12  # frames per second (increased by 30% from 9 to 12, approximately 83ms per frame)
         self.price_animation_interval = 1000 // self.price_animation_speed  # ms per frame
 
@@ -1522,6 +1526,9 @@ class GameplayPage:
             "active_gold_cards": list(self.active_gold_cards or []),
             "insider_c_growth_turns_remaining": int(self.insider_c_growth_turns_remaining or 0),
             "rebate_a_fall_bonus_percent": int(self.rebate_a_fall_bonus_percent or 0),
+            "surge_turns_without_trade": int(self.surge_turns_without_trade or 0),
+            "surge_traded_this_turn": bool(self.surge_traded_this_turn),
+            "surge_triggered": bool(self.surge_triggered),
             "hedger_used_this_round": bool(self.hedger_used_this_round),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
@@ -1559,6 +1566,9 @@ class GameplayPage:
             "win_lose_y",
             "insider_c_growth_turns_remaining",
             "rebate_a_fall_bonus_percent",
+            "surge_turns_without_trade",
+            "surge_traded_this_turn",
+            "surge_triggered",
             "hedger_used_this_round",
         )
         for field in scalar_fields:
@@ -1653,6 +1663,7 @@ class GameplayPage:
         self.stock_price_turn_results = []
         self.current_price_animation = None
         self.basket_trading_applied_this_resolution = False
+        self.c_price_fell_this_resolution = False
         self.price_card_queue = []
         self.current_card_processing = None
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
@@ -1903,6 +1914,8 @@ class GameplayPage:
         self.Cquantity = quantities["Cquantity"]
 
         if trade_result["changed"]:
+            self.surge_turns_without_trade = 0
+            self.surge_traded_this_turn = True
             self._check_win_lose()
         return trade_result["changed"]
 
@@ -2495,6 +2508,14 @@ class GameplayPage:
         )
         return True
 
+    def _record_c_price_fall(self, previous_price, current_price, source):
+        """Remember any actual C-price decrease during the current turn resolution."""
+        if current_price >= previous_price:
+            return False
+        self.c_price_fell_this_resolution = True
+        print(f"C price fell this turn: source={source}, C={previous_price}->{current_price}")
+        return True
+
     def _apply_insurance_if_needed(self, next_state, reason):
         if next_state != "lose" or self.is_boss_fight or not self._has_active_silver_card(220):
             return next_state, reason
@@ -2946,7 +2967,36 @@ class GameplayPage:
             double_fall_bonus=self._get_percentage_amplifier_bonus() if shakeout_markets else 0,
         )
         momentum_blocked_markets = insider_forced_rise_markets - spoofing_forced_rise_markets
-        return self._apply_momentum_to_random_movements(animation_queue, momentum_blocked_markets)
+        animation_queue = self._apply_momentum_to_random_movements(
+            animation_queue,
+            momentum_blocked_markets,
+        )
+        if self._advance_surge_counter():
+            animation_queue.append(
+                {
+                    "market": 0,
+                    "type": "rise",
+                    "price_change": 0,
+                    "source": "surge",
+                }
+            )
+        return animation_queue
+
+    def _advance_surge_counter(self):
+        if not self._has_active_silver_card(415) or self.surge_triggered:
+            self.surge_traded_this_turn = False
+            return False
+
+        if self.surge_traded_this_turn:
+            self.surge_turns_without_trade = 0
+        else:
+            self.surge_turns_without_trade += 1
+        self.surge_traded_this_turn = False
+
+        if self.surge_turns_without_trade < 4:
+            return False
+        self.surge_triggered = True
+        return True
 
     def _get_shakeout_markets(self):
         if not self._has_active_silver_card(413):
@@ -3042,8 +3092,19 @@ class GameplayPage:
         target_markets = next_anim["market"]
         if not isinstance(target_markets, (list, tuple, set)):
             target_markets = (target_markets,)
-        for market in target_markets:
-            self._apply_price_change(market, next_anim["price_change"])
+        if next_anim.get("source") == "surge":
+            self.Aprice = max(2, int(self.Aprice or 0) * 3)
+            for slot, card_id in enumerate(self._active_lifecycle_cards()):
+                try:
+                    is_surge = int(card_id) == 415
+                except (TypeError, ValueError):
+                    is_surge = False
+                if is_surge:
+                    self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+            print(f"Active card 415 Surge tripled A price: A={self.Aprice}")
+        else:
+            for market in target_markets:
+                self._apply_price_change(market, next_anim["price_change"])
         if next_anim.get("source") == "momentum":
             for slot, card_id in enumerate(self._active_lifecycle_cards()):
                 try:
@@ -3095,6 +3156,7 @@ class GameplayPage:
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
         self.basket_trading_applied_this_resolution = False
+        self.c_price_fell_this_resolution = False
         animation_queue = self.update_stock_prices()
         self.stock_price_turn_results = list(animation_queue or [])
         self._lock_market_cards()
@@ -3130,7 +3192,7 @@ class GameplayPage:
         rose_markets = {
             entry.get("market")
             for entry in movements
-            if entry.get("type") == "rise"
+            if entry.get("type") == "rise" and entry.get("source") != "surge"
         }
         if rose_markets != {0, 1, 2}:
             return False
@@ -3362,6 +3424,7 @@ class GameplayPage:
                         self.card_actions.get(card_id, 0),
                     )
                     previous_a_price = self.Aprice
+                    previous_c_price = self.CPrice
                     prices = apply_price_card_action(
                         {"Aprice": self.Aprice, "BPrice": self.BPrice, "CPrice": self.CPrice},
                         market,
@@ -3372,6 +3435,7 @@ class GameplayPage:
                     self.BPrice = prices["BPrice"]
                     self.CPrice = prices["CPrice"]
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
+                    self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
                 
                 # Start jump animation for the card
                 self._start_card_jump_animation(self.card_jump_animations[market], slot)
@@ -3446,6 +3510,7 @@ class GameplayPage:
     def _apply_price_change(self, market, price_change):
         """Apply price change to the specified market. Ensures price doesn't drop below 2."""
         previous_a_price = self.Aprice
+        previous_c_price = self.CPrice
         prices = apply_market_price_change(
             {"Aprice": self.Aprice, "BPrice": self.BPrice, "CPrice": self.CPrice},
             market,
@@ -3455,6 +3520,7 @@ class GameplayPage:
         self.BPrice = prices["BPrice"]
         self.CPrice = prices["CPrice"]
         self._record_rebate_a_fall(previous_a_price, self.Aprice, "market movement")
+        self._record_c_price_fall(previous_c_price, self.CPrice, "market movement")
 
     def _lock_market_cards(self):
         """Помечает все текущие карты на рынке как сыгранные и заблокированные до конца игры."""
@@ -3535,6 +3601,7 @@ class GameplayPage:
         self._apply_bid_effect_if_needed()
         self._apply_parity_effect_if_needed()
         self._apply_breakout_effect_if_needed()
+        self._apply_manipulation_effect_if_needed()
         self._apply_deleverage_effect_if_needed()
 
     def _start_fresh_side_card_jump_animation_for_card(self, target_card_id):
@@ -3624,8 +3691,10 @@ class GameplayPage:
             self.BPrice = 2
             return changed
         elif market == 2:
-            changed = self.CPrice != 2
+            previous_c_price = self.CPrice
+            changed = previous_c_price != 2
             self.CPrice = 2
+            self._record_c_price_fall(previous_c_price, self.CPrice, "Bankruptcy C")
             return changed
         return False
 
@@ -3662,11 +3731,13 @@ class GameplayPage:
         if count <= 0:
             return False
         previous_a_price = self.Aprice
+        previous_c_price = self.CPrice
         changed = any(price != 2 for price in (self.Aprice, self.BPrice, self.CPrice))
         self.Aprice = 2
         self.BPrice = 2
         self.CPrice = 2
         self._record_rebate_a_fall(previous_a_price, self.Aprice, "Market Crash")
+        self._record_c_price_fall(previous_c_price, self.CPrice, "Market Crash")
         if not changed:
             return False
         self._start_fresh_side_card_jump_animation_for_card(117)
@@ -3690,10 +3761,12 @@ class GameplayPage:
                 continue
 
             previous_a_price = self.Aprice
+            previous_c_price = self.CPrice
             self.Aprice = bid_value
             self.BPrice = bid_value
             self.CPrice = bid_value
             self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
+            self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
             applied_values.append(bid_value)
 
@@ -3719,6 +3792,7 @@ class GameplayPage:
                 continue
 
             previous_a_price = self.Aprice
+            previous_c_price = self.CPrice
             # Prices are integers and division is by three, so adding one gives
             # unambiguous nearest-integer rounding without fractional state.
             average_price = (self.Aprice + self.BPrice + self.CPrice + 1) // 3
@@ -3726,6 +3800,7 @@ class GameplayPage:
             self.BPrice = average_price
             self.CPrice = average_price
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Parity")
+            self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
             applied_count += 1
 
@@ -3777,6 +3852,31 @@ class GameplayPage:
                 f"markets={owned_markets}, A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
             )
         return applied
+
+    def _apply_manipulation_effect_if_needed(self):
+        """Card 126: gain four A shares when owned C stock fell during this turn."""
+        if int(getattr(self, "Cquantity", 0) or 0) <= 0 or not getattr(
+            self,
+            "c_price_fell_this_resolution",
+            False,
+        ):
+            return False
+
+        applied_count = 0
+        for slot, card_id in enumerate(self.side_cards_top):
+            if card_id != 126 or self.side_cards_locked_top.get(slot):
+                continue
+            self.Aquantity += 4
+            self._start_card_jump_animation(self.side_card_jump_animations, slot)
+            applied_count += 1
+
+        if applied_count <= 0:
+            return False
+        print(
+            f"Card 126 Manipulation applied: count={applied_count}, "
+            f"Aquantity={self.Aquantity}, Cquantity={self.Cquantity}"
+        )
+        return True
 
     def _find_market_placeholder_rect(self, market, slot):
         for ph_info in self.market_placeholders:

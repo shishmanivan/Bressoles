@@ -152,6 +152,10 @@ CARD_TOOLTIPS.update(
             "Catalyst",
             "Усиливает числовые процентные эффекты карт на 15 процентных пунктов, сохраняя полезное направление эффекта.",
         ),
+        415: (
+            "Surge",
+            "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
+        ),
     }
 )
 
@@ -692,6 +696,157 @@ class SilverBlackPage:
                     self._move_drag(event.pos)
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     self._finish_drag(event.pos)
+
+            self.draw()
+            self.clock.tick(FPS)
+
+
+class ReplicationSilverPage(SilverBlackPage):
+    """Silver-only storage view used to choose a card for Replication."""
+
+    def __init__(self, screen, font_path, silver_cards, lang_dict=None):
+        super().__init__(
+            screen,
+            font_path,
+            silver_cards,
+            black_cards=[],
+            gold_cards=[],
+            lang_dict=lang_dict,
+        )
+        self.selected_index = None
+        self.title_font = pygame.font.Font(self.font_path, 58)
+        self.prompt_font = pygame.font.Font(self.font_path, 30)
+        self.silver_rects = self._build_row_rects(
+            CARD_ROW_SLOTS,
+            y=335,
+            gap=INVENTORY_ROW_GAP,
+        )
+        self.silver_label_surface = self.row_label_font.render(
+            self._get_text("LifecycleSilver", "Серебряные карты"),
+            True,
+            PAPER_COLOR,
+        )
+        self.silver_label_rect = self.silver_label_surface.get_rect(
+            midbottom=(self.panel_rect.centerx, self.silver_rects[0].top - 24)
+        )
+        self.confirm_button_rect = pygame.Rect(0, 0, 230, 70)
+        self.confirm_button_rect.center = (
+            self.panel_rect.centerx - 135,
+            self.panel_rect.bottom - 125,
+        )
+        self.back_button_rect = pygame.Rect(0, 0, 230, 70)
+        self.back_button_rect.center = (
+            self.panel_rect.centerx + 135,
+            self.panel_rect.bottom - 125,
+        )
+
+    def _silver_index_at(self, position):
+        for index, rect in enumerate(self.silver_rects):
+            if index < len(self.silver_cards) and rect.collidepoint(position):
+                return index
+        return None
+
+    def _handle_mouse_down(self, position):
+        if self.back_button_rect.collidepoint(position):
+            return "back"
+        if self.confirm_button_rect.collidepoint(position):
+            if self.selected_index is not None:
+                return self.silver_cards[self.selected_index]
+            return None
+        selected_index = self._silver_index_at(position)
+        if selected_index is not None:
+            self.selected_index = selected_index
+        return None
+
+    def _hovered_card(self, pos):
+        index = self._silver_index_at(pos)
+        if index is None:
+            return None, None
+        return self.silver_cards[index], "silver"
+
+    def _draw_background(self):
+        if self.round_background:
+            self.screen.blit(self.round_background, (0, 0))
+        else:
+            self.screen.fill((235, 220, 190))
+        if self.round_koordinates:
+            self.screen.blit(self.round_koordinates, (0, 0))
+        if self.background:
+            self.screen.blit(self.background, self.panel_rect.topleft)
+        else:
+            pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
+            pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
+
+    def _draw_centered_text(self, text, font, center, color=PAPER_COLOR):
+        surface = font.render(text, True, color)
+        self.screen.blit(surface, surface.get_rect(center=center))
+
+    def _draw_button(self, rect, label, enabled=True):
+        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
+        if not enabled:
+            color = (218, 210, 194)
+        pygame.draw.rect(self.screen, color, rect, border_radius=4)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
+        text_color = PAPER_COLOR if enabled else (145, 138, 130)
+        self._draw_centered_text(label, self.continue_button_font, rect.center, text_color)
+
+    def draw(self):
+        self._draw_background()
+        self._draw_centered_text(
+            "Репликация",
+            self.title_font,
+            (self.panel_rect.centerx, self.panel_rect.y + 125),
+        )
+        self._draw_centered_text(
+            "Выберите серебряную карту, которую хотите скопировать",
+            self.prompt_font,
+            (self.panel_rect.centerx, self.panel_rect.y + 190),
+        )
+        self.screen.blit(self.silver_label_surface, self.silver_label_rect)
+
+        for index, rect in enumerate(self.silver_rects):
+            self._draw_placeholder(rect, SILVER)
+            if index < len(self.silver_cards):
+                self._draw_card(self.silver_cards[index], rect)
+            if index == self.selected_index:
+                pygame.draw.rect(
+                    self.screen,
+                    GOLD,
+                    rect.inflate(10, 10),
+                    4,
+                    border_radius=4,
+                )
+
+        self._draw_button(
+            self.confirm_button_rect,
+            "Выбрать",
+            enabled=self.selected_index is not None,
+        )
+        self._draw_button(self.back_button_rect, "Назад")
+        self._draw_card_tooltip()
+        pygame.display.flip()
+
+    def run(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                    if (
+                        event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
+                        and self.selected_index is not None
+                    ):
+                        return self.silver_cards[self.selected_index]
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    result = self._handle_mouse_down(event.pos)
+                    if result == "back":
+                        return None
+                    if result is not None:
+                        return result
 
             self.draw()
             self.clock.tick(FPS)

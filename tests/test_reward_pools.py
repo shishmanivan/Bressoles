@@ -52,6 +52,22 @@ class RewardPoolTestCase(unittest.TestCase):
 
 
 class RedRewardPoolTests(RewardPoolTestCase):
+    def test_manipulation_uses_a_twenty_percent_pool_roll_after_licensing(self):
+        cards = {126: {"Type": 2, "Open": 1, "Variable": 20}}
+        game_state.licensed_card_ids.add(126)
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=20),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [126])
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=21),
+        ):
+            self.assertEqual(game_state.build_red_cards_deck_for_level(3), [])
+
     def test_breakout_uses_a_twenty_percent_pool_roll_after_licensing(self):
         cards = {125: {"Type": 2, "Open": 1, "Variable": 20}}
         game_state.licensed_card_ids.add(125)

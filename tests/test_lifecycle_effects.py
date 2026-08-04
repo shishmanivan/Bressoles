@@ -393,6 +393,56 @@ class LifecycleEffectTests(unittest.TestCase):
         page.active_gold_cards = []
         self.assertEqual(page._get_shakeout_markets(), set())
 
+    def test_surge_triples_a_after_any_four_consecutive_turns_without_trades(self):
+        page = self._page(gold=[404, 415])
+        page.Day = 7
+        page.surge_turns_without_trade = 3
+        page.surge_traded_this_turn = False
+        page.surge_triggered = False
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 0
+        page.Aprice = 8
+        page.BPrice = 10
+        page.CPrice = 12
+        page.StepA = 2
+        page.StepB = 4
+        page.StepC = 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.typewriter_sound = None
+
+        movements = page.update_stock_prices()
+
+        self.assertEqual(movements[-1].get("source"), "surge")
+        page.price_animation_queue = [movements[-1]]
+        self.assertTrue(page._start_next_price_animation(now=100))
+        self.assertEqual(page.Aprice, 24)
+        self.assertEqual(page.current_price_animation["type"], "rise")
+
+    def test_surge_counter_resets_on_trade_and_can_trigger_later(self):
+        page = self._page(gold=[415])
+        page.surge_turns_without_trade = 0
+        page.surge_traded_this_turn = False
+        page.surge_triggered = False
+
+        self.assertFalse(page._advance_surge_counter())
+        self.assertFalse(page._advance_surge_counter())
+        self.assertEqual(page.surge_turns_without_trade, 2)
+
+        page.surge_traded_this_turn = True
+        self.assertFalse(page._advance_surge_counter())
+        self.assertEqual(page.surge_turns_without_trade, 0)
+
+        for _ in range(3):
+            self.assertFalse(page._advance_surge_counter())
+        self.assertTrue(page._advance_surge_counter())
+        self.assertTrue(page.surge_triggered)
+
+        self.assertFalse(page._advance_surge_counter())
+
     def test_synergies_stay_hidden_in_player_facing_descriptions(self):
         self.assertNotIn("красную Rollover", CARD_TOOLTIPS[208][1])
         self.assertNotIn("серебряной", CARD_TOOLTIPS[402][1])

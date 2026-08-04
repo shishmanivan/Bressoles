@@ -394,6 +394,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(game_state, "is_expansion_offer_available", return_value=False),
             mock.patch.object(game_state, "is_loan_offer_available", return_value=False),
             mock.patch.object(game_state, "is_disclosure_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_replication_offer_available", return_value=False),
             mock.patch.object(
                 game_state.random,
                 "randint",
@@ -404,6 +405,72 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
         self.assertIn("correction", offers)
         self.assertEqual(game_state.get_shop_special_cost("correction", 2), 2)
+
+    def test_replication_requires_an_owned_silver_card_and_a_free_slot(self):
+        self.assertFalse(game_state.is_replication_offer_available())
+
+        game_state.silver_cards = [201]
+        self.assertTrue(game_state.is_replication_offer_available())
+
+        game_state.silver_cards = [201] * game_state.MAX_SILVER_CARDS
+        self.assertFalse(game_state.is_replication_offer_available())
+
+    def test_replication_duplicates_selected_silver_card_for_two(self):
+        game_state.napoleondors = 6
+        game_state.silver_cards = [201, 203]
+        page = self._shop(
+            {"kind": "special", "special_id": "replication", "cost": 2}
+        )
+
+        with mock.patch("shop_page.ReplicationSilverPage") as replication_page:
+            replication_page.return_value.run.return_value = 203
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.silver_cards, [201, 203, 203])
+        self.assertEqual(game_state.napoleondors, 4)
+        self.assertEqual(page.sold_offer_indexes, {0})
+        self.assertEqual(page.message, "Серебряная карта добавлена")
+
+    def test_replication_cancel_does_not_spend_or_add_a_card(self):
+        game_state.napoleondors = 6
+        game_state.silver_cards = [201]
+        page = self._shop(
+            {"kind": "special", "special_id": "replication", "cost": 2}
+        )
+
+        with mock.patch("shop_page.ReplicationSilverPage") as replication_page:
+            replication_page.return_value.run.return_value = None
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.silver_cards, [201])
+        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(page.sold_offer_indexes, set())
+
+    def test_replication_has_twenty_percent_pool_roll_and_costs_two(self):
+        game_state.silver_cards = [201]
+        with (
+            mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bailout_active", return_value=True),
+            mock.patch.object(game_state, "is_long_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_derivative_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_multibagger_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_loan_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_correction_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_expansion_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_disclosure_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_compounding_offer_available", return_value=False),
+            mock.patch.object(
+                game_state.random,
+                "randint",
+                side_effect=[100, 100, 100, 100, 20, 100],
+            ),
+        ):
+            offers = game_state.build_shop_special_offer_pool(2, max_offers=20)
+
+        self.assertIn("replication", offers)
+        self.assertEqual(game_state.get_shop_special_cost("replication", 2), 2)
 
     def test_loan_is_free_pays_five_and_is_limited_per_boss_and_run(self):
         first_shop = self._shop({"kind": "special", "special_id": "loan", "cost": 0})
@@ -670,21 +737,21 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertNotIn(205, game_state.build_license_offer_pool(5))
         self.assertEqual(game_state.get_license_cost(205), 5)
         self.assertEqual(CARD_NAMES[205], "Controlling Stake")
-        self.assertIn("25%", LICENSE_EFFECT_DESCRIPTIONS[205])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[205])
 
     def test_frugality_license_costs_five_and_enters_the_level_three_pool(self):
         self.assertIn(209, game_state.build_license_offer_pool(3))
         self.assertIn(209, game_state.build_license_offer_pool(4))
         self.assertEqual(game_state.get_license_cost(209), 5)
         self.assertEqual(CARD_NAMES[209], "Frugality")
-        self.assertIn("20%", LICENSE_EFFECT_DESCRIPTIONS[209])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[209])
 
     def test_catalyst_license_costs_five_and_enters_the_level_three_pool(self):
         self.assertIn(210, game_state.build_license_offer_pool(3))
         self.assertIn(210, game_state.build_license_offer_pool(4))
         self.assertEqual(game_state.get_license_cost(210), 5)
         self.assertEqual(CARD_NAMES[210], "Catalyst")
-        self.assertIn("20%", LICENSE_EFFECT_DESCRIPTIONS[210])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[210])
 
     def test_gold_catalyst_costs_five_and_has_three_percent_pool_chance(self):
         self.assertNotIn(414, game_state.build_license_offer_pool(3))
@@ -704,19 +771,30 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertIn(123, game_state.build_license_offer_pool(4))
         self.assertEqual(game_state.get_license_cost(123), 4)
         self.assertEqual(CARD_NAMES[123], "Parity")
-        self.assertIn("40%", LICENSE_EFFECT_DESCRIPTIONS[123])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[123])
 
     def test_accumulation_license_costs_seven_and_has_ten_percent_chance(self):
         self.assertIn(124, game_state.build_license_offer_pool(3))
         self.assertEqual(game_state.get_license_cost(124), 7)
         self.assertEqual(CARD_NAMES[124], "Accumulation")
-        self.assertIn("10%", LICENSE_EFFECT_DESCRIPTIONS[124])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[124])
 
     def test_breakout_license_costs_six_and_has_twenty_percent_pool_chance(self):
         self.assertIn(125, game_state.build_license_offer_pool(3))
         self.assertEqual(game_state.get_license_cost(125), 6)
         self.assertEqual(CARD_NAMES[125], "Breakout")
-        self.assertIn("20%", LICENSE_EFFECT_DESCRIPTIONS[125])
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[125])
+
+    def test_manipulation_license_costs_four_and_has_twenty_percent_pool_chance(self):
+        self.assertIn(126, game_state.build_license_offer_pool(3))
+        self.assertEqual(game_state.get_license_cost(126), 4)
+        self.assertEqual(CARD_NAMES[126], "Манипуляция")
+        self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[126])
+
+    def test_card_descriptions_never_disclose_pool_probabilities(self):
+        for card_id, description in LICENSE_EFFECT_DESCRIPTIONS.items():
+            with self.subTest(card_id=card_id):
+                self.assertNotIn("Шанс попадания в пул", description)
 
     def test_momentum_is_a_five_cost_gold_shop_card_not_a_license(self):
         self.assertNotIn(409, game_state.build_license_offer_pool(3))
