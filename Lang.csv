@@ -44,7 +44,7 @@ Boss8Text;Фридрих Лист. Начинает с 12 акциями B, вт
 Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
 Boss9Text;Жак Лаффит. Начинает с 4 акциями B. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. Starts with 4 B shares. Stocks priced at 2 dollars cannot be bought.
 Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
-Boss10Text;Роберт Стефенсон. За ход можно сыграть одну карту в поле Рынка (включая Shareholder) и одну Gain/Drop карту.;Robert Stephenson. Per turn, play one card in the Market field (including Shareholder) and one Gain/Drop card.
+Boss10Text;Роберт Стефенсон. За ход можно сыграть не более одной Gain/Drop/Regulation-карты и одной красной или синей карты.;Robert Stephenson. Per turn, you may play at most one Gain/Drop/Regulation card and one red or blue card.
 Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.
 Boss11Text;Томас Мальтус. Начинает с 4 акциями B. Игру нельзя продлить никакими картами. Бонусы ходов от ранее побеждённых боссов продолжают действовать.;Thomas Malthus. Starts with 4 B shares. The game cannot be extended by any cards. Turn bonuses from previously defeated bosses still apply.
 Boss11Reward;До конца забега доступно одно дополнительное общее место для чёрных, серебряных и золотых карт. После поражения бонус исчезает.;Until the end of the run, gain one additional shared slot for black, silver, and gold cards. The bonus is lost on defeat.

@@ -6,7 +6,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
-from gameplay_deck import deal_starting_hand
+from gameplay_deck import deal_starting_hand, setup_starting_deck_and_hand
 from gameplay_drag import find_market_drag_start, find_side_top_drag_start
 from gameplay_page import GameplayPage
 
@@ -30,6 +30,19 @@ class StartingHandTests(unittest.TestCase):
 
         self.assertEqual(hand, [])
         self.assertEqual(remaining, [110, 1])
+
+    def test_positioning_cards_take_priority_in_the_starting_hand(self):
+        with mock.patch("gameplay_deck.random.shuffle"):
+            remaining, hand = setup_starting_deck_and_hand(
+                level_number=1,
+                hand_size=3,
+                earned_reward_cards={1: [112]},
+                guaranteed_cards_by_level={1: [112]},
+                round_guaranteed_cards=[3, 4],
+            )
+
+        self.assertEqual(hand, [3, 4, 112])
+        self.assertNotIn(112, remaining)
 
 
 class HandDrawTests(unittest.TestCase):

@@ -4,7 +4,7 @@ Boss;Reward;Functionalities
 4;GuaranteeRedStart=2;Goal=Goal*1.3
 5;LastTurn=LastTurn+2,SilverCard;Self.hand=Self.hand-1
 6;hand=hand+1,SilverCard;ArkwrightStealShares
-7;;OddTurnTradingOnly
+7;Napoleondors20;OddTurnTradingOnly
 8;FreeShop;
 9;UpDownPlus4;NoPrice2Buys
 10;StartCPlus2;OneRedOneGainDropPerTurn

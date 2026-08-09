@@ -8,7 +8,7 @@ import game_state
 import gameplay_page
 from gameplay_page import GameplayPage
 from shop_page import CARD_DESCRIPTIONS
-from silver_black_page import CARD_TOOLTIPS
+from silver_black_page import CARD_TOOLTIPS, get_positioning_selection_limit
 
 
 class LifecycleEffectTests(unittest.TestCase):
@@ -95,6 +95,29 @@ class LifecycleEffectTests(unittest.TestCase):
         page._apply_grant_start_money_bonus()
 
         self.assertEqual(page.Money, 24)
+
+    def test_pending_victory_reward_matches_round_difficulty_and_boss_rate(self):
+        page = self._page()
+        page.level_number = 3
+        page.is_boss_fight = False
+        page.difficulty = "m"
+        page.boss_filename = "2_AdamSmith.png"
+
+        with mock.patch.object(game_state, "profit_reward_bonus", 0):
+            self.assertEqual(page._get_pending_victory_napoleondor_reward(), 2)
+
+            page.is_boss_fight = True
+            self.assertEqual(page._get_pending_victory_napoleondor_reward(), 5)
+
+    def test_pending_victory_reward_includes_profit_and_peabody(self):
+        page = self._page()
+        page.level_number = 5
+        page.is_boss_fight = False
+        page.difficulty = "h"
+        page.boss_filename = "14_Peabody.png"
+
+        with mock.patch.object(game_state, "profit_reward_bonus", 2):
+            self.assertEqual(page._get_pending_victory_napoleondor_reward(), 3.5)
 
     def test_contango_and_rollover_stack_with_multiple_copies(self):
         page = self._page(silver=[204, 204, 208, 208])
@@ -247,10 +270,12 @@ class LifecycleEffectTests(unittest.TestCase):
     def test_catalyst_adds_ten_points_to_golden_stocks_roll_without_storing_them(self):
         original_chance = game_state.golden_stocks_chance_percent
         original_triggered = game_state.golden_stocks_triggered
+        original_trigger_count = game_state.golden_stocks_trigger_count
         original_gold_cards = list(game_state.gold_cards)
         try:
-            game_state.golden_stocks_chance_percent = 5
+            game_state.golden_stocks_chance_percent = 10
             game_state.golden_stocks_triggered = False
+            game_state.golden_stocks_trigger_count = 0
             game_state.gold_cards = []
             with (
                 mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
@@ -261,11 +286,54 @@ class LifecycleEffectTests(unittest.TestCase):
                     game_state.resolve_golden_stocks_round([302, 210], chance_bonus=10),
                     402,
                 )
-            self.assertEqual(game_state.golden_stocks_chance_percent, 5)
+            self.assertEqual(game_state.golden_stocks_chance_percent, 10)
+            self.assertEqual(game_state.golden_stocks_trigger_count, 1)
         finally:
             game_state.golden_stocks_chance_percent = original_chance
             game_state.golden_stocks_triggered = original_triggered
+            game_state.golden_stocks_trigger_count = original_trigger_count
             game_state.gold_cards = original_gold_cards
+
+    def test_golden_stocks_miss_adds_two_points_and_success_is_counted(self):
+        original_chance = game_state.golden_stocks_chance_percent
+        original_triggered = game_state.golden_stocks_triggered
+        original_trigger_count = game_state.golden_stocks_trigger_count
+        original_gold_cards = list(game_state.gold_cards)
+        try:
+            game_state.golden_stocks_chance_percent = 10
+            game_state.golden_stocks_triggered = False
+            game_state.golden_stocks_trigger_count = 0
+            game_state.gold_cards = []
+            with (
+                mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
+                mock.patch.object(game_state.random, "randint", return_value=50),
+            ):
+                self.assertIsNone(game_state.resolve_golden_stocks_round([302]))
+
+            self.assertEqual(game_state.golden_stocks_chance_percent, 12)
+            self.assertEqual(game_state.golden_stocks_trigger_count, 0)
+
+            with (
+                mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
+                mock.patch.object(game_state.random, "randint", return_value=12),
+                mock.patch.object(game_state.random, "choice", return_value=402),
+            ):
+                self.assertEqual(game_state.resolve_golden_stocks_round([302]), 402)
+
+            self.assertEqual(game_state.golden_stocks_trigger_count, 1)
+        finally:
+            game_state.golden_stocks_chance_percent = original_chance
+            game_state.golden_stocks_triggered = original_triggered
+            game_state.golden_stocks_trigger_count = original_trigger_count
+            game_state.gold_cards = original_gold_cards
+
+    def test_golden_stocks_legacy_chance_is_raised_to_new_minimum(self):
+        original_chance = game_state.golden_stocks_chance_percent
+        try:
+            game_state.golden_stocks_chance_percent = 5
+            self.assertEqual(game_state.get_golden_stocks_chance_percent(), 10)
+        finally:
+            game_state.golden_stocks_chance_percent = original_chance
 
     def test_gold_momentum_repeats_natural_rises_and_falls_every_turn(self):
         page = self._page(gold=[409])
@@ -311,6 +379,35 @@ class LifecycleEffectTests(unittest.TestCase):
 
         page.Day = 3
         self.assertEqual(page._get_spoofing_forced_rise_markets(), set())
+
+    def test_spoofing_cards_shake_at_the_start_of_their_trigger_turns(self):
+        page = self._page(gold=[411, 412])
+        page.Day = 4
+        page.lifecycle_card_shake_animations = {}
+        page.spoofing_reminder_days_started = set()
+
+        self.assertEqual(page._start_spoofing_turn_reminder(now=100), [0, 1])
+        self.assertEqual(set(page.lifecycle_card_shake_animations), {0, 1})
+        self.assertEqual(page._start_spoofing_turn_reminder(now=200), [])
+
+        page.Day = 8
+        self.assertEqual(page._start_spoofing_turn_reminder(now=300), [1])
+        self.assertEqual(page.spoofing_reminder_days_started, {4, 8})
+
+    def test_spoofing_reminder_shakes_without_using_effect_jump_animation(self):
+        page = self._page(gold=[411])
+        page.Day = 4
+        page.lifecycle_card_shake_animations = {}
+        page.spoofing_reminder_days_started = set()
+        page.lifecycle_card_jump_animations = {}
+
+        page._start_spoofing_turn_reminder(now=100)
+
+        self.assertEqual(page._get_lifecycle_card_shake_offset(0, now=100), (-6, 0))
+        self.assertEqual(page.lifecycle_card_jump_animations, {})
+        self.assertEqual(page.update_lifecycle_card_shake_animations(now=2299), [])
+        self.assertEqual(page.update_lifecycle_card_shake_animations(now=2300), [0])
+        self.assertEqual(page.lifecycle_card_shake_animations, {})
 
     def test_spoofing_overrides_flat_for_held_stocks_only(self):
         page = self._page(gold=[404, 411])
@@ -442,6 +539,45 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertTrue(page.surge_triggered)
 
         self.assertFalse(page._advance_surge_counter())
+
+    def test_sideway_rewards_all_flat_base_market_results_once(self):
+        page = self._page(gold=[416])
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "unchanged", "price_change": 0},
+            {"market": 1, "type": "unchanged", "price_change": 0},
+            {"market": 2, "type": "unchanged", "price_change": 0},
+            {"market": 0, "type": "rise", "price_change": 2, "source": "surge"},
+        ]
+        page.sideway_applied_this_resolution = False
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._apply_sideway_reward_if_needed())
+        self.assertEqual(game_state.napoleondors, 5)
+        self.assertFalse(page._apply_sideway_reward_if_needed())
+        self.assertEqual(game_state.napoleondors, 5)
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            0,
+        )
+
+    def test_sideway_does_not_reward_when_any_base_market_moved(self):
+        page = self._page(gold=[416])
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "unchanged", "price_change": 0},
+            {"market": 1, "type": "rise", "price_change": 2},
+            {"market": 2, "type": "unchanged", "price_change": 0},
+        ]
+        page.sideway_applied_this_resolution = False
+
+        self.assertFalse(page._apply_sideway_reward_if_needed())
+        self.assertEqual(game_state.napoleondors, 0)
+
+    def test_positioning_cards_use_six_card_synergy_limit(self):
+        self.assertEqual(get_positioning_selection_limit([417]), 2)
+        self.assertEqual(get_positioning_selection_limit([418]), 3)
+        self.assertEqual(get_positioning_selection_limit([417, 418]), 6)
+        self.assertEqual(get_positioning_selection_limit([]), 0)
 
     def test_synergies_stay_hidden_in_player_facing_descriptions(self):
         self.assertNotIn("красную Rollover", CARD_TOOLTIPS[208][1])

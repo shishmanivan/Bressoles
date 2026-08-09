@@ -51,6 +51,25 @@ class RedCardEffectTests(unittest.TestCase):
         page.side_cards_locked_top[1] = True
         self.assertTrue(page._can_play_dragged_hand_card_on_side_top(100))
 
+    def test_stephenson_shares_market_limit_between_gain_drop_and_regulation(self):
+        page = self._page()
+        page.boss_limit_red_gain_drop_per_turn = True
+        page.market_cards[0][0] = 20
+        page.market_cards_locked[0][0] = False
+
+        self.assertFalse(page._can_play_dragged_hand_card_on_market(11))
+        self.assertFalse(page._can_play_dragged_hand_card_on_market(21))
+        self.assertTrue(page._can_play_dragged_hand_card_on_market(1))
+
+        page.market_cards_locked[0][0] = True
+        page.market_cards[1][0] = 11
+        page.market_cards_locked[1][0] = False
+
+        self.assertFalse(page._can_play_dragged_hand_card_on_market(20))
+
+        page.market_cards_locked[1][0] = True
+        self.assertTrue(page._can_play_dragged_hand_card_on_market(20))
+
     def test_rollover_adds_a_future_turn_after_current_price_card_processing(self):
         page = self._page()
         page.side_cards_top[0] = 112
@@ -78,6 +97,23 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertEqual(page.market_card_turns[0][0], 1)
         self.assertIsNone(page.current_card_processing)
         self.assertEqual(page.price_card_queue, [])
+
+    def test_rollover_extends_both_regulation_cards_in_deck_and_in_play(self):
+        page = self._page()
+        page.side_cards_top[0] = 112
+        page.side_cards_locked_top[0] = False
+        page.card_turns = {20: 2, 21: 3}
+        page.market_cards[0][0] = 20
+        page.market_cards[1][0] = 21
+        page.market_card_turns[0][0] = 1
+        page.market_card_turns[1][0] = 2
+
+        self.assertTrue(page._apply_extended_gain_drop_effect_if_needed())
+
+        self.assertEqual(page.card_turns[20], 3)
+        self.assertEqual(page.card_turns[21], 4)
+        self.assertEqual(page.market_card_turns[0][0], 2)
+        self.assertEqual(page.market_card_turns[1][0], 3)
 
     def test_price_card_keeps_occupying_market_slot_after_its_final_jump(self):
         page = self._page()

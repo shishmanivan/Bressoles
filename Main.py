@@ -41,7 +41,11 @@ from game_screen import GameScreen
 from gameplay_page import GameplayPage
 from profile_page import ProfilePage
 from round_page import RoundPage
-from silver_black_page import SilverBlackPage
+from silver_black_page import (
+    PositioningPage,
+    SilverBlackPage,
+    get_positioning_selection_limit,
+)
 from shop_page import ShopPage
 from start_page import StartPage
 
@@ -132,7 +136,11 @@ def main():
         show_shop=True,
         clear_active_game=False,
     ):
-        reward_amount = game_state.get_victory_napoleondor_reward(amount)
+        reward_amount = (
+            game_state.get_victory_napoleondor_reward(amount)
+            if float(amount or 0) > 0
+            else 0
+        )
         game_state.add_napoleondors(level_number, reward_amount)
         if clear_active_game and selected_slot and not test_mode:
             profile_manager.clear_active_game(selected_slot)
@@ -142,26 +150,16 @@ def main():
         else:
             game_state.clear_pending_shop_discount()
 
-    def get_round_victory_napoleondor_amount(level_number, boss_filename=None):
-        base_amount = 3 if int(level_number or 0) == 3 else 1
+    def get_round_victory_napoleondor_amount(level_number, difficulty, boss_filename=None):
         boss_number = get_boss_number_from_filename(boss_filename)
-        return game_state.get_regular_round_napoleondor_reward(base_amount, boss_number)
+        return game_state.get_round_victory_napoleondor_reward(
+            level_number,
+            difficulty,
+            boss_number,
+        )
 
     def get_boss_victory_napoleondor_amount(level_number, boss_index=None, boss_filename=None, defeated_count=0):
-        if int(level_number or 0) == 3:
-            return 4
-        boss_number = get_boss_number_from_filename(boss_filename)
-        if not boss_number:
-            try:
-                normalized_boss_index = int(boss_index)
-            except (TypeError, ValueError):
-                normalized_boss_index = 0
-            try:
-                normalized_defeated_count = int(defeated_count or 0)
-            except (TypeError, ValueError):
-                normalized_defeated_count = 0
-            boss_number = get_boss_number_from_index(level_number, normalized_boss_index, normalized_defeated_count)
-        return 20 if boss_number == 7 else 3
+        return game_state.get_boss_victory_napoleondor_reward(level_number)
 
     def should_open_shop_after_regular_round(level_number):
         return int(level_number or 0) != 1
@@ -316,7 +314,7 @@ def main():
         progress.setdefault("round_selections", {})[round_num] = {"key": difficulty}
         set_current_boss(bp_state, defeated_count, boss_index, boss_filename)
 
-    def choose_active_lifecycle_cards(is_boss_fight=False):
+    def choose_active_lifecycle_cards(level_number, is_boss_fight=False):
         if not game_state.has_selectable_lifecycle_cards():
             return "ok", {}
         silver_page = SilverBlackPage(
@@ -335,15 +333,33 @@ def main():
         if silver_result == "back":
             return "back", {}
         if isinstance(silver_result, dict):
-            active_black_cards = game_state.set_active_black_cards(silver_result.get("active_black_cards") or [])
-            active_gold_cards = game_state.set_active_gold_cards(silver_result.get("active_gold_cards") or [])
+            requested_black_cards = list(silver_result.get("active_black_cards") or [])
+            requested_gold_cards = list(silver_result.get("active_gold_cards") or [])
             active_lifecycle_card_order = list(silver_result.get("active_lifecycle_card_order") or [])
+            positioning_start_cards = []
+            positioning_limit = get_positioning_selection_limit(requested_gold_cards)
+            if positioning_limit > 0:
+                positioning_page = PositioningPage(
+                    screen,
+                    font_path,
+                    game_state.build_current_level_deck(level_number),
+                    positioning_limit,
+                    lang_dict=Lang,
+                )
+                positioning_result = positioning_page.run()
+                if positioning_result == "back":
+                    return "back", {}
+                positioning_start_cards = list(positioning_result or [])
+
+            active_black_cards = game_state.set_active_black_cards(requested_black_cards)
+            active_gold_cards = game_state.set_active_gold_cards(requested_gold_cards)
             game_state.set_active_lifecycle_card_order(active_lifecycle_card_order)
             return "ok", {
                 "active_silver_cards": list(silver_result.get("active_silver_cards") or []),
                 "active_black_cards": active_black_cards,
                 "active_gold_cards": active_gold_cards,
                 "active_lifecycle_card_order": active_lifecycle_card_order,
+                "positioning_start_cards": positioning_start_cards,
             }
         return "ok", {}
 
@@ -505,6 +521,7 @@ def main():
                                 level,
                                 get_round_victory_napoleondor_amount(
                                     level,
+                                    active_context.get("difficulty", "e"),
                                     active_context.get("boss_filename"),
                                 ),
                                 show_shop=should_open_shop_after_regular_round(level),
@@ -747,7 +764,7 @@ def main():
                         difficulty = round_result.replace("button_", "")
                         goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else (2 if test_mode else None)
                         round_num = round_page.get_current_active_round()
-                        silver_status, active_cards = choose_active_lifecycle_cards()
+                        silver_status, active_cards = choose_active_lifecycle_cards(boss_level)
                         if silver_status == "back":
                             round_result = round_page.run()
                             continue
@@ -770,6 +787,7 @@ def main():
                             active_black_cards=active_cards.get("active_black_cards") or [],
                             active_gold_cards=active_cards.get("active_gold_cards") or [],
                             active_lifecycle_card_order=active_cards.get("active_lifecycle_card_order") or [],
+                            positioning_start_cards=active_cards.get("positioning_start_cards") or [],
                             insurance_goal_debt=insurance_goal_debt,
                             rounds_required=round_page.rounds_required,
                         )
@@ -795,6 +813,7 @@ def main():
                                 boss_level,
                                 get_round_victory_napoleondor_amount(
                                     boss_level,
+                                    difficulty,
                                     boss_filename,
                                 ),
                                 test_mode=test_mode,
@@ -840,7 +859,10 @@ def main():
                     # Boss fight
                     if round_result == "boss_clicked":
                         boss_goal = round_page.Goal if getattr(round_page, "Goal", None) is not None else (2 if test_mode else None)
-                        silver_status, active_cards = choose_active_lifecycle_cards(is_boss_fight=True)
+                        silver_status, active_cards = choose_active_lifecycle_cards(
+                            boss_level,
+                            is_boss_fight=True,
+                        )
                         if silver_status == "back":
                             round_result = round_page.run()
                             continue
@@ -862,6 +884,7 @@ def main():
                             active_black_cards=active_cards.get("active_black_cards") or [],
                             active_gold_cards=active_cards.get("active_gold_cards") or [],
                             active_lifecycle_card_order=active_cards.get("active_lifecycle_card_order") or [],
+                            positioning_start_cards=active_cards.get("positioning_start_cards") or [],
                             rounds_required=round_page.rounds_required,
                         )
                         gameplay_result = run_gameplay(gameplay_page)

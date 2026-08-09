@@ -53,6 +53,7 @@ class RegulationCardTests(unittest.TestCase):
         page.update_price_card_processing()
         self.assertEqual(page.Aprice, 10)
         self.assertEqual(page.market_card_turns[0][0], 1)
+        self.assertNotIn(0, page.card_jump_animations[0])
 
         page.update_price_card_processing()
         self.assertEqual(page.Aprice, 12)

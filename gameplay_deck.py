@@ -208,6 +208,7 @@ def setup_starting_deck_and_hand(
     temporary_reward_cards_by_level=None,
     guaranteed_cards_by_level=None,
     investment_card_bonuses=None,
+    round_guaranteed_cards=None,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -219,5 +220,6 @@ def setup_starting_deck_and_hand(
         (temporary_reward_cards_by_level or {}).get(level_number, []),
         investment_card_bonuses,
     )
-    guaranteed_cards = list((guaranteed_cards_by_level or {}).get(level_number, []) or [])
+    guaranteed_cards = list(round_guaranteed_cards or [])
+    guaranteed_cards.extend((guaranteed_cards_by_level or {}).get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, guaranteed_cards)

@@ -38,6 +38,7 @@ SHOP_STATE_FIELDS = (
     "diversification_bought",
     "expansion_bought",
     "compounding_bought",
+    "capital_preservation_bought",
     "loan_boss_positions_by_level",
     "insurance_goal_debt",
     "Frugality",
@@ -80,6 +81,7 @@ class ShopEconomyTestCase(unittest.TestCase):
         game_state.diversification_bought = False
         game_state.expansion_bought = False
         game_state.compounding_bought = False
+        game_state.capital_preservation_bought = False
         game_state.loan_boss_positions_by_level = {}
         game_state.insurance_goal_debt = 0
         game_state.Frugality = 0
@@ -136,6 +138,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_disclosure_has_thirty_five_percent_pool_roll(self):
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
@@ -183,6 +187,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_expansion_has_twenty_percent_pool_roll_and_then_disappears(self):
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
@@ -283,6 +289,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_diversification_has_thirty_percent_pool_roll_and_then_disappears(self):
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
@@ -386,6 +394,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_correction_has_twenty_five_percent_pool_roll_and_costs_two(self):
         game_state.silver_cards = [201]
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
@@ -449,6 +459,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_replication_has_twenty_percent_pool_roll_and_costs_two(self):
         game_state.silver_cards = [201]
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
             mock.patch.object(game_state, "is_long_offer_available", return_value=False),
@@ -511,6 +523,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_loan_successful_roll_gets_a_shop_slot_and_costs_zero(self):
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
@@ -529,29 +543,207 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertIn("loan", offers)
         self.assertEqual(game_state.get_shop_special_cost("loan", 2), 0)
 
-    def test_variance_costs_three_and_stacks_upside_downside_bonus(self):
+    def test_variance_costs_one_and_stacks_upside_downside_bonus(self):
         game_state.napoleondors = 8
         game_state.updown_probability_bonus = 2
-        page = self._shop({"kind": "special", "special_id": "variance", "cost": 3})
+        page = self._shop({"kind": "special", "special_id": "variance", "cost": 1})
 
         page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 7)
         self.assertEqual(game_state.get_updown_probability_bonus(), 3)
         self.assertEqual(page.sold_offer_indexes, {0})
         self.assertEqual(page.message, "Все карты усилены на 1%")
 
-        second_shop = self._shop({"kind": "special", "special_id": "variance", "cost": 3})
+        second_shop = self._shop({"kind": "special", "special_id": "variance", "cost": 1})
         second_shop._buy_offer(0)
-        self.assertEqual(game_state.napoleondors, 2)
+        self.assertEqual(game_state.napoleondors, 6)
         self.assertEqual(game_state.get_updown_probability_bonus(), 4)
 
-    def test_variance_successful_roll_gets_a_shop_slot(self):
-        with mock.patch.object(game_state.random, "randint", return_value=1):
+    def test_variance_successful_roll_enters_the_random_selection_pool(self):
+        with (
+            mock.patch.object(game_state.random, "randint", return_value=1),
+            mock.patch.object(
+                game_state.random,
+                "sample",
+                side_effect=lambda population, count: (
+                    ["variance"] + [offer for offer in population if offer != "variance"]
+                )[:count],
+            ) as sample,
+        ):
             offers = game_state.build_shop_special_offer_pool(3)
 
+        self.assertIn("variance", sample.call_args.args[0])
         self.assertIn("variance", offers)
-        self.assertEqual(game_state.get_shop_special_cost("variance", 3), 3)
+        self.assertEqual(game_state.get_shop_special_cost("variance", 3), 1)
+
+    def test_screening_costs_one_and_has_ten_percent_pool_roll(self):
+        with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bailout_active", return_value=True),
+            mock.patch.object(game_state, "is_long_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_derivative_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_multibagger_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_loan_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_correction_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_diversification_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_expansion_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_disclosure_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_compounding_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_replication_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=True),
+            mock.patch.object(
+                game_state.random,
+                "randint",
+                side_effect=[100, 100, 100, 100, 10, 100],
+            ),
+        ):
+            offers = game_state.build_shop_special_offer_pool(3, max_offers=20)
+
+        self.assertIn("screening", offers)
+        self.assertEqual(game_state.get_shop_special_cost("screening", 3), 1)
+
+    def test_screening_builds_five_unique_choices_and_excludes_itself(self):
+        available = [
+            "trader",
+            "profit",
+            "junk_bond",
+            "variance",
+            "bailout",
+            "screening",
+        ]
+        with (
+            mock.patch.object(
+                game_state,
+                "_available_screening_offer_ids",
+                return_value=available,
+            ),
+            mock.patch.object(
+                game_state,
+                "build_shop_special_offer_pool",
+                return_value=[
+                    "screening",
+                    "variance",
+                    "trader",
+                    "profit",
+                    "junk_bond",
+                    "bailout",
+                ],
+            ),
+        ):
+            choices = game_state.build_screening_offer_pool(3)
+
+        self.assertEqual(
+            choices,
+            ["variance", "trader", "profit", "junk_bond", "bailout"],
+        )
+        self.assertEqual(len(choices), len(set(choices)))
+        self.assertNotIn("screening", choices)
+
+    def test_screening_applies_one_selected_offer_for_free(self):
+        game_state.napoleondors = 4
+        game_state.updown_probability_bonus = 0
+        page = self._shop(
+            {"kind": "special", "special_id": "screening", "cost": 1}
+        )
+        choices = ["trader", "profit", "junk_bond", "variance", "bailout"]
+
+        with (
+            mock.patch.object(
+                game_state,
+                "build_screening_offer_pool",
+                return_value=choices,
+            ),
+            mock.patch("shop_page.ScreeningOfferPage") as screening_page,
+        ):
+            screening_page.return_value.run.return_value = "variance"
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 3)
+        self.assertEqual(game_state.get_updown_probability_bonus(), 1)
+        self.assertEqual(page.sold_offer_indexes, {0})
+        self.assertEqual(screening_page.call_args.args[3], choices)
+
+    def test_screening_cancel_does_not_spend_or_consume_the_offer(self):
+        game_state.napoleondors = 4
+        page = self._shop(
+            {"kind": "special", "special_id": "screening", "cost": 1}
+        )
+
+        with (
+            mock.patch.object(
+                game_state,
+                "build_screening_offer_pool",
+                return_value=["trader", "profit", "junk_bond", "variance", "bailout"],
+            ),
+            mock.patch("shop_page.ScreeningOfferPage") as screening_page,
+        ):
+            screening_page.return_value.run.return_value = None
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 4)
+        self.assertEqual(page.sold_offer_indexes, set())
+
+    def test_capital_preservation_costs_five_and_is_bought_once_per_attempt(self):
+        game_state.napoleondors = 12
+        page = self._shop(
+            {
+                "kind": "special",
+                "special_id": "capital_preservation",
+                "cost": 5,
+            }
+        )
+
+        page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 7)
+        self.assertTrue(game_state.capital_preservation_bought)
+        self.assertFalse(game_state.is_capital_preservation_offer_available())
+        self.assertEqual(page.message, "Золотые карты защищены")
+
+        repeated = self._shop(
+            {
+                "kind": "special",
+                "special_id": "capital_preservation",
+                "cost": 5,
+            }
+        )
+        repeated._buy_offer(0)
+        self.assertEqual(game_state.napoleondors, 7)
+
+    def test_capital_preservation_has_five_percent_pool_roll(self):
+        with (
+            mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bailout_active", return_value=True),
+            mock.patch.object(game_state, "is_long_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_bank_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_derivative_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_multibagger_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_loan_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_correction_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_diversification_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_expansion_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_disclosure_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_compounding_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_replication_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
+            mock.patch.object(
+                game_state.random,
+                "randint",
+                side_effect=[100, 100, 100, 100, 5, 100],
+            ),
+        ):
+            offers = game_state.build_shop_special_offer_pool(3, max_offers=20)
+
+        self.assertIn("capital_preservation", offers)
+        self.assertEqual(
+            game_state.get_shop_special_cost("capital_preservation", 3),
+            5,
+        )
 
     def test_bank_offer_costs_three_napoleondors(self):
         self.assertEqual(game_state.get_shop_special_cost("bank", 3), 3)
@@ -578,10 +770,22 @@ class ShopTransactionTests(ShopEconomyTestCase):
             )
         self.assertEqual(discounted_offer, [{"kind": "special", "special_id": "multibagger", "cost": 1.5}])
 
-    def test_multibagger_roll_gets_a_shop_slot_and_disappears_after_purchase(self):
-        with mock.patch.object(game_state.random, "randint", return_value=1):
+    def test_special_offer_selection_samples_the_complete_rolled_pool(self):
+        with (
+            mock.patch.object(game_state.random, "randint", return_value=1),
+            mock.patch.object(
+                game_state.random,
+                "sample",
+                side_effect=lambda population, count: population[-count:],
+            ) as sample,
+        ):
             offers = game_state.build_shop_special_offer_pool(3)
-        self.assertEqual(offers[0], "multibagger")
+
+        sampled_pool, sampled_count = sample.call_args.args
+        self.assertIn("multibagger", sampled_pool)
+        self.assertIn("delisting", sampled_pool)
+        self.assertEqual(sampled_count, 2)
+        self.assertEqual(offers, sampled_pool[-2:])
 
         game_state.multibagger_bought = True
         with mock.patch.object(game_state.random, "randint", return_value=1):
@@ -636,6 +840,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
         game_state.level_4_boss_defeated = True
         with (
+            mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
             mock.patch.object(game_state, "is_long_offer_available", return_value=False),
@@ -711,6 +917,9 @@ class ShopTransactionTests(ShopEconomyTestCase):
             "correction",
             "expansion",
             "disclosure",
+            "replication",
+            "screening",
+            "capital_preservation",
         }
 
         for roll in (1, 100):
@@ -1003,6 +1212,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.diversification_bought = True
         game_state.expansion_bought = True
         game_state.compounding_bought = True
+        game_state.capital_preservation_bought = True
         game_state.loan_boss_positions_by_level = {5: [0]}
         game_state.licensed_card_ids.add(121)
         game_state.gold_cards = [401]
@@ -1029,6 +1239,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.diversification_bought = False
         game_state.expansion_bought = False
         game_state.compounding_bought = False
+        game_state.capital_preservation_bought = False
         game_state.loan_boss_positions_by_level = {}
         game_state.licensed_card_ids = set(game_state.DEFAULT_LICENSED_CARDS)
         game_state.gold_cards = []
@@ -1056,6 +1267,7 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         self.assertTrue(game_state.diversification_bought)
         self.assertTrue(game_state.expansion_bought)
         self.assertTrue(game_state.compounding_bought)
+        self.assertTrue(game_state.capital_preservation_bought)
         self.assertEqual(game_state.loan_boss_positions_by_level, {5: [0]})
         self.assertTrue(game_state.is_card_licensed(121))
         self.assertEqual(game_state.gold_cards, [401])

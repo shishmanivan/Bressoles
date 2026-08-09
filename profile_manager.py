@@ -115,6 +115,7 @@ def _empty_progress():
         "diversification_bought": False,
         "expansion_bought": False,
         "compounding_bought": False,
+        "capital_preservation_bought": False,
         "loan_boss_positions_by_level": {},
         "napoleondors": 0,
         "napoleondor_level": None,
@@ -131,6 +132,7 @@ def _empty_progress():
         "active_long_investments": [],
         "golden_stocks_chance_percent": game_state.GOLDEN_STOCKS_BASE_CHANCE,
         "golden_stocks_triggered": False,
+        "golden_stocks_trigger_count": 0,
         "licensed_card_ids": _serialize_int_list(game_state.DEFAULT_LICENSED_CARDS),
         "silver_cards": [],
         "black_cards": [],
@@ -301,6 +303,9 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.diversification_bought = bool(progress.get("diversification_bought", False))
     game_state.expansion_bought = bool(progress.get("expansion_bought", False))
     game_state.compounding_bought = bool(progress.get("compounding_bought", False))
+    game_state.capital_preservation_bought = bool(
+        progress.get("capital_preservation_bought", False)
+    )
     game_state.loan_boss_positions_by_level = _restore_int_key_lists(
         progress.get("loan_boss_positions_by_level") or {}
     )
@@ -342,12 +347,19 @@ def apply_profile_to_game_state(profile_or_slot):
     ]
     try:
         game_state.golden_stocks_chance_percent = max(
-            0,
+            game_state.GOLDEN_STOCKS_BASE_CHANCE,
             min(100, int(progress.get("golden_stocks_chance_percent", game_state.GOLDEN_STOCKS_BASE_CHANCE) or 0)),
         )
     except (TypeError, ValueError):
         game_state.golden_stocks_chance_percent = game_state.GOLDEN_STOCKS_BASE_CHANCE
     game_state.golden_stocks_triggered = bool(progress.get("golden_stocks_triggered", False))
+    try:
+        game_state.golden_stocks_trigger_count = max(
+            0,
+            int(progress.get("golden_stocks_trigger_count", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.golden_stocks_trigger_count = 0
     if "licensed_card_ids" in progress:
         game_state.licensed_card_ids = game_state.normalize_license_ids(progress.get("licensed_card_ids"))
     else:
@@ -445,6 +457,7 @@ def _capture_progress():
         "diversification_bought": bool(game_state.diversification_bought),
         "expansion_bought": bool(game_state.expansion_bought),
         "compounding_bought": bool(game_state.compounding_bought),
+        "capital_preservation_bought": bool(game_state.capital_preservation_bought),
         "loan_boss_positions_by_level": _serialize_int_key_lists(
             game_state.loan_boss_positions_by_level
         ),
@@ -463,6 +476,7 @@ def _capture_progress():
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
         "golden_stocks_chance_percent": game_state.get_golden_stocks_chance_percent(),
         "golden_stocks_triggered": game_state.is_golden_stocks_triggered(),
+        "golden_stocks_trigger_count": game_state.get_golden_stocks_trigger_count(),
         "licensed_card_ids": _serialize_int_list(game_state.licensed_card_ids),
         "silver_cards": _serialize_int_list(game_state.silver_cards),
         "black_cards": _serialize_int_list(game_state.black_cards),

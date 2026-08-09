@@ -36,6 +36,12 @@ def load_round_page_static_assets():
     button_m = _load_scaled_button(os.path.join("RoundPage", "LevelButtonM.png"), "WARNING: LevelButtonM not found:")
     button_h = _load_scaled_button(os.path.join("RoundPage", "LevelButtonH.png"), "WARNING: LevelButtonH not found:")
 
+    napoleondor_image = load_scaled_image(
+        os.path.join("Shop", "Napoleondor.png"),
+        target_size=(28, 28),
+        warning_message="WARNING: Napoleondor.png not found:",
+    )
+
     popup_path = os.path.join("Bosses", "PopUp2.png")
     if not os.path.exists(popup_path):
         popup_path = os.path.join("Bosses", "PopUp2.jpg")
@@ -63,6 +69,7 @@ def load_round_page_static_assets():
         "button_e": button_e,
         "button_m": button_m,
         "button_h": button_h,
+        "napoleondor_image": napoleondor_image,
         "popup_image": popup_image,
         "popup_width": popup_width,
         "pen_sound": pen_sound,

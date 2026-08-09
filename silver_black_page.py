@@ -4,8 +4,15 @@ import sys
 import pygame
 
 import game_state
+from card_catalog import MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
-from gameplay_card_rendering import draw_bear_modifier_text
+from gameplay_card_rendering import (
+    draw_bear_modifier_text,
+    draw_bid_modifier_text,
+    draw_card_action_text,
+    draw_card_turns_text,
+)
+from gameplay_deck import get_card_investment_bonus
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 
@@ -32,6 +39,24 @@ BLACK_ROW_Y = 450
 GOLD_ROW_Y = 648
 INVENTORY_ROW_GAP = 34
 ACTIVE_ROW_GAP = 42
+POSITIONING_CARDS_PER_PAGE = 24
+POSITIONING_GRID_COLUMNS = 8
+
+
+def get_positioning_selection_limit(active_gold_cards):
+    active_ids = set()
+    for card_id in active_gold_cards or []:
+        try:
+            active_ids.add(int(card_id))
+        except (TypeError, ValueError):
+            continue
+    if 417 in active_ids and 418 in active_ids:
+        return 6
+    if 418 in active_ids:
+        return 3
+    if 417 in active_ids:
+        return 2
+    return 0
 
 CARD_TOOLTIPS = {
     201: (
@@ -79,7 +104,7 @@ CARD_TOOLTIPS = {
     301: ("Futures", "Добавляет 1 ход к длительности раунда."),
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. Базовый шанс 5%, после неудачи шанс растёт на 1%. После успеха больше не срабатывает.",
+        "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает.",
     ),
     303: (
         "Комиссия",
@@ -155,6 +180,18 @@ CARD_TOOLTIPS.update(
         415: (
             "Surge",
             "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
+        ),
+        416: (
+            "Sideway",
+            "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
+        ),
+        417: (
+            "Positioning",
+            "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",
+        ),
+        418: (
+            "Positioning+",
+            "Перед началом раунда позволяет выбрать 3 карты, которые гарантированно попадут в стартовую руку.",
         ),
     }
 )
@@ -332,7 +369,8 @@ class SilverBlackPage:
             if not os.path.exists(path):
                 path = os.path.join("Cards", "Card_201.png")
         else:
-            path = os.path.join("Cards", f"Card_{int(card_id)}.png")
+            base_card_id = get_card_image_base_id(card_id)
+            path = os.path.join("Cards", f"Card_{int(base_card_id)}.png")
             if not os.path.exists(path) and 200 < int(card_id) < 300:
                 path = os.path.join("RoundPage", "RandSilver.png")
 
@@ -696,6 +734,289 @@ class SilverBlackPage:
                     self._move_drag(event.pos)
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     self._finish_drag(event.pos)
+
+            self.draw()
+            self.clock.tick(FPS)
+
+
+class PositioningPage(SilverBlackPage):
+    """Choose cards that Positioning guarantees in the next starting hand."""
+
+    def __init__(self, screen, font_path, deck_cards, selection_limit, lang_dict=None):
+        super().__init__(
+            screen,
+            font_path,
+            silver_cards=[],
+            black_cards=[],
+            gold_cards=[],
+            lang_dict=lang_dict,
+        )
+        self.deck_cards = list(deck_cards or [])
+        try:
+            requested_limit = max(0, int(selection_limit or 0))
+        except (TypeError, ValueError):
+            requested_limit = 0
+        self.selection_target = min(requested_limit, len(self.deck_cards))
+        self.selected_card_indices = []
+        self.positioning_page_index = 0
+        self.title_font = pygame.font.Font(self.font_path, 54)
+        self.prompt_font = pygame.font.Font(self.font_path, 27)
+        self.selection_badge_font = pygame.font.Font(self.font_path, 21)
+        self.positioning_action_font_cache = {}
+        self.positioning_turns_font_cache = {}
+        self.positioning_card_turns = dict(MARKET_CARD_TURNS)
+
+        grid_gap_x = 34
+        grid_gap_y = 20
+        self.positioning_grid_gap_x = grid_gap_x
+        self.positioning_grid_gap_y = grid_gap_y
+        total_width = (
+            POSITIONING_GRID_COLUMNS * self.card_width
+            + (POSITIONING_GRID_COLUMNS - 1) * grid_gap_x
+        )
+        start_x = self.panel_rect.centerx - total_width // 2
+        start_y = self.panel_rect.y + 205
+        self.positioning_grid_start_y = start_y
+        self.positioning_card_rects = []
+        for local_index in range(POSITIONING_CARDS_PER_PAGE):
+            row, column = divmod(local_index, POSITIONING_GRID_COLUMNS)
+            self.positioning_card_rects.append(
+                pygame.Rect(
+                    start_x + column * (self.card_width + grid_gap_x),
+                    start_y + row * (self.card_height + grid_gap_y),
+                    self.card_width,
+                    self.card_height,
+                )
+            )
+
+        button_y = self.panel_rect.bottom - 82
+        self.positioning_back_button_rect = pygame.Rect(self.panel_rect.x + 42, button_y, 210, 54)
+        self.positioning_continue_button_rect = pygame.Rect(
+            self.panel_rect.right - 302,
+            button_y,
+            260,
+            54,
+        )
+        self.positioning_prev_button_rect = pygame.Rect(self.panel_rect.centerx - 190, button_y, 120, 54)
+        self.positioning_next_button_rect = pygame.Rect(self.panel_rect.centerx + 70, button_y, 120, 54)
+
+    @property
+    def positioning_page_count(self):
+        return max(
+            1,
+            (len(self.deck_cards) + POSITIONING_CARDS_PER_PAGE - 1)
+            // POSITIONING_CARDS_PER_PAGE,
+        )
+
+    def _visible_positioning_entries(self):
+        start = self.positioning_page_index * POSITIONING_CARDS_PER_PAGE
+        visible_count = min(POSITIONING_CARDS_PER_PAGE, max(0, len(self.deck_cards) - start))
+        entries = []
+        for local_index in range(visible_count):
+            deck_index = start + local_index
+            row, column = divmod(local_index, POSITIONING_GRID_COLUMNS)
+            cards_in_row = min(
+                POSITIONING_GRID_COLUMNS,
+                visible_count - row * POSITIONING_GRID_COLUMNS,
+            )
+            row_width = (
+                cards_in_row * self.card_width
+                + (cards_in_row - 1) * self.positioning_grid_gap_x
+            )
+            row_start_x = self.panel_rect.centerx - row_width // 2
+            rect = pygame.Rect(
+                row_start_x + column * (self.card_width + self.positioning_grid_gap_x),
+                self.positioning_grid_start_y
+                + row * (self.card_height + self.positioning_grid_gap_y),
+                self.card_width,
+                self.card_height,
+            )
+            entries.append((deck_index, self.deck_cards[deck_index], rect))
+        return entries
+
+    def _toggle_positioning_card(self, deck_index):
+        if not 0 <= deck_index < len(self.deck_cards):
+            return False
+        if deck_index in self.selected_card_indices:
+            self.selected_card_indices.remove(deck_index)
+            return True
+        if len(self.selected_card_indices) >= self.selection_target:
+            return False
+        self.selected_card_indices.append(deck_index)
+        return True
+
+    def _positioning_selection_complete(self):
+        return len(self.selected_card_indices) == self.selection_target
+
+    def _selected_positioning_cards(self):
+        return [self.deck_cards[index] for index in self.selected_card_indices]
+
+    def _draw_positioning_button(self, rect, label, enabled=True):
+        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
+        if not enabled:
+            color = (218, 210, 194)
+        pygame.draw.rect(self.screen, color, rect, border_radius=4)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
+        text_color = PAPER_COLOR if enabled else (145, 138, 130)
+        surface = self.continue_button_font.render(label, True, text_color)
+        self.screen.blit(surface, surface.get_rect(center=rect.center))
+
+    def _draw_positioning_background(self):
+        if self.round_background:
+            self.screen.blit(self.round_background, (0, 0))
+        else:
+            self.screen.fill((235, 220, 190))
+        if self.round_koordinates:
+            self.screen.blit(self.round_koordinates, (0, 0))
+        if self.background:
+            self.screen.blit(self.background, self.panel_rect.topleft)
+        else:
+            pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
+            pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
+
+    def _draw_positioning_card_values(self, card_id, rect):
+        try:
+            normalized_id = int(card_id)
+        except (TypeError, ValueError):
+            return
+
+        action_value = PRICE_CARD_ACTIONS.get(normalized_id)
+        if action_value is not None:
+            investment_bonus = get_card_investment_bonus(card_id)
+            if investment_bonus > 0:
+                action_value = (
+                    action_value - investment_bonus
+                    if action_value < 0
+                    else action_value + investment_bonus
+                )
+            draw_card_action_text(
+                self.screen,
+                normalized_id,
+                {normalized_id: action_value},
+                rect.x,
+                rect.y,
+                rect.size,
+                self.font_path,
+                PAPER_COLOR,
+                self.positioning_action_font_cache,
+            )
+        draw_card_turns_text(
+            self.screen,
+            normalized_id,
+            self.positioning_card_turns,
+            rect.x,
+            rect.y,
+            rect.size,
+            self.font_path,
+            PAPER_COLOR,
+            self.positioning_turns_font_cache,
+        )
+        draw_bid_modifier_text(
+            self.screen,
+            normalized_id,
+            rect.x,
+            rect.y,
+            rect.size,
+            self.font_path,
+        )
+
+    def draw(self):
+        self._draw_positioning_background()
+        title = self.title_font.render("Positioning", True, PAPER_COLOR)
+        self.screen.blit(
+            title,
+            title.get_rect(center=(self.panel_rect.centerx, self.panel_rect.y + 72)),
+        )
+        prompt = (
+            f"Выберите карты для стартовой руки: "
+            f"{len(self.selected_card_indices)} / {self.selection_target}"
+        )
+        prompt_surface = self.prompt_font.render(prompt, True, PAPER_COLOR)
+        self.screen.blit(
+            prompt_surface,
+            prompt_surface.get_rect(center=(self.panel_rect.centerx, self.panel_rect.y + 142)),
+        )
+
+        for deck_index, card_id, rect in self._visible_positioning_entries():
+            self._draw_placeholder(rect, PAPER_COLOR)
+            self._draw_card(card_id, rect)
+            self._draw_positioning_card_values(card_id, rect)
+            if deck_index not in self.selected_card_indices:
+                continue
+            pygame.draw.rect(self.screen, GOLD, rect.inflate(10, 10), 5, border_radius=4)
+            selection_number = self.selected_card_indices.index(deck_index) + 1
+            badge_center = (rect.right - 5, rect.top + 5)
+            pygame.draw.circle(self.screen, GOLD, badge_center, 18)
+            badge = self.selection_badge_font.render(str(selection_number), True, (255, 250, 230))
+            self.screen.blit(badge, badge.get_rect(center=badge_center))
+
+        self._draw_positioning_button(self.positioning_back_button_rect, "Назад")
+        self._draw_positioning_button(
+            self.positioning_continue_button_rect,
+            "Продолжить",
+            enabled=self._positioning_selection_complete(),
+        )
+        if self.positioning_page_count > 1:
+            has_previous = self.positioning_page_index > 0
+            has_next = self.positioning_page_index + 1 < self.positioning_page_count
+            self._draw_positioning_button(self.positioning_prev_button_rect, "Пред.", has_previous)
+            self._draw_positioning_button(self.positioning_next_button_rect, "След.", has_next)
+            page_text = self.prompt_font.render(
+                f"{self.positioning_page_index + 1} / {self.positioning_page_count}",
+                True,
+                PAPER_COLOR,
+            )
+            self.screen.blit(
+                page_text,
+                page_text.get_rect(center=(self.panel_rect.centerx, self.positioning_prev_button_rect.centery)),
+            )
+        pygame.display.flip()
+
+    def _handle_positioning_mouse_down(self, position):
+        if self.positioning_back_button_rect.collidepoint(position):
+            return "back"
+        if self.positioning_continue_button_rect.collidepoint(position):
+            if self._positioning_selection_complete():
+                return self._selected_positioning_cards()
+            return None
+        if self.positioning_prev_button_rect.collidepoint(position):
+            if self.positioning_page_index > 0:
+                self.positioning_page_index -= 1
+            return None
+        if self.positioning_next_button_rect.collidepoint(position):
+            if self.positioning_page_index + 1 < self.positioning_page_count:
+                self.positioning_page_index += 1
+            return None
+        for deck_index, _card_id, rect in self._visible_positioning_entries():
+            if rect.collidepoint(position):
+                self._toggle_positioning_card(deck_index)
+                break
+        return None
+
+    def run(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return "back"
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                        if self._positioning_selection_complete():
+                            return self._selected_positioning_cards()
+                    if event.key == pygame.K_LEFT and self.positioning_page_index > 0:
+                        self.positioning_page_index -= 1
+                    if (
+                        event.key == pygame.K_RIGHT
+                        and self.positioning_page_index + 1 < self.positioning_page_count
+                    ):
+                        self.positioning_page_index += 1
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    result = self._handle_positioning_mouse_down(event.pos)
+                    if result is not None:
+                        return result
 
             self.draw()
             self.clock.tick(FPS)

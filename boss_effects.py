@@ -49,6 +49,7 @@ REWARD_KINDS = {
     "randomprize": "say_random_reward",
     "shopofferplus1": "shop_offer_plus1",
     "extrashopoffer": "shop_offer_plus1",
+    "napoleondors20": "napoleondors_20",
 }
 
 FUNCTIONALITY_KINDS = {

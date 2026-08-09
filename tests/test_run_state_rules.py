@@ -51,6 +51,7 @@ STATE_FIELDS = (
     "active_silver_cards_level",
     "active_silver_cards_deck",
     "Frugality",
+    "capital_preservation_bought",
 )
 
 
@@ -67,6 +68,32 @@ class GameStateTestCase(unittest.TestCase):
 
 
 class RunResetRulesTests(GameStateTestCase):
+    def test_capital_preservation_keeps_gold_cards_through_one_defeat(self):
+        game_state.gold_cards[:] = [401, 405]
+        game_state.set_active_gold_cards([401])
+        game_state.bear_goal_reduction_steps = 3
+        game_state.capital_preservation_bought = True
+
+        game_state.reset_level_attempt(4)
+
+        self.assertEqual(game_state.gold_cards, [401, 405])
+        self.assertEqual(game_state.active_gold_cards, [401])
+        self.assertEqual(game_state.bear_goal_reduction_steps, 0)
+        self.assertFalse(game_state.capital_preservation_bought)
+
+        game_state.reset_level_attempt(4)
+        self.assertEqual(game_state.gold_cards, [])
+        self.assertEqual(game_state.active_gold_cards, [])
+
+    def test_capital_preservation_does_not_keep_gold_after_level_completion(self):
+        game_state.gold_cards[:] = [401]
+        game_state.capital_preservation_bought = True
+
+        game_state.complete_level_run(4)
+
+        self.assertEqual(game_state.gold_cards, [])
+        self.assertFalse(game_state.capital_preservation_bought)
+
     def test_starting_napoleondors_follow_completed_level_progression(self):
         game_state.level_2_boss_defeated = False
         game_state.level_3_boss_defeated = False
@@ -91,6 +118,37 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertEqual(game_state.get_starting_napoleondors_for_level(6), 9)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(7), 9)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(8), 9)
+
+    def test_victory_napoleondors_start_on_level_two_and_scale_by_difficulty(self):
+        for difficulty in ("e", "m", "h"):
+            with self.subTest(level=1, difficulty=difficulty):
+                self.assertEqual(
+                    game_state.get_round_victory_napoleondor_reward(1, difficulty),
+                    0,
+                )
+        self.assertEqual(game_state.get_boss_victory_napoleondor_reward(1), 0)
+
+        for level in (2, 3, 4, 5):
+            with self.subTest(level=level):
+                self.assertEqual(game_state.get_round_victory_napoleondor_reward(level, "e"), 1)
+                self.assertEqual(game_state.get_round_victory_napoleondor_reward(level, "m"), 2)
+                self.assertEqual(game_state.get_round_victory_napoleondor_reward(level, "h"), 3)
+                self.assertEqual(game_state.get_boss_victory_napoleondor_reward(level), 5)
+
+    def test_peabody_halves_the_new_difficulty_reward(self):
+        self.assertEqual(game_state.get_round_victory_napoleondor_reward(5, "e", 14), 0.5)
+        self.assertEqual(game_state.get_round_victory_napoleondor_reward(5, "m", 14), 1)
+        self.assertEqual(game_state.get_round_victory_napoleondor_reward(5, "h", 14), 1.5)
+
+    def test_kolbe_personal_reward_is_separate_from_the_boss_victory_reward(self):
+        game_state.napoleondors = 0
+        game_state.napoleondor_level = 4
+        gameplay = mock.Mock(level_number=4)
+
+        self.assertEqual(game_state.get_boss_victory_napoleondor_reward(4), 5)
+        apply_boss_reward("Napoleondors20", gameplay)
+
+        self.assertEqual(game_state.napoleondors, 20)
 
     def test_level5_completion_unlocks_levels7_and8_and_awards_commission(self):
         game_state.level_5_boss_defeated = False

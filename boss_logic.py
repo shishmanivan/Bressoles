@@ -510,6 +510,12 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print(f"Applied boss reward ShopOfferPlus1: special shop offers={offer_count}")
             return
 
+        if normalized_reward == "napoleondors20":
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            game_state.add_napoleondors(level_num, 20)
+            print("Applied boss reward Napoleondors20: awarded 20 Napoleondors")
+            return
+
         # Parse format: "VariableName=VariableName+1" or "VariableName=VariableName-1"
         if '=' in reward_string:
             left, right = reward_string.split('=', 1)
@@ -648,7 +654,10 @@ def apply_boss_functionality(func_string, gameplay_instance):
             "stephensoncardlimit",
         ):
             setattr(gameplay_instance, "boss_limit_red_gain_drop_per_turn", True)
-            print("Applied boss functionality: one side-field and one Gain/Drop card per turn")
+            print(
+                "Applied boss functionality: one red/blue card and one "
+                "Gain/Drop/Regulation card per turn"
+            )
             return
 
         if normalized_func in ("blockcardturnextensions", "malthusnoturncards"):

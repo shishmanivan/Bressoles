@@ -15,8 +15,9 @@ BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
 
 ANIMATION_FRAME_SIZE = (100, 100)
-DEFAULT_BOSS_VERTICAL_SPACING = 150
-LEVEL5_BOSS_VERTICAL_SPACING = 90
+BOSS_CHOICE_VERTICAL_SPACING = 150
+DEFAULT_BOSS_STAGE_RISE = 150
+LEVEL5_BOSS_STAGE_RISE = 90
 ANIMATION_SCALE_OVERRIDES = {
     "9_Laffitte": 0.95,
 }
@@ -28,15 +29,33 @@ POPUP_TEXT_BOTTOM_PADDING = 14
 POPUP_TEXT_WIDTH = 200
 
 
-def get_boss_vertical_spacing(level_number, bosses_required):
+def get_boss_stage_rise(level_number, bosses_required):
     try:
         level = int(level_number or 0)
         boss_count = int(bosses_required or 0)
     except (TypeError, ValueError):
-        return DEFAULT_BOSS_VERTICAL_SPACING
+        return DEFAULT_BOSS_STAGE_RISE
     if level == 5 and boss_count >= 4:
-        return LEVEL5_BOSS_VERTICAL_SPACING
-    return DEFAULT_BOSS_VERTICAL_SPACING
+        return LEVEL5_BOSS_STAGE_RISE
+    return DEFAULT_BOSS_STAGE_RISE
+
+
+def build_boss_stage_positions(
+    position,
+    choice_count,
+    choice_spacing,
+    stage_rise,
+    first_center=(400, 700),
+    horizontal_step=200,
+):
+    """Place a boss-choice group on a fixed campaign stage."""
+    stage = max(0, int(position or 0))
+    center_x = first_center[0] + horizontal_step * stage
+    base_center_y = first_center[1] - stage_rise * stage
+    return [
+        (center_x, base_center_y - choice_spacing * index)
+        for index in range(max(0, int(choice_count or 0)))
+    ]
 
 
 def build_next_boss_positions(
@@ -76,8 +95,9 @@ def build_next_boss_positions(
 def rebuild_boss_route_layout(
     roster,
     defeated_bosses,
-    vertical_spacing,
+    choice_spacing,
     screen_height,
+    stage_rise=None,
     origin=(235, 832),
     first_center=(400, 700),
 ):
@@ -95,17 +115,29 @@ def rebuild_boss_route_layout(
             return None
         choice_index = choices.index(filename)
 
-        if previous_rect is None:
-            centers = [
-                (first_center[0], first_center[1] - vertical_spacing * index)
-                for index in range(len(choices))
-            ]
+        if stage_rise is not None:
+            centers = build_boss_stage_positions(
+                position,
+                len(choices),
+                choice_spacing,
+                stage_rise,
+                first_center=first_center,
+            )
+            line_start = origin if previous_rect is None else previous_rect.center
+        elif previous_rect is None:
+            centers = build_boss_stage_positions(
+                0,
+                len(choices),
+                choice_spacing,
+                0,
+                first_center=first_center,
+            )
             line_start = origin
         else:
             centers = build_next_boss_positions(
                 previous_rect.center,
                 len(choices),
-                vertical_spacing,
+                choice_spacing,
                 screen_height,
             )
             line_start = previous_rect.center
@@ -311,7 +343,8 @@ class BossPage:
         self.bosses_required = (
             self._get_bosses_required(self.level_number, rounds_config) if self._get_bosses_required else 1
         )
-        self.boss_vertical_spacing = get_boss_vertical_spacing(
+        self.boss_vertical_spacing = BOSS_CHOICE_VERTICAL_SPACING
+        self.boss_stage_rise = get_boss_stage_rise(
             self.level_number,
             self.bosses_required,
         )
@@ -321,6 +354,7 @@ class BossPage:
                 self.defeated_bosses[: self.defeated_count],
                 self.boss_vertical_spacing,
                 SCREEN_HEIGHT,
+                stage_rise=self.boss_stage_rise,
             )
             if route_layout and len(route_layout["defeated_bosses"]) == self.defeated_count:
                 self.defeated_bosses = route_layout["defeated_bosses"]
@@ -389,7 +423,23 @@ class BossPage:
         start_x = 350
         start_y = SCREEN_HEIGHT - 400
 
-        if self.defeated_count > 0 and self.last_defeated_rect:
+        if self.level_number == 5 and self.bosses_required >= 4:
+            positions = build_boss_stage_positions(
+                self.defeated_count,
+                len(self.bosses),
+                self.boss_vertical_spacing,
+                self.boss_stage_rise,
+            )
+            for cx, cy in positions:
+                self.boss_rects.append(pygame.Rect(cx - 50, cy - 50, 100, 100))
+
+            if self.defeated_count > 0 and self.last_defeated_rect:
+                self.fixed_line_start_x = self.last_defeated_rect.centerx
+                self.fixed_line_start_y = self.last_defeated_rect.centery
+            else:
+                self.fixed_line_start_x = 350 + 50 - 165
+                self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132
+        elif self.defeated_count > 0 and self.last_defeated_rect:
             anchor_cx, anchor_cy = self.last_defeated_rect.centerx, self.last_defeated_rect.centery
             positions = build_next_boss_positions(
                 (anchor_cx, anchor_cy),

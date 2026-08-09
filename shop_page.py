@@ -50,6 +50,11 @@ SPECIAL_ASSETS = {
     "disclosure": ("Disclousure", os.path.join("Shop", "Disclousure.png")),
     "compounding": ("Compounding", os.path.join("Shop", "Compouding.png")),
     "replication": ("Репликация", os.path.join("Shop", "Replication.png")),
+    "screening": ("Скрининг", os.path.join("Shop", "Screening.png")),
+    "capital_preservation": (
+        "Сохранение капитала",
+        os.path.join("Shop", "Capital Preservation.png"),
+    ),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -68,10 +73,12 @@ SPECIAL_DESCRIPTIONS = {
     "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 50%.",
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
     "diversification": "Увеличивает количество карт, предлагаемых в каждом следующем магазине, с одной до двух.",
-    "expansion": "Добавляет ещё одно предложение в каждый следующий магазин. Складывается с наградой Пибоди.",
+    "expansion": "Добавляет ещё одно предложение в каждый следующий магазин.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
     "compounding": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
     "replication": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
+    "screening": "Показывает пять случайных доступных предложений. Одно из них можно выбрать бесплатно.",
+    "capital_preservation": "После поражения сохраняет все золотые карты и переносит их в следующий забег.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
@@ -160,6 +167,9 @@ CARD_DESCRIPTIONS.update(
         413: "Удваивает вероятность падения акций, которыми игрок не владеет.",
         414: "Усиливает числовые процентные эффекты карт на 15 процентных пунктов, сохраняя полезное направление эффекта.",
         415: "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
+        416: "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
+        417: "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",
+        418: "Перед началом раунда позволяет выбрать 3 карты, которые гарантированно попадут в стартовую руку.",
     }
 )
 CARD_NAMES.update(
@@ -173,6 +183,9 @@ CARD_NAMES.update(
         413: "Shakeout",
         414: "Catalyst",
         415: "Surge",
+        416: "Sideway",
+        417: "Positioning",
+        418: "Positioning+",
     }
 )
 
@@ -504,6 +517,18 @@ class ShopPage:
     def _sync_balance(self):
         self.napoleondors = float(game_state.napoleondors or 0)
 
+    def _activate_free_special_offer(self, special_id):
+        temporary_index = len(self.offers)
+        self.offers.append(
+            {"kind": "special", "special_id": special_id, "cost": 0}
+        )
+        try:
+            self._buy_offer(temporary_index)
+            return temporary_index in self.sold_offer_indexes
+        finally:
+            self.sold_offer_indexes.discard(temporary_index)
+            self.offers.pop()
+
     def _buy_offer(self, index):
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
@@ -745,6 +770,42 @@ class ShopPage:
             self.message = "Серебряная карта добавлена"
             return
 
+        if special_id == "screening":
+            choices = game_state.build_screening_offer_pool(
+                self.level_number,
+                offer_count=5,
+            )
+            if len(choices) < 5:
+                self.sold_offer_indexes.add(index)
+                self.message = "Недостаточно доступных предложений"
+                return
+            selected_offer = ScreeningOfferPage(
+                self.screen,
+                self.font_path,
+                self.level_number,
+                choices,
+            ).run()
+            if selected_offer is None:
+                self.message = ""
+                return
+            if not self._activate_free_special_offer(selected_offer):
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            return
+
+        if special_id == "capital_preservation":
+            if not game_state.buy_capital_preservation():
+                self.sold_offer_indexes.add(index)
+                self.message = "Сохранение капитала уже куплено"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Золотые карты защищены"
+            return
+
         if special_id == "loan":
             if not game_state.buy_loan(self.level_number):
                 self.sold_offer_indexes.add(index)
@@ -847,6 +908,176 @@ class ShopPage:
                     offer_index = self._offer_at(event.pos)
                     if offer_index is not None:
                         self._buy_offer(offer_index)
+
+            self.draw()
+            self.clock.tick(FPS)
+
+
+class ScreeningOfferPage(ShopPage):
+    """Five-offer choice screen opened after buying Screening."""
+
+    def __init__(self, screen, font_path, level_number, special_ids):
+        self.screen = screen
+        self.clock = pygame.time.Clock()
+        self.font_path = font_path
+        self.level_number = int(level_number or 1)
+        self.offers = [
+            {
+                "kind": "special",
+                "special_id": special_id,
+                "cost": 0,
+            }
+            for special_id in list(special_ids or [])[:5]
+        ]
+        self.selected_index = None
+        self.offer_image_cache = {}
+        self._offer_label_surface_cache = {}
+        self.offer_image_box = (176, 296)
+        self.card_offer_size = GAMEPLAY_CARD_SIZE
+
+        assets = load_round_page_static_assets()
+        self.round_background = assets["background"]
+        self.round_koordinates = assets["koordinates"]
+        self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
+        self.background = self._load_image(
+            os.path.join("RoundPage", "SilverBlack.png"),
+            PANEL_SIZE,
+        )
+        self.title_font = pygame.font.Font(font_path, 58)
+        self.small_font = pygame.font.Font(font_path, 27)
+        self.button_font = pygame.font.Font(font_path, 34)
+
+        width = 176
+        gap = 34
+        total_width = len(self.offers) * width + max(0, len(self.offers) - 1) * gap
+        start_x = self.panel_rect.centerx - total_width // 2
+        y = self.panel_rect.y + 235
+        self.offer_rects = [
+            pygame.Rect(start_x + index * (width + gap), y, width, 380)
+            for index in range(len(self.offers))
+        ]
+        self.confirm_rect = pygame.Rect(0, 0, 230, 70)
+        self.confirm_rect.center = (
+            self.panel_rect.centerx - 135,
+            self.panel_rect.bottom - 90,
+        )
+        self.back_rect = pygame.Rect(0, 0, 230, 70)
+        self.back_rect.center = (
+            self.panel_rect.centerx + 135,
+            self.panel_rect.bottom - 90,
+        )
+
+    def _draw_background(self):
+        if self.round_background:
+            self.screen.blit(self.round_background, (0, 0))
+        else:
+            self.screen.fill((235, 220, 190))
+        if self.round_koordinates:
+            self.screen.blit(self.round_koordinates, (0, 0))
+        if self.background:
+            self.screen.blit(self.background, self.panel_rect.topleft)
+        else:
+            pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
+            pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
+
+    def _draw_button(self, rect, label, enabled=True):
+        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
+        if not enabled:
+            color = (218, 210, 194)
+        pygame.draw.rect(self.screen, color, rect, border_radius=4)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
+        text_color = PAPER_COLOR if enabled else (145, 138, 130)
+        self._draw_centered_text(label, self.button_font, rect.center, text_color)
+
+    def _draw_choice(self, index, offer, rect):
+        image = self._offer_image(offer)
+        image_rect = image.get_rect() if image else pygame.Rect(0, 0, *self.offer_image_box)
+        image_rect.center = (rect.centerx, rect.y + 148)
+        if image:
+            self.screen.blit(image, image_rect.topleft)
+        label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
+        self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
+        self._draw_centered_text("Бесплатно", self.small_font, (rect.centerx, rect.y + 360))
+        if index == self.selected_index:
+            pygame.draw.rect(
+                self.screen,
+                (184, 134, 11),
+                image_rect.inflate(10, 10),
+                4,
+                border_radius=4,
+            )
+
+    def _handle_mouse_down(self, position):
+        if self.back_rect.collidepoint(position):
+            return "back"
+        if self.confirm_rect.collidepoint(position):
+            if self.selected_index is not None:
+                return self.offers[self.selected_index]["special_id"]
+            return None
+        selected_index = self._offer_at(position)
+        if selected_index is not None:
+            self.selected_index = selected_index
+        return None
+
+    def draw(self):
+        self._draw_background()
+        self._draw_centered_text(
+            "Скрининг",
+            self.title_font,
+            (self.panel_rect.centerx, self.panel_rect.y + 100),
+        )
+        self._draw_centered_text(
+            "Выберите одно бесплатное предложение",
+            self.small_font,
+            (self.panel_rect.centerx, self.panel_rect.y + 165),
+        )
+        for index, offer in enumerate(self.offers):
+            self._draw_choice(index, offer, self.offer_rects[index])
+
+        hover_index = self._offer_at(pygame.mouse.get_pos())
+        description_index = hover_index if hover_index is not None else self.selected_index
+        if description_index is not None:
+            description = self._offer_description(self.offers[description_index])
+            lines = wrap_text(description, self.small_font, 1080, color=PAPER_COLOR)
+            line_height = self.small_font.get_linesize()
+            center_y = self.panel_rect.bottom - 185
+            start_y = center_y - ((len(lines) - 1) * line_height) // 2
+            for line_index, line in enumerate(lines):
+                self._draw_centered_text(
+                    line,
+                    self.small_font,
+                    (self.panel_rect.centerx, start_y + line_index * line_height),
+                )
+
+        self._draw_button(
+            self.confirm_rect,
+            "Выбрать",
+            enabled=self.selected_index is not None,
+        )
+        self._draw_button(self.back_rect, "Назад")
+        pygame.display.flip()
+
+    def run(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                    if (
+                        event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
+                        and self.selected_index is not None
+                    ):
+                        return self.offers[self.selected_index]["special_id"]
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    result = self._handle_mouse_down(event.pos)
+                    if result == "back":
+                        return None
+                    if result is not None:
+                        return result
 
             self.draw()
             self.clock.tick(FPS)

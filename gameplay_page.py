@@ -107,6 +107,8 @@ from shared_utils import _clamp_dt_seconds, move_towards, wrap_text
 SCREEN_WIDTH = 1680
 SCREEN_HEIGHT = 1050
 FPS = 60
+SPOOFING_REMINDER_DURATION_MS = 2200
+SPOOFING_REMINDER_FRAME_MS = 45
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GOLD = (255, 215, 0)
@@ -115,7 +117,7 @@ PAPER_COLOR = (83, 76, 70)
 DISCLOSURE_CARD_TOOLTIPS = {
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 1 процентный пункт.",
+        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта.",
     ),
     407: (
         "Rebate",
@@ -149,6 +151,7 @@ class GameplayPage:
         active_black_cards=None,
         active_gold_cards=None,
         active_lifecycle_card_order=None,
+        positioning_start_cards=None,
         insurance_goal_debt=0,
         rounds_required=None,
     ):
@@ -175,6 +178,7 @@ class GameplayPage:
         self.active_black_cards = list(active_black_cards or [])
         self.active_gold_cards = list(active_gold_cards or [])
         self.active_lifecycle_card_order = self._normalize_active_lifecycle_card_order(active_lifecycle_card_order)
+        self.positioning_start_cards = list(positioning_start_cards or [])
         try:
             self.insurance_goal_debt = max(0, int(insurance_goal_debt or 0))
         except (TypeError, ValueError):
@@ -272,6 +276,7 @@ class GameplayPage:
         self.stock_price_turn_results = []
         self.current_price_animation = None  # Current animation: {'market': 0-2, 'type': 'unchanged'|'rise', 'frame_idx': int, 'last_update': ms}
         self.basket_trading_applied_this_resolution = False
+        self.sideway_applied_this_resolution = False
         self.c_price_fell_this_resolution = False
         self.price_animation_speed = 12  # frames per second (increased by 30% from 9 to 12, approximately 83ms per frame)
         self.price_animation_interval = 1000 // self.price_animation_speed  # ms per frame
@@ -285,6 +290,7 @@ class GameplayPage:
 
         self.bundle_image = gameplay_assets["bundle_image"]
         self.dollar_image = gameplay_assets["dollar_image"]
+        self.napoleondor_image = gameplay_assets["napoleondor_image"]
 
         # Initialize quantity variables
         self.Aquantity = 2
@@ -444,6 +450,7 @@ class GameplayPage:
             temporary_reward_cards_by_level=game_state.round_reward_cards,
             guaranteed_cards_by_level=game_state.guaranteed_start_hand_cards_by_level,
             investment_card_bonuses=game_state.investment_card_bonuses,
+            round_guaranteed_cards=self.positioning_start_cards,
         )
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
@@ -484,6 +491,8 @@ class GameplayPage:
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
+        self.lifecycle_card_shake_animations = {}
+        self.spoofing_reminder_days_started = set()
         self.market_clear_animations = []
         self.market_clear_animation_duration = 520
         
@@ -526,6 +535,7 @@ class GameplayPage:
         
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
+        self.last_earned_napoleondors = 0
         self.long_payout_amount = 0
         self.golden_stocks_reward_card = None
         self.random_boss_reward_text = None
@@ -1517,6 +1527,7 @@ class GameplayPage:
             "win_lose_state": self.win_lose_state,
             "win_lose_y": self.win_lose_y,
             "last_earned_cards": list(self.last_earned_cards or []),
+            "last_earned_napoleondors": float(self.last_earned_napoleondors or 0),
             "long_payout_amount": int(self.long_payout_amount or 0),
             "golden_stocks_reward_card": self.golden_stocks_reward_card,
             "random_boss_reward_text": self.random_boss_reward_text,
@@ -1620,6 +1631,7 @@ class GameplayPage:
         if self.win_lose_state == "win" and self.is_final_boss:
             self.reward_window_text = self._get_final_boss_reward_text()
         self.last_earned_cards = list(state.get("last_earned_cards") or [])
+        self.last_earned_napoleondors = float(state.get("last_earned_napoleondors", 0) or 0)
         self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
         self.golden_stocks_reward_card = state.get("golden_stocks_reward_card")
         self.random_boss_reward_text = state.get("random_boss_reward_text")
@@ -1663,12 +1675,15 @@ class GameplayPage:
         self.stock_price_turn_results = []
         self.current_price_animation = None
         self.basket_trading_applied_this_resolution = False
+        self.sideway_applied_this_resolution = False
         self.c_price_fell_this_resolution = False
         self.price_card_queue = []
         self.current_card_processing = None
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
+        self.lifecycle_card_shake_animations = {}
+        self.spoofing_reminder_days_started = set()
         self.final_auto_liquidation_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
@@ -1676,6 +1691,7 @@ class GameplayPage:
         self.hand_draw_anim = []
         self.market_clear_animations = []
         self._reset_drag_state()
+        self._start_spoofing_turn_reminder()
 
     def _save_active_game(self):
         if not self.profile_slot or self.test_mode:
@@ -1723,15 +1739,26 @@ class GameplayPage:
     def _is_gain_drop_play_limit_reached(self, card_id=None):
         if not getattr(self, "boss_limit_red_gain_drop_per_turn", False):
             return False
-        if card_id is not None and not game_state.is_gain_drop_card(card_id):
+        if card_id is not None and not self._is_stephenson_market_card(card_id):
             return False
         for market in (0, 1, 2):
             for slot, existing_card_id in self.market_cards[market].items():
                 if existing_card_id is None or self.market_cards_locked[market].get(slot):
                     continue
-                if game_state.is_gain_drop_card(existing_card_id):
+                if self._is_stephenson_market_card(existing_card_id):
                     return True
         return False
+
+    @staticmethod
+    def _is_stephenson_market_card(card_id):
+        try:
+            normalized_card_id = int(card_id)
+        except (TypeError, ValueError):
+            return False
+        return (
+            game_state.is_gain_drop_card(normalized_card_id)
+            or normalized_card_id in REGULATION_CARD_IDS
+        )
 
     def _can_play_dragged_hand_card_on_market(self, card_id):
         return not self._is_gain_drop_play_limit_reached(card_id)
@@ -2359,6 +2386,8 @@ class GameplayPage:
         self.long_payout_amount = 0
         self.golden_stocks_reward_card = None
         if next_state == "win":
+            game_state.ensure_napoleondor_level(self.level_number)
+            napoleondors_before_rewards = float(game_state.napoleondors or 0)
             if self.is_final_boss:
                 self.reward_window_text = self._get_final_boss_reward_text()
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
@@ -2378,6 +2407,13 @@ class GameplayPage:
             self._record_bear_victory_progress()
             self.long_payout_amount = self._apply_long_investment_payout()
             self.golden_stocks_reward_card = self._apply_golden_stocks_reward()
+            immediate_reward = max(
+                0.0,
+                float(game_state.napoleondors or 0) - napoleondors_before_rewards,
+            )
+            self.last_earned_napoleondors = (
+                immediate_reward + self._get_pending_victory_napoleondor_reward()
+            )
             game_state.advance_bailout_round()
             game_state.advance_disclosure_round()
         else:
@@ -2862,6 +2898,35 @@ class GameplayPage:
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
 
+    def _get_pending_victory_napoleondor_reward(self):
+        if self.is_boss_fight:
+            base_reward = game_state.get_boss_victory_napoleondor_reward(self.level_number)
+        else:
+            boss_number = get_boss_number_from_filename(self.boss_filename)
+            base_reward = game_state.get_round_victory_napoleondor_reward(
+                self.level_number,
+                self.difficulty,
+                boss_number,
+            )
+        if base_reward <= 0:
+            return 0
+        return game_state.get_victory_napoleondor_reward(base_reward)
+
+    def _draw_win_napoleondor_reward(self, amount, font, center_x, center_y):
+        amount_value = float(amount or 0)
+        amount_text = str(int(amount_value)) if amount_value.is_integer() else f"{amount_value:g}"
+        text_surface = font.render(amount_text, True, PAPER_COLOR)
+        icon = self.napoleondor_image
+        icon_width = icon.get_width() if icon else 0
+        spacing = 10 if icon else 0
+        total_width = icon_width + spacing + text_surface.get_width()
+        start_x = center_x - total_width // 2
+        if icon:
+            icon_rect = icon.get_rect(midleft=(start_x, center_y))
+            self.screen.blit(icon, icon_rect.topleft)
+            start_x = icon_rect.right + spacing
+        self.screen.blit(text_surface, text_surface.get_rect(midleft=(start_x, center_y)))
+
     def _apply_long_investment_payout(self):
         payout = game_state.advance_long_investments(self.level_number)
         if payout <= 0:
@@ -3048,6 +3113,68 @@ class GameplayPage:
         )
         return forced_markets
 
+    def _start_spoofing_turn_reminder(self, day=None, now=None):
+        try:
+            current_day = int(self.Day if day is None else day)
+        except (TypeError, ValueError):
+            return []
+        if current_day not in (4, 8):
+            return []
+        if current_day in self.spoofing_reminder_days_started:
+            return []
+
+        target_ids = {411, 412} if current_day == 4 else {412}
+        if now is None:
+            now = pygame.time.get_ticks()
+        started_slots = []
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                normalized_id = int(card_id)
+            except (TypeError, ValueError):
+                continue
+            if normalized_id not in target_ids:
+                continue
+            self.lifecycle_card_shake_animations[slot] = {
+                "start_time": int(now),
+                "duration": SPOOFING_REMINDER_DURATION_MS,
+            }
+            started_slots.append(slot)
+
+        if started_slots:
+            self.spoofing_reminder_days_started.add(current_day)
+            print(
+                "Spoofing reminder started: "
+                f"day={current_day}, lifecycle_slots={started_slots}"
+            )
+        return started_slots
+
+    def _get_lifecycle_card_shake_offset(self, slot, now=None):
+        animation = self.lifecycle_card_shake_animations.get(slot)
+        if not animation:
+            return 0, 0
+        if now is None:
+            now = pygame.time.get_ticks()
+        elapsed = int(now) - int(animation.get("start_time", now))
+        duration = max(1, int(animation.get("duration", SPOOFING_REMINDER_DURATION_MS)))
+        if elapsed < 0 or elapsed >= duration:
+            return 0, 0
+        pattern = ((-6, 0), (5, -2), (-4, 1), (6, -1), (-5, 2), (3, 0))
+        frame = (elapsed // SPOOFING_REMINDER_FRAME_MS) % len(pattern)
+        return pattern[frame]
+
+    def update_lifecycle_card_shake_animations(self, now=None):
+        if now is None:
+            now = pygame.time.get_ticks()
+        expired_slots = []
+        for slot, animation in list(self.lifecycle_card_shake_animations.items()):
+            elapsed = int(now) - int(animation.get("start_time", now))
+            duration = max(1, int(animation.get("duration", SPOOFING_REMINDER_DURATION_MS)))
+            if elapsed >= duration:
+                expired_slots.append(slot)
+        for slot in expired_slots:
+            self.lifecycle_card_shake_animations.pop(slot, None)
+        return expired_slots
+
     def _apply_momentum_to_random_movements(self, animation_queue, forced_rise_markets=None):
         """Gold card 409: repeat natural rises/falls, never card-driven price changes."""
         momentum_count = self._count_active_silver_card(409)
@@ -3156,6 +3283,7 @@ class GameplayPage:
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
         self.basket_trading_applied_this_resolution = False
+        self.sideway_applied_this_resolution = False
         self.c_price_fell_this_resolution = False
         animation_queue = self.update_stock_prices()
         self.stock_price_turn_results = list(animation_queue or [])
@@ -3172,6 +3300,7 @@ class GameplayPage:
     def _finish_price_animations(self):
         """Finish regular market movement and start Gain/Drop card processing."""
         self.current_price_animation = None
+        self._apply_sideway_reward_if_needed()
         if self._apply_basket_trading_if_needed():
             self._start_next_price_animation()
             return
@@ -3179,6 +3308,36 @@ class GameplayPage:
 
         if self.current_card_processing is None and not self.price_card_queue:
             self._begin_effect_finalize_or_wait()
+
+    def _apply_sideway_reward_if_needed(self):
+        if getattr(self, "sideway_applied_this_resolution", False):
+            return False
+        if not self._has_active_silver_card(416):
+            return False
+
+        base_results = {}
+        for movement in list(getattr(self, "stock_price_turn_results", []) or []):
+            if movement.get("source") is not None:
+                continue
+            market = movement.get("market")
+            if market in (0, 1, 2) and market not in base_results:
+                base_results[market] = movement.get("type")
+        if base_results != {0: "unchanged", 1: "unchanged", 2: "unchanged"}:
+            return False
+
+        self.sideway_applied_this_resolution = True
+        game_state.add_napoleondors(self.level_number, 5)
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                is_sideway = int(card_id) == 416
+            except (TypeError, ValueError):
+                is_sideway = False
+            if is_sideway:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+        if self.profile_slot is not None and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        print("Active card 416 Sideway awarded 5 napoleondors for three Flat market results.")
+        return True
 
     def _apply_basket_trading_if_needed(self):
         if getattr(self, "basket_trading_applied_this_resolution", False):
@@ -3255,6 +3414,7 @@ class GameplayPage:
                 self.Day += 1
                 self._check_win_lose()
                 if self.win_lose_state is None:
+                    self._start_spoofing_turn_reminder()
                     self._roll_shareholder_market_shutdown()
             else:
                 print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
@@ -3274,6 +3434,7 @@ class GameplayPage:
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
         self.basket_trading_applied_this_resolution = False
+        self.sideway_applied_this_resolution = False
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
 
@@ -3436,10 +3597,10 @@ class GameplayPage:
                     self.CPrice = prices["CPrice"]
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                     self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
-                
-                # Start jump animation for the card
-                self._start_card_jump_animation(self.card_jump_animations[market], slot)
-                
+
+                    # Only cards that actually change a price animate here.
+                    self._start_card_jump_animation(self.card_jump_animations[market], slot)
+
                 # Decrement CardTurns
                 self.market_card_turns[market][slot] = turns_remaining - 1
         
@@ -3613,7 +3774,7 @@ class GameplayPage:
                 self._start_card_jump_animation(self.side_card_jump_animations, slot)
 
     def _apply_extended_gain_drop_effect_if_needed(self):
-        """Card 112: extend all Gain/Drop durations, including cards already in play."""
+        """Card 112: extend all Gain/Drop/Regulation durations, including cards in play."""
         red_rollover_count = self._count_fresh_side_card(112)
         if red_rollover_count <= 0:
             return False
@@ -3621,19 +3782,20 @@ class GameplayPage:
         bonus_per_red_rollover = 2 if self._has_active_silver_card(208) else 1
         bonus = red_rollover_count * bonus_per_red_rollover
 
-        for card_id in PRICE_CARD_IDS:
+        rollover_card_ids = PRICE_CARD_IDS | REGULATION_CARD_IDS
+        for card_id in rollover_card_ids:
             if card_id in self.card_turns:
                 self.card_turns[card_id] += bonus
 
         for market in (0, 1, 2):
             for slot, card_id in self.market_cards[market].items():
-                if card_id in PRICE_CARD_IDS and card_id in self.card_turns:
+                if card_id in rollover_card_ids and card_id in self.card_turns:
                     current = self.market_card_turns[market].get(slot, self.card_turns[card_id] - bonus)
                     self.market_card_turns[market][slot] = current + bonus
 
         self._start_fresh_side_card_jump_animation_for_card(112)
         source = "Card 112 Rollover"
-        print(f"{source} extended Gain/Drop durations by {bonus}.")
+        print(f"{source} extended Gain/Drop/Regulation durations by {bonus}.")
         return True
 
     def _apply_forward_trading_effect_if_needed(self):
@@ -4871,6 +5033,9 @@ class GameplayPage:
                             jump_anim = self.lifecycle_card_jump_animations.get(slot)
                             if jump_anim:
                                 card_y += int(jump_anim["offset_y"])
+                            shake_x, shake_y = self._get_lifecycle_card_shake_offset(slot)
+                            card_x += shake_x
+                            card_y += shake_y
                             self.screen.blit(img, (card_x, card_y))
                             draw_bear_modifier_text(
                                 self.screen,
@@ -5084,6 +5249,7 @@ class GameplayPage:
                     self.ok_button_rect,
                     len(self.last_earned_cards),
                     max_font_size=36,
+                    extra_text_lines=1 if self.last_earned_napoleondors > 0 else 0,
                 )
 
                 for i, line in enumerate(layout["lines"]):
@@ -5092,6 +5258,19 @@ class GameplayPage:
                     self.screen.blit(
                         text_surface,
                         (text_x, layout["text_top"] + i * layout["line_height"]),
+                    )
+
+                if self.last_earned_napoleondors > 0:
+                    coin_center_y = (
+                        layout["text_top"]
+                        + len(layout["lines"]) * layout["line_height"]
+                        + layout["line_height"] // 2
+                    )
+                    self._draw_win_napoleondor_reward(
+                        self.last_earned_napoleondors,
+                        layout["font"],
+                        self.win_lose_x + winlose_width // 2,
+                        coin_center_y,
                     )
                 
                 if self.last_earned_cards:
@@ -5161,6 +5340,7 @@ class GameplayPage:
             # Update card jump animations
             self.update_card_jump_animations()
             self.update_side_card_jump_animations()
+            self.update_lifecycle_card_shake_animations()
             self.update_market_clear_animations()
             self.update_final_auto_liquidation_animation()
             

@@ -136,6 +136,16 @@ def load_gameplay_core_assets(screen_width, screen_height):
         os.path.join("GameplayPage", "Dollar.png"),
         "WARNING: Dollar.png not found:",
     )
+    napoleondor_path = os.path.join("Shop", "Napoleondor.png")
+    if os.path.exists(napoleondor_path):
+        napoleondor_original = pygame.image.load(napoleondor_path).convert_alpha()
+        assets["napoleondor_image"] = pygame.transform.smoothscale(
+            napoleondor_original,
+            (34, 34),
+        ).convert_alpha()
+    else:
+        print("WARNING: Napoleondor.png not found:", napoleondor_path)
+        assets["napoleondor_image"] = None
 
     _gameplay_core_assets_cache[cache_key] = assets
     return dict(assets)

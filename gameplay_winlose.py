@@ -28,6 +28,7 @@ def build_win_result_layout(
     card_count,
     max_font_size=36,
     min_font_size=22,
+    extra_text_lines=0,
 ):
     """Fit result text and reward cards inside the newspaper window."""
     text_top = window_rect.top + 75
@@ -46,7 +47,7 @@ def build_win_result_layout(
             if text:
                 lines.extend(wrap_text(str(text), font, text_width))
         line_height = font.get_height() + 5
-        text_bottom = text_top + len(lines) * line_height
+        text_bottom = text_top + (len(lines) + max(0, int(extra_text_lines or 0))) * line_height
 
         card_width = 0
         card_height = 0
@@ -85,7 +86,7 @@ def build_win_result_layout(
             if text:
                 lines.extend(wrap_text(str(text), font, text_width))
         line_height = font.get_height() + 5
-        text_bottom = text_top + len(lines) * line_height
+        text_bottom = text_top + (len(lines) + max(0, int(extra_text_lines or 0))) * line_height
         horizontal_width = (
             card_area_right
             - card_area_left

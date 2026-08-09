@@ -93,6 +93,7 @@ class RoundPage:
         self.button_e = round_page_assets["button_e"]
         self.button_m = round_page_assets["button_m"]
         self.button_h = round_page_assets["button_h"]
+        self.napoleondor_image = round_page_assets["napoleondor_image"]
 
         self.rounds_config = self._load_rounds_config()
         level_cfg = self.rounds_config.get(self.level_number, {})
@@ -439,6 +440,32 @@ class RoundPage:
             self.screen.blit(surface, (card_x, card_y))
             card_x += width + spacing
 
+    def _get_popup_napoleondor_reward(self):
+        if self.popup_button == "boss":
+            base_reward = game_state.get_boss_victory_napoleondor_reward(self.level_number)
+        elif self.popup_button in ("e", "m", "h"):
+            base_reward = game_state.get_round_victory_napoleondor_reward(
+                self.level_number,
+                self.popup_button,
+                self.boss_number,
+            )
+        else:
+            return 0
+        if base_reward <= 0:
+            return 0
+        return game_state.get_victory_napoleondor_reward(base_reward)
+
+    def _draw_popup_napoleondor_reward(self, amount, x, y):
+        amount_value = float(amount or 0)
+        amount_text = str(int(amount_value)) if amount_value.is_integer() else f"{amount_value:g}"
+        coin_x = x
+        if self.napoleondor_image:
+            coin_rect = self.napoleondor_image.get_rect(midleft=(x, y + self.popup_font.get_height() // 2))
+            self.screen.blit(self.napoleondor_image, coin_rect.topleft)
+            coin_x = coin_rect.right + 8
+        amount_surface = self.popup_font.render(amount_text, True, PAPER_COLOR)
+        self.screen.blit(amount_surface, (coin_x, y))
+
     def _load_boss_icon_if_needed(self):
         self._refresh_button_rects()
         level_rounds = self.rounds_required
@@ -762,6 +789,13 @@ class RoundPage:
                     reward_text_y = text_start_y + len(lines) * line_height
                     reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
                     self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
+                    napoleondor_reward = self._get_popup_napoleondor_reward()
+                    if napoleondor_reward > 0:
+                        self._draw_popup_napoleondor_reward(
+                            napoleondor_reward,
+                            text_start_x + reward_text_surface.get_width() + 12,
+                            reward_text_y,
+                        )
                     if self.boss_text:
                         boss_reward_lines = wrap_text(self.boss_text, self.popup_font, popup_text_width)
                         reward_text_y += line_height
@@ -787,6 +821,14 @@ class RoundPage:
                     reward_text_y = text_start_y + len(lines) * line_height
                     reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
                     self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
+
+                    napoleondor_reward = self._get_popup_napoleondor_reward()
+                    if napoleondor_reward > 0:
+                        self._draw_popup_napoleondor_reward(
+                            napoleondor_reward,
+                            text_start_x + reward_text_surface.get_width() + 12,
+                            reward_text_y,
+                        )
 
                     if reward_data:
                         additional_text = reward_data.get("text")
@@ -826,7 +868,12 @@ class RoundPage:
                                 additional_text_lines_list = wrap_text(additional_text_value, self.popup_font, popup_text_width)
                                 additional_text_lines_count = len(additional_text_lines_list)
                             card_spacing = 5
-                            card_y = reward_text_y + line_height + (additional_text_lines_count * line_height) + card_spacing
+                            card_y = (
+                                reward_text_y
+                                + line_height
+                                + (additional_text_lines_count * line_height)
+                                + card_spacing
+                            )
                             self._draw_reward_preview_cards(reward_data, card_y)
         else:
             if self.popup_button is not None:

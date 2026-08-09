@@ -616,7 +616,7 @@ class DisclosureGameplayTests(unittest.TestCase):
             rebate = page._get_disclosure_card_tooltip_content(407)
             uptrend = page._get_disclosure_card_tooltip_content(410)
 
-        self.assertIn("9%", golden[1])
+            self.assertIn("10%", golden[1])
         self.assertIn("144%", rebate[1])
         self.assertIn("+12%", uptrend[1])
 
