@@ -190,6 +190,10 @@ class GameplayPage:
         self.surge_turns_without_trade = 0
         self.surge_traded_this_turn = False
         self.surge_triggered = False
+        self.continuation_growth_streaks = [0, 0, 0]
+        self.continuation_held_markets_this_turn = set()
+        self.continuation_applied_this_resolution = False
+        self.continuation_animation_phase = False
         self.active_silver_cards_spent = False
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
@@ -1540,6 +1544,9 @@ class GameplayPage:
             "surge_turns_without_trade": int(self.surge_turns_without_trade or 0),
             "surge_traded_this_turn": bool(self.surge_traded_this_turn),
             "surge_triggered": bool(self.surge_triggered),
+            "continuation_growth_streaks": list(
+                (getattr(self, "continuation_growth_streaks", None) or [0, 0, 0])[:3]
+            ),
             "hedger_used_this_round": bool(self.hedger_used_this_round),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
@@ -1648,6 +1655,15 @@ class GameplayPage:
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
         game_state.set_active_gold_cards(self.active_gold_cards)
+        raw_continuation_streaks = list(state.get("continuation_growth_streaks") or [0, 0, 0])
+        self.continuation_growth_streaks = []
+        for value in (raw_continuation_streaks + [0, 0, 0])[:3]:
+            try:
+                self.continuation_growth_streaks.append(max(0, int(value)))
+            except (TypeError, ValueError):
+                self.continuation_growth_streaks.append(0)
+        if not self._has_active_silver_card(419):
+            self.continuation_growth_streaks = [0, 0, 0]
         if self._count_active_silver_card(405) <= 0:
             self.insider_c_growth_turns_remaining = 0
         self.active_silver_cards_spent = bool(state.get("active_silver_cards_spent", self.active_silver_cards_spent))
@@ -1676,6 +1692,9 @@ class GameplayPage:
         self.current_price_animation = None
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
+        self.continuation_held_markets_this_turn = set()
+        self.continuation_applied_this_resolution = False
+        self.continuation_animation_phase = False
         self.c_price_fell_this_resolution = False
         self.price_card_queue = []
         self.current_card_processing = None
@@ -1917,6 +1936,7 @@ class GameplayPage:
         if self._is_arrow_disabled(frame_idx, arrow_type):
             return False
 
+        previous_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
         trade_result = apply_arrow_trade(
             self.Money,
             {
@@ -1941,6 +1961,10 @@ class GameplayPage:
         self.Cquantity = quantities["Cquantity"]
 
         if trade_result["changed"]:
+            current_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+            for market, (previous, current) in enumerate(zip(previous_quantities, current_quantities)):
+                if current < previous:
+                    self._reset_continuation_growth_streak(market)
             self.surge_turns_without_trade = 0
             self.surge_traded_this_turn = True
             self._check_win_lose()
@@ -3036,6 +3060,7 @@ class GameplayPage:
             animation_queue,
             momentum_blocked_markets,
         )
+        animation_queue.extend(self._build_advance_movements())
         if self._advance_surge_counter():
             animation_queue.append(
                 {
@@ -3209,6 +3234,48 @@ class GameplayPage:
         )
         return True
 
+    def _build_advance_movements(self):
+        """Gold card 420: possibly double every market in which the player owns shares."""
+        advance_slots = []
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                is_advance = int(card_id) == 420
+            except (TypeError, ValueError):
+                is_advance = False
+            if is_advance:
+                advance_slots.append(slot)
+        if not advance_slots:
+            return []
+
+        quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+        owned_markets = tuple(
+            market for market, quantity in enumerate(quantities) if int(quantity or 0) > 0
+        )
+        if not owned_markets:
+            return []
+
+        chance = min(100, 20 + self._get_percentage_amplifier_bonus())
+        movements = []
+        for slot in advance_slots:
+            roll = random.randint(1, 100)
+            if roll > chance:
+                print(f"Gold card 420 Advance missed: roll={roll}, chance={chance}%")
+                continue
+            movements.append(
+                {
+                    "market": owned_markets,
+                    "type": "rise",
+                    "price_change": 0,
+                    "source": "advance",
+                    "card_slot": slot,
+                }
+            )
+            print(
+                f"Gold card 420 Advance triggered: roll={roll}, chance={chance}%, "
+                f"markets={list(owned_markets)}"
+            )
+        return movements
+
     def _start_next_price_animation(self, now=None):
         if now is None:
             now = pygame.time.get_ticks()
@@ -3229,6 +3296,21 @@ class GameplayPage:
                 if is_surge:
                     self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
             print(f"Active card 415 Surge tripled A price: A={self.Aprice}")
+        elif next_anim.get("source") == "advance":
+            advance_slot = next_anim.get("card_slot")
+            if isinstance(advance_slot, int):
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, advance_slot)
+            for market in target_markets:
+                if market == 0:
+                    self.Aprice = max(2, int(self.Aprice or 0) * 2)
+                elif market == 1:
+                    self.BPrice = max(2, int(self.BPrice or 0) * 2)
+                elif market == 2:
+                    self.CPrice = max(2, int(self.CPrice or 0) * 2)
+            print(
+                "Gold card 420 Advance doubled owned stock prices: "
+                f"markets={list(target_markets)}, A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
+            )
         else:
             for market in target_markets:
                 self._apply_price_change(market, next_anim["price_change"])
@@ -3284,7 +3366,13 @@ class GameplayPage:
         self.red_effects_applied_this_resolution = False
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
+        self.continuation_applied_this_resolution = False
+        self.continuation_animation_phase = False
         self.c_price_fell_this_resolution = False
+        quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+        self.continuation_held_markets_this_turn = {
+            market for market, quantity in enumerate(quantities) if quantity > 0
+        }
         animation_queue = self.update_stock_prices()
         self.stock_price_turn_results = list(animation_queue or [])
         self._lock_market_cards()
@@ -3300,6 +3388,10 @@ class GameplayPage:
     def _finish_price_animations(self):
         """Finish regular market movement and start Gain/Drop card processing."""
         self.current_price_animation = None
+        if getattr(self, "continuation_animation_phase", False):
+            self.continuation_animation_phase = False
+            self._begin_effect_finalize_or_wait()
+            return
         self._apply_sideway_reward_if_needed()
         if self._apply_basket_trading_if_needed():
             self._start_next_price_animation()
@@ -3377,6 +3469,86 @@ class GameplayPage:
         )
         return True
 
+    def _normalize_continuation_growth_streaks(self):
+        raw_streaks = list(getattr(self, "continuation_growth_streaks", []) or [])
+        normalized = []
+        for value in (raw_streaks + [0, 0, 0])[:3]:
+            try:
+                normalized.append(max(0, int(value)))
+            except (TypeError, ValueError):
+                normalized.append(0)
+        self.continuation_growth_streaks = normalized
+        return normalized
+
+    def _reset_continuation_growth_streak(self, market):
+        streaks = self._normalize_continuation_growth_streaks()
+        if market in (0, 1, 2):
+            streaks[market] = 0
+
+    def _build_continuation_bonus_movements(self):
+        streaks = self._normalize_continuation_growth_streaks()
+        if not self._has_active_silver_card(419):
+            self.continuation_growth_streaks = [0, 0, 0]
+            return []
+
+        base_results = {}
+        momentum_rise_counts = [0, 0, 0]
+        for movement in list(getattr(self, "stock_price_turn_results", []) or []):
+            market = movement.get("market")
+            if movement.get("source") == "momentum":
+                if market in (0, 1, 2) and movement.get("type") == "rise":
+                    momentum_rise_counts[market] += 1
+                continue
+            if movement.get("source") is None and market in (0, 1, 2) and market not in base_results:
+                base_results[market] = movement.get("type")
+
+        held_markets = set(getattr(self, "continuation_held_markets_this_turn", set()) or set())
+        current_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+        current_prices = (self.Aprice, self.BPrice, self.CPrice)
+        bonus_movements = []
+
+        for market in range(3):
+            if market not in held_markets or current_quantities[market] <= 0:
+                streaks[market] = 0
+                continue
+            if base_results.get(market) != "rise":
+                streaks[market] = 0
+                continue
+
+            previous_streak = streaks[market]
+            growth_count = 1 + momentum_rise_counts[market]
+            streaks[market] += growth_count
+            bonus_count = (
+                max(0, streaks[market] - 1)
+                - max(0, previous_streak - 1)
+            )
+            if bonus_count <= 0:
+                continue
+
+            current_price = max(0, int(current_prices[market] or 0))
+            target_price = max(2, int(round(current_price * (1.2 ** bonus_count))))
+            price_change = target_price - current_price
+            if price_change > 0:
+                bonus_movements.append(
+                    {
+                        "market": market,
+                        "type": "rise",
+                        "price_change": price_change,
+                        "source": "continuation",
+                    }
+                )
+
+        if bonus_movements:
+            for slot, card_id in enumerate(self._active_lifecycle_cards()):
+                try:
+                    is_continuation = int(card_id) == 419
+                except (TypeError, ValueError):
+                    is_continuation = False
+                if is_continuation:
+                    self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+            print(f"Gold card 419 Continuation queued bonuses: {bonus_movements}")
+        return bonus_movements
+
     def _begin_effect_finalize_or_wait(self):
         """Apply red cards after market card animations, then draw cards."""
         if not self.turn_resolution_active:
@@ -3394,6 +3566,16 @@ class GameplayPage:
         if self._has_effect_animations():
             self.effect_finalize_pending = True
             return
+
+        if not getattr(self, "continuation_applied_this_resolution", False):
+            continuation_movements = self._build_continuation_bonus_movements()
+            self.continuation_applied_this_resolution = True
+            if continuation_movements:
+                self.effect_finalize_pending = False
+                self.continuation_animation_phase = True
+                self.price_animation_queue.extend(continuation_movements)
+                self._start_next_price_animation()
+                return
 
         self._finalize_turn_resolution()
 
@@ -3435,6 +3617,8 @@ class GameplayPage:
         self.red_effects_applied_this_resolution = False
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
+        self.continuation_applied_this_resolution = False
+        self.continuation_animation_phase = False
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
 

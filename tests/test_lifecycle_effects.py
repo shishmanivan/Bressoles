@@ -540,6 +540,57 @@ class LifecycleEffectTests(unittest.TestCase):
 
         self.assertFalse(page._advance_surge_counter())
 
+    def test_advance_doubles_owned_markets_and_uses_catalyst_bonus(self):
+        page = self._page(silver=[210], gold=[420])
+        page.Aquantity, page.Bquantity, page.Cquantity = 2, 0, 1
+        page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.typewriter_sound = None
+
+        with mock.patch("gameplay_page.random.randint", return_value=30) as roll:
+            movements = page._build_advance_movements()
+
+        roll.assert_called_once_with(1, 100)
+        self.assertEqual(
+            movements,
+            [
+                {
+                    "market": (0, 2),
+                    "type": "rise",
+                    "price_change": 0,
+                    "source": "advance",
+                    "card_slot": 1,
+                }
+            ],
+        )
+        page.price_animation_queue = movements
+        self.assertTrue(page._start_next_price_animation(now=100))
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (20, 20, 60))
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            1,
+        )
+
+    def test_advance_combines_both_catalysts_and_can_miss(self):
+        page = self._page(silver=[210], gold=[414, 420])
+        page.Aquantity = page.Bquantity = page.Cquantity = 1
+        page.lifecycle_card_jump_animations = {}
+
+        with mock.patch("gameplay_page.random.randint", return_value=46) as roll:
+            self.assertEqual(page._build_advance_movements(), [])
+
+        roll.assert_called_once_with(1, 100)
+
+    def test_advance_does_not_roll_without_owned_stocks(self):
+        page = self._page(gold=[420])
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+
+        with mock.patch("gameplay_page.random.randint") as roll:
+            self.assertEqual(page._build_advance_movements(), [])
+
+        roll.assert_not_called()
+
     def test_sideway_rewards_all_flat_base_market_results_once(self):
         page = self._page(gold=[416])
         page.stock_price_turn_results = [
@@ -572,6 +623,95 @@ class LifecycleEffectTests(unittest.TestCase):
 
         self.assertFalse(page._apply_sideway_reward_if_needed())
         self.assertEqual(game_state.napoleondors, 0)
+
+    def test_continuation_rewards_second_and_later_consecutive_growth(self):
+        page = self._page(gold=[419])
+        page.Aquantity, page.Bquantity, page.Cquantity = 2, 0, 1
+        page.Aprice, page.BPrice, page.CPrice = 12, 10, 16
+        page.continuation_growth_streaks = [0, 0, 0]
+        page.continuation_held_markets_this_turn = {0, 2}
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 1, "type": "unchanged", "price_change": 0},
+            {"market": 2, "type": "rise", "price_change": 3},
+        ]
+
+        self.assertEqual(page._build_continuation_bonus_movements(), [])
+        self.assertEqual(page.continuation_growth_streaks, [1, 0, 1])
+
+        movements = page._build_continuation_bonus_movements()
+
+        self.assertEqual(
+            movements,
+            [
+                {"market": 0, "type": "rise", "price_change": 2, "source": "continuation"},
+                {"market": 2, "type": "rise", "price_change": 3, "source": "continuation"},
+            ],
+        )
+        self.assertEqual(page.continuation_growth_streaks, [2, 0, 2])
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            0,
+        )
+
+    def test_continuation_counts_momentum_copy_and_resets_interrupted_streaks(self):
+        page = self._page(gold=[419])
+        page.Aquantity = page.Bquantity = page.Cquantity = 1
+        page.Aprice = page.BPrice = page.CPrice = 10
+        page.continuation_growth_streaks = [0, 2, 2]
+        page.continuation_held_markets_this_turn = {0, 1, 2}
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 0, "type": "rise", "price_change": 2, "source": "momentum"},
+            {"market": 1, "type": "unchanged", "price_change": 0},
+            {"market": 2, "type": "fall", "price_change": -2},
+        ]
+
+        self.assertEqual(
+            page._build_continuation_bonus_movements(),
+            [{"market": 0, "type": "rise", "price_change": 2, "source": "continuation"}],
+        )
+        self.assertEqual(page.continuation_growth_streaks, [2, 0, 0])
+
+    def test_continuation_applies_each_momentum_growth_to_an_existing_streak(self):
+        page = self._page(gold=[409, 419])
+        page.Aquantity, page.Bquantity, page.Cquantity = 1, 0, 0
+        page.Aprice = page.BPrice = page.CPrice = 10
+        page.continuation_growth_streaks = [1, 0, 0]
+        page.continuation_held_markets_this_turn = {0}
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 0, "type": "rise", "price_change": 2, "source": "momentum"},
+            {"market": 1, "type": "unchanged", "price_change": 0},
+            {"market": 2, "type": "unchanged", "price_change": 0},
+        ]
+
+        self.assertEqual(
+            page._build_continuation_bonus_movements(),
+            [{"market": 0, "type": "rise", "price_change": 4, "source": "continuation"}],
+        )
+        self.assertEqual(page.continuation_growth_streaks, [3, 0, 0])
+
+    def test_continuation_streak_resets_when_held_shares_are_sold(self):
+        page = self._page(gold=[419])
+        page.Money = 0
+        page.Aquantity, page.Bquantity, page.Cquantity = 2, 1, 0
+        page.Aprice = page.BPrice = page.CPrice = 4
+        page.continuation_growth_streaks = [3, 2, 0]
+        page.surge_turns_without_trade = 2
+        page.surge_traded_this_turn = False
+        page._is_arrow_disabled = mock.Mock(return_value=False)
+        page._blocked_buy_prices = mock.Mock(return_value=set())
+        page._check_win_lose = mock.Mock()
+
+        self.assertTrue(page._apply_arrow_trade(0, 2))
+        self.assertEqual(page.continuation_growth_streaks, [0, 2, 0])
 
     def test_positioning_cards_use_six_card_synergy_limit(self):
         self.assertEqual(get_positioning_selection_limit([417]), 2)
