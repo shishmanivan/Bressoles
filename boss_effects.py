@@ -41,6 +41,8 @@ REWARD_KINDS = {
     "randomsilver": "silver_card",
     "randomsilvercard": "silver_card",
     "randsilver": "silver_card",
+    "arkwrightsilvercards": "arkwright_silver_cards",
+    "arkwrightsilver3": "arkwright_silver_cards",
     "lifecycleslotplus1": "lifecycle_slot_plus1",
     "cardslotplus1": "lifecycle_slot_plus1",
     "randomgoldcard": "gold_card",

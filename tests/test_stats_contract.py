@@ -55,6 +55,17 @@ class StatsContractTests(unittest.TestCase):
         self.assertEqual((boss_row["Босс"], boss_row["Победы"]), ("Роберт Стефенсон", "1"))
         self.assertEqual((position_row["БоссНомер"], position_row["Победы"]), ("3", "1"))
 
+    def test_round_money_stats_are_aggregated(self):
+        game_stats.update_game_stats(4, 10, "Раунд 1", True, "M", earned_money=37)
+        game_stats.update_game_stats(4, 10, "Раунд 1", False, "M", earned_money=13)
+
+        row = game_stats._read_rows()[0]
+
+        self.assertEqual(row["ДеньгиВсего"], "50")
+        self.assertEqual(row["ДеньгиСреднее"], "25")
+        self.assertEqual(row["ДеньгиМаксимум"], "37")
+        self.assertEqual(row["ДеньгиПоследние"], "13")
+
     def test_legacy_generic_boss_name_is_normalized_without_changing_counts(self):
         legacy_row = game_stats._new_stats_row("4", "10", "Босс 10", "Раунд 2", "M")
         legacy_row.update({"Сыграно": "7", "Победы": "5", "Поражения": "2"})

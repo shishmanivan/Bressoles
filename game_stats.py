@@ -27,6 +27,10 @@ FIELDNAMES = [
     "Победы",
     "Поражения",
     "ПроцентПобед",
+    "ДеньгиВсего",
+    "ДеньгиСреднее",
+    "ДеньгиМаксимум",
+    "ДеньгиПоследние",
     ARKWRIGHT_STAT_FIELDS["none"],
     ARKWRIGHT_STAT_FIELDS["steal_50"],
     ARKWRIGHT_STAT_FIELDS["steal_30"],
@@ -71,7 +75,7 @@ def build_difficulty_label(difficulty, is_boss_fight=False):
     return value if value in ("E", "M", "H") else ""
 
 
-def update_game_stats(level_number, boss_number, round_label, won, difficulty_label=""):
+def update_game_stats(level_number, boss_number, round_label, won, difficulty_label="", earned_money=None):
     rows = _read_rows()
     level_key = str(level_number)
     boss_number_key = str(boss_number) if boss_number is not None else ""
@@ -97,6 +101,12 @@ def update_game_stats(level_number, boss_number, round_label, won, difficulty_la
     wins = _to_int(target.get("Победы")) + (1 if won else 0)
     losses = _to_int(target.get("Поражения")) + (0 if won else 1)
     win_rate = round((wins / played) * 100, 2) if played else 0
+    previous_money_total = _to_number(target.get("ДеньгиВсего"))
+    earned_money_value = _to_number(earned_money)
+    money_total = previous_money_total + earned_money_value
+    previous_money_max = _to_number(target.get("ДеньгиМаксимум"))
+    money_max = max(previous_money_max, earned_money_value)
+    money_average = round(money_total / played, 2) if played else 0
 
     target.update(
         {
@@ -106,6 +116,10 @@ def update_game_stats(level_number, boss_number, round_label, won, difficulty_la
             "Победы": str(wins),
             "Поражения": str(losses),
             "ПроцентПобед": _format_percent(win_rate),
+            "ДеньгиВсего": _format_number(money_total),
+            "ДеньгиСреднее": _format_number(money_average),
+            "ДеньгиМаксимум": _format_number(money_max),
+            "ДеньгиПоследние": _format_number(earned_money_value),
         }
     )
     _write_rows(rows)
@@ -278,6 +292,8 @@ def _read_rows():
             if not row:
                 continue
             normalized = {field: row.get(field, "") for field in FIELDNAMES}
+            for field in ("ДеньгиВсего", "ДеньгиСреднее", "ДеньгиМаксимум", "ДеньгиПоследние"):
+                normalized[field] = normalized.get(field) or "0"
             if _is_encounter_stats_row(normalized):
                 normalized["Босс"] = get_boss_name(normalized.get("БоссНомер"))
             for field in ARKWRIGHT_STAT_FIELDS.values():
@@ -305,6 +321,10 @@ def _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficult
         "Победы": "0",
         "Поражения": "0",
         "ПроцентПобед": "0",
+        "ДеньгиВсего": "0",
+        "ДеньгиСреднее": "0",
+        "ДеньгиМаксимум": "0",
+        "ДеньгиПоследние": "0",
     }
     for field in ARKWRIGHT_STAT_FIELDS.values():
         row[field] = "0"
@@ -372,6 +392,20 @@ def _to_int(value):
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _to_number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _format_number(value):
+    rounded = round(float(value or 0), 2)
+    if rounded.is_integer():
+        return str(int(rounded))
+    return str(rounded).rstrip("0").rstrip(".")
 
 
 def _format_percent(value):

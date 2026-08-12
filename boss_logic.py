@@ -487,6 +487,14 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print(f"Applied boss reward SilverCard: card {silver_card}")
             return
 
+        if normalized_reward in ("arkwrightsilvercards", "arkwrightsilver3"):
+            silver_cards = game_state.award_arkwright_silver_cards(3)
+            for silver_card in silver_cards:
+                _append_last_earned_card(gameplay_instance, silver_card)
+            if len(silver_cards) < 3:
+                print(f"WARNING: Arkwright awarded only {len(silver_cards)} silver card(s).")
+            return
+
         if normalized_reward in ("lifecycleslotplus1", "cardslotplus1"):
             slot_limit = game_state.add_boss_lifecycle_card_slot_bonus(1)
             print(f"Applied boss reward LifecycleSlotPlus1: lifecycle card slots={slot_limit}")

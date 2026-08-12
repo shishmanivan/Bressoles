@@ -24,6 +24,7 @@ class LocalizationContractTests(unittest.TestCase):
         self.assertIn("dealt normally", english["Boss2Reward"])
         self.assertIn("отдельный инвентарь", russian["Boss5Reward"])
         self.assertIn("separate inventory", english["Boss6Reward"])
+        self.assertIn("Three silver cards", english["Boss6Reward"])
         self.assertNotIn("базовой", russian["BossVictoryDeckReset"])
         self.assertNotIn("base deck", english["BossVictoryDeckReset"])
 

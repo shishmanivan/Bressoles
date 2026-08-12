@@ -15,6 +15,28 @@ from gameplay_winlose import apply_win_reward
 
 
 class KnownRegressionTests(unittest.TestCase):
+    def test_issue_price_is_visible_before_the_first_turn(self):
+        import gameplay_page
+
+        pygame.init()
+        screen = pygame.display.set_mode((1680, 1050))
+        self.addCleanup(pygame.quit)
+
+        with mock.patch.object(gameplay_page, "ensure_stats_file"):
+            page = gameplay_page.GameplayPage(
+                screen,
+                find_font_path_or_exit(),
+                difficulty="e",
+                goal=100,
+                level_number=1,
+                test_mode=True,
+                active_gold_cards=[421],
+                active_lifecycle_card_order=[{"kind": "gold", "card_id": 421}],
+            )
+
+        self.assertEqual(page.Day, 1)
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (6, 2, 2))
+
     def test_adam_smith_boss_round_reduces_last_turn_only_once(self):
         import gameplay_page
 
@@ -98,7 +120,7 @@ class KnownRegressionTests(unittest.TestCase):
             earned_reward_cards={},
             rewards={},
             reward_token_random_red=-1001,
-            load_boss_rewards=lambda: {6: {"Reward": "hand=hand+1,SilverCard"}},
+            load_boss_rewards=lambda: {6: {"Reward": "hand=hand+1,ArkwrightSilverCards"}},
             get_boss_number_from_index=get_boss_number_from_index,
             apply_boss_reward=apply_reward,
             pick_random_red_card_for_level=mock.Mock(),
@@ -106,7 +128,7 @@ class KnownRegressionTests(unittest.TestCase):
             get_boss_number_from_filename=get_boss_number_from_filename,
         )
 
-        apply_reward.assert_called_once_with("hand=hand+1,SilverCard", gameplay)
+        apply_reward.assert_called_once_with("hand=hand+1,ArkwrightSilverCards", gameplay)
 
     def test_resumed_dynamic_boss_stats_use_saved_boss_identity(self):
         import gameplay_page
@@ -117,6 +139,9 @@ class KnownRegressionTests(unittest.TestCase):
         page.level_number = 3
         page.boss_index = 0
         page.defeated_count = 0
+        page.Money = 0
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+        page.Aprice = page.BPrice = page.CPrice = 2
         page.boss_filename = "6_Arkwright.png"
         page.round_num = None
         page.is_boss_fight = True

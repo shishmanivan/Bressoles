@@ -72,7 +72,7 @@ SHOP_SPECIAL_COSTS = {
     "underwriter": 4,
     "bailout": 4,
     "long": 2,
-    "derivative": 8,
+    "derivative": 5,
     "junk_bond": 2,
     "issuer": 10,
     "bank": 3,
@@ -93,7 +93,9 @@ DISCLOSURE_ROUNDS = 5
 LONG_MAX_ACTIVE = 2
 LONG_ROUNDS_TO_PAYOUT = 4
 LONG_PAYOUT = 6
-JUNK_BOND_SUCCESS_CHANCE = 40
+JUNK_BOND_SUCCESS_CHANCE = 60
+JUNK_BOND_LOSS_CHANCE = 30
+JUNK_BOND_REFUND = 2
 JUNK_BOND_PAYOUT = 6
 LIFECYCLE_CARD_BASE_SLOTS = 3
 ISSUER_MAX_PURCHASES = 2
@@ -106,7 +108,7 @@ GOLDEN_STOCKS_BASE_CHANCE = 10
 GOLDEN_STOCKS_MISS_INCREASE = 2
 LOAN_PAYOUT = 5
 LOAN_MAX_PER_RUN = 2
-LOAN_GOAL_INCREASE_PERCENT = 50
+LOAN_GOAL_INCREASE_PERCENT = 20
 CORRECTION_SILVER_SALE_VALUE = 2
 CORRECTION_GOLD_SALE_VALUE = 4
 CORRECTION_MAX_CARDS = 3
@@ -117,18 +119,18 @@ SHOP_CARD_COSTS = {
     17: 10,
     18: 15,
     117: 7,
-    401: 15,
-    402: 10,
+    401: 9,
+    402: 8,
     403: 7,
     404: 5,
-    405: 15,
+    405: 5,
     406: 5,
     407: 8,
     408: 10,
     409: 5,
     410: 8,
-    411: 5,
-    412: 7,
+    411: 3,
+    412: 5,
     413: 7,
     414: 5,
     415: 5,
@@ -137,6 +139,7 @@ SHOP_CARD_COSTS = {
     418: 6,
     419: 4,
     420: 6,
+    421: 4,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -197,7 +200,7 @@ guaranteed_start_hand_cards_by_level = {}
 
 # Permanent cards unlocked by completing levels.
 LEVEL_COMPLETION_REWARD_CARDS = {
-    1: [12],
+    1: [15],
     2: [13],
     3: [110],
 }
@@ -1201,10 +1204,14 @@ def resolve_golden_stocks_round(active_cards, chance_bonus=0):
 
 
 def resolve_junk_bond(level_number):
-    if random.randint(1, 100) > JUNK_BOND_SUCCESS_CHANCE:
-        return False
-    add_napoleondors(level_number, JUNK_BOND_PAYOUT)
-    return True
+    roll = random.randint(1, 100)
+    if roll <= JUNK_BOND_SUCCESS_CHANCE:
+        add_napoleondors(level_number, JUNK_BOND_PAYOUT)
+        return "win"
+    if roll <= JUNK_BOND_SUCCESS_CHANCE + JUNK_BOND_LOSS_CHANCE:
+        return "loss"
+    add_napoleondors(level_number, JUNK_BOND_REFUND)
+    return "refund"
 
 
 def clear_silver_cards_deck():
@@ -2560,6 +2567,39 @@ def build_rare_silver_cards_pool():
             rare_cards.append(cid)
 
     return sorted(set(rare_cards))
+
+
+def award_arkwright_silver_cards(count=3):
+    """Award silver cards, guaranteeing one sub-20% card when available."""
+    try:
+        card_count = max(0, int(count or 0))
+    except (TypeError, ValueError):
+        return []
+    card_count = min(card_count, MAX_SILVER_CARDS - len(silver_cards))
+    available_cards = build_open_silver_cards_pool()
+    if card_count <= 0 or not available_cards:
+        return []
+
+    cfg = load_cards_config() or {}
+    rare_cards = []
+    for card_id in available_cards:
+        row = cfg.get(card_id) or {}
+        try:
+            probability = int(row.get("Variable"))
+        except (TypeError, ValueError):
+            continue
+        if 0 < probability < 20:
+            rare_cards.append(card_id)
+
+    selected_cards = []
+    if rare_cards:
+        selected_cards.append(random.choice(rare_cards))
+    while len(selected_cards) < card_count:
+        selected_cards.append(random.choice(available_cards))
+
+    silver_cards.extend(selected_cards)
+    print(f"Arkwright awarded silver cards: {selected_cards}")
+    return selected_cards
 
 
 def buy_underwriter_cards(count=2):

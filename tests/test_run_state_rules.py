@@ -297,6 +297,43 @@ class RewardLifecycleRulesTests(GameStateTestCase):
         self.assertEqual(gameplay.last_earned_cards, [203])
         self.assertNotIn(203, game_state.build_current_level_deck(3))
 
+    def test_arkwright_awards_three_silver_cards_with_one_sub_twenty_percent_card(self):
+        gameplay = mock.Mock()
+        gameplay.level_number = 3
+        gameplay.last_earned_cards = []
+        game_state.silver_cards = []
+        cards = {
+            201: {"Open": 1, "Variable": 50},
+            202: {"Open": 1, "Variable": 10},
+            203: {"Open": 1, "Variable": 20},
+        }
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "is_card_licensed", return_value=True),
+            mock.patch.object(game_state.random, "choice", side_effect=[202, 201, 203]),
+        ):
+            apply_boss_reward("ArkwrightSilverCards", gameplay)
+
+        self.assertEqual(game_state.silver_cards, [202, 201, 203])
+        self.assertEqual(gameplay.last_earned_cards, [202, 201, 203])
+
+    def test_arkwright_awards_three_any_silver_cards_when_no_rare_card_is_open(self):
+        cards = {
+            201: {"Open": 1, "Variable": 50},
+            203: {"Open": 1, "Variable": 20},
+        }
+        game_state.silver_cards = []
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "is_card_licensed", return_value=True),
+            mock.patch.object(game_state.random, "choice", side_effect=[201, 203, 201]),
+        ):
+            awarded = game_state.award_arkwright_silver_cards(3)
+
+        self.assertEqual(awarded, [201, 203, 201])
+
     def test_legacy_forced_reward_migrates_to_random_deck_pool(self):
         game_state.earned_reward_cards = {2: [11]}
         game_state.forced_start_hand_cards_by_level = {2: [112, 112]}
@@ -414,7 +451,7 @@ class RewardLifecycleRulesTests(GameStateTestCase):
         )
 
         apply_reward.assert_not_called()
-        self.assertEqual(gameplay.last_earned_cards, [12])
+        self.assertEqual(gameplay.last_earned_cards, [15])
         self.assertNotIn(1, game_state.round_reward_cards)
 
     def test_level5_final_boss_awards_commission_black_card(self):

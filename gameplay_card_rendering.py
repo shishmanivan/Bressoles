@@ -283,7 +283,7 @@ def draw_bear_modifier_text(
         font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
         text = font.render(f"-{percent}%", True, paper_color)
         x = card_x + card_size[0] * x_ratio
-        y = card_y + card_size[1] * y_ratio
+        y = card_y + card_size[1] * y_ratio - 4
         screen.blit(text, (int(x), int(y)))
     except Exception as e:
         print(f"ERROR rendering Bear modifier text: {e}")

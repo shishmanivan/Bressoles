@@ -305,6 +305,7 @@ class GameplayPage:
         self.Aprice = 2
         self.BPrice = 2
         self.CPrice = 2
+        self._apply_issue_price_start()
 
         # Initialize step variables (price change steps)
         self.StepA = 2
@@ -2606,6 +2607,13 @@ class GameplayPage:
             f"silver={silver_count}x{silver_value}, gold={gold_count}x8, Money={self.Money}"
         )
 
+    def _apply_issue_price_start(self):
+        if not self._has_active_silver_card(421):
+            return False
+        self.Aprice = 6
+        print("Gold card 421 Issue Price set the starting A price to 6.")
+        return True
+
     def _apply_bear_goal_modifier(self):
         discount_percent = self._get_current_bear_goal_discount_percent()
         if discount_percent <= 0:
@@ -2995,14 +3003,26 @@ class GameplayPage:
         boss_number = self._get_active_boss_number()
         round_label = build_round_label(self.round_num, is_boss_fight=self.is_boss_fight)
         difficulty_label = build_difficulty_label(self.difficulty, is_boss_fight=self.is_boss_fight)
+        earned_money = self._get_round_end_earned_money()
         update_game_stats(
             self.level_number,
             boss_number,
             round_label,
             won,
             difficulty_label,
+            earned_money,
         )
         self._stats_recorded = True
+
+    def _get_round_end_earned_money(self):
+        return int(self.Money or 0) + self._get_round_end_share_value()
+
+    def _get_round_end_share_value(self):
+        return (
+            int(self.Aquantity or 0) * int(self.Aprice or 0)
+            + int(self.Bquantity or 0) * int(self.BPrice or 0)
+            + int(self.Cquantity or 0) * int(self.CPrice or 0)
+        )
     
     def update_win_lose_animation(self):
         """Update WinLose screen slide animation"""

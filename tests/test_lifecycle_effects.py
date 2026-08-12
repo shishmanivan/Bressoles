@@ -212,6 +212,18 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(game_state.pending_shop_discount_percent, 50)
         self.assertEqual(game_state.napoleondors, 30)
 
+    def test_issue_price_sets_only_a_starting_price_to_six(self):
+        page = self._page(gold=[421])
+        page.Aprice = page.BPrice = page.CPrice = 2
+
+        self.assertTrue(page._apply_issue_price_start())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (6, 2, 2))
+
+        page.active_gold_cards = []
+        page.Aprice = 2
+        self.assertFalse(page._apply_issue_price_start())
+        self.assertEqual(page.Aprice, 2)
+
     def test_bear_flat_insider_and_gambling_contracts(self):
         page = self._page(gold=[401, 404, 405, 406])
         page.insider_c_growth_turns_remaining = 2

@@ -511,7 +511,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_loan_raises_only_its_boss_goals_by_fifty_percent(self):
         game_state.loan_boss_positions_by_level = {5: [1]}
 
-        self.assertEqual(game_state.apply_loan_goal_modifier(100, 5, 1), 150)
+        self.assertEqual(game_state.apply_loan_goal_modifier(100, 5, 1), 120)
         self.assertEqual(game_state.apply_loan_goal_modifier(100, 5, 0), 100)
         self.assertEqual(game_state.apply_loan_goal_modifier(100, 4, 1), 100)
 
@@ -519,7 +519,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         round_page.level_number = 5
         round_page.defeated_count = 1
         round_page.base_button_goals = {"e": 100}
-        self.assertEqual(round_page._build_display_button_goals(), {"e": 150})
+        self.assertEqual(round_page._build_display_button_goals(), {"e": 120})
 
     def test_loan_successful_roll_gets_a_shop_slot_and_costs_zero(self):
         with (
@@ -1111,7 +1111,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 license_slots=0,
             )
 
-        self.assertEqual(offers, [{"kind": "card", "card_id": 401, "cost": 15}])
+        self.assertEqual(offers, [{"kind": "card", "card_id": 401, "cost": 9}])
         select.assert_called_once_with([17, 401, 406], 1)
 
     def test_empty_rolled_pool_selects_from_every_available_shop_card(self):
@@ -1132,7 +1132,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 license_slots=0,
             )
 
-        self.assertEqual(offers, [{"kind": "card", "card_id": 405, "cost": 15}])
+        self.assertEqual(offers, [{"kind": "card", "card_id": 405, "cost": 5}])
         select.assert_called_once_with(fallback, 1)
 
     def test_underwriter_does_not_charge_without_two_inventory_slots(self):
@@ -1148,6 +1148,16 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
 
 class TimedShopEffectTests(ShopEconomyTestCase):
+    def test_junk_bond_has_win_loss_and_refund_outcomes(self):
+        game_state.napoleondors = 0
+        with mock.patch.object(game_state.random, "randint", side_effect=[60, 61, 91]):
+            self.assertEqual(game_state.resolve_junk_bond(5), "win")
+            self.assertEqual(game_state.napoleondors, 6)
+            self.assertEqual(game_state.resolve_junk_bond(5), "loss")
+            self.assertEqual(game_state.napoleondors, 6)
+            self.assertEqual(game_state.resolve_junk_bond(5), "refund")
+            self.assertEqual(game_state.napoleondors, 8)
+
     def test_bailout_discounts_exactly_five_won_rounds(self):
         self.assertEqual(game_state.buy_bailout(), 5)
         self.assertEqual(game_state.apply_bailout_goal_modifier(100), 80)
