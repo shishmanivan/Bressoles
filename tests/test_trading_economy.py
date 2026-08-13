@@ -517,6 +517,36 @@ class RebateLiquidationTests(unittest.TestCase):
         self.assertEqual(liquidation["gross_value"], 40)
         self.assertEqual(liquidation["proceeds"], 70)
 
+    def test_stewardship_adds_twenty_percent_per_shareholder_in_hand_after_rebate_synergies(self):
+        page = self._page()
+        page.rebate_a_fall_bonus_percent = 0
+        page.active_silver_cards = [201]
+        page.active_black_cards = []
+        page.active_gold_cards = [407, 423]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = [110, 100]
+        page.hand_cards = [100, None, 11, 100, None]
+
+        # Rebate result is 150%; only the two Shareholders still in hand add 40%.
+        self.assertEqual(page._get_current_rebate_sale_percent(), 190)
+
+        self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+        liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+        self.assertEqual(liquidation["gross_value"], 40)
+        self.assertEqual(liquidation["proceeds"], 76)
+
+    def test_stewardship_does_nothing_without_any_rebate(self):
+        page = self._page()
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_gold_cards = [423]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = [100]
+        page.hand_cards = [100, 100]
+
+        self.assertIsNone(page._get_current_rebate_sale_percent())
+        self.assertFalse(page._apply_final_auto_liquidation_if_needed())
+
     def test_gold_rebate_adds_two_percent_only_when_a_actually_falls(self):
         page = GameplayPage.__new__(GameplayPage)
         page.rebate_a_fall_bonus_percent = 0

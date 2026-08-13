@@ -315,6 +315,7 @@ class GameplayPage:
         # Initialize game state variables
         self.Goal = goal if goal is not None else 0  # Use passed goal or default to 0
         self._apply_bear_goal_modifier()
+        self._apply_markdown_goal_modifier()
         if self.insurance_goal_debt:
             self.Goal += self.insurance_goal_debt
             print(
@@ -456,6 +457,7 @@ class GameplayPage:
             guaranteed_cards_by_level=game_state.guaranteed_start_hand_cards_by_level,
             investment_card_bonuses=game_state.investment_card_bonuses,
             round_guaranteed_cards=self.positioning_start_cards,
+            mirrored_cards=game_state.mirrored_deck_cards,
         )
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
@@ -2631,6 +2633,24 @@ class GameplayPage:
             f"{base_goal:g} -> {self.Goal}"
         )
 
+    def _apply_markdown_goal_modifier(self):
+        if self.is_boss_fight or not self._has_active_silver_card(422):
+            return False
+        try:
+            round_num = int(self.round_num)
+            base_goal = float(self.Goal)
+        except (TypeError, ValueError):
+            return False
+        if round_num not in (3, 4) or base_goal <= 0:
+            return False
+
+        self.Goal = max(1, int(base_goal * 0.7))
+        print(
+            f"Gold card 422 Markdown reduced round {round_num} Goal by 30%: "
+            f"{base_goal:g} -> {self.Goal}"
+        )
+        return True
+
     def _get_current_bear_goal_discount_percent(self):
         discount_percent = game_state.get_bear_goal_discount_percent(self.active_gold_cards)
         if discount_percent <= 0:
@@ -2769,6 +2789,20 @@ class GameplayPage:
             return 0
         return base_bonus + self._get_percentage_amplifier_bonus()
 
+    def _get_stewardship_rebate_bonus_percent(self):
+        stewardship_count = self._count_active_card_safely(423)
+        if stewardship_count <= 0:
+            return 0
+        shareholder_count = 0
+        for card_id in list(getattr(self, "hand_cards", []) or []):
+            try:
+                is_shareholder = int(card_id) == 100
+            except (TypeError, ValueError):
+                is_shareholder = False
+            if is_shareholder:
+                shareholder_count += 1
+        return stewardship_count * shareholder_count * 20
+
     def _get_current_rebate_sale_percent(self):
         full_price = self._has_active_silver_card(201)
         gold_rebate = self._has_active_silver_card(407)
@@ -2791,7 +2825,11 @@ class GameplayPage:
             sale_percent = 90
         else:
             return None
-        return sale_percent + self._get_uptrend_rebate_bonus_percent()
+        return (
+            sale_percent
+            + self._get_uptrend_rebate_bonus_percent()
+            + self._get_stewardship_rebate_bonus_percent()
+        )
 
     def _start_final_auto_liquidation_animation(self, liquidation):
         duration_ms = 1200
@@ -2822,7 +2860,7 @@ class GameplayPage:
 
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                is_rebate = int(card_id) in (201, 407, 410)
+                is_rebate = int(card_id) in (201, 407, 410, 423)
             except (TypeError, ValueError):
                 is_rebate = False
             if is_rebate:

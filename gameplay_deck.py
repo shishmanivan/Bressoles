@@ -103,6 +103,7 @@ def build_initial_deck(
     shop_deck_cards=None,
     temporary_reward_cards=None,
     investment_card_bonuses=None,
+    mirrored_cards=None,
 ):
     """Build initial deck composition for a given level."""
     base_deck = list(BASE_STARTING_DECK)
@@ -155,6 +156,17 @@ def build_initial_deck(
         deck.extend(temporary_cards)
         deck = dedupe_red_cards(deck)
         print(f"Added {len(temporary_cards)} temporary reward card(s) to level {level_number} deck: {temporary_cards}")
+
+    # Mirroring creates real additional instances, including red cards. Append
+    # them after regular deduplication so those copies remain in the deck.
+    mirrored_instances = [
+        restore_card_instance(serialize_card_instance(card_id))
+        for card_id in (mirrored_cards or [])
+    ]
+    mirrored_instances = [card_id for card_id in mirrored_instances if card_id is not None]
+    if mirrored_instances:
+        deck.extend(mirrored_instances)
+        print(f"Added {len(mirrored_instances)} mirrored card(s) to the run deck: {mirrored_instances}")
 
     return deck
 
@@ -209,6 +221,7 @@ def setup_starting_deck_and_hand(
     guaranteed_cards_by_level=None,
     investment_card_bonuses=None,
     round_guaranteed_cards=None,
+    mirrored_cards=None,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -219,6 +232,7 @@ def setup_starting_deck_and_hand(
         shop_deck_cards,
         (temporary_reward_cards_by_level or {}).get(level_number, []),
         investment_card_bonuses,
+        mirrored_cards,
     )
     guaranteed_cards = list(round_guaranteed_cards or [])
     guaranteed_cards.extend((guaranteed_cards_by_level or {}).get(level_number, []) or [])

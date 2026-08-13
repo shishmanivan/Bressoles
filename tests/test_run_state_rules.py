@@ -52,6 +52,8 @@ STATE_FIELDS = (
     "active_silver_cards_deck",
     "Frugality",
     "capital_preservation_bought",
+    "mirroring_bought_count",
+    "mirrored_deck_cards",
 )
 
 
@@ -68,6 +70,19 @@ class GameStateTestCase(unittest.TestCase):
 
 
 class RunResetRulesTests(GameStateTestCase):
+    def test_mirroring_copy_survives_boss_progress_but_clears_with_the_run(self):
+        level = 4
+        game_state.round_reward_cards[level] = [112]
+        self.assertEqual(game_state.buy_mirroring_card(level, 112), 112)
+
+        game_state.round_reward_cards.pop(level)
+
+        self.assertEqual(game_state.build_current_level_deck(level).count(112), 1)
+        self.assertEqual(game_state.mirroring_bought_count, 1)
+        game_state.reset_level_attempt(level)
+        self.assertEqual(game_state.mirrored_deck_cards, [])
+        self.assertEqual(game_state.mirroring_bought_count, 0)
+
     def test_capital_preservation_keeps_gold_cards_through_one_defeat(self):
         game_state.gold_cards[:] = [401, 405]
         game_state.set_active_gold_cards([401])

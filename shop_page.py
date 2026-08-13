@@ -55,6 +55,7 @@ SPECIAL_ASSETS = {
         "Сохранение капитала",
         os.path.join("Shop", "Capital Preservation.png"),
     ),
+    "mirroring": ("Зеркалирование", os.path.join("Shop", "Mirroring.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -79,6 +80,7 @@ SPECIAL_DESCRIPTIONS = {
     "replication": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
     "screening": "Показывает пять случайных доступных предложений. Одно из них можно выбрать бесплатно.",
     "capital_preservation": "После поражения сохраняет все золотые карты и переносит их в следующий забег.",
+    "mirroring": "Дублирует любую выбранную карту текущей колоды. Дубликат сохраняется после победы над боссом.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
@@ -173,6 +175,8 @@ CARD_DESCRIPTIONS.update(
         419: "После первого роста удерживаемой акции каждый следующий последовательный рост дополнительно умножает её цену на 1.2. Flat, падение или продажа акции прерывают её серию.",
         420: "С шансом 20% удваивает цены всех акций, которыми владеет игрок. Карты, добавляющие процентные пункты, повышают этот шанс.",
         421: "В начале раунда устанавливает стартовую цену акций A на 6 долларов.",
+        422: "Снижает цель третьего и четвёртого обычных раундов на 30%. В остальных раундах и боях с боссами не действует.",
+        423: "Каждый Shareholder в руке добавляет 20 процентных пунктов к итоговому эффекту Rebate.",
     }
 )
 CARD_NAMES.update(
@@ -192,6 +196,8 @@ CARD_NAMES.update(
         419: "Continuation",
         420: "Advance",
         421: "Issue Price",
+        422: "Markdown",
+        423: "Stewardship",
     }
 )
 
@@ -779,6 +785,28 @@ class ShopPage:
             self.message = "Серебряная карта добавлена"
             return
 
+        if special_id == "mirroring":
+            if not game_state.is_mirroring_offer_available(self.level_number):
+                self.sold_offer_indexes.add(index)
+                self.message = "Зеркалирование больше недоступно"
+                return
+            selected_card = MirroringDeckPage(
+                self.screen,
+                self.font_path,
+                self.level_number,
+            ).run()
+            if selected_card is None:
+                self.message = ""
+                return
+            if game_state.buy_mirroring_card(self.level_number, selected_card) is None:
+                self.message = "Карта недоступна"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Карта продублирована"
+            return
+
         if special_id == "screening":
             choices = game_state.build_screening_offer_pool(
                 self.level_number,
@@ -1295,6 +1323,24 @@ class DelistingDeckPage(DeckCardPage):
 
     def confirm_message(self, card_id):
         return f"Удалить карту {card_id}?"
+
+
+class MirroringDeckPage(DeckCardPage):
+    title = "Зеркалирование"
+    prompt = "Выберите карту для дублирования"
+    empty_text = "В колоде нет доступных карт"
+    confirm_text = "Дублировать"
+
+    def __init__(self, screen, font_path, level_number):
+        super().__init__(
+            screen,
+            font_path,
+            level_number,
+            deck=game_state.build_current_level_deck(level_number),
+        )
+
+    def confirm_message(self, card_id):
+        return f"Дублировать карту {int(card_id)}?"
 
 
 class InvestmentDeckPage(DeckCardPage):

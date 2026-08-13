@@ -5,6 +5,7 @@ import tempfile
 import pygame
 
 import game_state
+from gameplay_deck import restore_card_instance, serialize_card_instance
 
 
 PROFILES_DIR = "Profiles"
@@ -148,6 +149,8 @@ def _empty_progress():
         "active_red_cards_deck": [],
         "active_silver_cards_level": None,
         "active_silver_cards_deck": [],
+        "mirroring_bought_count": 0,
+        "mirrored_deck_cards": [],
     }
 
 
@@ -306,6 +309,24 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.capital_preservation_bought = bool(
         progress.get("capital_preservation_bought", False)
     )
+    try:
+        game_state.mirroring_bought_count = max(
+            0,
+            min(
+                game_state.MIRRORING_MAX_PURCHASES,
+                int(progress.get("mirroring_bought_count", 0) or 0),
+            ),
+        )
+    except (TypeError, ValueError):
+        game_state.mirroring_bought_count = 0
+    game_state.mirrored_deck_cards = [
+        restored
+        for restored in (
+            restore_card_instance(value)
+            for value in (progress.get("mirrored_deck_cards") or [])
+        )
+        if restored is not None
+    ][: game_state.MIRRORING_MAX_PURCHASES]
     game_state.loan_boss_positions_by_level = _restore_int_key_lists(
         progress.get("loan_boss_positions_by_level") or {}
     )
@@ -458,6 +479,11 @@ def _capture_progress():
         "expansion_bought": bool(game_state.expansion_bought),
         "compounding_bought": bool(game_state.compounding_bought),
         "capital_preservation_bought": bool(game_state.capital_preservation_bought),
+        "mirroring_bought_count": game_state.get_mirroring_bought_count(),
+        "mirrored_deck_cards": [
+            serialize_card_instance(card_id)
+            for card_id in game_state.mirrored_deck_cards
+        ],
         "loan_boss_positions_by_level": _serialize_int_key_lists(
             game_state.loan_boss_positions_by_level
         ),

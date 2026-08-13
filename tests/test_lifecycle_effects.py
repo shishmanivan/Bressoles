@@ -224,6 +224,28 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertFalse(page._apply_issue_price_start())
         self.assertEqual(page.Aprice, 2)
 
+    def test_markdown_reduces_only_third_and_fourth_regular_round_goals(self):
+        for round_num, expected_goal in ((1, 100), (2, 100), (3, 70), (4, 70), (5, 100)):
+            with self.subTest(round_num=round_num):
+                page = self._page(gold=[422])
+                page.Goal = 100
+                page.round_num = round_num
+                page.is_boss_fight = False
+
+                applied = page._apply_markdown_goal_modifier()
+
+                self.assertEqual(applied, round_num in (3, 4))
+                self.assertEqual(page.Goal, expected_goal)
+
+    def test_markdown_never_reduces_a_boss_round_goal(self):
+        page = self._page(gold=[422])
+        page.Goal = 100
+        page.round_num = 3
+        page.is_boss_fight = True
+
+        self.assertFalse(page._apply_markdown_goal_modifier())
+        self.assertEqual(page.Goal, 100)
+
     def test_bear_flat_insider_and_gambling_contracts(self):
         page = self._page(gold=[401, 404, 405, 406])
         page.insider_c_growth_turns_remaining = 2

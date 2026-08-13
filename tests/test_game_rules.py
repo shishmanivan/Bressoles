@@ -212,6 +212,17 @@ class DeckRulesTests(unittest.TestCase):
         self.assertEqual(set(red_cards), {112, 113, 117})
         self.assertEqual(deck.count(1), 2)
 
+    def test_mirroring_adds_real_duplicate_instances_after_deduplication(self):
+        deck = build_initial_deck(
+            level_number=4,
+            earned_reward_cards={4: [112]},
+            temporary_reward_cards=[112],
+            mirrored_cards=[112, 1],
+        )
+
+        self.assertEqual(deck.count(112), 2)
+        self.assertEqual(deck.count(1), 3)
+
     def test_available_guaranteed_cards_are_dealt_first(self):
         remaining, hand = deal_starting_hand([100, 1, 2, 112, 113], 3, [112, 113])
         self.assertEqual(hand[:2], [112, 113])

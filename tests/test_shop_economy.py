@@ -39,6 +39,8 @@ SHOP_STATE_FIELDS = (
     "expansion_bought",
     "compounding_bought",
     "capital_preservation_bought",
+    "mirroring_bought_count",
+    "mirrored_deck_cards",
     "loan_boss_positions_by_level",
     "insurance_goal_debt",
     "Frugality",
@@ -82,6 +84,8 @@ class ShopEconomyTestCase(unittest.TestCase):
         game_state.expansion_bought = False
         game_state.compounding_bought = False
         game_state.capital_preservation_bought = False
+        game_state.mirroring_bought_count = 0
+        game_state.mirrored_deck_cards = []
         game_state.loan_boss_positions_by_level = {}
         game_state.insurance_goal_debt = 0
         game_state.Frugality = 0
@@ -139,6 +143,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_disclosure_has_thirty_five_percent_pool_roll(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
@@ -188,6 +193,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_expansion_has_twenty_percent_pool_roll_and_then_disappears(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
@@ -290,6 +296,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_diversification_has_thirty_percent_pool_roll_and_then_disappears(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
@@ -395,6 +402,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         game_state.silver_cards = [201]
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
@@ -460,6 +468,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         game_state.silver_cards = [201]
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
@@ -483,6 +492,49 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
         self.assertIn("replication", offers)
         self.assertEqual(game_state.get_shop_special_cost("replication", 2), 2)
+
+    def test_mirroring_duplicates_selected_current_deck_card_for_four(self):
+        game_state.napoleondors = 10
+        game_state.round_reward_cards = {5: [112]}
+        page = self._shop(
+            {"kind": "special", "special_id": "mirroring", "cost": 4}
+        )
+
+        with mock.patch("shop_page.MirroringDeckPage") as mirroring_page:
+            mirroring_page.return_value.run.return_value = 112
+            page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(game_state.mirrored_deck_cards, [112])
+        self.assertEqual(game_state.get_mirroring_bought_count(), 1)
+        self.assertEqual(game_state.build_current_level_deck(5).count(112), 2)
+        self.assertEqual(page.sold_offer_indexes, {0})
+
+    def test_mirroring_is_limited_to_two_purchases_with_25_then_10_percent_chance(self):
+        self.assertEqual(game_state.get_mirroring_shop_chance(), 25)
+        self.assertTrue(game_state.is_mirroring_offer_available(5))
+        self.assertIsNotNone(game_state.buy_mirroring_card(5, 1))
+        self.assertEqual(game_state.get_mirroring_shop_chance(), 10)
+        self.assertTrue(game_state.is_mirroring_offer_available(5))
+        self.assertIsNotNone(game_state.buy_mirroring_card(5, 1))
+        self.assertFalse(game_state.is_mirroring_offer_available(5))
+        self.assertIsNone(game_state.buy_mirroring_card(5, 1))
+        self.assertEqual(game_state.mirrored_deck_cards, [1, 1])
+        self.assertEqual(game_state.get_shop_special_cost("mirroring", 5), 4)
+
+    def test_mirroring_pool_roll_uses_purchase_dependent_chance(self):
+        with mock.patch.object(game_state.random, "randint", return_value=25):
+            first_pool = game_state.build_shop_special_offer_pool(5, max_offers=30)
+        self.assertIn("mirroring", first_pool)
+
+        game_state.mirroring_bought_count = 1
+        with mock.patch.object(game_state.random, "randint", return_value=11):
+            missed_pool = game_state.build_shop_special_offer_pool(5, max_offers=30)
+        self.assertNotIn("mirroring", missed_pool)
+
+        with mock.patch.object(game_state.random, "randint", return_value=10):
+            second_pool = game_state.build_shop_special_offer_pool(5, max_offers=30)
+        self.assertIn("mirroring", second_pool)
 
     def test_loan_is_free_pays_five_and_is_limited_per_boss_and_run(self):
         first_shop = self._shop({"kind": "special", "special_id": "loan", "cost": 0})
@@ -524,6 +576,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_loan_successful_roll_gets_a_shop_slot_and_costs_zero(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_issuer_offer_available", return_value=False),
@@ -580,6 +633,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_screening_costs_one_and_has_ten_percent_pool_roll(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
             mock.patch.object(game_state, "is_long_offer_available", return_value=False),
@@ -716,6 +770,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_capital_preservation_has_five_percent_pool_roll(self):
         with (
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
             mock.patch.object(game_state, "is_long_offer_available", return_value=False),
@@ -841,6 +896,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         game_state.level_4_boss_defeated = True
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
             mock.patch.object(game_state, "is_screening_offer_available", return_value=False),
             mock.patch.object(game_state, "is_underwriter_offer_available", return_value=False),
             mock.patch.object(game_state, "is_bailout_active", return_value=True),
@@ -920,6 +976,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             "replication",
             "screening",
             "capital_preservation",
+            "mirroring",
         }
 
         for roll in (1, 100):
@@ -1223,6 +1280,8 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.expansion_bought = True
         game_state.compounding_bought = True
         game_state.capital_preservation_bought = True
+        game_state.mirroring_bought_count = 1
+        game_state.mirrored_deck_cards = [112]
         game_state.loan_boss_positions_by_level = {5: [0]}
         game_state.licensed_card_ids.add(121)
         game_state.gold_cards = [401]
@@ -1250,6 +1309,8 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         game_state.expansion_bought = False
         game_state.compounding_bought = False
         game_state.capital_preservation_bought = False
+        game_state.mirroring_bought_count = 0
+        game_state.mirrored_deck_cards = []
         game_state.loan_boss_positions_by_level = {}
         game_state.licensed_card_ids = set(game_state.DEFAULT_LICENSED_CARDS)
         game_state.gold_cards = []
@@ -1278,6 +1339,8 @@ class ShopPersistenceTests(ShopEconomyTestCase):
         self.assertTrue(game_state.expansion_bought)
         self.assertTrue(game_state.compounding_bought)
         self.assertTrue(game_state.capital_preservation_bought)
+        self.assertEqual(game_state.mirroring_bought_count, 1)
+        self.assertEqual(game_state.mirrored_deck_cards, [112])
         self.assertEqual(game_state.loan_boss_positions_by_level, {5: [0]})
         self.assertTrue(game_state.is_card_licensed(121))
         self.assertEqual(game_state.gold_cards, [401])

@@ -64,6 +64,8 @@ diversification_bought = False
 expansion_bought = False
 compounding_bought = False
 capital_preservation_bought = False
+mirroring_bought_count = 0
+mirrored_deck_cards = []
 
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
@@ -87,6 +89,7 @@ SHOP_SPECIAL_COSTS = {
     "replication": 2,
     "screening": 1,
     "capital_preservation": 5,
+    "mirroring": 4,
 }
 
 DISCLOSURE_ROUNDS = 5
@@ -112,6 +115,7 @@ LOAN_GOAL_INCREASE_PERCENT = 20
 CORRECTION_SILVER_SALE_VALUE = 2
 CORRECTION_GOLD_SALE_VALUE = 4
 CORRECTION_MAX_CARDS = 3
+MIRRORING_MAX_PURCHASES = 2
 
 SHOP_CARD_COSTS = {
     20: 4,
@@ -140,6 +144,8 @@ SHOP_CARD_COSTS = {
     419: 4,
     420: 6,
     421: 4,
+    422: 5,
+    423: 6,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -302,6 +308,54 @@ def buy_replication_card(card_id):
     if normalized is None or normalized not in silver_cards:
         return None
     return add_silver_card(normalized)
+
+
+def get_mirroring_bought_count():
+    try:
+        return max(0, min(MIRRORING_MAX_PURCHASES, int(mirroring_bought_count or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_mirroring_shop_chance():
+    return 25 if get_mirroring_bought_count() == 0 else 10
+
+
+def is_mirroring_offer_available(level_number):
+    if get_mirroring_bought_count() >= MIRRORING_MAX_PURCHASES:
+        return False
+    return bool(build_current_level_deck(level_number))
+
+
+def buy_mirroring_card(level_number, card_id):
+    """Add a persistent-for-the-run duplicate of a selected deck instance."""
+    global mirroring_bought_count
+    if not is_mirroring_offer_available(level_number):
+        return None
+    try:
+        selected_id = int(card_id)
+    except (TypeError, ValueError):
+        return None
+    if not any(int(existing) == selected_id for existing in build_current_level_deck(level_number)):
+        return None
+
+    from gameplay_deck import restore_card_instance, serialize_card_instance
+
+    duplicate = restore_card_instance(serialize_card_instance(card_id))
+    if duplicate is None:
+        return None
+    mirrored_deck_cards.append(duplicate)
+    mirroring_bought_count = get_mirroring_bought_count() + 1
+    print(f"Mirroring duplicated card {selected_id}; copies bought={mirroring_bought_count}.")
+    return duplicate
+
+
+def clear_mirroring_cards(reason="defeat"):
+    global mirroring_bought_count
+    if mirrored_deck_cards:
+        print(f"Cleared mirrored cards after {reason}: {mirrored_deck_cards}")
+    mirrored_deck_cards.clear()
+    mirroring_bought_count = 0
 
 
 def add_black_card(card_id):
@@ -1374,6 +1428,7 @@ def reset_level_attempt(level_number):
     clear_investment_card_bonuses()
     clear_pending_shop_discount()
     clear_shop_deck_cards()
+    clear_mirroring_cards()
     if not consume_capital_preservation():
         clear_gold_cards()
     clear_silver_cards_deck()
@@ -1447,6 +1502,7 @@ def complete_level_run(level_number):
     clear_investment_card_bonuses()
     clear_pending_shop_discount()
     clear_shop_deck_cards(reason="level completion")
+    clear_mirroring_cards(reason="level completion")
     clear_gold_cards(reason="level completion")
     clear_silver_cards_deck()
     clear_insurance_goal_debt()
@@ -1553,6 +1609,7 @@ def build_current_level_deck(level_number):
         shop_deck_cards,
         round_reward_cards.get(level, []),
         investment_card_bonuses,
+        mirrored_deck_cards,
     )
 
 
@@ -2179,6 +2236,7 @@ def _available_screening_offer_ids(level_number):
         "compounding": is_compounding_offer_available(level),
         "replication": is_replication_offer_available(),
         "capital_preservation": is_capital_preservation_offer_available(),
+        "mirroring": is_mirroring_offer_available(level),
     }
     if level < 3:
         level_offers = {
@@ -2193,6 +2251,7 @@ def _available_screening_offer_ids(level_number):
             "disclosure",
             "replication",
             "capital_preservation",
+            "mirroring",
         }
     else:
         level_offers = set(availability)
@@ -2229,6 +2288,7 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
             "replication",
             "screening",
             "capital_preservation",
+            "mirroring",
         }
         fallback_offers = ("trader", "bailout", "junk_bond")
     else:
@@ -2281,6 +2341,10 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         is_capital_preservation_offer_available()
         and random.randint(1, 100) <= 5
     )
+    mirroring_hit = (
+        is_mirroring_offer_available(level)
+        and random.randint(1, 100) <= get_mirroring_shop_chance()
+    )
 
     if multibagger_hit:
         rolled.append("multibagger")
@@ -2324,6 +2388,8 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         rolled.append("screening")
     if capital_preservation_hit:
         rolled.append("capital_preservation")
+    if mirroring_hit:
+        rolled.append("mirroring")
 
     try:
         offer_limit = max(0, int(max_offers or 0))
