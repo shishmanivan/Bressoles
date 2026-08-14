@@ -37,7 +37,7 @@ Boss4Reward;В стартовой руке будут до двух случай
 Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.
 Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;The game lasts two turns longer. A random silver card enters your separate inventory. Playing it is optional.
 Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.
-Boss6Reward;Рука увеличивается на 1. Три серебряные карты поступают в отдельный инвентарь. Разыгрывать их необязательно.;Your hand grows by 1. Three silver cards enter your separate inventory. Playing them is optional.
+Boss6Reward;Три серебряные карты поступают в отдельный инвентарь. Разыгрывать их необязательно.;Three silver cards enter your separate inventory. Playing them is optional.
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
 Boss7Reward;20 Наполеондоров;20 Napoleondors
 Boss8Text;Фридрих Лист. Начинает с 12 акциями B, втрое больше обычного. На последнем ходу продаёт весь портфель.;Friedrich List. Starts with 12 B shares, three times the usual amount. Sells his entire portfolio on the final turn.

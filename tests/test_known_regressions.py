@@ -120,7 +120,7 @@ class KnownRegressionTests(unittest.TestCase):
             earned_reward_cards={},
             rewards={},
             reward_token_random_red=-1001,
-            load_boss_rewards=lambda: {6: {"Reward": "hand=hand+1,ArkwrightSilverCards"}},
+            load_boss_rewards=lambda: {6: {"Reward": "ArkwrightSilverCards"}},
             get_boss_number_from_index=get_boss_number_from_index,
             apply_boss_reward=apply_reward,
             pick_random_red_card_for_level=mock.Mock(),
@@ -128,7 +128,7 @@ class KnownRegressionTests(unittest.TestCase):
             get_boss_number_from_filename=get_boss_number_from_filename,
         )
 
-        apply_reward.assert_called_once_with("hand=hand+1,ArkwrightSilverCards", gameplay)
+        apply_reward.assert_called_once_with("ArkwrightSilverCards", gameplay)
 
     def test_resumed_dynamic_boss_stats_use_saved_boss_identity(self):
         import gameplay_page

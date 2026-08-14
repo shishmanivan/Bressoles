@@ -212,6 +212,13 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(game_state.pending_shop_discount_percent, 50)
         self.assertEqual(game_state.napoleondors, 30)
 
+    def test_duplicate_obligations_each_award_their_full_bonus(self):
+        page = self._page(silver=[218, 218])
+
+        page._apply_obligation_win_bonus()
+
+        self.assertEqual(game_state.napoleondors, 20)
+
     def test_issue_price_sets_only_a_starting_price_to_six(self):
         page = self._page(gold=[421])
         page.Aprice = page.BPrice = page.CPrice = 2
@@ -245,6 +252,22 @@ class LifecycleEffectTests(unittest.TestCase):
 
         self.assertFalse(page._apply_markdown_goal_modifier())
         self.assertEqual(page.Goal, 100)
+
+    def test_volatility_cards_modify_all_market_steps_and_use_their_synergy(self):
+        cases = (
+            ([424], 2, (4, 6, 8)),
+            ([425], 4, (6, 8, 10)),
+            ([424, 425], 10, (12, 14, 16)),
+            ([424, 424, 425], 12, (14, 16, 18)),
+            ([], 0, (2, 4, 6)),
+        )
+        for gold_cards, expected_bonus, expected_steps in cases:
+            with self.subTest(gold_cards=gold_cards):
+                page = self._page(gold=gold_cards)
+                page.StepA, page.StepB, page.StepC = 2, 4, 6
+
+                self.assertEqual(page._apply_volatility_steps(), expected_bonus)
+                self.assertEqual((page.StepA, page.StepB, page.StepC), expected_steps)
 
     def test_bear_flat_insider_and_gambling_contracts(self):
         page = self._page(gold=[401, 404, 405, 406])
@@ -300,6 +323,88 @@ class LifecycleEffectTests(unittest.TestCase):
         game_state.napoleondors = 5
         self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 30)
         self.assertEqual(page._get_current_rebate_sale_percent(), 185)
+
+    @staticmethod
+    def _short_seller_page():
+        page = LifecycleEffectTests._page(silver=[211])
+        page.is_boss_fight = False
+        page.Money = 1
+        page.Aquantity, page.Bquantity, page.Cquantity = 5, 0, 0
+        page.Aprice, page.BPrice, page.CPrice = 8, 12, 14
+        page.short_seller_fall_counts = [0, 0, 0]
+        page.short_seller_counted_markets_this_resolution = set()
+        page.lifecycle_card_jump_animations = {}
+        page._finish_short_seller_victory = mock.Mock(return_value=True)
+        return page
+
+    def test_short_seller_wins_after_five_qualifying_falls_of_one_market(self):
+        page = self._short_seller_page()
+
+        for expected_count in range(1, 5):
+            self.assertFalse(page._record_short_seller_falls((10, 12, 14), "test"))
+            self.assertEqual(page.short_seller_fall_counts, [expected_count, 0, 0])
+            page.short_seller_counted_markets_this_resolution = set()
+        self.assertTrue(page._record_short_seller_falls((10, 12, 14), "test"))
+
+        self.assertEqual(page.short_seller_fall_counts, [5, 0, 0])
+        page._finish_short_seller_victory.assert_called_once_with()
+
+    def test_short_seller_requires_one_market_and_no_affordable_share(self):
+        page = self._short_seller_page()
+        page.Money = 10
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "cash remains"))
+
+        page.Money = 9
+        page.Bquantity = 1
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "two markets"))
+
+        page.Bquantity = 0
+        page.Aprice = 10
+        page.BPrice = 10
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "other market fell"))
+        self.assertEqual(page.short_seller_fall_counts, [0, 0, 0])
+
+    def test_short_seller_does_not_combine_different_markets(self):
+        page = self._short_seller_page()
+        for _ in range(3):
+            page._record_short_seller_falls((10, 12, 14), "A fall")
+            page.short_seller_counted_markets_this_resolution = set()
+
+        page.Aquantity, page.Bquantity = 0, 5
+        page.Aprice, page.BPrice = 10, 10
+        for _ in range(2):
+            page._record_short_seller_falls((10, 12, 14), "B fall")
+            page.short_seller_counted_markets_this_resolution = set()
+
+        self.assertEqual(page.short_seller_fall_counts, [3, 2, 0])
+        page._finish_short_seller_victory.assert_not_called()
+
+    def test_short_seller_counts_at_most_one_fall_per_turn(self):
+        page = self._short_seller_page()
+
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "natural fall"))
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "momentum fall"))
+
+        self.assertEqual(page.short_seller_fall_counts, [1, 0, 0])
+
+    def test_short_seller_is_disabled_in_boss_fights(self):
+        page = self._short_seller_page()
+        page.is_boss_fight = True
+        page.short_seller_fall_counts = [4, 0, 0]
+
+        self.assertFalse(page._record_short_seller_falls((10, 12, 14), "boss fall"))
+        self.assertEqual(page.short_seller_fall_counts, [4, 0, 0])
+        page._finish_short_seller_victory.assert_not_called()
+
+    def test_short_seller_is_connected_to_actual_market_price_changes(self):
+        page = self._short_seller_page()
+        page.short_seller_fall_counts = [4, 0, 0]
+        page.Aprice = 10
+
+        self.assertTrue(page._apply_price_change(0, -2))
+        self.assertEqual(page.Aprice, 8)
+        self.assertEqual(page.short_seller_fall_counts, [5, 0, 0])
+        page._finish_short_seller_victory.assert_called_once_with()
 
     def test_catalyst_adds_ten_points_to_golden_stocks_roll_without_storing_them(self):
         original_chance = game_state.golden_stocks_chance_percent

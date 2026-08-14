@@ -101,6 +101,11 @@ class ContentValidationTests(unittest.TestCase):
             with self.subTest(boss=boss_number, field="Functionalities"):
                 parse_boss_functionality_spec(entry.get("Functionalities"))
 
+    def test_arkwright_reward_does_not_increase_hand_size(self):
+        reward = load_boss_rewards()[6]["Reward"]
+
+        self.assertEqual(reward, "ArkwrightSilverCards")
+
     def test_unknown_boss_effect_is_reported_by_content_validation(self):
         boss_rewards = copy.deepcopy(load_boss_rewards())
         boss_rewards[2]["Functionalities"] = "LastTrun=LastTrun-1"

@@ -1019,6 +1019,26 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(CARD_NAMES[210], "Catalyst")
         self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[210])
 
+    def test_short_seller_unlocks_from_level_four_and_has_seven_percent_chance(self):
+        self.assertNotIn(211, game_state.build_license_offer_pool(3))
+        self.assertIn(211, game_state.build_license_offer_pool(4))
+        with mock.patch.object(game_state, "level_5_boss_defeated", False):
+            self.assertIn(211, game_state.build_license_offer_pool(5))
+        self.assertEqual(game_state.get_license_cost(211), 5)
+        self.assertEqual(CARD_NAMES[211], "Short Seller")
+        self.assertEqual(
+            LICENSE_EFFECT_DESCRIPTIONS[211],
+            "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
+        )
+
+        cards = {211: {"Type": 3, "Open": 1, "Variable": 7}}
+        game_state.licensed_card_ids.add(211)
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            with mock.patch.object(game_state.random, "randint", return_value=7):
+                self.assertEqual(game_state.build_silver_cards_pool(), [211])
+            with mock.patch.object(game_state.random, "randint", return_value=8):
+                self.assertEqual(game_state.build_silver_cards_pool(), [])
+
     def test_gold_catalyst_costs_five_and_has_three_percent_pool_chance(self):
         self.assertNotIn(414, game_state.build_license_offer_pool(3))
         self.assertIsNone(game_state.get_license_cost(414))

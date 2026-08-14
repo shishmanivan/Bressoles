@@ -146,6 +146,8 @@ SHOP_CARD_COSTS = {
     421: 4,
     422: 5,
     423: 6,
+    424: 5,
+    425: 6,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -169,6 +171,7 @@ LICENSE_COSTS = {
     207: 7,
     209: 5,
     210: 5,
+    211: 5,
     214: 7,
     215: 7,
     217: 7,
@@ -178,7 +181,7 @@ LICENSE_COSTS = {
 }
 LICENSES_BY_LEVEL = {
     3: [112, 113, 114, 115, 123, 124, 125, 126, 203, 204, 207, 209, 210, 214, 215, 217, 218, 219, 220],
-    4: [205],
+    4: [205, 211],
     5: [118, 119, 120, 121, 122],
 }
 # These licenses counter mechanics that exist only on the listed levels, so
