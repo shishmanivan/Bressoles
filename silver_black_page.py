@@ -44,19 +44,19 @@ POSITIONING_GRID_COLUMNS = 8
 
 
 def get_positioning_selection_limit(active_gold_cards):
-    active_ids = set()
+    positioning_count = 0
+    positioning_plus_count = 0
     for card_id in active_gold_cards or []:
         try:
-            active_ids.add(int(card_id))
+            normalized_id = int(card_id)
         except (TypeError, ValueError):
             continue
-    if 417 in active_ids and 418 in active_ids:
-        return 6
-    if 418 in active_ids:
-        return 3
-    if 417 in active_ids:
-        return 2
-    return 0
+        if normalized_id == 417:
+            positioning_count += 1
+        elif normalized_id == 418:
+            positioning_plus_count += 1
+    synergy_pairs = min(positioning_count, positioning_plus_count)
+    return positioning_count * 2 + positioning_plus_count * 3 + synergy_pairs
 
 CARD_TOOLTIPS = {
     201: (
@@ -68,6 +68,10 @@ CARD_TOOLTIPS = {
     204: (
         "Contango",
         "Удваивает силу всех Gain/Drop-карт. Несколько копий умножают эффект повторно.",
+    ),
+    205: (
+        "Controlling Stake",
+        "Карты Shareholder больше не могут отключать кнопки торговли на одном из рынков.",
     ),
     206: (
         "Basket Trading",
@@ -93,6 +97,10 @@ CARD_TOOLTIPS = {
         "Short Seller",
         "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
     ),
+    212: (
+        "Manipulation",
+        "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
+    ),
     214: ("Grant", "Добавляет 4 к стартовым деньгам в начале раунда."),
     215: (
         "Bill of exchange",
@@ -108,7 +116,7 @@ CARD_TOOLTIPS = {
     301: ("Futures", "Добавляет 1 ход к длительности раунда."),
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает.",
+        "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
     ),
     303: (
         "Комиссия",
@@ -141,7 +149,7 @@ CARD_TOOLTIPS.update(
         ),
         406: (
             "Gambling",
-            "Усиливает карты Upside и Downside на 7 процентных пунктов.",
+            "Усиливает карты Upside и Downside.",
         ),
     }
 )
@@ -224,6 +232,18 @@ CARD_TOOLTIPS.update(
         425: (
             "Volatility+",
             "Увеличивает шаг роста и падения каждого рынка на 4.",
+        ),
+        426: (
+            "Windfall",
+            "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+        ),
+        427: (
+            "Disclosure",
+            "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
+        ),
+        428: (
+            "Full Deployment",
+            "Даёт 7 наполеондоров, если вся колода израсходована.",
         ),
     }
 )
@@ -1055,16 +1075,26 @@ class PositioningPage(SilverBlackPage):
 
 
 class ReplicationSilverPage(SilverBlackPage):
-    """Silver-only storage view used to choose a card for Replication."""
+    """Single-kind storage view used to choose a card for Replication."""
 
-    def __init__(self, screen, font_path, silver_cards, lang_dict=None):
+    def __init__(self, screen, font_path, silver_cards, lang_dict=None, card_kind="silver"):
+        self.replication_kind = "gold" if card_kind == "gold" else "silver"
+        stored_cards = list(silver_cards or [])
         super().__init__(
             screen,
             font_path,
-            silver_cards,
+            stored_cards if self.replication_kind == "silver" else [],
             black_cards=[],
-            gold_cards=[],
+            gold_cards=stored_cards if self.replication_kind == "gold" else [],
             lang_dict=lang_dict,
+        )
+        self.replication_cards = self.gold_cards if self.replication_kind == "gold" else self.silver_cards
+        self.replication_color = GOLD if self.replication_kind == "gold" else SILVER
+        self.replication_title = "Репликация Плюс" if self.replication_kind == "gold" else "Репликация"
+        self.replication_prompt = (
+            "Выберите золотую карту, которую хотите скопировать"
+            if self.replication_kind == "gold"
+            else "Выберите серебряную карту, которую хотите скопировать"
         )
         self.selected_index = None
         self.title_font = pygame.font.Font(self.font_path, 58)
@@ -1075,7 +1105,9 @@ class ReplicationSilverPage(SilverBlackPage):
             gap=INVENTORY_ROW_GAP,
         )
         self.silver_label_surface = self.row_label_font.render(
-            self._get_text("LifecycleSilver", "Серебряные карты"),
+            self._get_text("LifecycleGold", "Золотые карты")
+            if self.replication_kind == "gold"
+            else self._get_text("LifecycleSilver", "Серебряные карты"),
             True,
             PAPER_COLOR,
         )
@@ -1095,7 +1127,7 @@ class ReplicationSilverPage(SilverBlackPage):
 
     def _silver_index_at(self, position):
         for index, rect in enumerate(self.silver_rects):
-            if index < len(self.silver_cards) and rect.collidepoint(position):
+            if index < len(self.replication_cards) and rect.collidepoint(position):
                 return index
         return None
 
@@ -1104,7 +1136,7 @@ class ReplicationSilverPage(SilverBlackPage):
             return "back"
         if self.confirm_button_rect.collidepoint(position):
             if self.selected_index is not None:
-                return self.silver_cards[self.selected_index]
+                return self.replication_cards[self.selected_index]
             return None
         selected_index = self._silver_index_at(position)
         if selected_index is not None:
@@ -1115,7 +1147,7 @@ class ReplicationSilverPage(SilverBlackPage):
         index = self._silver_index_at(pos)
         if index is None:
             return None, None
-        return self.silver_cards[index], "silver"
+        return self.replication_cards[index], self.replication_kind
 
     def _draw_background(self):
         if self.round_background:
@@ -1147,21 +1179,21 @@ class ReplicationSilverPage(SilverBlackPage):
     def draw(self):
         self._draw_background()
         self._draw_centered_text(
-            "Репликация",
+            self.replication_title,
             self.title_font,
             (self.panel_rect.centerx, self.panel_rect.y + 125),
         )
         self._draw_centered_text(
-            "Выберите серебряную карту, которую хотите скопировать",
+            self.replication_prompt,
             self.prompt_font,
             (self.panel_rect.centerx, self.panel_rect.y + 190),
         )
         self.screen.blit(self.silver_label_surface, self.silver_label_rect)
 
         for index, rect in enumerate(self.silver_rects):
-            self._draw_placeholder(rect, SILVER)
-            if index < len(self.silver_cards):
-                self._draw_card(self.silver_cards[index], rect)
+            self._draw_placeholder(rect, self.replication_color)
+            if index < len(self.replication_cards):
+                self._draw_card(self.replication_cards[index], rect)
             if index == self.selected_index:
                 pygame.draw.rect(
                     self.screen,
@@ -1193,7 +1225,7 @@ class ReplicationSilverPage(SilverBlackPage):
                         event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
                         and self.selected_index is not None
                     ):
-                        return self.silver_cards[self.selected_index]
+                        return self.replication_cards[self.selected_index]
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     result = self._handle_mouse_down(event.pos)
                     if result == "back":
@@ -1203,3 +1235,16 @@ class ReplicationSilverPage(SilverBlackPage):
 
             self.draw()
             self.clock.tick(FPS)
+
+
+class ReplicationGoldPage(ReplicationSilverPage):
+    """Gold-only storage view used to choose a card for Replication+."""
+
+    def __init__(self, screen, font_path, gold_cards, lang_dict=None):
+        super().__init__(
+            screen,
+            font_path,
+            gold_cards,
+            lang_dict=lang_dict,
+            card_kind="gold",
+        )

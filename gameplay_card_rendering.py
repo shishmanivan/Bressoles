@@ -10,6 +10,11 @@ from game_data import REWARD_TOKEN_RANDOM_SILVER
 # Card_11/Card_15 artwork. Values are measured in the 99 px market-card scale.
 _TURNS_X_OFFSET_BY_CARD = {17: -7.75, 18: -7.75}
 _TURNS_Y_OFFSET_BY_CARD = {17: 1.5, 18: 1.5}
+# Visual center of the approved percentage on a 142x244 shop Bear card:
+# (0.07 * 244 - 4 + 34 / 2) / 244.
+_BEAR_TITLE_CENTER_Y_RATIO = 0.12327868852459017
+_BEAR_STORAGE_HEIGHT = 176.0
+_BEAR_STORAGE_VERTICAL_NUDGE = 0.75
 
 
 def get_turns_text_position(card_id, card_width, card_height, origin_x=0, origin_y=0):
@@ -23,6 +28,20 @@ def get_turns_text_position(card_id, card_width, card_height, origin_x=0, origin
     turns_x = origin_x + card_width / 2 + (10.0 + x_offset) * width_scale
     turns_y = origin_y + card_height - 75.0 * height_scale + y_offset * height_scale
     return turns_x, turns_y
+
+
+def get_bear_modifier_y(card_y, card_height, text_height, adjust_mode="default"):
+    """Keep Bear's percentage centered on the title at every card scale."""
+    if adjust_mode == "shop":
+        return card_y + card_height * 0.07 - 4
+    title_center_y = card_y + card_height * _BEAR_TITLE_CENTER_Y_RATIO
+    vertical_nudge = _BEAR_STORAGE_VERTICAL_NUDGE * card_height / _BEAR_STORAGE_HEIGHT
+    return title_center_y - text_height / 2 - vertical_nudge
+
+
+def get_bear_modifier_x(card_x, card_width):
+    """Use the approved shop-card horizontal proportion at every scale."""
+    return card_x + card_width * 0.53
 
 
 def is_bid_card(card_id):
@@ -268,12 +287,8 @@ def draw_bear_modifier_text(
 
     if adjust_mode == "shop":
         font_size = max(1, int(card_size[0] * 0.18))
-        x_ratio = 0.53
-        y_ratio = 0.07
     else:
         font_size = max(1, int(card_size[0] * 0.20))
-        x_ratio = 0.57
-        y_ratio = 0.075
     try:
         try:
             percent = int(modifier_percent)
@@ -282,8 +297,13 @@ def draw_bear_modifier_text(
         percent = max(2, percent)
         font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
         text = font.render(f"-{percent}%", True, paper_color)
-        x = card_x + card_size[0] * x_ratio
-        y = card_y + card_size[1] * y_ratio - 4
+        x = get_bear_modifier_x(card_x, card_size[0])
+        y = get_bear_modifier_y(
+            card_y,
+            card_size[1],
+            text.get_height(),
+            adjust_mode=adjust_mode,
+        )
         screen.blit(text, (int(x), int(y)))
     except Exception as e:
         print(f"ERROR rendering Bear modifier text: {e}")

@@ -12,6 +12,7 @@ _goals_level2_cache = None
 _goals_level3_cache = None
 _goals_level4_cache = None
 _goals_level5_cache = None
+_goals_level6_cache = None
 _rewards_config_cache = None
 _boss_rewards_cache = None
 
@@ -470,6 +471,76 @@ def get_level5_goal(round_num, button, defeated_count, is_boss_round=False):
     except (TypeError, ValueError):
         boss_idx = 1
     return goals[button_upper].get((boss_idx, round_index), goals[button_upper].get(round_index))
+
+
+def load_goals_level6():
+    """Load goals for level 6 from GoalsLevel6.csv."""
+    global _goals_level6_cache
+    if _goals_level6_cache is not None:
+        return _goals_level6_cache
+
+    goals = {"E": {}, "M": {}, "H": {}}
+    goals_file = "GoalsLevel6.csv"
+    if not os.path.exists(goals_file):
+        print(f"WARNING: GoalsLevel6.csv not found: {goals_file}")
+        _goals_level6_cache = goals
+        return goals
+
+    try:
+        with open(goals_file, "r", encoding="utf-8-sig") as source_file:
+            reader = csv.DictReader(source_file, delimiter=";")
+            for row in reader:
+                button = (row.get("", "") or "").strip().upper()
+                if button not in goals:
+                    continue
+                for key, raw in (row or {}).items():
+                    if key is None:
+                        continue
+                    column = str(key).strip()
+                    value = (raw or "").strip()
+                    if not value:
+                        continue
+                    if column.isdigit():
+                        goals[button][int(column)] = int(value)
+                        continue
+                    normalized = column.replace(" ", "")
+                    if normalized.lower().startswith("bossround"):
+                        suffix = normalized[len("BossRound"):]
+                        if suffix.isdigit():
+                            goals[button][("boss", int(suffix))] = int(value)
+                        continue
+                    stage_round = normalized.replace("-", "_")
+                    if stage_round.upper().startswith("B") and "_" in stage_round:
+                        stage_raw, round_raw = stage_round[1:].split("_", 1)
+                        if stage_raw.isdigit() and round_raw.isdigit():
+                            goals[button][(int(stage_raw), int(round_raw))] = int(value)
+    except Exception as error:
+        print(f"ERROR loading GoalsLevel6.csv: {error}")
+
+    _goals_level6_cache = goals
+    return goals
+
+
+def get_level6_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Get a goal for level 6 from GoalsLevel6.csv."""
+    goals = load_goals_level6()
+    button_upper = (button or "").strip().upper()
+    if button_upper not in goals:
+        return None
+    try:
+        boss_position = int(defeated_count or 0) + 1
+    except (TypeError, ValueError):
+        boss_position = 1
+    if round_num is None or is_boss_round:
+        return goals[button_upper].get(("boss", boss_position))
+    try:
+        round_index = int(round_num)
+    except (TypeError, ValueError):
+        return None
+    return goals[button_upper].get(
+        (boss_position, round_index),
+        goals[button_upper].get(round_index),
+    )
 
 
 def get_level2_goal(round_num, button, boss_selection, is_boss_round=False):

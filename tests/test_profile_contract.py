@@ -9,9 +9,35 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 
 import profile_manager
+import game_state
 
 
 class ProfileContractTests(unittest.TestCase):
+    def test_windfall_progress_is_stored_and_restored(self):
+        original = game_state.windfall_boss_victories
+        try:
+            game_state.windfall_boss_victories = 3
+            progress = profile_manager._capture_progress()
+            self.assertEqual(progress["windfall_boss_victories"], 3)
+
+            profile = profile_manager._default_profile(1)
+            profile["progress"]["windfall_boss_victories"] = 4
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertEqual(game_state.get_windfall_boss_victories(), 4)
+        finally:
+            game_state.windfall_boss_victories = original
+
+    def test_completed_level_black_rewards_are_restored_in_existing_profiles(self):
+        profile = profile_manager._default_profile(1)
+        profile["progress"]["level_3_boss_defeated"] = True
+        profile["progress"]["level_4_boss_defeated"] = True
+        profile["progress"]["level_5_boss_defeated"] = True
+        profile["progress"]["black_cards"] = [301, 303]
+
+        self.assertTrue(profile_manager._migrate_completed_black_rewards(profile))
+        self.assertEqual(profile["progress"]["black_cards"], [301, 302, 303])
+        self.assertFalse(profile_manager._migrate_completed_black_rewards(profile))
+
     def test_campaign_v2_migrates_the_former_level4_run_to_level5(self):
         profile = {
             "version": 1,

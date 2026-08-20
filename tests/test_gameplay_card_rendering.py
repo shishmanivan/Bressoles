@@ -1,6 +1,10 @@
 import unittest
 
-from gameplay_card_rendering import get_turns_text_position
+from gameplay_card_rendering import (
+    get_bear_modifier_x,
+    get_bear_modifier_y,
+    get_turns_text_position,
+)
 
 
 class CardTurnsPositionTests(unittest.TestCase):
@@ -38,6 +42,27 @@ class CardTurnsPositionTests(unittest.TestCase):
         self.assertEqual(
             get_turns_text_position(21, card_width, card_height),
             get_turns_text_position(11, card_width, card_height),
+        )
+
+
+class BearModifierPositionTests(unittest.TestCase):
+    def test_storage_uses_shop_horizontal_proportion(self):
+        self.assertAlmostEqual(get_bear_modifier_x(0, 142) / 142, 0.53)
+        self.assertAlmostEqual(get_bear_modifier_x(0, 102) / 102, 0.53)
+
+    def test_shop_position_remains_pixel_identical(self):
+        self.assertAlmostEqual(
+            get_bear_modifier_y(0, 244, 34, adjust_mode="shop"),
+            244 * 0.07 - 4,
+        )
+
+    def test_storage_percentage_uses_title_centerline_with_visual_nudge(self):
+        shop_y = get_bear_modifier_y(0, 244, 34, adjust_mode="shop")
+        storage_y = get_bear_modifier_y(0, 176, 27)
+
+        self.assertAlmostEqual(
+            (shop_y + 34 / 2) / 244,
+            (storage_y + 27 / 2 + 0.75) / 176,
         )
 
 

@@ -314,7 +314,7 @@ class RoundPage:
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3, 4, 5):
+        if self.level_number in (2, 3, 4, 5, 6):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(

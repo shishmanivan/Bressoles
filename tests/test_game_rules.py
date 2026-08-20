@@ -31,7 +31,7 @@ class LevelAndGoalRulesTests(unittest.TestCase):
         config = load_levels_config()
         self.assertEqual(
             {level: (row["Rounds"], row["Bosses"]) for level, row in config.items()},
-            {1: (1, 1), 2: (2, 2), 3: (3, 3), 4: (3, 3), 5: (3, 4)},
+            {1: (1, 1), 2: (2, 2), 3: (3, 3), 4: (3, 3), 5: (3, 4), 6: (3, 4)},
         )
 
     def test_level2_goals_have_two_progression_stages(self):
@@ -95,6 +95,7 @@ class LevelAndGoalRulesTests(unittest.TestCase):
             3: (4, "EMH"),
             4: (4, "EMH"),
             5: (4, "EMH"),
+            6: (4, "EMH"),
         }
         for level, (maximum_round, difficulties) in expected_coverage.items():
             for round_number in range(1, maximum_round + 1):
@@ -133,6 +134,17 @@ class MarketRulesTests(unittest.TestCase):
         self.assertEqual(
             probabilities[1],
             {"fall": 20.0, "flat": 15.0, "rise": 65.0},
+        )
+
+    def test_two_shakeouts_apply_the_probability_doubling_twice(self):
+        probabilities = build_market_probabilities(
+            double_fall_markets={1},
+            double_fall_count=2,
+        )
+
+        self.assertEqual(
+            probabilities[1],
+            {"fall": 40.0, "flat": 5.0, "rise": 55.0},
         )
         self.assertAlmostEqual(sum(probabilities[1].values()), 100.0)
 

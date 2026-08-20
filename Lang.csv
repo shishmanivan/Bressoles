@@ -2,6 +2,9 @@ Key;RU;ENG
 Profile;Профиль;Profile
 MenuStart;Начать игру;Start
 MenuOption;Настройки;Options
+SettingsTitle;Настройки;Options
+MusicVolume;Громкость музыки;Music volume
+SettingsBack;Назад;Back
 MenuTestMode;Тестовый режим;Test Mode
 MenuQuit;Выход;Quit
 MainQuit;Выход;Quit
@@ -22,10 +25,12 @@ Level2Year;1825;1825
 Level3Year;1830;1830
 Level4Year;1845;1845
 Level5Year;1847;1847
+Level6Year;1850;1850
+Level6Cond;Стабилизация рынка. Биржа становится обычным финансовым институтом.;Market stabilization. The stock exchange becomes a conventional financial institution.
 Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.
 Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.
 Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.
-Level5Cond;Пик железнодорожной мании. Победите четырёх боссов: сначала двух первой категории, затем двух второй.;The peak of railway mania. Defeat four bosses: first two from category one, then two from category two.
+Level5Cond;Пик железнодорожной мании. Победите четырёх боссов.;The peak of railway mania. Defeat four bosses.
 Boss1Text;Джеймс Уатт - самый простой босс. Особых условий нет: просто победите его.;James Watt is the easiest boss. There are no special conditions: just beat him.
 Boss1Reward;Персональной награды нет.;No personal reward.
 Boss2Text;Адам Смит. В каждом раунде на один ход меньше.;Adam Smith. Each round is one turn shorter.
@@ -37,7 +42,7 @@ Boss4Reward;В стартовой руке будут до двух случай
 Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.
 Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;The game lasts two turns longer. A random silver card enters your separate inventory. Playing it is optional.
 Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.
-Boss6Reward;Три серебряные карты поступают в отдельный инвентарь. Разыгрывать их необязательно.;Three silver cards enter your separate inventory. Playing them is optional.
+Boss6Reward;Вы получаете 3 серебряные карты (должно быть место).;You receive 3 silver cards (storage space required).
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
 Boss7Reward;20 Наполеондоров;20 Napoleondors
 Boss8Text;Фридрих Лист. Начинает с 12 акциями B, втрое больше обычного. На последнем ходу продаёт весь портфель.;Friedrich List. Starts with 12 B shares, three times the usual amount. Sells his entire portfolio on the final turn.
@@ -84,8 +89,8 @@ RewardFinalBoss;Поздравляем! Вы разблокировали сле
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
 RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
 RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
-RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Теперь вы начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You now start subsequent levels with 2 additional Napoleondors.
-RewardLevel5FinalBoss;Вы завершили пятый уровень! Открыты седьмой и восьмой уровни. Вы получили чёрную карту «Комиссия» и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level five! Levels seven and eight are now unlocked. You received the Commission black card and now start subsequent levels with 2 additional Napoleondors.
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Вы получили чёрную карту Golden Stocks и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You received the Golden Stocks black card and now start subsequent levels with 2 additional Napoleondors.
+RewardLevel5FinalBoss;Вы завершили пятый уровень! Открыты шестой, седьмой и восьмой уровни. Вы получили чёрную карту «Комиссия», теперь начинаете следующие уровни ещё с 2 Наполеонами и можете одновременно использовать 4 серебряные, чёрные или золотые карты вместо 3.;You completed level five! Levels six, seven, and eight are now unlocked. You received the Commission black card, now start subsequent levels with 2 additional Napoleondors, and can use 4 silver, black, or gold cards at once instead of 3.
 BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
 LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.

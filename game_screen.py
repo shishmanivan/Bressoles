@@ -101,6 +101,9 @@ class GameScreen:
         self.card5_position = None
         self.arrow5_rect = None
         self.arrow5_position = (0, 0)
+        self.card6_position = None
+        self.arrow6_rect = None
+        self.arrow6_position = (0, 0)
 
         primary_assets = load_primary_level_assets()
         self.level1_picture = primary_assets["level1_picture"]
@@ -108,6 +111,7 @@ class GameScreen:
         self.level3_picture = primary_assets["level3_picture"]
         self.level4_picture = primary_assets["level4_picture"]
         self.level5_picture = primary_assets["level5_picture"]
+        self.level6_picture = primary_assets["level6_picture"]
 
         self.scroll_y = 0
         self.max_scroll_y = 0
@@ -140,16 +144,19 @@ class GameScreen:
             self.card3_position = normal_layout["card3_position"]
             self.card4_position = normal_layout["card4_position"]
             self.card5_position = normal_layout["card5_position"]
+            self.card6_position = normal_layout["card6_position"]
             self.arrow_position = normal_layout["arrow_position"]
             self.arrow2_position = normal_layout["arrow2_position"]
             self.arrow3_position = normal_layout["arrow3_position"]
             self.arrow4_position = normal_layout["arrow4_position"]
             self.arrow5_position = normal_layout["arrow5_position"]
+            self.arrow6_position = normal_layout["arrow6_position"]
             self.arrow_rect = normal_layout["arrow_rect"]
             self.arrow2_rect = normal_layout["arrow2_rect"]
             self.arrow3_rect = normal_layout["arrow3_rect"]
             self.arrow4_rect = normal_layout["arrow4_rect"]
             self.arrow5_rect = normal_layout["arrow5_rect"]
+            self.arrow6_rect = normal_layout["arrow6_rect"]
             self.card1_rect = normal_layout["card1_rect"]
             self.max_scroll_y = normal_layout["max_scroll_y"]
 
@@ -242,10 +249,12 @@ class GameScreen:
                         return "level_4"
                     if self._is_unlocked("level_3_boss_defeated") and arrow_hit(self.arrow5_rect):
                         return "level_5"
+                    if self._is_unlocked("level_6_unlocked") and arrow_hit(self.arrow6_rect):
+                        return "level_6"
 
         return None
 
-    def _draw_level_card(self, card_position, level_num, level_picture):
+    def _draw_level_card(self, card_position, level_num, level_picture, show_start_arrow=True):
         if not self.levelcard_image:
             return
 
@@ -258,19 +267,21 @@ class GameScreen:
 
         desc_key = f"Level{level_num}Cond"
         desc_text = self._get_text(desc_key, None)
+        year_key = f"Level{level_num}Year"
+        year_text = self._get_text(year_key, None)
+        text_x = card_position[0] + 390
+        text_y = card_position[1] + 8
+        year_surface = None
+
+        if year_text and year_text != year_key:
+            year_surface = self._render_text_cached(self.font_card, year_text, PAPER_COLOR)
+            self.screen.blit(year_surface, (text_x, text_y))
 
         if desc_text and desc_text != desc_key:
-            year_key = f"Level{level_num}Year"
-            year_text = self._get_text(year_key, None)
-            card_text = year_text if year_text and year_text != year_key else ""
-            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
-            text_x = card_position[0] + 390
-            text_y = card_position[1] + 8
-            self.screen.blit(text_surface, (text_x, text_y))
-
             lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
             line_height = self.font_card_desc.get_height() + 5
-            start_y = text_y + text_surface.get_height() + 20
+            year_height = year_surface.get_height() if year_surface else 0
+            start_y = text_y + year_height + 20
             start_x = card_position[0] + 250
 
             for i, line in enumerate(lines):
@@ -279,7 +290,7 @@ class GameScreen:
 
         self._draw_completed_stamp(card_position, level_num)
 
-        if self.startarrow_image:
+        if show_start_arrow and self.startarrow_image:
             arrow_x = card_position[0] + card_width - self.startarrow_image.get_width() - 15
             arrow_y = card_position[1] + card_height - self.startarrow_image.get_height() - 15
             self.screen.blit(self.startarrow_image, (arrow_x, arrow_y))
@@ -304,13 +315,14 @@ class GameScreen:
             return
 
         cards = [
-            (1, self.card_position, self.level1_picture, True),
-            (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated")),
-            (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated")),
-            (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated")),
-            (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated")),
+            (1, self.card_position, self.level1_picture, True, True),
+            (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated"), True),
+            (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated"), True),
+            (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated"), True),
+            (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated"), True),
+            (6, self.card6_position, self.level6_picture, self._is_unlocked("level_6_unlocked"), True),
         ]
-        for level_num, position, picture, unlocked in cards:
+        for level_num, position, picture, unlocked, startable in cards:
             if not unlocked or position is None:
                 continue
             adjusted_position = (position[0], position[1] - self.scroll_y)
@@ -319,7 +331,12 @@ class GameScreen:
                 or adjusted_position[1] + self.levelcard_image.get_height() < 0
             ):
                 continue
-            self._draw_level_card(adjusted_position, level_num, picture)
+            self._draw_level_card(
+                adjusted_position,
+                level_num,
+                picture,
+                show_start_arrow=startable,
+            )
         pygame.display.flip()
         return
 

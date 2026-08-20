@@ -182,6 +182,20 @@ class StockBotTurnTests(unittest.TestCase):
         page._stock_bot_portfolio_value.return_value = 41
         self.assertFalse(page._can_win_against_current_boss())
 
+    def test_level6_enables_the_competing_boss_stock_bot(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 6
+        page.boss_index = 0
+        page.boss_filename = "2_AdamSmith.png"
+        page.stock_bot_enabled = False
+        page._get_active_boss_number = mock.Mock(return_value=2)
+
+        page._configure_boss_stock_bot()
+
+        self.assertTrue(page.stock_bot_enabled)
+        self.assertEqual(page.stock_bot_type, "simple")
+        self.assertEqual(page.stock_bot_start_quantities, {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0})
+
 
 class BossTradingConstraintTests(unittest.TestCase):
     @staticmethod
@@ -383,6 +397,27 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         roll.assert_not_called()
         self.assertIsNone(page.shareholder_blocked_market)
 
+    def test_level6_also_uses_the_shareholder_market_shutdown_rule(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 6
+        page.win_lose_state = None
+        page.shareholder_effect_count = 3
+        page.shareholder_blocked_market = None
+        page.Day = 1
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_gold_cards = []
+        page.side_cards_top = [100, None, None, None, None, None]
+        page.side_card_jump_animations = {}
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.card_jump_animations = {0: {}, 1: {}, 2: {}}
+
+        with (
+            mock.patch("gameplay_page.random.random", return_value=0.19),
+            mock.patch("gameplay_page.random.choice", return_value=2),
+        ):
+            self.assertEqual(page._roll_shareholder_market_shutdown(), 2)
+
     def test_controlling_stake_prevents_and_clears_shareholder_button_lockout(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 4
@@ -561,6 +596,22 @@ class RebateLiquidationTests(unittest.TestCase):
         self.assertEqual(page.rebate_a_fall_bonus_percent, 2)
         page._start_card_jump_animation.assert_called_once()
 
+    def test_duplicate_gold_rebate_stacks_base_and_a_fall_growth(self):
+        page = self._page()
+        page.rebate_a_fall_bonus_percent = 0
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_gold_cards = [407, 407]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = []
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertEqual(page._get_current_rebate_sale_percent(), 160)
+        self.assertTrue(page._record_rebate_a_fall(10, 8, "test"))
+        self.assertEqual(page.rebate_a_fall_bonus_percent, 4)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 164)
+
     def test_uptrend_adds_current_napoleondors_after_rebate_synergies(self):
         cases = (
             (True, False, False, 0, 38),
@@ -602,6 +653,19 @@ class RebateLiquidationTests(unittest.TestCase):
         with mock.patch.object(game_state, "napoleondors", 5.5):
             self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 5)
             self.assertFalse(page._apply_final_auto_liquidation_if_needed())
+
+    def test_duplicate_uptrend_adds_napoleondors_once_per_copy(self):
+        page = self._page()
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_gold_cards = [407, 410, 410]
+        page.active_lifecycle_card_order = []
+        page.side_cards_top = []
+        page.rebate_a_fall_bonus_percent = 0
+
+        with mock.patch.object(game_state, "napoleondors", 5):
+            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 10)
+            self.assertEqual(page._get_current_rebate_sale_percent(), 140)
 
     def test_no_rebate_leaves_terminal_shares_for_the_normal_loss_check(self):
         page = self._page()

@@ -33,6 +33,9 @@ STATE_FIELDS = (
     "pending_shop_discount_percent",
     "bailout_rounds_remaining",
     "active_long_investments",
+    "golden_stocks_chance_percent",
+    "golden_stocks_triggered",
+    "golden_stocks_trigger_count",
     "derivative_bought",
     "issuer_bought_count",
     "bank_bought",
@@ -54,6 +57,10 @@ STATE_FIELDS = (
     "capital_preservation_bought",
     "mirroring_bought_count",
     "mirrored_deck_cards",
+    "retention_active",
+    "retention_pending_level",
+    "retention_pending_cards",
+    "windfall_boss_victories",
 )
 
 
@@ -70,6 +77,40 @@ class GameStateTestCase(unittest.TestCase):
 
 
 class RunResetRulesTests(GameStateTestCase):
+    def test_golden_stocks_can_trigger_once_in_each_consecutive_run(self):
+        game_state.golden_stocks_chance_percent = game_state.GOLDEN_STOCKS_BASE_CHANCE
+        game_state.golden_stocks_triggered = False
+        game_state.golden_stocks_trigger_count = 0
+        game_state.gold_cards = []
+
+        with (
+            mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
+            mock.patch.object(game_state.random, "randint", return_value=1),
+            mock.patch.object(game_state.random, "choice", return_value=402),
+        ):
+            self.assertEqual(game_state.resolve_golden_stocks_round([302]), 402)
+            self.assertIsNone(game_state.resolve_golden_stocks_round([302]))
+
+            game_state.reset_level_attempt(6)
+
+            self.assertEqual(game_state.resolve_golden_stocks_round([302]), 402)
+
+        self.assertEqual(game_state.golden_stocks_trigger_count, 2)
+
+    def test_golden_stocks_resets_for_next_run_but_keeps_lifetime_trigger_count(self):
+        game_state.golden_stocks_chance_percent = 18
+        game_state.golden_stocks_triggered = True
+        game_state.golden_stocks_trigger_count = 7
+
+        game_state.reset_level_attempt(6)
+
+        self.assertEqual(
+            game_state.golden_stocks_chance_percent,
+            game_state.GOLDEN_STOCKS_BASE_CHANCE,
+        )
+        self.assertFalse(game_state.golden_stocks_triggered)
+        self.assertEqual(game_state.golden_stocks_trigger_count, 7)
+
     def test_mirroring_copy_survives_boss_progress_but_clears_with_the_run(self):
         level = 4
         game_state.round_reward_cards[level] = [112]
@@ -99,6 +140,15 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.reset_level_attempt(4)
         self.assertEqual(game_state.gold_cards, [])
         self.assertEqual(game_state.active_gold_cards, [])
+
+    def test_windfall_progress_resets_with_gold_run_effects(self):
+        game_state.gold_cards[:] = [426]
+        game_state.set_active_gold_cards([426])
+        game_state.windfall_boss_victories = 3
+
+        game_state.reset_level_attempt(5)
+
+        self.assertEqual(game_state.get_windfall_boss_victories(), 0)
 
     def test_capital_preservation_does_not_keep_gold_after_level_completion(self):
         game_state.gold_cards[:] = [401]
@@ -167,14 +217,18 @@ class RunResetRulesTests(GameStateTestCase):
 
     def test_level5_completion_unlocks_levels7_and8_and_awards_commission(self):
         game_state.level_5_boss_defeated = False
+        self.assertFalse(game_state.get_progress_flags()["level_6_unlocked"])
         self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
         self.assertFalse(game_state.get_progress_flags()["level_8_unlocked"])
+        self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 3)
 
         game_state.level_5_boss_defeated = True
 
+        self.assertTrue(game_state.get_progress_flags()["level_6_unlocked"])
         self.assertTrue(game_state.get_progress_flags()["level_7_unlocked"])
         self.assertTrue(game_state.get_progress_flags()["level_8_unlocked"])
-        self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [])
+        self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 4)
+        self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [302])
         self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303])
 
     def test_golden_stocks_already_owned_is_not_removed_by_the_new_level5_reward(self):
@@ -247,6 +301,56 @@ class RunResetRulesTests(GameStateTestCase):
 
 
 class RewardLifecycleRulesTests(GameStateTestCase):
+    def test_retention_carries_one_selected_temporary_card_to_the_next_boss(self):
+        gameplay = mock.Mock()
+        gameplay.is_boss_fight = True
+        gameplay.is_final_boss = False
+        gameplay.level_number = 2
+        gameplay.boss_index = 0
+        gameplay.defeated_count = 0
+        gameplay.last_earned_cards = []
+        game_state.round_reward_cards = {2: [11, 15]}
+        game_state.retention_active = True
+
+        apply_win_reward(
+            gameplay,
+            earned_reward_cards=game_state.round_reward_cards,
+            rewards={},
+            reward_token_random_red=-1001,
+            load_boss_rewards=lambda: {},
+            get_boss_number_from_index=get_boss_number_from_index,
+            apply_boss_reward=mock.Mock(),
+            pick_random_red_card_for_level=mock.Mock(),
+            add_silver_card=mock.Mock(),
+        )
+
+        self.assertNotIn(2, game_state.round_reward_cards)
+        self.assertEqual(game_state.get_retention_pending_cards(2), [11, 15])
+        self.assertFalse(game_state.retention_active)
+        self.assertFalse(game_state.is_retention_offer_available())
+        self.assertEqual(game_state.complete_retention_selection(2, 15), 15)
+        self.assertEqual(game_state.round_reward_cards, {2: [15]})
+        self.assertTrue(game_state.is_retention_offer_available())
+
+    def test_retention_reopens_without_selection_when_no_temporary_cards_exist(self):
+        game_state.retention_active = True
+
+        self.assertEqual(game_state.prepare_retention_after_boss_victory(3), [])
+        self.assertFalse(game_state.retention_active)
+        self.assertEqual(game_state.get_retention_pending_cards(3), [])
+        self.assertTrue(game_state.is_retention_offer_available())
+
+    def test_retention_is_consumed_without_transfer_after_final_boss(self):
+        game_state.round_reward_cards = {3: [112]}
+        game_state.retention_active = True
+
+        self.assertEqual(
+            game_state.prepare_retention_after_boss_victory(3, is_final_boss=True),
+            [],
+        )
+        self.assertFalse(game_state.retention_active)
+        self.assertEqual(game_state.get_retention_pending_cards(), [])
+
     def test_apper_guarantees_only_red_cards_already_in_the_level_deck(self):
         game_state.level_1_boss_defeated = False
         game_state.level_2_boss_defeated = False
@@ -493,6 +597,31 @@ class RewardLifecycleRulesTests(GameStateTestCase):
 
         self.assertEqual(game_state.black_cards, [301, 302, 303])
         self.assertEqual(gameplay.last_earned_cards, [303])
+
+    def test_level4_final_boss_awards_golden_stocks_black_card(self):
+        gameplay = mock.Mock()
+        gameplay.is_boss_fight = True
+        gameplay.is_final_boss = True
+        gameplay.level_number = 4
+        gameplay.boss_index = 0
+        gameplay.defeated_count = 2
+        gameplay.last_earned_cards = []
+        game_state.black_cards = [301]
+
+        apply_win_reward(
+            gameplay,
+            earned_reward_cards={},
+            rewards={},
+            reward_token_random_red=-1001,
+            load_boss_rewards=mock.Mock(),
+            get_boss_number_from_index=get_boss_number_from_index,
+            apply_boss_reward=mock.Mock(),
+            pick_random_red_card_for_level=mock.Mock(),
+            add_silver_card=mock.Mock(),
+        )
+
+        self.assertEqual(game_state.black_cards, [301, 302])
+        self.assertEqual(gameplay.last_earned_cards, [302])
 
 
 if __name__ == "__main__":

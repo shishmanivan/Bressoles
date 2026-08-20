@@ -179,6 +179,10 @@ def apply_win_reward(
                     existing_black_cards.add(normalized)
             if awarded_black_cards and hasattr(gameplay_instance, "last_earned_cards"):
                 gameplay_instance.last_earned_cards.extend(awarded_black_cards)
+            game_state.prepare_retention_after_boss_victory(
+                gameplay_instance.level_number,
+                is_final_boss=True,
+            )
             game_state.clear_round_reward_cards(gameplay_instance.level_number)
             print(
                 f"Skipped personal boss reward for final boss on level {gameplay_instance.level_number}; "
@@ -213,6 +217,7 @@ def apply_win_reward(
                     f"(level {gameplay_instance.level_number}, index {gameplay_instance.boss_index})"
                 )
 
+        game_state.prepare_retention_after_boss_victory(gameplay_instance.level_number)
         game_state.clear_round_reward_cards(gameplay_instance.level_number)
         return
 

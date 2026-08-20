@@ -166,6 +166,8 @@ class StartPage:
                 return "start"
             if result == "profile":
                 return "profile"
+            if result == "options":
+                return "options"
             if result == "test_mode":
                 return "test_mode"
 

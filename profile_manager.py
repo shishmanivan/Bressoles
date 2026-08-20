@@ -115,8 +115,12 @@ def _empty_progress():
         "multibagger_bought": False,
         "diversification_bought": False,
         "expansion_bought": False,
+        "bill_of_exchange_offer_bought": False,
         "compounding_bought": False,
         "capital_preservation_bought": False,
+        "retention_active": False,
+        "retention_pending_level": None,
+        "retention_pending_cards": [],
         "loan_boss_positions_by_level": {},
         "napoleondors": 0,
         "napoleondor_level": None,
@@ -128,6 +132,7 @@ def _empty_progress():
         "profit_reward_bonus": 0,
         "updown_probability_bonus": 0,
         "pending_shop_discount_percent": 0,
+        "correction_shop_cooldown": 0,
         "bailout_rounds_remaining": 0,
         "disclosure_rounds_remaining": 0,
         "active_long_investments": [],
@@ -142,6 +147,7 @@ def _empty_progress():
         "active_gold_cards": [],
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
+        "windfall_boss_victories": 0,
         "insurance_goal_debt": 0,
         "Frugality": 0,
         "guaranteed_start_hand_cards_by_level": {},
@@ -172,7 +178,10 @@ def load_profile(slot):
     profile["slot"] = slot
     profile.setdefault("progress", _capture_progress())
     profile.setdefault("active_game", None)
-    if _migrate_campaign_v2(profile):
+    migrated = _migrate_campaign_v2(profile)
+    if _migrate_completed_black_rewards(profile):
+        migrated = True
+    if migrated:
         _write_json_atomically(path, profile)
     return profile
 
@@ -231,6 +240,33 @@ def _migrate_campaign_v2(profile):
     return True
 
 
+def _migrate_completed_black_rewards(profile):
+    """Restore permanent black rewards implied by completed-level flags."""
+    progress = profile.get("progress")
+    if not isinstance(progress, dict):
+        progress = {}
+        profile["progress"] = progress
+
+    black_cards = _restore_int_list(progress.get("black_cards") or [])
+    added = []
+    for level_number, reward_cards in sorted(
+        game_state.LEVEL_COMPLETION_BLACK_REWARD_CARDS.items()
+    ):
+        if not progress.get(f"level_{level_number}_boss_defeated", False):
+            continue
+        for card_id in reward_cards:
+            normalized = int(card_id)
+            if normalized in black_cards or len(black_cards) >= game_state.MAX_BLACK_CARDS:
+                continue
+            black_cards.append(normalized)
+            added.append(normalized)
+
+    if not added:
+        return False
+    progress["black_cards"] = sorted(black_cards)
+    return True
+
+
 def save_profile(profile):
     ensure_profiles_dir()
     slot = int(profile.get("slot") or 1)
@@ -258,6 +294,7 @@ def select_profile(slot, name=None):
 
 def apply_profile_to_game_state(profile_or_slot):
     profile = load_profile(profile_or_slot) if isinstance(profile_or_slot, int) else profile_or_slot
+    _migrate_completed_black_rewards(profile)
     progress = profile.get("progress") or {}
 
     game_state.level_1_boss_defeated = bool(progress.get("level_1_boss_defeated", False))
@@ -305,9 +342,24 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.multibagger_bought = bool(progress.get("multibagger_bought", False))
     game_state.diversification_bought = bool(progress.get("diversification_bought", False))
     game_state.expansion_bought = bool(progress.get("expansion_bought", False))
+    game_state.bill_of_exchange_offer_bought = bool(
+        progress.get("bill_of_exchange_offer_bought", False)
+    )
     game_state.compounding_bought = bool(progress.get("compounding_bought", False))
     game_state.capital_preservation_bought = bool(
         progress.get("capital_preservation_bought", False)
+    )
+    game_state.retention_active = bool(progress.get("retention_active", False))
+    try:
+        game_state.retention_pending_level = (
+            int(progress.get("retention_pending_level"))
+            if progress.get("retention_pending_level") is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        game_state.retention_pending_level = None
+    game_state.retention_pending_cards = _restore_int_list(
+        progress.get("retention_pending_cards") or []
     )
     try:
         game_state.mirroring_bought_count = max(
@@ -349,6 +401,13 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.pending_shop_discount_percent = 0
+    try:
+        game_state.correction_shop_cooldown = max(
+            0,
+            int(progress.get("correction_shop_cooldown", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.correction_shop_cooldown = 0
     try:
         game_state.bailout_rounds_remaining = max(
             0,
@@ -395,6 +454,13 @@ def apply_profile_to_game_state(profile_or_slot):
         game_state.bear_goal_reduction_steps = max(0, int(progress.get("bear_goal_reduction_steps", 0) or 0))
     except (TypeError, ValueError):
         game_state.bear_goal_reduction_steps = 0
+    try:
+        game_state.windfall_boss_victories = max(
+            0,
+            int(progress.get("windfall_boss_victories", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.windfall_boss_victories = 0
     try:
         game_state.insurance_goal_debt = max(0, int(progress.get("insurance_goal_debt", 0) or 0))
     except (TypeError, ValueError):
@@ -477,8 +543,12 @@ def _capture_progress():
         "multibagger_bought": bool(game_state.multibagger_bought),
         "diversification_bought": bool(game_state.diversification_bought),
         "expansion_bought": bool(game_state.expansion_bought),
+        "bill_of_exchange_offer_bought": bool(game_state.bill_of_exchange_offer_bought),
         "compounding_bought": bool(game_state.compounding_bought),
         "capital_preservation_bought": bool(game_state.capital_preservation_bought),
+        "retention_active": bool(game_state.retention_active),
+        "retention_pending_level": game_state.retention_pending_level,
+        "retention_pending_cards": _serialize_int_list(game_state.retention_pending_cards),
         "mirroring_bought_count": game_state.get_mirroring_bought_count(),
         "mirrored_deck_cards": [
             serialize_card_instance(card_id)
@@ -497,6 +567,7 @@ def _capture_progress():
         "profit_reward_bonus": int(game_state.profit_reward_bonus),
         "updown_probability_bonus": game_state.get_updown_probability_bonus(),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
+        "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
@@ -511,6 +582,7 @@ def _capture_progress():
         "active_gold_cards": _serialize_int_list(game_state.active_gold_cards),
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
+        "windfall_boss_victories": game_state.get_windfall_boss_victories(),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "Frugality": max(0, int(game_state.Frugality or 0)),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(

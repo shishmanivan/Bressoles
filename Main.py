@@ -2,6 +2,7 @@ import pygame
 import sys
 import game_state
 import profile_manager
+from app_settings import load_music_volume, save_music_volume
 from asset_loaders import find_font_path_or_exit, load_main_background
 from boss_logic import (
     LEVEL_BOSS_ROUNDS,
@@ -12,6 +13,7 @@ from boss_logic import (
     validate_levels_and_rounds_config,
     _ensure_level3_roster,
     _ensure_level5_roster,
+    _ensure_level6_roster,
 )
 from boss_progress import complete_boss_position, remember_current_boss
 from content_validation import assert_valid_game_content
@@ -34,19 +36,20 @@ from game_stats import (
     update_level_run_result,
     update_level_run_started,
 )
-from menu_music import MenuMusic
+from menu_music import KOLBE_BOSS_MUSIC_PATH, MenuMusic
 from shop_card_stats import set_shop_card_stats_file
 from boss_page import BossPage
 from game_screen import GameScreen
 from gameplay_page import GameplayPage
 from profile_page import ProfilePage
 from round_page import RoundPage
+from settings_page import SettingsPage
 from silver_black_page import (
     PositioningPage,
     SilverBlackPage,
     get_positioning_selection_limit,
 )
-from shop_page import ShopPage
+from shop_page import RetentionDeckPage, ShopPage
 from start_page import StartPage
 
 # Initialize Pygame
@@ -67,7 +70,7 @@ def main():
     # Initialize screen
     screen = create_game_display((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Bressoles")
-    menu_music = MenuMusic()
+    menu_music = MenuMusic(volume=load_music_volume())
     menu_music.play()
     
     # Load shared resources
@@ -105,8 +108,25 @@ def main():
         if selected_slot and not test_mode:
             profile_manager.save_progress_from_game_state(selected_slot)
 
+    def resolve_retention_selection(level_number, test_mode=False):
+        candidates = game_state.get_retention_pending_cards(level_number)
+        if not candidates:
+            return None
+        selected_card = RetentionDeckPage(screen, font_path, candidates).run()
+        retained = game_state.complete_retention_selection(level_number, selected_card)
+        if retained is not None:
+            save_progress_if_needed(test_mode)
+        return retained
+
     def run_gameplay(gameplay_page):
-        menu_music.pause()
+        is_kolbe_boss = (
+            bool(getattr(gameplay_page, "is_boss_fight", False))
+            and get_boss_number_from_filename(getattr(gameplay_page, "boss_filename", None)) == 7
+        )
+        if is_kolbe_boss:
+            menu_music.play(KOLBE_BOSS_MUSIC_PATH)
+        else:
+            menu_music.pause()
         try:
             return gameplay_page.run()
         finally:
@@ -430,6 +450,22 @@ def main():
             choose_profile()
             continue
 
+        if result == "options":
+            settings_page = SettingsPage(
+                screen,
+                background,
+                font_path,
+                Lang,
+                music_volume=menu_music.volume,
+                on_volume_change=menu_music.set_volume,
+            )
+            settings_result, music_volume = settings_page.run()
+            save_music_volume(music_volume)
+            if settings_result == "quit":
+                result = "quit"
+                break
+            continue
+
         if result in ("start", "test_mode"):
             if not selected_slot and result == "start":
                 choose_profile()
@@ -466,6 +502,7 @@ def main():
                     if resume_result in ("round_select", "level_select"):
                         if resume_result == "round_select" and active_context.get("is_boss_fight"):
                             level = int(active_context.get("level_number", 1) or 1)
+                            resolve_retention_selection(level)
                             rounds_config = load_rounds_config()
                             bosses_required = get_bosses_required(level, rounds_config)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
@@ -477,7 +514,11 @@ def main():
                             )
                             mark_level_boss_position_result(level, defeated_count, True)
                             complete_boss_position(bp_state, current_boss)
-                            if bp_state["defeated"] >= bosses_required:
+                            if level == 6 and int(defeated_count or 0) == 0:
+                                reset_level_attempt(level)
+                                profile_manager.clear_active_game(selected_slot)
+                                save_progress_if_needed()
+                            elif bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     level,
                                     get_boss_victory_napoleondor_amount(
@@ -602,6 +643,12 @@ def main():
                     )
                 )
 
+                if not run_stats_started_before:
+                    # Golden Stocks may award at most one gold card per run. Reset
+                    # stale profile state (including saves made before this rule)
+                    # exactly when a fresh run begins, without affecting resumes.
+                    game_state.reset_golden_stocks_for_run()
+
                 # Build per-run card pools on LEVEL selection.
                 # A fresh level run must roll optional silver cards once; an already
                 # active run keeps its rolled silver pool stable.
@@ -646,6 +693,10 @@ def main():
                 if level_num == 5:
                     roster = _ensure_level5_roster(bp_state, bosses_required=bosses_required)
                     LEVEL_BOSS_ROUNDS[5] = roster
+
+                if level_num == 6:
+                    roster = _ensure_level6_roster(bp_state, bosses_required=bosses_required)
+                    LEVEL_BOSS_ROUNDS[6] = roster
 
                 # Boss selection loop
                 while True:
@@ -890,6 +941,7 @@ def main():
                         gameplay_result = run_gameplay(gameplay_page)
 
                         if gameplay_result == "round_select":
+                            resolve_retention_selection(boss_level, test_mode)
                             current_boss = get_current_boss(bp_state) or {
                                 "defeated_count": bp_state["defeated"],
                                 "boss_index": boss_index,
@@ -906,7 +958,16 @@ def main():
                                 current_boss.get("defeated_count", bp_state["defeated"]),
                                 True,
                             )
+                            defeated_boss_position = int(
+                                current_boss.get("defeated_count", bp_state["defeated"]) or 0
+                            )
                             complete_boss_position(bp_state, current_boss, boss_page=boss_page)
+                            if boss_level == 6 and defeated_boss_position == 0:
+                                reset_level_attempt(boss_level)
+                                if selected_slot and not test_mode:
+                                    profile_manager.clear_active_game(selected_slot)
+                                    profile_manager.save_progress_from_game_state(selected_slot)
+                                break
                             if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     boss_level,

@@ -22,11 +22,13 @@ from boss_page import (
     rebuild_boss_route_layout,
 )
 from game_data import load_language
+from game_screen import GameScreen, PAPER_COLOR
+from level_screen_helpers import build_normal_mode_layout, load_primary_level_assets
 from gameplay_winlose import build_win_result_layout
 from round_page import RoundPage
 from round_page_helpers import build_completed_round_lines
-from shop_page import ScreeningOfferPage
-from silver_black_page import PositioningPage, ReplicationSilverPage, SilverBlackPage
+from shop_page import RetentionDeckPage, ScreeningOfferPage
+from silver_black_page import PositioningPage, ReplicationGoldPage, ReplicationSilverPage, SilverBlackPage
 
 
 class UiLayoutTests(unittest.TestCase):
@@ -39,6 +41,37 @@ class UiLayoutTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         pygame.quit()
+
+    def test_level_year_is_drawn_without_a_level_description(self):
+        page = GameScreen.__new__(GameScreen)
+        page.levelcard_image = mock.Mock()
+        page.levelcard_image.get_width.return_value = 500
+        page.levelcard_image.get_height.return_value = 300
+        page.screen = mock.Mock()
+        page.lang = {"Level6Year": "1850"}
+        page.font_card = mock.sentinel.font_card
+        page.font_card_desc = mock.Mock()
+        year_surface = mock.Mock()
+        page._render_text_cached = mock.Mock(return_value=year_surface)
+        page._wrap_text_cached = mock.Mock()
+        page._draw_completed_stamp = mock.Mock()
+        page.startarrow_image = None
+
+        page._draw_level_card((100, 200), 6, None)
+
+        page._render_text_cached.assert_called_once_with(page.font_card, "1850", PAPER_COLOR)
+        page.screen.blit.assert_any_call(year_surface, (490, 208))
+        page._wrap_text_cached.assert_not_called()
+
+    def test_normal_campaign_layout_contains_the_sixth_level_card_and_picture(self):
+        card = pygame.Surface((604, 360))
+        arrow = pygame.Surface((50, 30))
+        layout = build_normal_mode_layout(card, arrow, 1680, 75)
+
+        self.assertEqual(layout["card6_position"][0], layout["card4_position"][0])
+        self.assertEqual(layout["card6_position"][1], layout["card5_position"][1])
+        self.assertIsNotNone(layout["arrow6_rect"])
+        self.assertIsNotNone(load_primary_level_assets()["level6_picture"])
 
     def test_round_popup_uses_the_actual_difficulty_and_boss_payouts(self):
         page = RoundPage.__new__(RoundPage)
@@ -145,6 +178,25 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(page.selected_index, 1)
         self.assertEqual(page._handle_mouse_down(page.confirm_button_rect.center), 203)
 
+    def test_replication_plus_storage_shows_only_gold_slots_and_requires_selection(self):
+        page = ReplicationGoldPage(
+            self.screen,
+            self.font_path,
+            [401, 405],
+            lang_dict=load_language("RU"),
+        )
+
+        self.assertEqual(len(page.silver_rects), 8)
+        self.assertEqual(page.silver_cards, [])
+        self.assertEqual(page.black_cards, [])
+        self.assertEqual(page.gold_cards, [401, 405])
+        self.assertEqual(page.replication_title, "Репликация Плюс")
+        self.assertIsNone(page._handle_mouse_down(page.confirm_button_rect.center))
+
+        self.assertIsNone(page._handle_mouse_down(page.silver_rects[1].center))
+        self.assertEqual(page.selected_index, 1)
+        self.assertEqual(page._handle_mouse_down(page.confirm_button_rect.center), 405)
+
     def test_screening_choice_keeps_five_offers_inside_the_panel(self):
         page = ScreeningOfferPage(
             self.screen,
@@ -160,6 +212,17 @@ class UiLayoutTests(unittest.TestCase):
         self.assertIsNone(page._handle_mouse_down(page.offer_rects[3].center))
         self.assertEqual(page.selected_index, 3)
         self.assertEqual(page._handle_mouse_down(page.confirm_rect.center), "variance")
+
+    def test_retention_selection_has_no_back_path_and_requires_a_card(self):
+        page = RetentionDeckPage(self.screen, self.font_path, [11, 15])
+
+        self.assertFalse(page.allow_back)
+        self.assertEqual(len(page.card_rects), 2)
+        self.assertTrue(all(page.panel_rect.contains(rect) for rect in page.card_rects))
+
+        crowded_page = RetentionDeckPage(self.screen, self.font_path, list(range(11, 20)))
+        self.assertEqual(crowded_page.card_size, (116, 200))
+        self.assertLess(crowded_page.card_rects[-1].bottom, crowded_page.confirm_rect.top)
 
     def test_positioning_requires_exact_selection_and_supports_pages(self):
         page = PositioningPage(

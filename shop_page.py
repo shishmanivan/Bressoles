@@ -14,7 +14,7 @@ from gameplay_card_rendering import (
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
-from silver_black_page import ReplicationSilverPage
+from silver_black_page import ReplicationGoldPage, ReplicationSilverPage
 
 
 SCREEN_WIDTH = 1680
@@ -47,15 +47,21 @@ SPECIAL_ASSETS = {
     "correction": ("Коррекция", os.path.join("Shop", "Correction.png")),
     "diversification": ("Диверсификация", os.path.join("Shop", "Diversification.png")),
     "expansion": ("Экспансия", os.path.join("Shop", "Expansion.png")),
+    "bill_of_exchange": (
+        "Вексель",
+        os.path.join("Shop", "Bill of Exchange.png"),
+    ),
     "disclosure": ("Disclousure", os.path.join("Shop", "Disclousure.png")),
     "compounding": ("Compounding", os.path.join("Shop", "Compouding.png")),
     "replication": ("Репликация", os.path.join("Shop", "Replication.png")),
+    "replication_plus": ("Репликация Плюс", os.path.join("Shop", "Replication+.png")),
     "screening": ("Скрининг", os.path.join("Shop", "Screening.png")),
     "capital_preservation": (
         "Сохранение капитала",
         os.path.join("Shop", "Capital Preservation.png"),
     ),
     "mirroring": ("Зеркалирование", os.path.join("Shop", "Mirroring.png")),
+    "retention": ("Удержание", os.path.join("Shop", "Retention.png")),
 }
 
 SPECIAL_DESCRIPTIONS = {
@@ -75,12 +81,15 @@ SPECIAL_DESCRIPTIONS = {
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
     "diversification": "Увеличивает количество карт, предлагаемых в каждом следующем магазине, с одной до двух.",
     "expansion": "Добавляет ещё одно предложение в каждый следующий магазин.",
+    "bill_of_exchange": "До конца текущего забега снижает цены всех карт, предложений, лицензий и инвестиций на 25%. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
     "compounding": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
     "replication": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
+    "replication_plus": "Позволяет выбрать и скопировать одну имеющуюся золотую карту, если в хранилище есть свободное место.",
     "screening": "Показывает пять случайных доступных предложений. Одно из них можно выбрать бесплатно.",
     "capital_preservation": "После поражения сохраняет все золотые карты и переносит их в следующий забег.",
     "mirroring": "Дублирует любую выбранную карту текущей колоды. Дубликат сохраняется после победы над боссом.",
+    "retention": "После победы над текущим боссом позволяет сохранить одну временную карту для следующего босса.",
 }
 
 INVESTMENT_ASSET = ("Инвестиции", os.path.join("Shop", "Investment.png"))
@@ -98,18 +107,18 @@ CARD_DESCRIPTIONS = {
     123: "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
     124: "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
     125: "Breakout: на последнем игровом ходу даёт 50% шанс удвоить цены акций, которыми владеет игрок.",
-    126: "Манипуляция: если игрок владеет акциями C и цена C упала в этом ходу, даёт 4 акции A.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
     20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
     21: "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
+    22: "Blue Chips: цена выбранной акции не может снижаться. Вероятность падения поровну переходит во Flat и рост.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
     403: "Грант: добавляет 8 к стартовым деньгам.",
     404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
     405: "Insider: первые два хода акции C гарантированно растут.",
-    406: "Gambling: усиливает карты Upside и Downside на 7 процентных пунктов.",
+    406: "Gambling: усиливает карты Upside и Downside.",
     409: "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз. Изменения цен от карт не учитываются.",
 }
 
@@ -122,7 +131,7 @@ CARD_NAMES = {
     123: "Parity",
     124: "Accumulation",
     125: "Breakout",
-    126: "Манипуляция",
+    212: "Манипуляция",
     110: "Рибейт",
     111: "Снижение долга",
     112: "Ролловер",
@@ -151,6 +160,7 @@ CARD_NAMES = {
     18: "Рост",
     20: "Regulation",
     21: "Regulation",
+    22: "Blue Chips",
     117: "Крах",
     401: "Медведь",
     402: "Форвардная торговля",
@@ -180,6 +190,9 @@ CARD_DESCRIPTIONS.update(
         423: "Каждый Shareholder в руке добавляет 20 процентных пунктов к итоговому эффекту Rebate.",
         424: "Увеличивает шаг роста и падения каждого рынка на 2.",
         425: "Увеличивает шаг роста и падения каждого рынка на 4.",
+        426: "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+        427: "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
+        428: "Даёт 7 наполеондоров, если вся колода израсходована.",
     }
 )
 CARD_NAMES.update(
@@ -203,6 +216,9 @@ CARD_NAMES.update(
         423: "Stewardship",
         424: "Volatility",
         425: "Volatility+",
+        426: "Windfall",
+        427: "Disclosure",
+        428: "Full Deployment",
     }
 )
 
@@ -210,7 +226,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     123: "Устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
     124: "Удваивает номинал и количество ходов следующей выложенной Gain/Drop-карты. Действует, пока такая карта не будет выложена, но усиление не переходит в следующий раунд.",
     125: "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
-    126: "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
+    212: "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
     118: "Устанавливает цены всех акций на 10.",
     119: "Устанавливает цены всех акций на 20.",
     120: "Устанавливает цены всех акций на 30.",
@@ -705,7 +721,7 @@ class ShopPage:
             return
 
         if special_id == "multibagger":
-            awarded_card = game_state.buy_multibagger_gold_card()
+            awarded_card = game_state.buy_multibagger_gold_card(self.level_number)
             if awarded_card is None:
                 self.message = "Нет доступных золотых карт"
                 self.sold_offer_indexes.add(index)
@@ -744,6 +760,17 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "В магазине теперь больше предложений"
+            return
+
+        if special_id == "bill_of_exchange":
+            if not game_state.buy_bill_of_exchange_offer():
+                self.sold_offer_indexes.add(index)
+                self.message = "Вексель уже куплен"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Будущие цены снижены на 25%"
             return
 
         if special_id == "disclosure":
@@ -791,6 +818,29 @@ class ShopPage:
             self.message = "Серебряная карта добавлена"
             return
 
+        if special_id == "replication_plus":
+            if not game_state.is_replication_plus_offer_available():
+                self.sold_offer_indexes.add(index)
+                self.message = "Нет золотой карты или свободного места"
+                return
+            selected_card = ReplicationGoldPage(
+                self.screen,
+                self.font_path,
+                game_state.gold_cards,
+                lang_dict=getattr(self, "lang_dict", None),
+            ).run()
+            if selected_card is None:
+                self.message = ""
+                return
+            if game_state.buy_replication_plus_card(selected_card) is None:
+                self.message = "Карта недоступна"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Золотая карта добавлена"
+            return
+
         if special_id == "mirroring":
             if not game_state.is_mirroring_offer_available(self.level_number):
                 self.sold_offer_indexes.add(index)
@@ -811,6 +861,17 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Карта продублирована"
+            return
+
+        if special_id == "retention":
+            if not game_state.buy_retention():
+                self.sold_offer_indexes.add(index)
+                self.message = "Удержание уже активно"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = "Удержание активно до победы над боссом"
             return
 
         if special_id == "screening":
@@ -1133,6 +1194,7 @@ class DeckCardPage:
     confirm_text = ""
     cancel_text = "Отмена"
     back_text = "Назад"
+    allow_back = True
 
     def __init__(self, screen, font_path, level_number, deck=None):
         self.screen = screen
@@ -1286,7 +1348,7 @@ class DeckCardPage:
             )
             self._draw_button(self.confirm_rect, self.confirm_text)
             self._draw_button(self.cancel_rect, self.cancel_text)
-        else:
+        elif self.allow_back:
             self._draw_button(self.cancel_rect, self.back_text)
 
         pygame.display.flip()
@@ -1300,7 +1362,7 @@ class DeckCardPage:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and self.allow_back:
                     return None
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.confirming:
@@ -1309,7 +1371,7 @@ class DeckCardPage:
                         if self.cancel_rect.collidepoint(event.pos):
                             self.confirming = False
                             continue
-                    elif self.cancel_rect.collidepoint(event.pos):
+                    elif self.allow_back and self.cancel_rect.collidepoint(event.pos):
                         return None
 
                     card_index = self._card_at(event.pos)
@@ -1347,6 +1409,23 @@ class MirroringDeckPage(DeckCardPage):
 
     def confirm_message(self, card_id):
         return f"Дублировать карту {int(card_id)}?"
+
+
+class RetentionDeckPage(DeckCardPage):
+    title = "Удержание"
+    prompt = "Выберите временную карту для следующего босса"
+    empty_text = "Нет временных карт"
+    confirm_text = "Сохранить"
+    cancel_text = "Выбрать другую"
+    allow_back = False
+
+    def __init__(self, screen, font_path, cards):
+        if len(cards) > 8:
+            self.card_size_override = (116, 200)
+        super().__init__(screen, font_path, level_number=1, deck=cards)
+
+    def confirm_message(self, card_id):
+        return f"Сохранить карту {int(card_id)}?"
 
 
 class InvestmentDeckPage(DeckCardPage):

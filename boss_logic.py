@@ -87,12 +87,25 @@ def _build_level5_default_roster():
     ]
 
 
+def _build_level6_default_roster():
+    """Build a deterministic no-choice fallback for the level-6 route."""
+    level_one_bosses = get_bosses_for_boss_level(1)
+    level_two_bosses = get_bosses_for_boss_level(2)
+    return [
+        [level_one_bosses[0]],
+        [level_one_bosses[1]],
+        [level_two_bosses[0]],
+        [level_two_bosses[1]],
+    ]
+
+
 # Boss roster per level and boss rounds
 LEVEL_BOSS_ROUNDS = {
     1: [["1_Watt.png"]],
     2: [["2_AdamSmith.png", "3_RobertFulton.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
+    6: _build_level6_default_roster(),
 }
 
 # -------------------------------
@@ -206,6 +219,53 @@ def _ensure_level5_roster(bp_state: dict, bosses_required: int):
     bp_state["roster"] = roster
     return roster
 
+
+def _generate_level6_boss_roster(bosses_required: int):
+    """Level 6 assigns bosses randomly without offering a player choice."""
+    pools = {
+        1: get_bosses_for_boss_level(1),
+        2: get_bosses_for_boss_level(2),
+    }
+    random.shuffle(pools[1])
+    random.shuffle(pools[2])
+    try:
+        required = max(1, int(bosses_required or 1))
+    except (TypeError, ValueError):
+        required = 1
+
+    roster = []
+    for position in range(required):
+        category = 1 if position < 2 else 2
+        pool = pools[category]
+        if not pool:
+            break
+        roster.append([pool.pop()])
+    return roster
+
+
+def _ensure_level6_roster(bp_state: dict, bosses_required: int):
+    """Ensure level 6 has a stable no-choice category roster."""
+    roster = bp_state.get("roster")
+    expected_len = max(1, int(bosses_required or 1))
+    level_one_bosses = set(get_bosses_for_boss_level(1))
+    level_two_bosses = set(get_bosses_for_boss_level(2))
+    if isinstance(roster, list) and len(roster) == expected_len:
+        first_steps = roster[: min(2, expected_len)]
+        second_steps = roster[min(2, expected_len):]
+        first_choices = [filename for step in first_steps if isinstance(step, list) for filename in step]
+        second_choices = [filename for step in second_steps if isinstance(step, list) for filename in step]
+        if (
+            all(isinstance(step, list) and len(step) == 1 for step in roster)
+            and len(first_choices) == len(set(first_choices))
+            and len(second_choices) == len(set(second_choices))
+            and set(first_choices).issubset(level_one_bosses)
+            and set(second_choices).issubset(level_two_bosses)
+        ):
+            return roster
+    roster = _generate_level6_boss_roster(bosses_required)
+    bp_state["roster"] = roster
+    return roster
+
 def apper_goal_boost(goal_value, multiplier=1.3):
     """Boost goal by multiplier and round UP to tens.
 
@@ -294,7 +354,7 @@ def apply_say_random_reward(gameplay_instance):
         game_state.add_napoleondors(level_num, 10)
         _set_random_boss_reward_text(gameplay_instance, "Boss13PrizeNapoleondors10", "Random prize: 10 Napoleondors.")
     elif outcome == "gold_card":
-        card_id = game_state.add_random_gold_card()
+        card_id = game_state.add_random_gold_card(getattr(gameplay_instance, "level_number", None))
         if card_id is not None:
             _append_last_earned_card(gameplay_instance, card_id)
         _set_random_boss_reward_text(
@@ -501,7 +561,7 @@ def apply_boss_reward(reward_string, gameplay_instance):
             return
 
         if normalized_reward in ("randomgoldcard", "goldcard"):
-            gold_card = game_state.add_random_gold_card()
+            gold_card = game_state.add_random_gold_card(getattr(gameplay_instance, "level_number", None))
             if gold_card is None:
                 print("WARNING: Random Gold Card reward found no available card in its rolled pool.")
                 return

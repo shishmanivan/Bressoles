@@ -227,6 +227,40 @@ class KnownRegressionTests(unittest.TestCase):
         self.assertEqual(liquidation["proceeds"], 36)
         self.assertEqual(liquidation["target_money"], 46)
 
+    def test_every_configured_card_has_a_gameplay_field_tooltip(self):
+        import gameplay_page
+        from game_data import load_cards_config
+
+        configured_cards = {int(card_id) for card_id in load_cards_config()}
+
+        self.assertEqual(configured_cards - set(gameplay_page.FIELD_CARD_TOOLTIPS), set())
+
+    def test_gameplay_field_tooltip_finds_cards_in_each_play_area(self):
+        import gameplay_page
+
+        page = gameplay_page.GameplayPage.__new__(gameplay_page.GameplayPage)
+        page.deck_view_active = False
+        page.dragged_card_source = None
+        page.dragged_card_index = None
+        page.dragged_card_side_slot = None
+        page.dragged_card_market = None
+        page.dragged_card_market_slot = None
+        page.hand_cards = [117]
+        page.bottom_placeholders = [{"slot": 0, "rect": pygame.Rect(0, 0, 20, 20)}]
+        page.side_cards_top = [110]
+        page.side_placeholders_top = [{"slot": 0, "rect": pygame.Rect(30, 0, 20, 20)}]
+        page.side_placeholders_bottom = [{"slot": 0, "rect": pygame.Rect(60, 0, 20, 20)}]
+        page.market_cards = {0: {0: 17}}
+        page.market_placeholders = [
+            {"market": 0, "slot": 0, "rect": pygame.Rect(90, 0, 20, 20)}
+        ]
+        page._active_lifecycle_cards = mock.Mock(return_value=[401])
+
+        self.assertEqual(page._get_hovered_field_card((10, 10)), 117)
+        self.assertEqual(page._get_hovered_field_card((40, 10)), 110)
+        self.assertEqual(page._get_hovered_field_card((70, 10)), 401)
+        self.assertEqual(page._get_hovered_field_card((100, 10)), 17)
+
 
 if __name__ == "__main__":
     unittest.main()

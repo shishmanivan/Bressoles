@@ -17,8 +17,12 @@ from boss_logic import (
 )
 from card_catalog import (
     BID_CARD_VALUES,
+    BLUE_CHIPS_CARD_ID,
     CATALYST_PERCENTAGE_POINTS,
     GOLD_CATALYST_PERCENTAGE_POINTS,
+    GOLD_DISCLOSURE_PERCENTAGE_POINTS,
+    GOLD_FULL_DEPLOYMENT_CARD_ID,
+    GOLD_FULL_DEPLOYMENT_REWARD,
     PRICE_CARD_IDS,
     REGULATION_CARD_IDS,
 )
@@ -102,6 +106,7 @@ from gameplay_winlose import (
     resolve_win_lose_state,
 )
 from shared_utils import _clamp_dt_seconds, move_towards, wrap_text
+from silver_black_page import CARD_TOOLTIPS as LIFECYCLE_CARD_TOOLTIPS
 
 
 SCREEN_WIDTH = 1680
@@ -114,10 +119,49 @@ BLACK = (0, 0, 0)
 GOLD = (255, 215, 0)
 PAPER_COLOR = (83, 76, 70)
 
+FIELD_CARD_TOOLTIPS = {
+    1: ("Upside", "Увеличивает вероятность роста выбранной акции на 5 процентных пунктов."),
+    2: ("Upside", "Увеличивает вероятность роста выбранной акции на 10 процентных пунктов."),
+    3: ("Downside", "Увеличивает вероятность падения выбранной акции на 5 процентных пунктов."),
+    4: ("Downside", "Увеличивает вероятность падения выбранной акции на 10 процентных пунктов."),
+    11: ("Gain", "Увеличивает цену выбранной акции на 2 в течение 1 хода."),
+    12: ("Gain", "Увеличивает цену выбранной акции на 2 в течение 2 ходов."),
+    13: ("Gain", "Увеличивает цену выбранной акции на 4 в течение 1 хода."),
+    14: ("Gain", "Увеличивает цену выбранной акции на 4 в течение 2 ходов."),
+    15: ("Drop", "Снижает цену выбранной акции на 2 в течение 1 хода."),
+    16: ("Drop", "Снижает цену выбранной акции на 2 в течение 2 ходов."),
+    17: ("Gain ×2", "Умножает цену выбранной акции на 2 в течение 1 хода."),
+    18: ("Gain ×2", "Умножает цену выбранной акции на 2 в течение 2 ходов."),
+    20: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 2 ходов."),
+    21: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 3 ходов."),
+    22: ("Blue Chips", "Цена выбранной акции не может снижаться. Вероятность падения поровну переходит во Flat и рост."),
+    100: (
+        "Shareholder",
+        "Сам по себе ничего не делает. На четвёртом уровне три и более Shareholder могут на ход отключить торговлю на одном рынке.",
+    ),
+    110: ("Rebate", "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости."),
+    111: ("Deleverage", "Удаляет все карты, выложенные на трёх рынках."),
+    112: ("Rollover", "Добавляет 1 ход всем Gain, Drop и Regulation-картам, включая уже выложенные."),
+    113: ("Bankruptcy A", "Устанавливает цену акций компании A на 2."),
+    114: ("Bankruptcy B", "Устанавливает цену акций компании B на 2."),
+    115: ("Bankruptcy C", "Устанавливает цену акций компании C на 2."),
+    116: ("Futures", "Добавляет 1 ход к длительности раунда."),
+    117: ("Crash", "Устанавливает цены всех трёх акций на 2."),
+    118: ("BID 10", "Устанавливает цены всех трёх акций на 10."),
+    119: ("BID 20", "Устанавливает цены всех трёх акций на 20."),
+    120: ("BID 30", "Устанавливает цены всех трёх акций на 30."),
+    121: ("BID 50", "Устанавливает цены всех трёх акций на 50."),
+    122: ("BID 100", "Устанавливает цены всех трёх акций на 100."),
+    123: ("Parity", "Устанавливает цены всех трёх акций на их среднее значение с округлением до целого."),
+    124: ("Accumulation", "Удваивает номинал и длительность следующей выложенной Gain или Drop-карты. Эффект не переносится в следующий раунд."),
+    125: ("Breakout", "На последнем игровом ходу с шансом 50% удваивает цены акций, которыми владеет игрок."),
+}
+FIELD_CARD_TOOLTIPS.update(LIFECYCLE_CARD_TOOLTIPS)
+
 DISCLOSURE_CARD_TOOLTIPS = {
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта.",
+        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
     ),
     407: (
         "Rebate",
@@ -284,6 +328,7 @@ class GameplayPage:
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
         self.c_price_fell_this_resolution = False
+        self.manipulation_applied_this_resolution = False
         self.price_animation_speed = 12  # frames per second (increased by 30% from 9 to 12, approximately 83ms per frame)
         self.price_animation_interval = 1000 // self.price_animation_speed  # ms per frame
 
@@ -389,7 +434,7 @@ class GameplayPage:
         self.current_boss_icon_cache = {}
         self.deck_view_silver_card_cache = {}
         self.deck_view_card_entries = []
-        self.hedger_used_this_round = False
+        self.hedger_used_this_round = 0
         self.hedger_selected_card_id = None
         self.hedger_confirm_active = False
         self.hedger_message = ""
@@ -397,6 +442,7 @@ class GameplayPage:
         self.hedger_add_button_rect = None
         self.hedger_yes_button_rect = None
         self.hedger_no_button_rect = None
+        self.full_deployment_reward_applied = False
         
         # Use global Dobor value (can be modified by boss rewards)
         self.Dobor = game_state.global_dobor
@@ -502,7 +548,7 @@ class GameplayPage:
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
         self.lifecycle_card_shake_animations = {}
-        self.spoofing_reminder_days_started = set()
+        self.lifecycle_reminder_days_started = set()
         self.market_clear_animations = []
         self.market_clear_animation_duration = 520
         
@@ -583,6 +629,8 @@ class GameplayPage:
         self.winlose_card_images = {}
         self.winlose_scaled_card_images = {}
         self._restore_saved_state(self._initial_saved_state)
+        if self._apply_full_deployment_reward_if_needed():
+            self._save_active_game()
         if not isinstance(self._initial_saved_state, dict) or "shareholder_blocked_market" not in self._initial_saved_state:
             self._roll_shareholder_market_shutdown()
         if not self._is_stock_bot_allowed():
@@ -595,6 +643,7 @@ class GameplayPage:
             self._reset_boss_turn_timer()
         else:
             self.boss_turn_timer_last_tick = pygame.time.get_ticks()
+        self._start_lifecycle_turn_reminder()
 
     def _build_deck_toggle_rect(self):
         width = self.deck_toggle_card.get_width() if self.deck_toggle_card else 64
@@ -614,7 +663,7 @@ class GameplayPage:
         return sorted(card_id for card_id in self.deck if card_id is not None)
 
     def _is_hedger_available(self):
-        return self._count_active_silver_card(408) > 0 and not self.hedger_used_this_round
+        return int(getattr(self, "hedger_used_this_round", 0) or 0) < self._count_active_silver_card(408)
 
     def _find_free_hand_slot(self):
         for index, card_id in enumerate(self.hand_cards):
@@ -671,7 +720,8 @@ class GameplayPage:
 
         selected_card = self.deck.pop(selected_index)
         self.hand_cards[free_slot] = selected_card
-        self.hedger_used_this_round = True
+        self.hedger_used_this_round = int(getattr(self, "hedger_used_this_round", 0) or 0) + 1
+        self._apply_full_deployment_reward_if_needed()
         self._set_hedger_message("Карта добавлена")
         self._clear_hedger_selection()
         self._save_active_game()
@@ -882,7 +932,9 @@ class GameplayPage:
             return
 
         y = panel.bottom - 64
-        if self.hedger_used_this_round:
+        hedger_count = self._count_active_silver_card(408)
+        hedger_used = int(getattr(self, "hedger_used_this_round", 0) or 0)
+        if hedger_used >= hedger_count:
             text = self.font_small.render("Hedger использован", True, PAPER_COLOR)
             self.screen.blit(text, text.get_rect(center=(panel.centerx, y)))
             return
@@ -1287,7 +1339,7 @@ class GameplayPage:
 
     def _is_stock_bot_allowed(self):
         try:
-            return int(self.level_number or 0) == 5
+            return int(self.level_number or 0) in (5, 6)
         except (TypeError, ValueError):
             return False
 
@@ -1369,8 +1421,10 @@ class GameplayPage:
             probability_card_bonus=self._get_probability_card_bonus(),
             force_flat=self._is_flat_random_active(),
             force_flat_markets=self._get_regulation_flat_markets(),
+            prevent_fall_markets=self._get_blue_chip_markets(),
             double_fall_markets=self._get_shakeout_markets(),
-            double_fall_bonus=self._get_percentage_amplifier_bonus(),
+            double_fall_bonus=self._get_probability_amplifier_bonus(),
+            double_fall_count=self._get_shakeout_count(),
         )
 
     def _run_stock_bot_turn(self):
@@ -1556,7 +1610,8 @@ class GameplayPage:
             "continuation_growth_streaks": list(
                 (getattr(self, "continuation_growth_streaks", None) or [0, 0, 0])[:3]
             ),
-            "hedger_used_this_round": bool(self.hedger_used_this_round),
+            "hedger_used_this_round": int(self.hedger_used_this_round or 0),
+            "full_deployment_reward_applied": bool(self.full_deployment_reward_applied),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "shareholder_effect_count": int(self.shareholder_effect_count or 0),
@@ -1597,6 +1652,7 @@ class GameplayPage:
             "surge_traded_this_turn",
             "surge_triggered",
             "hedger_used_this_round",
+            "full_deployment_reward_applied",
         )
         for field in scalar_fields:
             if field in state:
@@ -1714,13 +1770,14 @@ class GameplayPage:
         self.continuation_applied_this_resolution = False
         self.continuation_animation_phase = False
         self.c_price_fell_this_resolution = False
+        self.manipulation_applied_this_resolution = False
         self.price_card_queue = []
         self.current_card_processing = None
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
         self.lifecycle_card_shake_animations = {}
-        self.spoofing_reminder_days_started = set()
+        self.lifecycle_reminder_days_started = set()
         self.final_auto_liquidation_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
@@ -1728,7 +1785,7 @@ class GameplayPage:
         self.hand_draw_anim = []
         self.market_clear_animations = []
         self._reset_drag_state()
-        self._start_spoofing_turn_reminder()
+        self._start_lifecycle_turn_reminder()
 
     def _save_active_game(self):
         if not self.profile_slot or self.test_mode:
@@ -1795,6 +1852,7 @@ class GameplayPage:
         return (
             game_state.is_gain_drop_card(normalized_card_id)
             or normalized_card_id in REGULATION_CARD_IDS
+            or normalized_card_id == BLUE_CHIPS_CARD_ID
         )
 
     def _can_play_dragged_hand_card_on_market(self, card_id):
@@ -1865,7 +1923,7 @@ class GameplayPage:
         """Choose one market whose buy/sell arrows are disabled for this turn."""
         self.shareholder_blocked_market = None
         try:
-            if int(self.level_number or 0) != 4 or self.win_lose_state is not None:
+            if int(self.level_number or 0) not in (4, 6) or self.win_lose_state is not None:
                 return None
         except (TypeError, ValueError):
             return None
@@ -1880,7 +1938,7 @@ class GameplayPage:
             self.shareholder_blocked_market = random.choice((0, 1, 2))
             self._start_shareholder_jump_animations()
             print(
-                "Level 4 Shareholder effect disabled market "
+                f"Level {self.level_number} Shareholder effect disabled market "
                 f"{self.shareholder_blocked_market + 1} for day {self.Day} "
                 f"(chance={chance:.0%})"
             )
@@ -2452,6 +2510,7 @@ class GameplayPage:
             self._apply_commission_win_bonus()
             self._apply_obligation_win_bonus()
             self._record_bear_victory_progress()
+            self._record_windfall_boss_victory_progress()
             self.long_payout_amount = self._apply_long_investment_payout()
             self.golden_stocks_reward_card = self._apply_golden_stocks_reward()
             immediate_reward = max(
@@ -2534,7 +2593,9 @@ class GameplayPage:
         gambling_count = self._count_active_card_safely(406)
         if gambling_count <= 0:
             return 0
-        return gambling_count * (GAMBLING_PROBABILITY_BONUS + self._get_percentage_amplifier_bonus())
+        return gambling_count * (
+            GAMBLING_PROBABILITY_BONUS + self._get_probability_amplifier_bonus()
+        )
 
     def _get_catalyst_percentage_bonus(self):
         return self._count_active_card_safely(210) * CATALYST_PERCENTAGE_POINTS
@@ -2545,6 +2606,12 @@ class GameplayPage:
     def _get_percentage_amplifier_bonus(self):
         return self._get_catalyst_percentage_bonus() + self._get_gold_catalyst_percentage_bonus()
 
+    def _get_disclosure_probability_bonus(self):
+        return self._count_active_card_safely(427) * GOLD_DISCLOSURE_PERCENTAGE_POINTS
+
+    def _get_probability_amplifier_bonus(self):
+        return self._get_percentage_amplifier_bonus() + self._get_disclosure_probability_bonus()
+
     def _count_active_card_safely(self, card_id):
         try:
             return self._count_active_silver_card(card_id)
@@ -2553,7 +2620,7 @@ class GameplayPage:
 
     def _get_probability_card_bonus(self):
         return (
-            self._get_percentage_amplifier_bonus()
+            self._get_probability_amplifier_bonus()
             + self._get_gambling_probability_bonus()
             + game_state.get_updown_probability_bonus()
         )
@@ -2574,10 +2641,28 @@ class GameplayPage:
                     break
         return regulated
 
+    def _get_blue_chip_markets(self):
+        """Return markets whose price cannot fall while card 22 is present."""
+        protected = set()
+        for market in (0, 1, 2):
+            if BLUE_CHIPS_CARD_ID in getattr(self, "market_cards", {}).get(market, {}).values():
+                protected.add(market)
+        return protected
+
+    def _protect_blue_chip_prices(self, previous_prices, proposed_prices):
+        """Keep protected markets unchanged when an effect proposes a lower price."""
+        protected = self._get_blue_chip_markets()
+        return tuple(
+            previous if market in protected and proposed < previous else proposed
+            for market, (previous, proposed) in enumerate(zip(previous_prices, proposed_prices))
+        )
+
     def _record_rebate_a_fall(self, previous_price, current_price, source):
-        if not self._has_active_silver_card(407) or current_price >= previous_price:
+        rebate_count = self._count_active_card_safely(407)
+        if rebate_count <= 0 or current_price >= previous_price:
             return False
-        self.rebate_a_fall_bonus_percent += 2
+        gained_percent = 2 * rebate_count
+        self.rebate_a_fall_bonus_percent += gained_percent
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
                 if int(card_id) == 407:
@@ -2585,7 +2670,7 @@ class GameplayPage:
             except (TypeError, ValueError):
                 continue
         print(
-            "Active card 407 Gold Rebate gained 2 percentage points from an A fall: "
+            f"Active card 407 Gold Rebate gained {gained_percent} percentage points from an A fall: "
             f"source={source}, A={previous_price}->{current_price}, "
             f"bonus={self.rebate_a_fall_bonus_percent}%"
         )
@@ -2766,7 +2851,8 @@ class GameplayPage:
         )
 
     def _apply_markdown_goal_modifier(self):
-        if self.is_boss_fight or not self._has_active_silver_card(422):
+        markdown_count = self._count_active_card_safely(422)
+        if self.is_boss_fight or markdown_count <= 0:
             return False
         try:
             round_num = int(self.round_num)
@@ -2776,9 +2862,10 @@ class GameplayPage:
         if round_num not in (3, 4) or base_goal <= 0:
             return False
 
-        self.Goal = max(1, int(base_goal * 0.7))
+        discount_percent = min(100, 30 * markdown_count)
+        self.Goal = max(1, int(base_goal * (100 - discount_percent) / 100))
         print(
-            f"Gold card 422 Markdown reduced round {round_num} Goal by 30%: "
+            f"Gold card 422 Markdown reduced round {round_num} Goal by {discount_percent}%: "
             f"{base_goal:g} -> {self.Goal}"
         )
         return True
@@ -2913,13 +3000,14 @@ class GameplayPage:
         return True
 
     def _get_uptrend_rebate_bonus_percent(self):
-        if not self._has_active_silver_card(410):
+        uptrend_count = self._count_active_card_safely(410)
+        if uptrend_count <= 0:
             return 0
         try:
             base_bonus = max(0, int(float(game_state.napoleondors or 0)))
         except (TypeError, ValueError):
             return 0
-        return base_bonus + self._get_percentage_amplifier_bonus()
+        return uptrend_count * (base_bonus + self._get_percentage_amplifier_bonus())
 
     def _get_stewardship_rebate_bonus_percent(self):
         stewardship_count = self._count_active_card_safely(423)
@@ -2935,13 +3023,24 @@ class GameplayPage:
                 shareholder_count += 1
         return stewardship_count * shareholder_count * 20
 
+    def _get_windfall_rebate_bonus_percent(self):
+        windfall_count = self._count_active_card_safely(426)
+        if windfall_count <= 0:
+            return 0
+        return (
+            windfall_count
+            * game_state.get_windfall_boss_victories()
+            * game_state.WINDFALL_REBATE_BONUS_PER_BOSS
+        )
+
     def _get_current_rebate_sale_percent(self):
         full_price = self._has_active_silver_card(201)
-        gold_rebate = self._has_active_silver_card(407)
+        gold_rebate_count = self._count_active_card_safely(407)
         discounted = self._has_played_side_card(110)
-        if gold_rebate:
+        if gold_rebate_count > 0:
             sale_percent = (
-                130
+                100
+                + 30 * gold_rebate_count
                 + self._get_percentage_amplifier_bonus()
                 + int(self.rebate_a_fall_bonus_percent or 0)
             )
@@ -2961,6 +3060,7 @@ class GameplayPage:
             sale_percent
             + self._get_uptrend_rebate_bonus_percent()
             + self._get_stewardship_rebate_bonus_percent()
+            + self._get_windfall_rebate_bonus_percent()
         )
 
     def _start_final_auto_liquidation_animation(self, liquidation):
@@ -3140,10 +3240,11 @@ class GameplayPage:
         if self.is_boss_fight:
             return None
         golden_stocks_count = self._count_active_card_safely(302)
-        chance_bonus = golden_stocks_count * self._get_percentage_amplifier_bonus()
+        chance_bonus = golden_stocks_count * self._get_probability_amplifier_bonus()
         awarded_card = game_state.resolve_golden_stocks_round(
             self._active_lifecycle_cards(),
             chance_bonus=chance_bonus,
+            level_number=self.level_number,
         )
         if awarded_card is None:
             if self.profile_slot and not self.test_mode:
@@ -3164,6 +3265,15 @@ class GameplayPage:
             return
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
+
+    def _record_windfall_boss_victory_progress(self):
+        if not self.is_boss_fight:
+            return False
+        if not game_state.record_windfall_boss_victory(self.active_gold_cards):
+            return False
+        if self.profile_slot and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        return True
     
     def _record_stats_result(self, won):
         if self.test_mode or self._stats_recorded:
@@ -3217,11 +3327,15 @@ class GameplayPage:
         Prices are NOT updated here - they will be updated when animation starts."""
         is_flat_random_active = self._is_flat_random_active()
         regulation_flat_markets = self._get_regulation_flat_markets()
+        blue_chip_markets = self._get_blue_chip_markets()
         shakeout_markets = self._get_shakeout_markets()
         insider_forced_rise_markets = set()
+        insider_growth_count = 0
         if self._consume_insider_c_growth_turn():
             insider_forced_rise_markets.add(2)
+            insider_growth_count = self._count_active_card_safely(405)
         spoofing_forced_rise_markets = self._get_spoofing_forced_rise_markets()
+        spoofing_growth_count = self._get_spoofing_growth_count()
         forced_rise_markets = insider_forced_rise_markets | spoofing_forced_rise_markets
         if is_flat_random_active:
             print("Active card 404 Flat forced all random stock movements to Flat.")
@@ -3241,14 +3355,27 @@ class GameplayPage:
             probability_card_bonus=self._get_probability_card_bonus(),
             force_flat=is_flat_random_active,
             force_flat_markets=regulation_flat_markets,
+            prevent_fall_markets=blue_chip_markets,
             double_fall_markets=shakeout_markets,
-            double_fall_bonus=self._get_percentage_amplifier_bonus() if shakeout_markets else 0,
+            double_fall_bonus=self._get_probability_amplifier_bonus() if shakeout_markets else 0,
+            double_fall_count=self._get_shakeout_count(),
         )
-        momentum_blocked_markets = insider_forced_rise_markets - spoofing_forced_rise_markets
-        animation_queue = self._apply_momentum_to_random_movements(
-            animation_queue,
-            momentum_blocked_markets,
-        )
+        market_steps = (self.StepA, self.StepB, self.StepC)
+        for market in spoofing_forced_rise_markets:
+            for _copy_index in range(max(0, spoofing_growth_count - 1)):
+                animation_queue.append(
+                    {
+                        "market": market,
+                        "type": "rise",
+                        "price_change": market_steps[market],
+                        "source": "spoofing",
+                    }
+                )
+        animation_queue = self._apply_momentum_to_random_movements(animation_queue)
+        for _copy_index in range(max(0, insider_growth_count - 1)):
+            animation_queue.append(
+                {"market": 2, "type": "rise", "price_change": self.StepC, "source": "insider"}
+            )
         animation_queue.extend(self._build_advance_movements())
         if self._advance_surge_counter():
             animation_queue.append(
@@ -3287,6 +3414,20 @@ class GameplayPage:
             if int(quantity or 0) <= 0
         }
 
+    def _get_shakeout_count(self):
+        return self._count_active_card_safely(413)
+
+    def _get_spoofing_growth_count(self):
+        current_day = int(self.Day or 0)
+        if current_day == 4:
+            return (
+                self._count_active_card_safely(411)
+                + self._count_active_card_safely(412)
+            )
+        if current_day == 8:
+            return self._count_active_card_safely(412)
+        return 0
+
     def _start_shakeout_animation(self):
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
@@ -3298,8 +3439,8 @@ class GameplayPage:
 
     def _get_spoofing_forced_rise_markets(self):
         current_day = int(self.Day or 0)
-        has_spoofing = current_day == 4 and self._has_active_silver_card(411)
-        has_spoofing_plus = current_day in (4, 8) and self._has_active_silver_card(412)
+        has_spoofing = current_day == 4 and self._count_active_card_safely(411) > 0
+        has_spoofing_plus = current_day in (4, 8) and self._count_active_card_safely(412) > 0
         if not has_spoofing and not has_spoofing_plus:
             return set()
 
@@ -3327,17 +3468,24 @@ class GameplayPage:
         )
         return forced_markets
 
-    def _start_spoofing_turn_reminder(self, day=None, now=None):
+    def _start_lifecycle_turn_reminder(self, day=None, now=None):
         try:
             current_day = int(self.Day if day is None else day)
         except (TypeError, ValueError):
             return []
-        if current_day not in (4, 8):
+        if current_day not in (1, 2, 4, 8):
             return []
-        if current_day in self.spoofing_reminder_days_started:
+        if current_day in self.lifecycle_reminder_days_started:
             return []
 
-        target_ids = {411, 412} if current_day == 4 else {412}
+        if current_day in (1, 2):
+            if int(getattr(self, "insider_c_growth_turns_remaining", 0) or 0) <= 0:
+                return []
+            target_ids = {405}
+        elif current_day == 4:
+            target_ids = {411, 412}
+        else:
+            target_ids = {412}
         if now is None:
             now = pygame.time.get_ticks()
         started_slots = []
@@ -3355,9 +3503,9 @@ class GameplayPage:
             started_slots.append(slot)
 
         if started_slots:
-            self.spoofing_reminder_days_started.add(current_day)
+            self.lifecycle_reminder_days_started.add(current_day)
             print(
-                "Spoofing reminder started: "
+                "Lifecycle card reminder started: "
                 f"day={current_day}, lifecycle_slots={started_slots}"
             )
         return started_slots
@@ -3389,17 +3537,16 @@ class GameplayPage:
             self.lifecycle_card_shake_animations.pop(slot, None)
         return expired_slots
 
-    def _apply_momentum_to_random_movements(self, animation_queue, forced_rise_markets=None):
-        """Gold card 409: repeat natural rises/falls, never card-driven price changes."""
+    def _apply_momentum_to_random_movements(self, animation_queue):
+        """Gold card 409: repeat each resolved market rise or fall."""
         momentum_count = self._count_active_silver_card(409)
         if momentum_count <= 0:
             return list(animation_queue or [])
 
-        forced_markets = set(forced_rise_markets or [])
         expanded_queue = []
         for movement in animation_queue or []:
             expanded_queue.append(movement)
-            if movement.get("type") not in ("rise", "fall") or movement.get("market") in forced_markets:
+            if movement.get("type") not in ("rise", "fall"):
                 continue
             for _copy_index in range(momentum_count):
                 expanded_queue.append({**movement, "source": "momentum"})
@@ -3443,7 +3590,7 @@ class GameplayPage:
         if not owned_markets:
             return []
 
-        chance = min(100, 20 + self._get_percentage_amplifier_bonus())
+        chance = min(100, 20 + self._get_probability_amplifier_bonus())
         movements = []
         for slot in advance_slots:
             roll = random.randint(1, 100)
@@ -3476,7 +3623,8 @@ class GameplayPage:
         if not isinstance(target_markets, (list, tuple, set)):
             target_markets = (target_markets,)
         if next_anim.get("source") == "surge":
-            self.Aprice = max(2, int(self.Aprice or 0) * 3)
+            surge_count = max(1, self._count_active_card_safely(415))
+            self.Aprice = max(2, int(self.Aprice or 0) * (3 ** surge_count))
             for slot, card_id in enumerate(self._active_lifecycle_cards()):
                 try:
                     is_surge = int(card_id) == 415
@@ -3484,7 +3632,7 @@ class GameplayPage:
                     is_surge = False
                 if is_surge:
                     self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
-            print(f"Active card 415 Surge tripled A price: A={self.Aprice}")
+            print(f"Active card 415 Surge applied {surge_count} time(s): A={self.Aprice}")
         elif next_anim.get("source") == "advance":
             advance_slot = next_anim.get("card_slot")
             if isinstance(advance_slot, int):
@@ -3559,6 +3707,7 @@ class GameplayPage:
         self.continuation_applied_this_resolution = False
         self.continuation_animation_phase = False
         self.c_price_fell_this_resolution = False
+        self.manipulation_applied_this_resolution = False
         self.short_seller_counted_markets_this_resolution = set()
         quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
         self.continuation_held_markets_this_turn = {
@@ -3595,7 +3744,8 @@ class GameplayPage:
     def _apply_sideway_reward_if_needed(self):
         if getattr(self, "sideway_applied_this_resolution", False):
             return False
-        if not self._has_active_silver_card(416):
+        sideway_count = self._count_active_card_safely(416)
+        if sideway_count <= 0:
             return False
 
         base_results = {}
@@ -3609,7 +3759,8 @@ class GameplayPage:
             return False
 
         self.sideway_applied_this_resolution = True
-        game_state.add_napoleondors(self.level_number, 5)
+        reward = 5 * sideway_count
+        game_state.add_napoleondors(self.level_number, reward)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
                 is_sideway = int(card_id) == 416
@@ -3619,7 +3770,10 @@ class GameplayPage:
                 self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         if self.profile_slot is not None and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
-        print("Active card 416 Sideway awarded 5 napoleondors for three Flat market results.")
+        print(
+            f"Active card 416 Sideway awarded {reward} napoleondors "
+            "for three Flat market results."
+        )
         return True
 
     def _apply_basket_trading_if_needed(self):
@@ -3678,7 +3832,8 @@ class GameplayPage:
 
     def _build_continuation_bonus_movements(self):
         streaks = self._normalize_continuation_growth_streaks()
-        if not self._has_active_silver_card(419):
+        continuation_count = self._count_active_card_safely(419)
+        if continuation_count <= 0:
             self.continuation_growth_streaks = [0, 0, 0]
             return []
 
@@ -3717,7 +3872,10 @@ class GameplayPage:
                 continue
 
             current_price = max(0, int(current_prices[market] or 0))
-            target_price = max(2, int(round(current_price * (1.2 ** bonus_count))))
+            target_price = max(
+                2,
+                int(round(current_price * (1.2 ** (bonus_count * continuation_count)))),
+            )
             price_change = target_price - current_price
             if price_change > 0:
                 bonus_movements.append(
@@ -3789,7 +3947,7 @@ class GameplayPage:
                 self.Day += 1
                 self._check_win_lose()
                 if self.win_lose_state is None:
-                    self._start_spoofing_turn_reminder()
+                    self._start_lifecycle_turn_reminder()
                     self._roll_shareholder_market_shutdown()
             else:
                 print(f"ERROR: Day==LastTurn but game didn't end! Forcing end.")
@@ -3970,16 +4128,19 @@ class GameplayPage:
                         card_id,
                         card_action,
                     )
-                    self.Aprice = prices["Aprice"]
-                    self.BPrice = prices["BPrice"]
-                    self.CPrice = prices["CPrice"]
+                    proposed_prices = (prices["Aprice"], prices["BPrice"], prices["CPrice"])
+                    self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+                        previous_prices,
+                        proposed_prices,
+                    )
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                     self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
                     if self._record_short_seller_falls(previous_prices, f"card {card_id}"):
                         return
 
                     # Only cards that actually change a price animate here.
-                    self._start_card_jump_animation(self.card_jump_animations[market], slot)
+                    if (self.Aprice, self.BPrice, self.CPrice) != previous_prices:
+                        self._start_card_jump_animation(self.card_jump_animations[market], slot)
 
                 # Decrement CardTurns
                 self.market_card_turns[market][slot] = turns_remaining - 1
@@ -4058,9 +4219,11 @@ class GameplayPage:
             market,
             price_change,
         )
-        self.Aprice = prices["Aprice"]
-        self.BPrice = prices["BPrice"]
-        self.CPrice = prices["CPrice"]
+        proposed_prices = (prices["Aprice"], prices["BPrice"], prices["CPrice"])
+        self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+            previous_prices,
+            proposed_prices,
+        )
         self._record_rebate_a_fall(previous_a_price, self.Aprice, "market movement")
         self._record_c_price_fall(previous_c_price, self.CPrice, "market movement")
         return self._record_short_seller_falls(previous_prices, "market movement")
@@ -4139,12 +4302,8 @@ class GameplayPage:
         effects = (
             self._apply_forward_trading_effect_if_needed,
             self._apply_extended_gain_drop_effect_if_needed,
-            self._apply_bankruptcy_effects_if_needed,
+            self._apply_price_setting_red_card_effects_in_slot_order,
             self._apply_extra_turn_effect_if_needed,
-            self._apply_market_crash_effect_if_needed,
-            self._apply_bid_effect_if_needed,
-            self._apply_parity_effect_if_needed,
-            self._apply_breakout_effect_if_needed,
             self._apply_manipulation_effect_if_needed,
             self._apply_deleverage_effect_if_needed,
         )
@@ -4152,6 +4311,37 @@ class GameplayPage:
             apply_effect()
             if getattr(self, "win_lose_state", None) is not None:
                 return
+
+    def _apply_price_setting_red_card_effects_in_slot_order(self):
+        """Resolve fresh price-setting red cards from left to right."""
+        handlers = {
+            113: self._apply_bankruptcy_effects_if_needed,
+            114: self._apply_bankruptcy_effects_if_needed,
+            115: self._apply_bankruptcy_effects_if_needed,
+            117: self._apply_market_crash_effect_if_needed,
+            118: self._apply_bid_effect_if_needed,
+            119: self._apply_bid_effect_if_needed,
+            120: self._apply_bid_effect_if_needed,
+            121: self._apply_bid_effect_if_needed,
+            122: self._apply_bid_effect_if_needed,
+            123: self._apply_parity_effect_if_needed,
+            125: self._apply_breakout_effect_if_needed,
+        }
+        applied = False
+        for slot, card_id in enumerate(self.side_cards_top):
+            if self.side_cards_locked_top.get(slot):
+                continue
+            try:
+                normalized_card_id = int(card_id)
+            except (TypeError, ValueError):
+                continue
+            handler = handlers.get(normalized_card_id)
+            if handler is None:
+                continue
+            applied = handler(slots=(slot,)) or applied
+            if getattr(self, "win_lose_state", None) is not None:
+                return applied
+        return applied
 
     def _start_fresh_side_card_jump_animation_for_card(self, target_card_id):
         for slot, card_id in enumerate(self.side_cards_top):
@@ -4208,7 +4398,7 @@ class GameplayPage:
                 )
                 return False
 
-            bonus_per_pair = 4 if gold_forward_count > 0 else 1
+            bonus_per_pair = 4 * gold_forward_count if gold_forward_count > 0 else 1
             bonus = pairs * bonus_per_pair
             self.LastTurn += bonus
             source = "207+402 Forward Trading" if gold_forward_count > 0 else "207 Forward Trading"
@@ -4231,38 +4421,52 @@ class GameplayPage:
 
     def _set_market_price_to_minimum(self, market):
         previous_prices = (self.Aprice, self.BPrice, self.CPrice)
+        proposed_prices = list(previous_prices)
+        proposed_prices[market] = 2
+        protected_prices = self._protect_blue_chip_prices(previous_prices, proposed_prices)
         if market == 0:
             previous_a_price = self.Aprice
-            changed = previous_a_price != 2
-            self.Aprice = 2
+            self.Aprice = protected_prices[0]
+            changed = previous_a_price != self.Aprice
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Bankruptcy A")
             self._record_short_seller_falls(previous_prices, "Bankruptcy A")
             return changed
         elif market == 1:
-            changed = self.BPrice != 2
-            self.BPrice = 2
+            previous_b_price = self.BPrice
+            self.BPrice = protected_prices[1]
+            changed = previous_b_price != self.BPrice
             self._record_short_seller_falls(previous_prices, "Bankruptcy B")
             return changed
         elif market == 2:
             previous_c_price = self.CPrice
-            changed = previous_c_price != 2
-            self.CPrice = 2
+            self.CPrice = protected_prices[2]
+            changed = previous_c_price != self.CPrice
             self._record_c_price_fall(previous_c_price, self.CPrice, "Bankruptcy C")
             self._record_short_seller_falls(previous_prices, "Bankruptcy C")
             return changed
         return False
 
-    def _apply_bankruptcy_effects_if_needed(self):
+    def _apply_bankruptcy_effects_if_needed(self, slots=None):
         """Cards 113-115: set A/B/C stock prices to 2."""
         applied = False
-        for card_id, market in ((113, 0), (114, 1), (115, 2)):
-            if self._has_fresh_side_card(card_id):
-                changed = self._set_market_price_to_minimum(market)
-                if changed:
-                    self._start_fresh_side_card_jump_animation_for_card(card_id)
-                    applied = True
-                if getattr(self, "win_lose_state", None) is not None:
-                    return applied
+        market_by_card = {113: 0, 114: 1, 115: 2}
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        for slot in target_slots:
+            if self.side_cards_locked_top.get(slot):
+                continue
+            try:
+                card_id = int(self.side_cards_top[slot])
+            except (IndexError, TypeError, ValueError):
+                continue
+            market = market_by_card.get(card_id)
+            if market is None:
+                continue
+            changed = self._set_market_price_to_minimum(market)
+            if changed:
+                self._start_card_jump_animation(self.side_card_jump_animations, slot)
+                applied = True
+            if getattr(self, "win_lose_state", None) is not None:
+                return applied
         if applied:
             print(
                 "Bankruptcy cards applied: "
@@ -4281,39 +4485,54 @@ class GameplayPage:
         print(f"Card 116 increased LastTurn by {bonus}: LastTurn={self.LastTurn}")
         return True
 
-    def _apply_market_crash_effect_if_needed(self):
+    def _apply_market_crash_effect_if_needed(self, slots=None):
         """Card 117: set all stock prices to the minimum value of 2."""
-        count = self._count_fresh_side_card(117)
-        if count <= 0:
-            return False
-        previous_prices = (self.Aprice, self.BPrice, self.CPrice)
-        previous_a_price = previous_prices[0]
-        previous_c_price = previous_prices[2]
-        changed = any(price != 2 for price in (self.Aprice, self.BPrice, self.CPrice))
-        self.Aprice = 2
-        self.BPrice = 2
-        self.CPrice = 2
-        self._record_rebate_a_fall(previous_a_price, self.Aprice, "Market Crash")
-        self._record_c_price_fall(previous_c_price, self.CPrice, "Market Crash")
-        self._record_short_seller_falls(previous_prices, "Market Crash")
-        if not changed:
-            return False
-        self._start_fresh_side_card_jump_animation_for_card(117)
-        print(
-            f"Card 117 market crash applied: count={count}, "
-            f"A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
-        )
-        return True
-
-    def _apply_bid_effect_if_needed(self):
-        """Cards 118-122: set every stock price to the printed BID value."""
-        applied_values = []
-        for slot, card_id in enumerate(self.side_cards_top):
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        crash_slots = []
+        for slot in target_slots:
             if self.side_cards_locked_top.get(slot):
                 continue
             try:
+                is_crash = int(self.side_cards_top[slot]) == 117
+            except (IndexError, TypeError, ValueError):
+                is_crash = False
+            if is_crash:
+                crash_slots.append(slot)
+        if not crash_slots:
+            return False
+        applied = False
+        for slot in crash_slots:
+            previous_prices = (self.Aprice, self.BPrice, self.CPrice)
+            previous_a_price = previous_prices[0]
+            previous_c_price = previous_prices[2]
+            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+                previous_prices,
+                (2, 2, 2),
+            )
+            changed = (self.Aprice, self.BPrice, self.CPrice) != previous_prices
+            self._record_rebate_a_fall(previous_a_price, self.Aprice, "Market Crash")
+            self._record_c_price_fall(previous_c_price, self.CPrice, "Market Crash")
+            self._record_short_seller_falls(previous_prices, "Market Crash")
+            if changed:
+                self._start_card_jump_animation(self.side_card_jump_animations, slot)
+                applied = True
+        print(
+            f"Card 117 market crash applied: count={len(crash_slots)}, "
+            f"A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
+        )
+        return applied
+
+    def _apply_bid_effect_if_needed(self, slots=None):
+        """Cards 118-122: set every stock price to the printed BID value."""
+        applied_values = []
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        for slot in target_slots:
+            if self.side_cards_locked_top.get(slot):
+                continue
+            try:
+                card_id = self.side_cards_top[slot]
                 bid_value = BID_CARD_VALUES.get(int(card_id))
-            except (TypeError, ValueError):
+            except (IndexError, TypeError, ValueError):
                 bid_value = None
             if bid_value is None:
                 continue
@@ -4321,9 +4540,10 @@ class GameplayPage:
             previous_prices = (self.Aprice, self.BPrice, self.CPrice)
             previous_a_price = previous_prices[0]
             previous_c_price = previous_prices[2]
-            self.Aprice = bid_value
-            self.BPrice = bid_value
-            self.CPrice = bid_value
+            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+                previous_prices,
+                (bid_value, bid_value, bid_value),
+            )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
             self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
             if self._record_short_seller_falls(previous_prices, f"BID {bid_value}"):
@@ -4339,15 +4559,17 @@ class GameplayPage:
         )
         return True
 
-    def _apply_parity_effect_if_needed(self):
+    def _apply_parity_effect_if_needed(self, slots=None):
         """Card 123: set A/B/C to their arithmetic mean, rounded to a whole price."""
         applied_count = 0
-        for slot, card_id in enumerate(self.side_cards_top):
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        for slot in target_slots:
             if self.side_cards_locked_top.get(slot):
                 continue
             try:
+                card_id = self.side_cards_top[slot]
                 is_parity = int(card_id) == 123
-            except (TypeError, ValueError):
+            except (IndexError, TypeError, ValueError):
                 is_parity = False
             if not is_parity:
                 continue
@@ -4358,9 +4580,10 @@ class GameplayPage:
             # Prices are integers and division is by three, so adding one gives
             # unambiguous nearest-integer rounding without fractional state.
             average_price = (self.Aprice + self.BPrice + self.CPrice + 1) // 3
-            self.Aprice = average_price
-            self.BPrice = average_price
-            self.CPrice = average_price
+            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+                previous_prices,
+                (average_price, average_price, average_price),
+            )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Parity")
             self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")
             if self._record_short_seller_falls(previous_prices, "Parity"):
@@ -4376,12 +4599,17 @@ class GameplayPage:
         )
         return True
 
-    def _apply_breakout_effect_if_needed(self):
+    def _apply_breakout_effect_if_needed(self, slots=None):
         """Card 125: possibly double prices of every market in which the player owns shares."""
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
         breakout_slots = [
             slot
-            for slot, card_id in enumerate(self.side_cards_top)
-            if card_id == 125 and not self.side_cards_locked_top.get(slot)
+            for slot in target_slots
+            if (
+                0 <= slot < len(self.side_cards_top)
+                and self.side_cards_top[slot] == 125
+                and not self.side_cards_locked_top.get(slot)
+            )
         ]
         if not breakout_slots:
             return False
@@ -4394,7 +4622,7 @@ class GameplayPage:
         if int(self.Cquantity or 0) > 0:
             owned_markets.append(2)
 
-        chance = min(100, 50 + self._get_percentage_amplifier_bonus())
+        chance = min(100, 50 + self._get_probability_amplifier_bonus())
         applied = False
         for slot in breakout_slots:
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
@@ -4418,26 +4646,31 @@ class GameplayPage:
         return applied
 
     def _apply_manipulation_effect_if_needed(self):
-        """Card 126: gain four A shares when owned C stock fell during this turn."""
-        if int(getattr(self, "Cquantity", 0) or 0) <= 0 or not getattr(
-            self,
-            "c_price_fell_this_resolution",
-            False,
+        """Silver card 212: gain four A shares per copy after an owned C fall."""
+        manipulation_count = self._count_active_silver_card(212)
+        if (
+            manipulation_count <= 0
+            or getattr(self, "manipulation_applied_this_resolution", False)
+            or int(getattr(self, "Cquantity", 0) or 0) <= 0
+            or not getattr(
+                self,
+                "c_price_fell_this_resolution",
+                False,
+            )
         ):
             return False
 
-        applied_count = 0
-        for slot, card_id in enumerate(self.side_cards_top):
-            if card_id != 126 or self.side_cards_locked_top.get(slot):
-                continue
-            self.Aquantity += 4
-            self._start_card_jump_animation(self.side_card_jump_animations, slot)
-            applied_count += 1
-
-        if applied_count <= 0:
-            return False
+        self.Aquantity += 4 * manipulation_count
+        self.manipulation_applied_this_resolution = True
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                is_manipulation = int(card_id) == 212
+            except (TypeError, ValueError):
+                is_manipulation = False
+            if is_manipulation:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         print(
-            f"Card 126 Manipulation applied: count={applied_count}, "
+            f"Silver card 212 Manipulation applied: count={manipulation_count}, "
             f"Aquantity={self.Aquantity}, Cquantity={self.Cquantity}"
         )
         return True
@@ -4520,6 +4753,41 @@ class GameplayPage:
             active.append(anim)
         self.market_clear_animations = active
 
+    def _apply_full_deployment_reward_if_needed(self):
+        if getattr(self, "full_deployment_reward_applied", False) or self.deck:
+            return False
+
+        card_count = 0
+        for card_id in getattr(self, "active_gold_cards", []) or []:
+            try:
+                if int(card_id) == GOLD_FULL_DEPLOYMENT_CARD_ID:
+                    card_count += 1
+            except (TypeError, ValueError):
+                continue
+        if card_count <= 0:
+            return False
+
+        self.full_deployment_reward_applied = True
+        reward = GOLD_FULL_DEPLOYMENT_REWARD * card_count
+        game_state.add_napoleondors(self.level_number, reward)
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                is_full_deployment = int(card_id) == GOLD_FULL_DEPLOYMENT_CARD_ID
+            except (TypeError, ValueError):
+                is_full_deployment = False
+            if is_full_deployment:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
+        print(
+            f"Active card 428 Full Deployment awarded {reward} napoleondors "
+            "for exhausting the deck."
+        )
+        return True
+
+    def _draw_next_deck_card(self):
+        card_id = self.deck.pop(0)
+        self._apply_full_deployment_reward_if_needed()
+        return 100 if card_id == 0 else card_id
+
     def _draw_pending_cards(self):
         """Prepare hand compaction animation and subsequent draw after end-turn animations.
 
@@ -4548,9 +4816,7 @@ class GameplayPage:
             if self.Dobor > 0 and self.deck and slots_available > 0:
                 draw_limit = min(self.Dobor, len(self.deck), slots_available)
                 for offset in range(draw_limit):
-                    card_id = self.deck.pop(0)
-                    if card_id == 0:
-                        card_id = 100
+                    card_id = self._draw_next_deck_card()
                     self.hand_cards[start_idx + offset] = card_id
             self.pending_draws = 0
             return
@@ -4589,9 +4855,7 @@ class GameplayPage:
                 draw_limit = min(self.Dobor, len(self.deck), self.hand)
                 self.hand_cards = [None] * self.hand
                 for i in range(draw_limit):
-                    card_id = self.deck.pop(0)
-                    if card_id == 0:
-                        card_id = 100
+                    card_id = self._draw_next_deck_card()
                     self.hand_cards[i] = card_id
             self.pending_draws = 0
             return
@@ -4641,9 +4905,7 @@ class GameplayPage:
                         from_x = target_x
                         from_y = SCREEN_HEIGHT + 100  # За экраном снизу
                         
-                        card_id = self.deck.pop(0)  # Извлекаем карту из колоды
-                        if card_id == 0:
-                            card_id = 100
+                        card_id = self._draw_next_deck_card()
                         self.hand_draw_anim.append({
                             'card_id': card_id,
                             'target_slot': target_slot,
@@ -4655,9 +4917,7 @@ class GameplayPage:
                 else:
                     # Без рамки — мгновенный добор
                     for offset in range(draw_limit):
-                        card_id = self.deck.pop(0)
-                        if card_id == 0:
-                            card_id = 100
+                        card_id = self._draw_next_deck_card()
                         self.hand_cards[start_idx + offset] = card_id
             self.pending_draws = 0
             return
@@ -4728,9 +4988,7 @@ class GameplayPage:
                             from_x = target_x
                             from_y = SCREEN_HEIGHT + 100  # За экраном снизу
                             
-                            card_id = self.deck.pop(0)  # Извлекаем карту из колоды
-                            if card_id == 0:
-                                card_id = 100
+                            card_id = self._draw_next_deck_card()
                             self.hand_draw_anim.append({
                                 'card_id': card_id,
                                 'target_slot': target_slot,
@@ -4742,9 +5000,7 @@ class GameplayPage:
                     else:
                         # Без рамки — мгновенный добор
                         for offset in range(draw_count):
-                            card_id = self.deck.pop(0)
-                            if card_id == 0:
-                                card_id = 100
+                            card_id = self._draw_next_deck_card()
                             self.hand_cards[first_free + offset] = card_id
 
             # 3) Сбрасываем состояние анимации компактирования (добор запущен отдельно)
@@ -4830,12 +5086,15 @@ class GameplayPage:
 
         title, description = content
         if normalized == 302:
-            current_value = min(
-                100,
-                game_state.get_golden_stocks_chance_percent()
-                + self._count_active_card_safely(302) * self._get_percentage_amplifier_bonus(),
-            )
-            detail = f"Текущая вероятность: {current_value}%."
+            if game_state.is_golden_stocks_triggered():
+                detail = "В этом забеге карта уже сработала."
+            else:
+                current_value = min(
+                    100,
+                    game_state.get_golden_stocks_chance_percent()
+                    + self._count_active_card_safely(302) * self._get_probability_amplifier_bonus(),
+                )
+                detail = f"Текущая вероятность: {current_value}%."
         elif normalized == 407:
             current_value = self._get_current_rebate_sale_percent()
             if current_value is None:
@@ -4846,19 +5105,55 @@ class GameplayPage:
             detail = f"Текущий бонус Uptrend: +{current_value}%."
         return title, f"{description} {detail}"
 
-    def _draw_disclosure_card_tooltip(self):
-        if (
-            not game_state.is_disclosure_active()
-            or self.dragged_card_source is not None
-            or self.deck_view_active
-            or self.pause_menu_active
-        ):
-            return
+    def _get_field_card_tooltip_content(self, card_id):
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            return None
 
-        mouse_pos = pygame.mouse.get_pos()
+        disclosure_content = self._get_disclosure_card_tooltip_content(normalized)
+        if disclosure_content is not None:
+            return disclosure_content
+        return FIELD_CARD_TOOLTIPS.get(normalized)
+
+    def _get_hovered_field_card(self, mouse_pos):
+        if self.deck_view_active:
+            for entry in reversed(self.deck_view_card_entries or []):
+                rect = entry.get("rect")
+                if rect is not None and rect.collidepoint(mouse_pos):
+                    return entry.get("card_id")
+            return None
+
+        for entry in reversed(self.bottom_placeholders or []):
+            slot = entry.get("slot")
+            rect = entry.get("rect")
+            if (
+                rect is not None
+                and rect.collidepoint(mouse_pos)
+                and isinstance(slot, int)
+                and 0 <= slot < len(self.hand_cards)
+                and not (self.dragged_card_source == "hand" and self.dragged_card_index == slot)
+            ):
+                card_id = self.hand_cards[slot]
+                if card_id is not None:
+                    return card_id
+
+        for entry in reversed(self.side_placeholders_top or []):
+            slot = entry.get("slot")
+            rect = entry.get("rect")
+            if (
+                rect is not None
+                and rect.collidepoint(mouse_pos)
+                and isinstance(slot, int)
+                and 0 <= slot < len(self.side_cards_top)
+                and not (self.dragged_card_source == "side_top" and self.dragged_card_side_slot == slot)
+            ):
+                card_id = self.side_cards_top[slot]
+                if card_id is not None:
+                    return card_id
+
         active_cards = self._active_lifecycle_cards()
-        hovered_card = None
-        for entry in self.side_placeholders_bottom:
+        for entry in reversed(self.side_placeholders_bottom or []):
             slot = entry.get("slot")
             rect = entry.get("rect")
             if (
@@ -4867,10 +5162,38 @@ class GameplayPage:
                 and isinstance(slot, int)
                 and 0 <= slot < len(active_cards)
             ):
-                hovered_card = active_cards[slot]
-                break
+                return active_cards[slot]
 
-        content = self._get_disclosure_card_tooltip_content(hovered_card)
+        for entry in reversed(self.market_placeholders or []):
+            market = entry.get("market")
+            slot = entry.get("slot")
+            rect = entry.get("rect")
+            if rect is None or not rect.collidepoint(mouse_pos):
+                continue
+            if not isinstance(market, int) or market not in self.market_cards or not isinstance(slot, int):
+                continue
+            if (
+                self.dragged_card_source == "market"
+                and self.dragged_card_market == market
+                and self.dragged_card_market_slot == slot
+            ):
+                continue
+            card_id = self.market_cards[market].get(slot)
+            if card_id is not None:
+                return card_id
+        return None
+
+    def _draw_field_card_tooltip(self):
+        if (
+            self.dragged_card_source is not None
+            or self.pause_menu_active
+            or self.win_lose_state is not None
+        ):
+            return
+
+        mouse_pos = pygame.mouse.get_pos()
+        hovered_card = self._get_hovered_field_card(mouse_pos)
+        content = self._get_field_card_tooltip_content(hovered_card)
         if content is None:
             return
         title, description = content
@@ -4917,8 +5240,10 @@ class GameplayPage:
             probability_card_bonus=self._get_probability_card_bonus(),
             force_flat=self._is_flat_random_active(),
             force_flat_markets=self._get_regulation_flat_markets(),
+            prevent_fall_markets=self._get_blue_chip_markets(),
             double_fall_markets=self._get_shakeout_markets(),
-            double_fall_bonus=self._get_percentage_amplifier_bonus(),
+            double_fall_bonus=self._get_probability_amplifier_bonus(),
+            double_fall_count=self._get_shakeout_count(),
         ).get(market)
         if not probs:
             return
@@ -5596,7 +5921,6 @@ class GameplayPage:
 
         self._draw_deck_toggle()
         self._draw_current_boss_marker()
-        self._draw_disclosure_card_tooltip()
         
         # Draw WinLose screen if win/lose state is active
         if self.win_lose_state is not None and self.win_lose_image:
@@ -5695,6 +6019,8 @@ class GameplayPage:
 
         if self.pause_menu_active:
             self._draw_pause_menu()
+
+        self._draw_field_card_tooltip()
         
         pygame.display.flip()
     

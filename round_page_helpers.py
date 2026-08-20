@@ -1,4 +1,4 @@
-from game_data import get_level5_goal
+from game_data import get_level5_goal, get_level6_goal
 
 
 def resolve_boss_selection(level_number, defeated_count):
@@ -98,6 +98,16 @@ def resolve_initial_button_goals(
             h_goal = apper_goal_boost(h_goal)
         return {"e": e_goal, "m": m_goal, "h": h_goal}
 
+    if level_number == 6:
+        e_goal = get_level6_goal(1, "e", defeated_count, False)
+        m_goal = get_level6_goal(1, "m", defeated_count, False)
+        h_goal = get_level6_goal(1, "h", defeated_count, False)
+        if is_apper_boss:
+            e_goal = apper_goal_boost(e_goal)
+            m_goal = apper_goal_boost(m_goal)
+            h_goal = apper_goal_boost(h_goal)
+        return {"e": e_goal, "m": m_goal, "h": h_goal}
+
     e_goal = level_cfg.get("E")
     m_goal = level_cfg.get("M")
     h_goal = level_cfg.get("H")
@@ -168,6 +178,22 @@ def refresh_button_goals_for_round(
         e_goal = get_level5_goal(current_round, "e", defeated_count, False)
         m_goal = get_level5_goal(current_round, "m", defeated_count, False)
         h_goal = get_level5_goal(current_round, "h", defeated_count, False)
+        if is_apper_boss:
+            e_goal = apper_goal_boost(e_goal)
+            m_goal = apper_goal_boost(m_goal)
+            h_goal = apper_goal_boost(h_goal)
+        if e_goal is not None:
+            updated_goals["e"] = e_goal
+        if m_goal is not None:
+            updated_goals["m"] = m_goal
+        if h_goal is not None:
+            updated_goals["h"] = h_goal
+        return updated_goals
+
+    if level_number == 6:
+        e_goal = get_level6_goal(current_round, "e", defeated_count, False)
+        m_goal = get_level6_goal(current_round, "m", defeated_count, False)
+        h_goal = get_level6_goal(current_round, "h", defeated_count, False)
         if is_apper_boss:
             e_goal = apper_goal_boost(e_goal)
             m_goal = apper_goal_boost(m_goal)
@@ -256,6 +282,16 @@ def resolve_boss_goal(
             boss_goal = get_level5_goal(None, "h", defeated_count, True)
         if boss_goal is None:
             raise ValueError(f"Missing level 5 boss goal for position {defeated_count + 1}")
+        return apper_goal_boost(boss_goal) if is_apper_boss else boss_goal
+
+    if level_number == 6:
+        boss_goal = get_level6_goal(None, "e", defeated_count, True)
+        if boss_goal is None:
+            boss_goal = get_level6_goal(None, "m", defeated_count, True)
+        if boss_goal is None:
+            boss_goal = get_level6_goal(None, "h", defeated_count, True)
+        if boss_goal is None:
+            raise ValueError(f"Missing level 6 boss goal for position {defeated_count + 1}")
         return apper_goal_boost(boss_goal) if is_apper_boss else boss_goal
 
     boss_key = (level_number, boss_index)

@@ -67,8 +67,10 @@ def build_market_probabilities(
     probability_card_bonus=0,
     force_flat=False,
     force_flat_markets=None,
+    prevent_fall_markets=None,
     double_fall_markets=None,
     double_fall_bonus=0,
+    double_fall_count=1,
 ):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
@@ -82,6 +84,7 @@ def build_market_probabilities(
         for market, values in BASE_MARKET_PROBABILITIES.items()
     }
     forced_flat = _normalize_market_set(force_flat_markets)
+    prevented_fall = _normalize_market_set(prevent_fall_markets)
     doubled_fall = _normalize_market_set(double_fall_markets)
     try:
         probability_card_bonus = max(0.0, float(probability_card_bonus or 0))
@@ -91,6 +94,10 @@ def build_market_probabilities(
         double_fall_bonus = max(0.0, float(double_fall_bonus or 0))
     except (TypeError, ValueError):
         double_fall_bonus = 0.0
+    try:
+        double_fall_count = max(0, int(double_fall_count or 0))
+    except (TypeError, ValueError):
+        double_fall_count = 0
 
     for market, slots in (market_cards or {}).items():
         if market not in probabilities:
@@ -120,12 +127,23 @@ def build_market_probabilities(
         if market not in probabilities or market in forced_flat:
             continue
         probs = probabilities[market]
-        _apply_probability_shift(
-            probs,
-            "fall",
-            ("flat", "rise"),
-            probs["fall"] + double_fall_bonus,
-        )
+        for _ in range(double_fall_count):
+            _apply_probability_shift(
+                probs,
+                "fall",
+                ("flat", "rise"),
+                probs["fall"] + double_fall_bonus,
+            )
+
+    for market in prevented_fall:
+        if market not in probabilities or market in forced_flat:
+            continue
+        probs = probabilities[market]
+        fall_probability = probs["fall"]
+        flat_share = fall_probability / 2.0
+        probs["fall"] = 0.0
+        probs["flat"] += flat_share
+        probs["rise"] += fall_probability - flat_share
 
     return probabilities
 
@@ -146,7 +164,7 @@ def _roll_market_animation(market, step, probabilities, forced_rise_markets):
 
     rand_value = random.random() * 100
     probs = probabilities[market]
-    if rand_value <= probs["fall"]:
+    if probs["fall"] > 0.0 and rand_value <= probs["fall"]:
         return {"market": market, "type": "fall", "price_change": -step}
     if rand_value <= probs["fall"] + probs["flat"]:
         return {"market": market, "type": "unchanged", "price_change": 0}
@@ -162,8 +180,10 @@ def build_stock_price_animation_queue(
     probability_card_bonus=0,
     force_flat=False,
     force_flat_markets=None,
+    prevent_fall_markets=None,
     double_fall_markets=None,
     double_fall_bonus=0,
+    double_fall_count=1,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -182,8 +202,10 @@ def build_stock_price_animation_queue(
         market_cards,
         probability_card_bonus=probability_card_bonus,
         force_flat_markets=force_flat_markets,
+        prevent_fall_markets=prevent_fall_markets,
         double_fall_markets=double_fall_markets,
         double_fall_bonus=double_fall_bonus,
+        double_fall_count=double_fall_count,
     )
 
     return [

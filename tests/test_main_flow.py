@@ -146,6 +146,176 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertTrue(profile["progress"]["level_1_boss_defeated"])
         self.assertIsNone(profile["active_game"])
 
+    def test_options_page_saves_music_volume_and_returns_to_main_menu(self):
+        settings_pages = []
+
+        class FakeSettingsPage:
+            def __init__(self, *args, **kwargs):
+                self.kwargs = kwargs
+                settings_pages.append(self)
+
+            def run(self):
+                self.kwargs["on_volume_change"](0.35)
+                return "back", 0.35
+
+        start_page = self._sequenced_page(["options", "quit"])
+        with (
+            patch.object(Main, "StartPage", start_page),
+            patch.object(Main, "SettingsPage", FakeSettingsPage),
+            patch.object(Main, "save_music_volume") as save_volume,
+        ):
+            Main.main()
+
+        self.assertEqual(len(settings_pages), 1)
+        save_volume.assert_called_once_with(0.35)
+
+    def test_level_six_shows_single_category_one_boss_before_round_page(self):
+        roster = [
+            ["4_NicolasApper.png"],
+            ["2_AdamSmith.png"],
+            ["8_List.png"],
+            ["9_Laffitte.png"],
+        ]
+        boss_pages = []
+        round_pages = []
+
+        class SingleBossPage:
+            def __init__(self, *args, **kwargs):
+                self.level_number = int(args[2])
+                self.current_boss_filenames = list(roster[int(kwargs.get("defeated_count", 0) or 0)])
+                self.clicked_boss_filename = self.current_boss_filenames[0]
+                self.clicked_boss_rect = pygame.Rect(300, 200, 100, 100)
+                self.saved_lines = [(235, 832, 350, 250)]
+                boss_pages.append(self)
+
+            def run(self):
+                return f"boss_{self.level_number}_0"
+
+        class CapturingRoundPage:
+            def __init__(self, *args, **kwargs):
+                self.level_number = int(args[2])
+                self.boss_index = int(args[3])
+                self.boss_filename = kwargs.get("boss_filename")
+                round_pages.append(self)
+
+            def run(self):
+                return "quit"
+
+        def pin_level6(state, bosses_required):
+            state["roster"] = copy.deepcopy(roster)
+            return state["roster"]
+
+        start_page = self._sequenced_page(["start"])
+        level_page = self._sequenced_page(["level_6"])
+        with (
+            patch.object(Main, "StartPage", start_page),
+            patch.object(Main, "GameScreen", level_page),
+            patch.object(Main, "BossPage", SingleBossPage),
+            patch.object(Main, "RoundPage", CapturingRoundPage),
+            patch.object(Main, "_ensure_level6_roster", side_effect=pin_level6),
+        ):
+            Main.main()
+
+        self.assertEqual(len(boss_pages), 1)
+        self.assertEqual(boss_pages[0].current_boss_filenames, ["4_NicolasApper.png"])
+        self.assertEqual(len(round_pages), 1)
+        self.assertEqual(round_pages[0].level_number, 6)
+        self.assertEqual(round_pages[0].boss_index, 0)
+        self.assertEqual(round_pages[0].boss_filename, "4_NicolasApper.png")
+        self.assertEqual(game_state.boss_progress[6]["current_boss"]["boss_filename"], "4_NicolasApper.png")
+
+    def test_level_six_first_boss_victory_returns_to_level_menu_and_resets_attempt(self):
+        roster = [
+            ["4_NicolasApper.png"],
+            ["2_AdamSmith.png"],
+            ["8_List.png"],
+            ["9_Laffitte.png"],
+        ]
+        gameplay_contexts = []
+        shop_visits = []
+
+        class SingleBossPage:
+            def __init__(self, *args, **kwargs):
+                self.level_number = int(args[2])
+                self.current_boss_filenames = list(roster[int(kwargs.get("defeated_count", 0) or 0)])
+                self.clicked_boss_filename = self.current_boss_filenames[0]
+                self.clicked_boss_rect = pygame.Rect(300, 200, 100, 100)
+                self.saved_lines = [(235, 832, 350, 250)]
+
+            def run(self):
+                return f"boss_{self.level_number}_0"
+
+        class FakeRoundPage:
+            def __init__(self, *args, **kwargs):
+                self.Goal = 10
+                self.rounds_required = 3
+                self.completed_rounds = set()
+                self.round_selections = {}
+                self.last_selected_round = None
+
+            def get_current_active_round(self):
+                for round_number in range(1, self.rounds_required + 1):
+                    if round_number not in self.completed_rounds:
+                        return round_number
+                return None
+
+            def run(self):
+                round_number = self.get_current_active_round()
+                if round_number is None:
+                    return "boss_clicked"
+                self.last_selected_round = round_number
+                self.round_selections[round_number] = {"key": "e"}
+                return "button_e"
+
+            def mark_round_completed(self, round_number):
+                self.completed_rounds.add(int(round_number))
+
+            def export_round_progress(self):
+                return {
+                    "completed_rounds": sorted(self.completed_rounds),
+                    "round_selections": dict(self.round_selections),
+                    "saved_lines": [],
+                }
+
+        class WinningGameplayPage:
+            def __init__(self, *args, **kwargs):
+                gameplay_contexts.append(dict(kwargs))
+
+            def run(self):
+                return "round_select"
+
+        class CountingShopPage:
+            def __init__(self, *args, **kwargs):
+                shop_visits.append(int(args[2]))
+
+            def run(self):
+                return "next"
+
+        def pin_level6(state, bosses_required):
+            state["roster"] = copy.deepcopy(roster)
+            return state["roster"]
+
+        start_page = self._sequenced_page(["start"])
+        level_page = self._sequenced_page(["level_6", "quit"])
+        with (
+            patch.object(Main, "StartPage", start_page),
+            patch.object(Main, "GameScreen", level_page),
+            patch.object(Main, "BossPage", SingleBossPage),
+            patch.object(Main, "RoundPage", FakeRoundPage),
+            patch.object(Main, "GameplayPage", WinningGameplayPage),
+            patch.object(Main, "ShopPage", CountingShopPage),
+            patch.object(Main, "_ensure_level6_roster", side_effect=pin_level6),
+        ):
+            Main.main()
+
+        self.assertEqual(len(gameplay_contexts), 4)
+        self.assertEqual(sum(bool(context.get("is_boss_fight")) for context in gameplay_contexts), 1)
+        self.assertEqual(shop_visits, [6, 6, 6])
+        self.assertEqual(game_state.boss_progress[6]["defeated"], 0)
+        self.assertIsNone(game_state.boss_progress[6]["current_boss"])
+        self.assertEqual(game_state.boss_progress[6]["round_progress"], {})
+        self.assertIsNone(profile_manager.get_active_game(1))
+
     def test_levels_two_to_five_complete_every_campaign_position(self):
         campaigns = {
             2: {

@@ -59,6 +59,7 @@ class RedCardEffectTests(unittest.TestCase):
 
         self.assertFalse(page._can_play_dragged_hand_card_on_market(11))
         self.assertFalse(page._can_play_dragged_hand_card_on_market(21))
+        self.assertFalse(page._can_play_dragged_hand_card_on_market(22))
         self.assertTrue(page._can_play_dragged_hand_card_on_market(1))
 
         page.market_cards_locked[0][0] = True
@@ -211,6 +212,36 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (50, 50, 50))
         self.assertEqual(page._start_card_jump_animation.call_count, 2)
 
+    def test_bid_then_bankruptcy_resolves_strictly_from_left_to_right(self):
+        page = self._page()
+        page.side_cards_top[:2] = [118, 113]
+        page.side_cards_locked_top = {0: False, 1: False}
+        page.Aprice = page.BPrice = page.CPrice = 7
+        page._start_card_jump_animation = mock.Mock()
+
+        page._apply_red_card_effects_if_needed()
+
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 10, 10))
+        self.assertEqual(
+            [call.args[1] for call in page._start_card_jump_animation.call_args_list],
+            [0, 1],
+        )
+
+    def test_bankruptcy_then_bid_resolves_strictly_from_left_to_right(self):
+        page = self._page()
+        page.side_cards_top[:2] = [113, 118]
+        page.side_cards_locked_top = {0: False, 1: False}
+        page.Aprice = page.BPrice = page.CPrice = 7
+        page._start_card_jump_animation = mock.Mock()
+
+        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+        self.assertEqual(
+            [call.args[1] for call in page._start_card_jump_animation.call_args_list],
+            [0, 1],
+        )
+
     def test_parity_sets_all_prices_to_the_nearest_whole_average(self):
         page = self._page()
         page.side_cards_top[1] = 123
@@ -304,39 +335,6 @@ class RedCardEffectTests(unittest.TestCase):
             self.assertFalse(page._apply_breakout_effect_if_needed())
 
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 20, 30))
-
-    def test_manipulation_grants_four_a_shares_and_jumps_after_c_falls(self):
-        page = self._page()
-        page.side_cards_top[1] = 126
-        page.side_cards_locked_top[1] = False
-        page.Aquantity = 2
-        page.Cquantity = 1
-        page.c_price_fell_this_resolution = True
-        page._start_card_jump_animation = mock.Mock()
-
-        self.assertTrue(page._apply_manipulation_effect_if_needed())
-
-        self.assertEqual(page.Aquantity, 6)
-        page._start_card_jump_animation.assert_called_once_with(
-            page.side_card_jump_animations,
-            1,
-        )
-
-    def test_manipulation_requires_owned_c_and_an_actual_c_fall(self):
-        page = self._page()
-        page.side_cards_top[0] = 126
-        page.side_cards_locked_top[0] = False
-        page.Aquantity = 2
-        page.Cquantity = 0
-        page.c_price_fell_this_resolution = True
-        page._start_card_jump_animation = mock.Mock()
-
-        self.assertFalse(page._apply_manipulation_effect_if_needed())
-        page.Cquantity = 1
-        page.c_price_fell_this_resolution = False
-        self.assertFalse(page._apply_manipulation_effect_if_needed())
-        self.assertEqual(page.Aquantity, 2)
-        page._start_card_jump_animation.assert_not_called()
 
     def test_c_fall_flag_survives_a_later_recovery_in_the_same_turn(self):
         page = self._page()
