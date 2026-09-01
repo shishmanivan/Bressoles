@@ -21,10 +21,16 @@ from card_catalog import (
     CATALYST_PERCENTAGE_POINTS,
     GOLD_CATALYST_PERCENTAGE_POINTS,
     GOLD_DISCLOSURE_PERCENTAGE_POINTS,
+    GOLD_ADVANCE_BASE_CHANCE,
+    GOLD_CONCENTRATION_CARD_ID,
     GOLD_FULL_DEPLOYMENT_CARD_ID,
     GOLD_FULL_DEPLOYMENT_REWARD,
+    GOLD_UPTREND_PERCENT_PER_NAPOLEONDOR,
+    GOLD_WATERLOO_BASE_CHANCE,
+    GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
     REGULATION_CARD_IDS,
+    SILVER_CONCENTRATION_CARD_ID,
 )
 from game_data import (
     REWARD_TOKEN_RANDOM_RED,
@@ -36,6 +42,7 @@ from game_data import (
 from game_stats import (
     build_difficulty_label,
     build_round_label,
+    build_sequential_round_number,
     ensure_stats_file,
     update_arkwright_stats,
     update_game_stats,
@@ -106,7 +113,12 @@ from gameplay_winlose import (
     resolve_win_lose_state,
 )
 from shared_utils import _clamp_dt_seconds, move_towards, wrap_text
-from silver_black_page import CARD_TOOLTIPS as LIFECYCLE_CARD_TOOLTIPS
+from silver_black_page import (
+    CARD_TOOLTIPS as LIFECYCLE_CARD_TOOLTIPS,
+    is_markdown_effective_for_round,
+)
+from shop_page import SPECIAL_ASSETS as SHOP_SPECIAL_ASSETS
+from shop_page import SPECIAL_DESCRIPTIONS as SHOP_SPECIAL_DESCRIPTIONS
 
 
 SCREEN_WIDTH = 1680
@@ -118,12 +130,13 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GOLD = (255, 215, 0)
 PAPER_COLOR = (83, 76, 70)
+LEVEL6_STARTING_A_SHARES = 2
 
 FIELD_CARD_TOOLTIPS = {
-    1: ("Upside", "Увеличивает вероятность роста выбранной акции на 5 процентных пунктов."),
-    2: ("Upside", "Увеличивает вероятность роста выбранной акции на 10 процентных пунктов."),
-    3: ("Downside", "Увеличивает вероятность падения выбранной акции на 5 процентных пунктов."),
-    4: ("Downside", "Увеличивает вероятность падения выбранной акции на 10 процентных пунктов."),
+    1: ("Upside", "Немного усиливает вероятность роста выбранной акции."),
+    2: ("Upside", "Усиливает вероятность роста выбранной акции."),
+    3: ("Downside", "Немного усиливает вероятность падения выбранной акции."),
+    4: ("Downside", "Усиливает вероятность падения выбранной акции."),
     11: ("Gain", "Увеличивает цену выбранной акции на 2 в течение 1 хода."),
     12: ("Gain", "Увеличивает цену выбранной акции на 2 в течение 2 ходов."),
     13: ("Gain", "Увеличивает цену выбранной акции на 4 в течение 1 хода."),
@@ -134,11 +147,8 @@ FIELD_CARD_TOOLTIPS = {
     18: ("Gain ×2", "Умножает цену выбранной акции на 2 в течение 2 ходов."),
     20: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 2 ходов."),
     21: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 3 ходов."),
-    22: ("Blue Chips", "Цена выбранной акции не может снижаться. Вероятность падения поровну переходит во Flat и рост."),
-    100: (
-        "Shareholder",
-        "Сам по себе ничего не делает. На четвёртом уровне три и более Shareholder могут на ход отключить торговлю на одном рынке.",
-    ),
+    22: ("Blue Chips", "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке."),
+    100: ("Shareholder", "Это бесполезная карта. Она ничего не делает и только занимает место."),
     110: ("Rebate", "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости."),
     111: ("Deleverage", "Удаляет все карты, выложенные на трёх рынках."),
     112: ("Rollover", "Добавляет 1 ход всем Gain, Drop и Regulation-картам, включая уже выложенные."),
@@ -169,7 +179,11 @@ DISCLOSURE_CARD_TOOLTIPS = {
     ),
     410: (
         "Uptrend",
-        "Добавляет к эффекту Rebate по 1 процентному пункту за каждый целый имеющийся наполеондор.",
+        "Добавляет к эффекту Rebate по 2 процентных пункта за каждый целый имеющийся наполеондор.",
+    ),
+    430: (
+        "Waterloo",
+        "Показывает следующий рыночный бросок и позволяет переиграть текущий ход.",
     ),
 }
 
@@ -210,6 +224,7 @@ class GameplayPage:
         self.difficulty = difficulty  # "e", "m", or "h"
         self.Goal = goal  # Goal for this round
         self.level_number = level_number  # Level number for deck initialization
+        self.round_start_napoleondors = float(game_state.napoleondors or 0)
         self.is_boss_fight = is_boss_fight
         self.boss_index = boss_index  # Boss index (0-based) for applying boss modifiers
         self.boss_filename = boss_filename
@@ -249,6 +264,7 @@ class GameplayPage:
         self.boss_block_card_turn_extensions = False
         self.boss_market_slots_per_market = 3
         self.boss_round_napoleondor_multiplier = 1.0
+        self.boss_burns_cash_end_turn = False
         self.boss_turn_time_limit_seconds = 0
         self.boss_turn_timer_remaining_ms = 0
         self.boss_turn_timer_last_tick = pygame.time.get_ticks()
@@ -324,6 +340,7 @@ class GameplayPage:
         # Price animation state (for sequential playback)
         self.price_animation_queue = []  # Price animations; grouped effects may target multiple markets at once.
         self.stock_price_turn_results = []
+        self.waterloo_preview_movements = None
         self.current_price_animation = None  # Current animation: {'market': 0-2, 'type': 'unchanged'|'rise', 'frame_idx': int, 'last_update': ms}
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
@@ -344,7 +361,7 @@ class GameplayPage:
         self.napoleondor_image = gameplay_assets["napoleondor_image"]
 
         # Initialize quantity variables
-        self.Aquantity = 2
+        self.Aquantity = LEVEL6_STARTING_A_SHARES if int(self.level_number or 0) == 6 else 2
         self.Bquantity = 0
         self.Cquantity = int(game_state.global_start_c_shares_bonus or 0)
 
@@ -433,7 +450,9 @@ class GameplayPage:
         self.defeated_boss_icon_cache = {}
         self.current_boss_icon_cache = {}
         self.deck_view_silver_card_cache = {}
+        self.deck_view_offer_image_cache = {}
         self.deck_view_card_entries = []
+        self.deck_view_offer_entries = []
         self.hedger_used_this_round = 0
         self.hedger_selected_card_id = None
         self.hedger_confirm_active = False
@@ -475,6 +494,20 @@ class GameplayPage:
         else:
             self.card_size_side = (int(self.card_size_market[0] * 0.85), int(self.card_size_market[1] * 0.85))
 
+        negative_path = os.path.join("Cards", "Arts", "Negative.png")
+        self.negative_card_overlays = {
+            tuple(card_size): load_scaled_image(
+                negative_path,
+                target_size=card_size,
+                warning_message="WARNING: Negative card overlay not found:",
+            )
+            for card_size in (
+                self.card_size_bottom,
+                self.card_size_market,
+                self.card_size_side,
+            )
+        }
+
         # Right-side placeholder areas (top: 6 slots, bottom: 3 slots)
         # These are populated in draw() for hit-testing / future drag&drop.
         self.side_placeholders_top = []   # [{'slot': int, 'rect': Rect}]
@@ -495,6 +528,15 @@ class GameplayPage:
         self._apply_silver_rollover_bonus()
         
         game_state.migrate_legacy_forced_start_hand_cards(self.level_number)
+        gold_concentration_active = any(
+            int(card_id) == GOLD_CONCENTRATION_CARD_ID
+            for card_id in self.active_gold_cards
+        )
+        silver_concentration_active = any(
+            int(card_id) == SILVER_CONCENTRATION_CARD_ID
+            for card_id in self.active_silver_cards
+        )
+        concentration_active = gold_concentration_active or silver_concentration_active
         self.deck, self.hand_cards = setup_starting_deck_and_hand(
             self.level_number,
             self.hand,
@@ -504,9 +546,11 @@ class GameplayPage:
             shop_deck_cards=game_state.shop_deck_cards,
             temporary_reward_cards_by_level=game_state.round_reward_cards,
             guaranteed_cards_by_level=game_state.guaranteed_start_hand_cards_by_level,
-            investment_card_bonuses=game_state.investment_card_bonuses,
+            investment_card_bonuses=game_state.get_active_investment_card_bonuses(),
             round_guaranteed_cards=self.positioning_start_cards,
             mirrored_cards=game_state.mirrored_deck_cards,
+            concentration_active=concentration_active,
+            concentration_removes_starting_shareholder=gold_concentration_active,
         )
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
@@ -542,11 +586,13 @@ class GameplayPage:
         self.market_card_actions = {0: {}, 1: {}, 2: {}}
         # Side-panel slots whose Accumulation charge is still waiting to be consumed.
         self.accumulation_pending_sources = []
+        self.accumulation_stephenson_card_played_this_turn = False
 
         # Jump animation state for persistent market cards.
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
+        self.lifecycle_card_scale_animations = {}
         self.lifecycle_card_shake_animations = {}
         self.lifecycle_reminder_days_started = set()
         self.market_clear_animations = []
@@ -560,6 +606,7 @@ class GameplayPage:
         self.turn_resolution_active = False
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
+        self.hand_negative_overlay_hold = {"red": False, "market": False}
 
         # Hand compaction animation state (after end turn)
         self.hand_compact_anim = []  # [{'card_id', 'from_index', 'to_index', 'from_pos', 'to_pos', 'progress'}]
@@ -588,6 +635,29 @@ class GameplayPage:
         self.ok1_button = winlose_assets["ok1_button"]
         self.ok2_button = winlose_assets["ok2_button"]
         self.ok_button_base_size = winlose_assets["ok_button_base_size"]
+        self.finance_report_image = winlose_assets.get("finance_report_image")
+        self.card_report_image = winlose_assets.get("card_report_image")
+        self.approve_stamp_image = winlose_assets.get("approve_stamp_image")
+        self.stamp_on_paper_image = winlose_assets.get("stamp_on_paper_image")
+        self.stamp_sound = winlose_assets.get("stamp_sound")
+        self.report_rustle_sound = winlose_assets.get("report_rustle_sound")
+        self.approve_stamp_rotated = (
+            pygame.transform.rotate(self.approve_stamp_image, 10).convert_alpha()
+            if self.approve_stamp_image else None
+        )
+        self.result_report_stage = "cards"
+        self.finance_report_y = float(
+            SCREEN_HEIGHT + 30 if self.finance_report_image else 0
+        )
+        self.finance_report_target_y = float(
+            (SCREEN_HEIGHT - self.finance_report_image.get_height()) // 2
+            if self.finance_report_image else 0
+        )
+        self.finance_report_entries = []
+        self.finance_stamp_state = "idle"
+        self.finance_stamp_started_at = 0
+        self.finance_stamp_rect = None
+        self.result_transition_ready = None
         
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
@@ -629,10 +699,12 @@ class GameplayPage:
         self.winlose_card_images = {}
         self.winlose_scaled_card_images = {}
         self._restore_saved_state(self._initial_saved_state)
-        if self._apply_full_deployment_reward_if_needed():
-            self._save_active_game()
         if not isinstance(self._initial_saved_state, dict) or "shareholder_blocked_market" not in self._initial_saved_state:
             self._roll_shareholder_market_shutdown()
+        if self.boss_index is not None:
+            # Normalize old saves that may have enabled a stock bot for a
+            # level-5 category-one boss under the former blanket rule.
+            self._configure_boss_stock_bot()
         if not self._is_stock_bot_allowed():
             self.stock_bot_enabled = False
             self.stock_bot = None
@@ -643,6 +715,8 @@ class GameplayPage:
             self._reset_boss_turn_timer()
         else:
             self.boss_turn_timer_last_tick = pygame.time.get_ticks()
+        if self._apply_risk_premium_round_start_bonus():
+            self._save_active_game()
         self._start_lifecycle_turn_reminder()
 
     def _build_deck_toggle_rect(self):
@@ -721,7 +795,6 @@ class GameplayPage:
         selected_card = self.deck.pop(selected_index)
         self.hand_cards[free_slot] = selected_card
         self.hedger_used_this_round = int(getattr(self, "hedger_used_this_round", 0) or 0) + 1
-        self._apply_full_deployment_reward_if_needed()
         self._set_hedger_message("Карта добавлена")
         self._clear_hedger_selection()
         self._save_active_game()
@@ -891,7 +964,11 @@ class GameplayPage:
         gap_y = 34
         padding_x = 70
         padding_y = 55
-        footer_strip_height = 300 if game_state.active_silver_cards_deck else 160
+        active_offer_entries = game_state.get_active_shop_offer_effects(
+            self.level_number,
+            self.defeated_count,
+        )
+        footer_strip_height = 300 if game_state.active_silver_cards_deck or active_offer_entries else 160
         available_width = panel.width - padding_x * 2
         columns = max(1, int((available_width + gap_x) // (card_w + gap_x)))
         total_width = columns * card_w + (columns - 1) * gap_x
@@ -920,6 +997,7 @@ class GameplayPage:
 
         self._draw_silver_deck_preview(panel)
         self._draw_defeated_boss_rewards(panel)
+        self._draw_active_shop_offers(panel, active_offer_entries)
         self._draw_hedger_deck_controls(panel)
         self._draw_deck_toggle()
 
@@ -988,6 +1066,87 @@ class GameplayPage:
             image = None
         self.deck_view_silver_card_cache[cache_key] = image
         return image
+
+    def _build_active_shop_offer_rects(self, panel, offer_count):
+        try:
+            count = max(0, int(offer_count or 0))
+        except (TypeError, ValueError):
+            count = 0
+        if count <= 0:
+            return []
+
+        side_padding = 76
+        gap = 12
+        available_width = panel.width - side_padding * 2
+        max_width = (available_width - gap * (count - 1)) // count
+        card_w = max(34, min(50, int(max_width)))
+        card_h = max(54, int(card_w / (561 / 886.0)))
+        total_width = count * card_w + (count - 1) * gap
+        start_x = panel.x + (panel.width - total_width) // 2
+        y = panel.bottom - 365
+        return [
+            pygame.Rect(start_x + index * (card_w + gap), y, card_w, card_h)
+            for index in range(count)
+        ]
+
+    def _get_deck_view_offer_image(self, special_id, size):
+        cache_key = (str(special_id), int(size[0]), int(size[1]))
+        if cache_key in self.deck_view_offer_image_cache:
+            return self.deck_view_offer_image_cache[cache_key]
+
+        _label, path = SHOP_SPECIAL_ASSETS.get(special_id, (str(special_id), None))
+        image = load_scaled_image(path, target_size=size) if path and os.path.exists(path) else None
+        self.deck_view_offer_image_cache[cache_key] = image
+        return image
+
+    def _draw_active_shop_offers(self, panel, entries=None):
+        active_entries = list(
+            entries
+            if entries is not None
+            else game_state.get_active_shop_offer_effects(self.level_number, self.defeated_count)
+        )
+        rects = self._build_active_shop_offer_rects(panel, len(active_entries))
+        self.deck_view_offer_entries = []
+        mouse_pos = pygame.mouse.get_pos()
+        hovered = None
+
+        for entry, rect in zip(active_entries, rects):
+            special_id = entry.get("special_id")
+            image = self._get_deck_view_offer_image(special_id, rect.size)
+            if image:
+                self.screen.blit(image, rect.topleft)
+            else:
+                pygame.draw.rect(self.screen, (238, 228, 205), rect)
+                pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
+
+            remaining = entry.get("remaining")
+            if remaining is not None:
+                counter = self.font_small.render(str(remaining), True, PAPER_COLOR)
+                self.screen.blit(counter, counter.get_rect(center=(rect.centerx, rect.top - 18)))
+
+            drawn_entry = {**entry, "rect": rect}
+            self.deck_view_offer_entries.append(drawn_entry)
+            if rect.collidepoint(mouse_pos):
+                hovered = drawn_entry
+
+        if hovered:
+            self._draw_active_shop_offer_tooltip(hovered, panel)
+
+    def _draw_active_shop_offer_tooltip(self, entry, panel):
+        special_id = entry.get("special_id")
+        label = SHOP_SPECIAL_ASSETS.get(special_id, (str(special_id), None))[0]
+        description = SHOP_SPECIAL_DESCRIPTIONS.get(special_id, "")
+        status = ""
+        remaining = entry.get("remaining")
+        if remaining is not None:
+            unit = "босс" if entry.get("remaining_kind") == "bosses" else "раундов"
+            status = f" Осталось: {remaining} {unit}."
+        text = f"{label}. {description}{status}".strip()
+        self._draw_boss_reward_tooltip(
+            {"reward_text": text},
+            entry.get("rect"),
+            panel,
+        )
 
     def _draw_silver_deck_preview(self, panel):
         silver_deck = []
@@ -1344,14 +1503,37 @@ class GameplayPage:
             return False
 
     def _configure_boss_stock_bot(self):
-        """Configure stock trading from the selected boss category."""
+        """Configure stock trading only for bosses that explicitly own shares."""
         if not self._is_stock_bot_allowed() or self.boss_index is None:
             return
 
         boss_number = self._get_active_boss_number()
         boss_level = get_boss_level_from_number(boss_number)
+        try:
+            level_number = int(self.level_number or 0)
+        except (TypeError, ValueError):
+            level_number = 0
+        if level_number == 5 and boss_level != 2:
+            self.stock_bot_enabled = False
+            self.stock_bot = None
+            self._stock_bot_saved_state = None
+            self.stock_bot_start_quantities = None
+            self.stock_bot_blocked_buy_prices = set()
+            print(
+                f"Skipped level-5 stock bot for category-{boss_level or 1} boss {boss_number}: "
+                "only category-two bosses trade against the player"
+            )
+            return
+
         self.stock_bot_enabled = True
-        if boss_level == 2:
+        if level_number == 6:
+            self.stock_bot_type = "reinvestment"
+            start_quantities = {
+                "Aquantity": LEVEL6_STARTING_A_SHARES,
+                "Bquantity": 0,
+                "Cquantity": 0,
+            }
+        elif boss_level == 2:
             self.stock_bot_type = "advanced"
             start_quantities = {
                 "Aquantity": 0,
@@ -1367,8 +1549,8 @@ class GameplayPage:
             }
         self.stock_bot_start_quantities = start_quantities
         print(
-            f"Configured level-{self.level_number} category-{boss_level or 1} boss {boss_number}: "
-            f"{self.stock_bot_type} stock bot with "
+            f"Configured level-{self.level_number} category-{boss_level or 1} boss {boss_number}"
+            f": {self.stock_bot_type} stock bot with "
             f"A{start_quantities['Aquantity']} "
             f"B{start_quantities['Bquantity']} "
             f"C{start_quantities['Cquantity']}"
@@ -1395,7 +1577,10 @@ class GameplayPage:
         try:
             import importlib
 
-            if self.stock_bot_type == "advanced":
+            if self.stock_bot_type == "reinvestment":
+                bot_module = importlib.import_module("reinvestment_stock_bot")
+                bot_class = bot_module.ReinvestmentStockBot
+            elif self.stock_bot_type == "advanced":
                 bot_module = importlib.import_module("advanced_stock_bot")
                 bot_class = bot_module.AdvancedStockBot
             else:
@@ -1437,7 +1622,7 @@ class GameplayPage:
         # playable day is one below the terminal counter.
         if self.Day >= self.LastTurn - 1:
             decision = self.stock_bot.sell_all(self._current_prices())
-        elif self.stock_bot_type == "advanced":
+        elif self.stock_bot_type in ("advanced", "reinvestment"):
             decision = self.stock_bot.trade(
                 self._current_prices(),
                 self._stock_bot_probabilities(),
@@ -1474,7 +1659,13 @@ class GameplayPage:
 
     def _is_stock_bot_boss(self):
         try:
-            return int(self.level_number or 0) in (4, 5) and bool(self.stock_bot_enabled)
+            return int(self.level_number or 0) in (4, 5, 6) and bool(self.stock_bot_enabled)
+        except (TypeError, ValueError):
+            return False
+
+    def _is_capital_race_level(self):
+        try:
+            return int(self.level_number or 0) == 6 and bool(getattr(self, "is_boss_fight", False))
         except (TypeError, ValueError):
             return False
 
@@ -1498,7 +1689,7 @@ class GameplayPage:
             return True
         player_value = self._player_portfolio_value()
         boss_value = self._stock_bot_portfolio_value()
-        can_win = player_value >= boss_value
+        can_win = player_value > boss_value if self._is_capital_race_level() else player_value >= boss_value
         if not can_win:
             print(
                 f"Stock bot boss blocks victory: player_value={player_value}, "
@@ -1586,6 +1777,9 @@ class GameplayPage:
             "market_card_actions": self._serialize_nested_int_dict(self.market_card_actions),
             "card_turns": {str(k): v for k, v in self.card_turns.items()},
             "accumulation_pending_sources": list(self.accumulation_pending_sources or []),
+            "accumulation_stephenson_card_played_this_turn": bool(
+                self.accumulation_stephenson_card_played_this_turn
+            ),
             "pending_draws": self.pending_draws,
             "final_auto_liquidation_applied": self.final_auto_liquidation_applied,
             "win_lose_state": self.win_lose_state,
@@ -1595,6 +1789,11 @@ class GameplayPage:
             "long_payout_amount": int(self.long_payout_amount or 0),
             "golden_stocks_reward_card": self.golden_stocks_reward_card,
             "random_boss_reward_text": self.random_boss_reward_text,
+            "result_report_stage": self.result_report_stage,
+            "finance_report_y": float(self.finance_report_y),
+            "finance_report_entries": [dict(entry) for entry in self.finance_report_entries],
+            "finance_stamp_state": self.finance_stamp_state,
+            "round_start_napoleondors": float(self.round_start_napoleondors or 0),
             "boss_turn_timer_remaining_ms": int(self.boss_turn_timer_remaining_ms or 0),
             "active_silver_cards": list(self.active_silver_cards or []),
             "active_black_cards": list(self.active_black_cards or []),
@@ -1612,6 +1811,11 @@ class GameplayPage:
             ),
             "hedger_used_this_round": int(self.hedger_used_this_round or 0),
             "full_deployment_reward_applied": bool(self.full_deployment_reward_applied),
+            "waterloo_preview_movements": (
+                [dict(movement) for movement in self.waterloo_preview_movements]
+                if self.waterloo_preview_movements is not None
+                else None
+            ),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "shareholder_effect_count": int(self.shareholder_effect_count or 0),
@@ -1697,6 +1901,9 @@ class GameplayPage:
                 continue
             if 0 <= slot < len(self.side_cards_top) and self.side_cards_top[slot] == 124:
                 self.accumulation_pending_sources.append(slot)
+        self.accumulation_stephenson_card_played_this_turn = bool(
+            state.get("accumulation_stephenson_card_played_this_turn", False)
+        )
 
         self.final_auto_liquidation_applied = bool(state.get("final_auto_liquidation_applied", False))
         self.win_lose_state = state.get("win_lose_state")
@@ -1707,6 +1914,30 @@ class GameplayPage:
         self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
         self.golden_stocks_reward_card = state.get("golden_stocks_reward_card")
         self.random_boss_reward_text = state.get("random_boss_reward_text")
+        self.result_report_stage = state.get("result_report_stage", self.result_report_stage)
+        self.finance_report_y = float(state.get("finance_report_y", self.finance_report_y) or 0)
+        self.finance_report_entries = [
+            dict(entry) for entry in state.get("finance_report_entries") or []
+            if isinstance(entry, dict)
+        ]
+        self.finance_stamp_state = state.get("finance_stamp_state", self.finance_stamp_state)
+        if (
+            self.win_lose_state == "win"
+            and self.result_report_stage not in ("finance", "card_report")
+        ):
+            self.result_report_stage = (
+                "finance"
+                if getattr(self, "finance_report_image", None)
+                and self._should_show_finance_report()
+                else "card_report"
+            )
+            self.finance_report_y = float(SCREEN_HEIGHT + 30)
+            self.finance_stamp_state = "idle"
+            self.finance_stamp_started_at = 0
+            self._play_result_report_rustle()
+        self.round_start_napoleondors = float(
+            state.get("round_start_napoleondors", self.round_start_napoleondors) or 0
+        )
         if "boss_turn_timer_remaining_ms" in state:
             try:
                 maximum_ms = max(0, int(self.boss_turn_time_limit_seconds or 0) * 1000)
@@ -1720,6 +1951,12 @@ class GameplayPage:
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
         game_state.set_active_gold_cards(self.active_gold_cards)
+        raw_waterloo_preview = state.get("waterloo_preview_movements")
+        self.waterloo_preview_movements = (
+            [dict(movement) for movement in raw_waterloo_preview if isinstance(movement, dict)]
+            if isinstance(raw_waterloo_preview, list)
+            else None
+        )
         raw_short_seller_counts = list(state.get("short_seller_fall_counts") or [0, 0, 0])
         self.short_seller_fall_counts = []
         for value in (raw_short_seller_counts + [0, 0, 0])[:3]:
@@ -1776,11 +2013,13 @@ class GameplayPage:
         self.card_jump_animations = {0: {}, 1: {}, 2: {}}
         self.side_card_jump_animations = {}
         self.lifecycle_card_jump_animations = {}
+        self.lifecycle_card_scale_animations = {}
         self.lifecycle_card_shake_animations = {}
         self.lifecycle_reminder_days_started = set()
         self.final_auto_liquidation_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
+        self.hand_negative_overlay_hold = {"red": False, "market": False}
         self.hand_compact_anim = []
         self.hand_draw_anim = []
         self.market_clear_animations = []
@@ -1835,6 +2074,8 @@ class GameplayPage:
             return False
         if card_id is not None and not self._is_stephenson_market_card(card_id):
             return False
+        if getattr(self, "accumulation_stephenson_card_played_this_turn", False):
+            return True
         for market in (0, 1, 2):
             for slot, existing_card_id in self.market_cards[market].items():
                 if existing_card_id is None or self.market_cards_locked[market].get(slot):
@@ -1874,6 +2115,68 @@ class GameplayPage:
                 return False
         return not self._is_red_play_limit_reached()
 
+    def _should_show_hand_card_negative(self, card_id):
+        """Return whether a hand card is disabled by a rule that merits the overlay."""
+        if card_id is None:
+            return False
+        try:
+            if int(card_id) == 125:
+                return False
+        except (TypeError, ValueError):
+            pass
+        held = getattr(self, "hand_negative_overlay_hold", {}) or {}
+        if self.get_card_type(card_id) == 2:
+            return self._is_red_play_limit_reached() or bool(held.get("red"))
+        if not self._is_stephenson_market_card(card_id):
+            return False
+        return self._is_gain_drop_play_limit_reached(card_id) or bool(held.get("market"))
+
+    def _hold_hand_negative_overlays_until_next_turn(self):
+        """Freeze per-turn disabled markers while end-turn effects are resolving."""
+        self.hand_negative_overlay_hold = {
+            "red": self._is_red_play_limit_reached(),
+            "market": self._is_gain_drop_play_limit_reached(),
+        }
+
+    def _clear_hand_negative_overlay_hold(self):
+        self.hand_negative_overlay_hold = {"red": False, "market": False}
+
+    def _is_lifecycle_card_power_lost(self, card_id, slot=None):
+        """Return whether a displayed lifecycle card has exhausted its one-shot effect."""
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            return False
+
+        if normalized == 302:
+            return game_state.is_golden_stocks_triggered()
+        if normalized == 422:
+            return not is_markdown_effective_for_round(
+                getattr(self, "round_num", None),
+                getattr(self, "is_boss_fight", False),
+            )
+        if normalized == 415:
+            return bool(getattr(self, "surge_triggered", False))
+        if normalized == GOLD_FULL_DEPLOYMENT_CARD_ID:
+            return bool(getattr(self, "full_deployment_reward_applied", False))
+        if normalized == 408:
+            used_count = max(0, int(getattr(self, "hedger_used_this_round", 0) or 0))
+            if used_count <= 0:
+                return False
+            active_cards = self._active_lifecycle_cards()
+            occurrence = sum(
+                1
+                for previous in active_cards[: max(0, int(slot or 0))]
+                if int(previous) == normalized
+            )
+            return occurrence < used_count
+        return False
+
+    def _draw_negative_card_overlay(self, card_x, card_y, card_size):
+        overlay = getattr(self, "negative_card_overlays", {}).get(tuple(card_size))
+        if overlay:
+            self.screen.blit(overlay, (int(card_x), int(card_y)))
+
     def _placeholder_hit_candidates(self, placeholders, pos, margin=10):
         x, y = pos
         candidates = []
@@ -1900,7 +2203,7 @@ class GameplayPage:
 
     @staticmethod
     def shareholder_market_shutdown_probability(shareholder_count):
-        """Return the level-4 per-turn shutdown chance for a deck composition."""
+        """Return the per-turn market shutdown chance for a deck composition."""
         try:
             count = max(0, int(shareholder_count or 0))
         except (TypeError, ValueError):
@@ -1923,7 +2226,7 @@ class GameplayPage:
         """Choose one market whose buy/sell arrows are disabled for this turn."""
         self.shareholder_blocked_market = None
         try:
-            if int(self.level_number or 0) not in (4, 6) or self.win_lose_state is not None:
+            if int(self.level_number or 0) not in (4, 5, 8) or self.win_lose_state is not None:
                 return None
         except (TypeError, ValueError):
             return None
@@ -2128,6 +2431,10 @@ class GameplayPage:
     
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
+        if getattr(self, "result_transition_ready", None):
+            result = self.result_transition_ready
+            self.result_transition_ready = None
+            return result
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -2144,12 +2451,28 @@ class GameplayPage:
                 continue
             
             # Handle Ok button click if WinLose screen is shown
-            if self.win_lose_state is not None and self.win_lose_image:
+            if (
+                self.win_lose_state == "win"
+                and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
+                and self._get_active_result_report_image()
+            ):
+                if (
+                    event.type == pygame.MOUSEBUTTONDOWN
+                    and event.button == 1
+                    and self.finance_stamp_state == "idle"
+                    and self.finance_stamp_rect
+                    and self.finance_stamp_rect.collidepoint(event.pos)
+                ):
+                    if self.stamp_sound:
+                        self.stamp_sound.play()
+                    self.finance_stamp_state = "pressing"
+                    self.finance_stamp_started_at = pygame.time.get_ticks()
+                continue
+
+            if self.win_lose_state == "lose" and self.win_lose_image:
                 # Determine which button to show based on win/lose state
                 ok_button = None
-                if self.win_lose_state == "win" and self.ok1_button:
-                    ok_button = self.ok1_button
-                elif self.win_lose_state == "lose" and self.ok2_button:
+                if self.ok2_button:
                     ok_button = self.ok2_button
                 
                 if ok_button:
@@ -2169,13 +2492,8 @@ class GameplayPage:
                         if event.button == 1:  # Left click
                             # Check if click is on Ok button
                             if self.ok_button_rect.collidepoint(event.pos):
-                                if self.win_lose_state == "lose":
-                                    # Lost: return to level selection screen
-                                    return "level_select"
-                                elif self.win_lose_state == "win":
-                                    # Won: return to round selection (boss victory handling is done in main loop)
-                                    # The main loop will check if it's a boss fight and handle level 1 boss defeat
-                                    return "round_select"
+                                # Lost: return to level selection screen
+                                return "level_select"
                     
                     # The result window owns all input until its button is pressed.
                     continue
@@ -2316,6 +2634,8 @@ class GameplayPage:
                                 self._activate_accumulation_charge(card_id, slot)
                                 self.hand_cards[self.dragged_card_index] = None
                                 self.pending_draws += 1
+                                if self._apply_full_deployment_reward_if_needed():
+                                    self._save_active_game()
                                 dropped = True
                                 break
 
@@ -2369,6 +2689,8 @@ class GameplayPage:
                                             self.hand_cards[self.dragged_card_index] = None
                                             # Mark pending draw for empty slot
                                             self.pending_draws += 1
+                                            if self._apply_full_deployment_reward_if_needed():
+                                                self._save_active_game()
                                             dropped = True
                                             break
                                 # Moving from market to market
@@ -2458,6 +2780,15 @@ class GameplayPage:
         if self._apply_final_auto_liquidation_if_needed():
             if self._is_final_auto_liquidation_animating():
                 return
+        if self._is_capital_race_level():
+            if self.win_lose_state is not None or self.Day < self.LastTurn:
+                return
+            won = self._can_win_against_current_boss()
+            self._finish_win_lose_result(
+                "win" if won else "lose",
+                "capital_race" if won else "stock_bot_ahead",
+            )
+            return
         next_state, reason = resolve_win_lose_state(
             self.win_lose_state,
             self.Money,
@@ -2487,6 +2818,11 @@ class GameplayPage:
         self.golden_stocks_reward_card = None
         if next_state == "win":
             game_state.ensure_napoleondor_level(self.level_number)
+            pending_report_entries = game_state.consume_finance_report_income()
+            bank_interest_amount = game_state.apply_bank_interest(
+                self.level_number,
+                base_amount=game_state.napoleondors,
+            )
             napoleondors_before_rewards = float(game_state.napoleondors or 0)
             if self.is_final_boss:
                 self.reward_window_text = self._get_final_boss_reward_text()
@@ -2507,8 +2843,12 @@ class GameplayPage:
                 print(f"WIN (early): Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
             self._apply_bill_of_exchange_shop_discount()
             self._add_reward_card_to_deck()
-            self._apply_commission_win_bonus()
-            self._apply_obligation_win_bonus()
+            boss_reward_amount = max(
+                0.0,
+                float(game_state.napoleondors or 0) - napoleondors_before_rewards,
+            )
+            commission_amount = self._apply_commission_win_bonus()
+            obligation_amount = self._apply_obligation_win_bonus()
             self._record_bear_victory_progress()
             self._record_windfall_boss_victory_progress()
             self.long_payout_amount = self._apply_long_investment_payout()
@@ -2520,6 +2860,24 @@ class GameplayPage:
             self.last_earned_napoleondors = (
                 immediate_reward + self._get_pending_victory_napoleondor_reward()
             )
+            self.finance_report_entries = self._build_finance_report_entries(
+                pending_report_entries,
+                opening_balance=self.round_start_napoleondors,
+                interest_amount=bank_interest_amount,
+                boss_reward_amount=boss_reward_amount,
+                commission_amount=commission_amount,
+                obligation_amount=obligation_amount,
+                long_amount=self.long_payout_amount,
+            )
+            self.result_report_stage = (
+                "finance"
+                if self.finance_report_image and self._should_show_finance_report()
+                else "card_report"
+            )
+            self.finance_report_y = float(SCREEN_HEIGHT + 30)
+            self.finance_stamp_state = "idle"
+            self.finance_stamp_started_at = 0
+            self._play_result_report_rustle()
             game_state.advance_bailout_round()
             game_state.advance_disclosure_round()
         else:
@@ -2611,6 +2969,9 @@ class GameplayPage:
 
     def _get_probability_amplifier_bonus(self):
         return self._get_percentage_amplifier_bonus() + self._get_disclosure_probability_bonus()
+
+    def _get_waterloo_chance(self):
+        return min(100, GOLD_WATERLOO_BASE_CHANCE + self._get_probability_amplifier_bonus())
 
     def _count_active_card_safely(self, card_id):
         try:
@@ -2852,14 +3213,17 @@ class GameplayPage:
 
     def _apply_markdown_goal_modifier(self):
         markdown_count = self._count_active_card_safely(422)
-        if self.is_boss_fight or markdown_count <= 0:
+        if markdown_count <= 0 or not is_markdown_effective_for_round(
+            getattr(self, "round_num", None),
+            getattr(self, "is_boss_fight", False),
+        ):
             return False
         try:
             round_num = int(self.round_num)
             base_goal = float(self.Goal)
         except (TypeError, ValueError):
             return False
-        if round_num not in (3, 4) or base_goal <= 0:
+        if base_goal <= 0:
             return False
 
         discount_percent = min(100, 30 * markdown_count)
@@ -3007,7 +3371,10 @@ class GameplayPage:
             base_bonus = max(0, int(float(game_state.napoleondors or 0)))
         except (TypeError, ValueError):
             return 0
-        return uptrend_count * (base_bonus + self._get_percentage_amplifier_bonus())
+        return uptrend_count * (
+            base_bonus * GOLD_UPTREND_PERCENT_PER_NAPOLEONDOR
+            + self._get_percentage_amplifier_bonus()
+        )
 
     def _get_stewardship_rebate_bonus_percent(self):
         stewardship_count = self._count_active_card_safely(423)
@@ -3031,6 +3398,19 @@ class GameplayPage:
             windfall_count
             * game_state.get_windfall_boss_victories()
             * game_state.WINDFALL_REBATE_BONUS_PER_BOSS
+        )
+
+    def _apply_risk_premium_round_start_bonus(self):
+        if self._initial_saved_state is not None:
+            return False
+        return game_state.record_risk_premium_h_round(
+            self.active_gold_cards,
+            self.difficulty,
+        )
+
+    def _get_risk_premium_rebate_bonus_percent(self):
+        return game_state.get_risk_premium_rebate_bonus_percent(
+            getattr(self, "active_gold_cards", []) or []
         )
 
     def _get_current_rebate_sale_percent(self):
@@ -3061,6 +3441,7 @@ class GameplayPage:
             + self._get_uptrend_rebate_bonus_percent()
             + self._get_stewardship_rebate_bonus_percent()
             + self._get_windfall_rebate_bonus_percent()
+            + self._get_risk_premium_rebate_bonus_percent()
         )
 
     def _start_final_auto_liquidation_animation(self, liquidation):
@@ -3140,6 +3521,7 @@ class GameplayPage:
         self.pending_draws = 0
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
+        self._clear_hand_negative_overlay_hold()
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
     
@@ -3179,16 +3561,17 @@ class GameplayPage:
             for card_id, reward in obligation_rewards.items()
         )
         if earned <= 0:
-            return
+            return 0
         game_state.add_napoleondors(self.level_number, earned)
         print(f"Active Obligation cards awarded {earned} napoleondors after victory.")
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
+        return earned
 
     def _apply_commission_win_bonus(self):
         commission_count = self._count_active_silver_card(303)
         if commission_count <= 0:
-            return
+            return 0
         bonus_per_card = 2 if self.is_boss_fight else 1
         earned = commission_count * bonus_per_card
         game_state.add_napoleondors(self.level_number, earned)
@@ -3198,6 +3581,125 @@ class GameplayPage:
         )
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
+        return earned
+
+    def _build_finance_report_entries(
+        self,
+        pending_entries,
+        opening_balance=0,
+        interest_amount=0,
+        boss_reward_amount=0,
+        commission_amount=0,
+        obligation_amount=0,
+        long_amount=0,
+    ):
+        labels = {
+            "starting_bonus": self._get_text("FinanceStartingBonus", "Стартовый бонус"),
+            "account_balance": self._get_text("FinanceAccountBalance", "Остаток на счету"),
+            "interest": self._get_text("FinanceInterest", "Проценты"),
+            "loan_profit": self._get_text("FinanceLoanProfit", "Loan дал прибыль"),
+            "sideway": self._get_text("FinanceSideway", "Бонус Sideway"),
+            "full_deployment": self._get_text(
+                "FinanceFullDeployment",
+                "Бонус Full Deployment",
+            ),
+            "card_sales": self._get_text("FinanceCardSales", "Продажа карт"),
+            "junk_bond": self._get_text("FinanceJunkBond", "Junk Bond дал прибыль"),
+            "junk_bond_refund": self._get_text("FinanceJunkBondRefund", "Возврат Junk Bond"),
+            "other_income": self._get_text("FinanceOtherIncome", "Прочий доход"),
+        }
+        accumulated = {}
+        order = []
+
+        def add(source, label, amount, allow_zero=False):
+            try:
+                value = float(amount or 0)
+            except (TypeError, ValueError):
+                return
+            if value < 0 or (value == 0 and not allow_zero):
+                return
+            if source not in accumulated:
+                order.append(source)
+                accumulated[source] = {"source": source, "label": label, "amount": 0.0}
+            accumulated[source]["amount"] += value
+
+        is_first_report = any(
+            str(entry.get("source") or "") == "starting_bonus"
+            for entry in (pending_entries or [])
+            if isinstance(entry, dict)
+        )
+        if is_first_report:
+            for entry in pending_entries or []:
+                if str(entry.get("source") or "") == "starting_bonus":
+                    add("starting_bonus", labels["starting_bonus"], entry.get("amount"))
+        else:
+            add("account_balance", labels["account_balance"], opening_balance, allow_zero=True)
+
+        add("interest", labels["interest"], interest_amount)
+
+        if self.is_boss_fight:
+            base_victory = game_state.get_boss_victory_napoleondor_reward(self.level_number)
+        else:
+            base_victory = game_state.get_round_victory_napoleondor_reward(
+                self.level_number,
+                self.difficulty,
+                get_boss_number_from_filename(self.boss_filename),
+            )
+        add(
+            "victory_reward",
+            self._get_text("FinanceVictoryReward", "Награда за победу"),
+            base_victory,
+        )
+
+        add(
+            "profit_bonus",
+            self._get_text("FinanceProfitBonus", "Бонус Profit"),
+            game_state.profit_reward_bonus if base_victory > 0 else 0,
+        )
+
+        for entry in pending_entries or []:
+            source = str(entry.get("source") or "other_income")
+            if source == "starting_bonus":
+                continue
+            if source not in ("sideway", "full_deployment"):
+                continue
+            add(source, labels.get(source, labels["other_income"]), entry.get("amount"))
+
+        add("boss_reward", self._get_text("FinanceBossReward", "Награда босса"), boss_reward_amount)
+        add("commission", self._get_text("FinanceCommission", "Комиссия"), commission_amount)
+        add("obligation", self._get_text("FinanceObligation", "Облигации"), obligation_amount)
+        add("long_profit", self._get_text("FinanceLongProfit", "Long дал прибыль"), long_amount)
+        entries = [accumulated[source] for source in order]
+        if entries:
+            entries.append(
+                {
+                    "source": "total",
+                    "label": self._get_text("FinanceTotal", "Всего"),
+                    "amount": sum(float(entry.get("amount", 0) or 0) for entry in entries),
+                }
+            )
+        return entries
+
+    def _should_show_finance_report(self):
+        try:
+            return int(self.level_number or 0) > 1 and not bool(
+                getattr(self, "is_final_boss", False)
+            )
+        except (TypeError, ValueError):
+            return False
+
+    def _get_active_result_report_image(self):
+        stage = getattr(self, "result_report_stage", "cards")
+        if stage == "finance":
+            return getattr(self, "finance_report_image", None)
+        if stage == "card_report":
+            return getattr(self, "card_report_image", None)
+        return None
+
+    def _play_result_report_rustle(self):
+        sound = getattr(self, "report_rustle_sound", None)
+        if sound and self._get_active_result_report_image():
+            sound.play()
 
     def _get_pending_victory_napoleondor_reward(self):
         if self.is_boss_fight:
@@ -3228,6 +3730,311 @@ class GameplayPage:
             start_x = icon_rect.right + spacing
         self.screen.blit(text_surface, text_surface.get_rect(midleft=(start_x, center_y)))
 
+    @staticmethod
+    def _format_finance_amount(amount):
+        value = float(amount or 0)
+        return str(int(value)) if value.is_integer() else f"{value:g}"
+
+    @staticmethod
+    def _get_finance_report_shake(stamp_state, elapsed_ms):
+        if stamp_state != "flying" or elapsed_ms < 0 or elapsed_ms >= 180:
+            return 0, 0
+        fade = 1.0 - elapsed_ms / 180.0
+        amplitude = max(1, int(round(5 * fade)))
+        direction = -1 if (elapsed_ms // 30) % 2 else 1
+        return direction * amplitude, -direction * max(1, amplitude // 2)
+
+    @staticmethod
+    def _get_stamp_camera_flight(progress):
+        normalized = max(0.0, min(1.0, float(progress or 0)))
+        eased = normalized * normalized
+        return 1.0 + 3.2 * eased, max(0, min(255, int(round(255 * (1.0 - normalized)))))
+
+    def _draw_finance_report_rows(self, report_rect):
+        row_y = report_rect.top + int(report_rect.height * 0.43)
+        row_count = max(1, len(self.finance_report_entries))
+        row_area_bottom = report_rect.top + int(report_rect.height * 0.74)
+        row_step = min(
+            max(24, int(report_rect.height * 0.047)),
+            max(24, (row_area_bottom - row_y) // row_count),
+        )
+        font = pygame.font.Font(self.font_path, max(18, min(27, row_step - 7)))
+        label_x = report_rect.left + int(report_rect.width * 0.20)
+        amount_right = report_rect.left + int(report_rect.width * 0.91)
+        amount_x = report_rect.left + int(report_rect.width * 0.89)
+        for index, entry in enumerate(self.finance_report_entries):
+            y = row_y + index * row_step
+            if entry.get("source") == "total":
+                pygame.draw.line(
+                    self.screen,
+                    PAPER_COLOR,
+                    (label_x, y - 5),
+                    (amount_right, y - 5),
+                    2,
+                )
+            label_surface = font.render(str(entry.get("label") or ""), True, PAPER_COLOR)
+            amount_surface = font.render(
+                self._format_finance_amount(entry.get("amount")),
+                True,
+                PAPER_COLOR,
+            )
+            self.screen.blit(label_surface, (label_x, y))
+            self.screen.blit(amount_surface, (amount_x, y))
+
+    def _get_card_report_rows(self):
+        temporary_counts = {}
+        for card_id in game_state.round_reward_cards.get(self.level_number, []) or []:
+            try:
+                normalized = int(card_id)
+            except (TypeError, ValueError):
+                continue
+            temporary_counts[normalized] = temporary_counts.get(normalized, 0) + 1
+
+        rows = []
+        for card_id in self.last_earned_cards or []:
+            try:
+                normalized = int(card_id)
+            except (TypeError, ValueError):
+                normalized = card_id
+            if game_state.is_silver_card(normalized):
+                label = self._get_text(
+                    "CardReportSilver",
+                    "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
+                )
+            elif game_state.is_gold_card(normalized):
+                label = self._get_text(
+                    "CardReportGold",
+                    "Золотая карта. Пропадёт после поражения.",
+                )
+            elif temporary_counts.get(normalized, 0) > 0:
+                temporary_counts[normalized] -= 1
+                label = self._get_text(
+                    "CardReportTemporary",
+                    "Временная карта. Пропадёт после победы над боссом.",
+                )
+            elif getattr(self, "is_boss_fight", False) and not getattr(
+                self,
+                "is_final_boss",
+                False,
+            ):
+                label = self._get_text(
+                    "CardReportBossReward",
+                    "Бонус за победу над боссом. Пропадёт после поражения.",
+                )
+            else:
+                label = self._get_text(
+                    "CardReportPermanent",
+                    "Постоянная карта. Останется в вашей коллекции.",
+                )
+            rows.append({"card_id": normalized, "label": label})
+        return rows
+
+    def _get_card_report_notice(self):
+        if getattr(self, "golden_stocks_reward_card", None) is None:
+            return None
+        return self._get_text(
+            "CardReportGoldenStocksTriggered",
+            "Golden Stocks сработал!",
+        )
+
+    def _get_card_report_boss_description(self):
+        if not getattr(self, "is_boss_fight", False):
+            return None
+        if getattr(self, "is_final_boss", False):
+            return getattr(self, "reward_window_text", None) or self._get_final_boss_reward_text()
+        random_reward = getattr(self, "random_boss_reward_text", None)
+        if random_reward:
+            return random_reward
+        boss_number = get_boss_number_from_filename(getattr(self, "boss_filename", None))
+        if not boss_number and getattr(self, "boss_index", None) is not None:
+            boss_number = get_boss_number_from_index(
+                getattr(self, "level_number", 0),
+                getattr(self, "boss_index", None),
+                getattr(self, "defeated_count", 0),
+            )
+        if not boss_number:
+            return None
+        return self._get_text(f"Boss{boss_number}Reward", f"Boss {boss_number} reward")
+
+    def _draw_card_report_boss_text(self, report_rect, description_top):
+        title_font = pygame.font.Font(self.font_path, 25)
+        title = self._get_text(
+            "CardReportBossTitle",
+            "Бонус за победу над боссом:",
+        )
+        title_surface = title_font.render(title, True, PAPER_COLOR)
+        title_rect = title_surface.get_rect(
+            centerx=report_rect.centerx,
+            top=report_rect.top + int(report_rect.height * 0.275),
+        )
+        self.screen.blit(title_surface, title_rect.topleft)
+
+        footer = self._get_text(
+            "CardReportTemporaryReset",
+            "Временные карты обнулились",
+        )
+        footer_font = pygame.font.Font(self.font_path, 22)
+        footer_surface = footer_font.render(footer, True, PAPER_COLOR)
+        footer_rect = footer_surface.get_rect(
+            centerx=report_rect.centerx,
+            top=report_rect.top + int(report_rect.height * 0.805),
+        )
+
+        description = self._get_card_report_boss_description()
+        if description:
+            text_x = report_rect.left + int(report_rect.width * 0.14)
+            text_width = int(report_rect.width * 0.72)
+            available_height = max(0, footer_rect.top - description_top - 12)
+            for font_size in range(21, 14, -1):
+                description_font = pygame.font.Font(self.font_path, font_size)
+                lines = wrap_text(str(description), description_font, text_width)
+                line_height = description_font.get_height() + 3
+                if len(lines) * line_height <= available_height or font_size == 15:
+                    break
+            for line_index, line in enumerate(lines):
+                surface = description_font.render(line, True, PAPER_COLOR)
+                self.screen.blit(
+                    surface,
+                    (text_x, description_top + line_index * line_height),
+                )
+        self.screen.blit(footer_surface, footer_rect.topleft)
+
+    @staticmethod
+    def _get_card_report_card_width(slot_height):
+        card_ratio = 99 / 171.0
+        original_width = max(44, min(92, int((slot_height - 12) * card_ratio)))
+        enlarged_width = int(round(original_width * 1.15))
+        fit_width = max(1, int(slot_height * card_ratio))
+        return max(1, min(enlarged_width, fit_width))
+
+    @staticmethod
+    def _get_card_report_hover_width(card_width):
+        return max(1, int(round(card_width * 1.20)))
+
+    def _draw_card_report_rows(self, report_rect):
+        rows = self._get_card_report_rows()
+        is_boss_report = bool(getattr(self, "is_boss_fight", False))
+        if not rows and not is_boss_report:
+            return
+        notice = self._get_card_report_notice()
+        content_top_ratio = 0.325 if is_boss_report else (0.32 if notice else 0.27)
+        content_top = report_rect.top + int(report_rect.height * content_top_ratio)
+        if is_boss_report:
+            cards_height = min(
+                int(report_rect.height * 0.36),
+                len(rows) * int(report_rect.height * 0.15),
+            )
+            content_bottom = content_top + cards_height
+        else:
+            content_top = report_rect.top + int(report_rect.height * (0.30 if notice else 0.25))
+            content_bottom = report_rect.top + int(report_rect.height * 0.835)
+        slot_height = max(70, (content_bottom - content_top) // max(1, len(rows)))
+        card_ratio = 99 / 171.0
+        card_width = self._get_card_report_card_width(slot_height)
+        card_height = int(card_width / card_ratio)
+        card_x = report_rect.left + int(report_rect.width * 0.14)
+        text_x = card_x + card_width + 24
+        text_width = report_rect.right - text_x - int(report_rect.width * 0.10)
+        font = pygame.font.Font(self.font_path, 24 if len(rows) <= 3 else 20)
+        if notice:
+            notice_font = pygame.font.Font(self.font_path, 25)
+            notice_surface = notice_font.render(notice, True, PAPER_COLOR)
+            notice_rect = notice_surface.get_rect(
+                centerx=report_rect.centerx,
+                bottom=content_top - 10,
+            )
+            self.screen.blit(notice_surface, notice_rect.topleft)
+        hovered_card = None
+        mouse_pos = pygame.mouse.get_pos()
+        for index, row in enumerate(rows):
+            slot_top = content_top + index * slot_height
+            card_y = slot_top + max(0, (slot_height - card_height) // 2)
+            card_image = self._load_winlose_card(row["card_id"], card_width)
+            if card_image:
+                self.screen.blit(card_image, (card_x, card_y))
+                card_rect = card_image.get_rect(topleft=(card_x, card_y))
+                if card_rect.collidepoint(mouse_pos):
+                    hovered_card = {
+                        "card_id": row["card_id"],
+                        "rect": card_rect,
+                    }
+            lines = wrap_text(str(row["label"]), font, text_width)
+            line_height = font.get_height() + 4
+            text_y = slot_top + max(0, (slot_height - len(lines) * line_height) // 2)
+            for line_index, line in enumerate(lines):
+                surface = font.render(line, True, PAPER_COLOR)
+                self.screen.blit(surface, (text_x, text_y + line_index * line_height))
+        if is_boss_report:
+            self._draw_card_report_boss_text(
+                report_rect,
+                content_bottom + int(report_rect.height * 0.018),
+            )
+        if hovered_card:
+            hover_width = self._get_card_report_hover_width(card_width)
+            hover_image = self._load_winlose_card(hovered_card["card_id"], hover_width)
+            if hover_image:
+                hover_rect = hover_image.get_rect(center=hovered_card["rect"].center)
+                self.screen.blit(hover_image, hover_rect.topleft)
+            self._draw_card_tooltip(hovered_card["card_id"], mouse_pos)
+
+    def _draw_finance_report(self):
+        report_image = self._get_active_result_report_image()
+        if not report_image:
+            return
+        now = pygame.time.get_ticks()
+        stamp_elapsed = now - int(self.finance_stamp_started_at or now)
+        shake_x, shake_y = self._get_finance_report_shake(
+            self.finance_stamp_state,
+            stamp_elapsed,
+        )
+        report_x = (SCREEN_WIDTH - report_image.get_width()) // 2 + shake_x
+        report_y = int(round(self.finance_report_y)) + shake_y
+        report_rect = report_image.get_rect(topleft=(report_x, report_y))
+        self.screen.blit(report_image, report_rect.topleft)
+
+        if self.result_report_stage == "card_report":
+            self._draw_card_report_rows(report_rect)
+        else:
+            self._draw_finance_report_rows(report_rect)
+
+        stamp_center = (
+            report_x + int(report_rect.width * 0.80),
+            report_y + int(report_rect.height * 0.93),
+        )
+        if self.finance_stamp_state in ("flying", "stamped", "closing") and self.stamp_on_paper_image:
+            mark_rect = self.stamp_on_paper_image.get_rect(center=stamp_center)
+            self.screen.blit(self.stamp_on_paper_image, mark_rect.topleft)
+
+        if self.finance_stamp_state in ("idle", "pressing", "flying") and self.approve_stamp_rotated:
+            stamp_image = self.approve_stamp_rotated
+            stamp_draw_center = stamp_center
+            if self.finance_stamp_state == "pressing":
+                progress = min(1.0, (now - self.finance_stamp_started_at) / 170.0)
+                stamp_draw_center = (stamp_center[0], stamp_center[1] + int(13 * progress))
+            elif self.finance_stamp_state == "flying":
+                progress = min(1.0, (now - self.finance_stamp_started_at) / 300.0)
+                scale, alpha = self._get_stamp_camera_flight(progress)
+                stamp_image = pygame.transform.smoothscale(
+                    self.approve_stamp_rotated,
+                    (
+                        max(1, int(self.approve_stamp_rotated.get_width() * scale)),
+                        max(1, int(self.approve_stamp_rotated.get_height() * scale)),
+                    ),
+                ).convert_alpha()
+                stamp_image.set_alpha(alpha)
+                eased = progress * progress
+                camera_x, camera_y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+                travel = 0.55 * eased
+                stamp_draw_center = (
+                    int(stamp_center[0] + (camera_x - stamp_center[0]) * travel),
+                    int(stamp_center[1] + (camera_y - stamp_center[1]) * travel),
+                )
+            stamp_rect = stamp_image.get_rect(center=stamp_draw_center)
+            self.finance_stamp_rect = stamp_rect
+            self.screen.blit(stamp_image, stamp_rect.topleft)
+        else:
+            self.finance_stamp_rect = None
+
     def _apply_long_investment_payout(self):
         payout = game_state.advance_long_investments(self.level_number)
         if payout <= 0:
@@ -3245,6 +4052,7 @@ class GameplayPage:
             self._active_lifecycle_cards(),
             chance_bonus=chance_bonus,
             level_number=self.level_number,
+            record_roll=not bool(getattr(self, "test_mode", False)),
         )
         if awarded_card is None:
             if self.profile_slot and not self.test_mode:
@@ -3282,6 +4090,13 @@ class GameplayPage:
         boss_number = self._get_active_boss_number()
         round_label = build_round_label(self.round_num, is_boss_fight=self.is_boss_fight)
         difficulty_label = build_difficulty_label(self.difficulty, is_boss_fight=self.is_boss_fight)
+        sequential_round_number = build_sequential_round_number(
+            self.level_number,
+            round_num=self.round_num,
+            boss_position=int(self.defeated_count or 0) + 1,
+            is_boss_fight=self.is_boss_fight,
+            boss_number=boss_number,
+        )
         earned_money = self._get_round_end_earned_money()
         update_game_stats(
             self.level_number,
@@ -3290,6 +4105,7 @@ class GameplayPage:
             won,
             difficulty_label,
             earned_money,
+            sequential_round_number,
         )
         self._stats_recorded = True
 
@@ -3305,7 +4121,7 @@ class GameplayPage:
     
     def update_win_lose_animation(self):
         """Update WinLose screen slide animation"""
-        if self.win_lose_state is None or not self.win_lose_image:
+        if self.win_lose_state is None:
             return
 
         # dt-based slide from top (smooth regardless of FPS)
@@ -3313,6 +4129,58 @@ class GameplayPage:
         dt = (now - getattr(self, "_winlose_last_tick", now)) / 1000.0
         self._winlose_last_tick = now
         dt = _clamp_dt_seconds(dt)
+        if (
+            self.win_lose_state == "win"
+            and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
+        ):
+            report_image = self._get_active_result_report_image()
+            if not report_image:
+                if self.result_report_stage == "finance":
+                    self.result_report_stage = "card_report"
+                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
+                    self.finance_stamp_state = "idle"
+                    self._play_result_report_rustle()
+                else:
+                    self.result_transition_ready = "round_select"
+                return
+            if self.finance_stamp_state == "closing":
+                target_y = float(-report_image.get_height() - 30)
+            else:
+                target_y = float((SCREEN_HEIGHT - report_image.get_height()) // 2)
+            slide_speed = max(
+                2400.0,
+                float(getattr(self, "win_lose_speed_pps", 1200.0)),
+            )
+            self.finance_report_y = compute_slide_position(
+                self.finance_report_y,
+                target_y,
+                slide_speed,
+                dt,
+                move_towards,
+            )
+            elapsed = now - int(self.finance_stamp_started_at or now)
+            if self.finance_stamp_state == "pressing" and elapsed >= 170:
+                self.finance_stamp_state = "flying"
+                self.finance_stamp_started_at = now
+            elif self.finance_stamp_state == "flying" and elapsed >= 300:
+                self.finance_stamp_state = "stamped"
+                self.finance_stamp_started_at = now
+            elif self.finance_stamp_state == "stamped" and elapsed >= 360:
+                self.finance_stamp_state = "closing"
+            elif self.finance_stamp_state == "closing" and self.finance_report_y <= target_y:
+                if self.result_report_stage == "finance":
+                    self.result_report_stage = "card_report"
+                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
+                    self.finance_stamp_state = "idle"
+                    self.finance_stamp_started_at = 0
+                    self.finance_stamp_rect = None
+                    self._play_result_report_rustle()
+                else:
+                    self.result_transition_ready = "round_select"
+            return
+
+        if not self.win_lose_image:
+            return
         self.win_lose_y = compute_slide_position(
             self.win_lose_y,
             self.win_lose_target_y,
@@ -3590,7 +4458,7 @@ class GameplayPage:
         if not owned_markets:
             return []
 
-        chance = min(100, 20 + self._get_probability_amplifier_bonus())
+        chance = min(100, GOLD_ADVANCE_BASE_CHANCE + self._get_probability_amplifier_bonus())
         movements = []
         for slot in advance_slots:
             roll = random.randint(1, 100)
@@ -3699,6 +4567,8 @@ class GameplayPage:
         self._start_end_button_press_animation()
         if self.arrow_sound:
             self.arrow_sound.play()
+        if self._try_start_waterloo_preview():
+            return True
         self.turn_resolution_active = True
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
@@ -3709,11 +4579,12 @@ class GameplayPage:
         self.c_price_fell_this_resolution = False
         self.manipulation_applied_this_resolution = False
         self.short_seller_counted_markets_this_resolution = set()
+        self._hold_hand_negative_overlays_until_next_turn()
         quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
         self.continuation_held_markets_this_turn = {
             market for market, quantity in enumerate(quantities) if quantity > 0
         }
-        animation_queue = self.update_stock_prices()
+        animation_queue = self._take_waterloo_preview_or_roll()
         self.stock_price_turn_results = list(animation_queue or [])
         self._lock_market_cards()
         if animation_queue:
@@ -3724,6 +4595,67 @@ class GameplayPage:
             if self.current_card_processing is None and not self.price_card_queue:
                 self._begin_effect_finalize_or_wait()
         return True
+
+    def _try_start_waterloo_preview(self):
+        if getattr(self, "waterloo_preview_movements", None) is not None:
+            return False
+
+        waterloo_slots = []
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            try:
+                if int(card_id) == GOLD_WATERLOO_CARD_ID:
+                    waterloo_slots.append(slot)
+            except (TypeError, ValueError):
+                continue
+        if not waterloo_slots:
+            return False
+
+        chance = self._get_waterloo_chance()
+        triggered_slot = None
+        for slot in waterloo_slots:
+            roll = random.randint(1, 100)
+            if roll <= chance:
+                triggered_slot = slot
+                print(
+                    f"Gold card 430 Waterloo triggered: roll={roll}, chance={chance}%, "
+                    f"slot={slot}"
+                )
+                break
+            print(f"Gold card 430 Waterloo missed: roll={roll}, chance={chance}%, slot={slot}")
+        if triggered_slot is None:
+            return False
+
+        self.waterloo_preview_movements = list(self.update_stock_prices() or [])
+        self._start_lifecycle_card_scale_animation(triggered_slot)
+        self._reset_boss_turn_timer()
+        self._save_active_game()
+        return True
+
+    def _take_waterloo_preview_or_roll(self):
+        if getattr(self, "waterloo_preview_movements", None) is None:
+            return self.update_stock_prices()
+        movements = [dict(movement) for movement in self.waterloo_preview_movements]
+        self.waterloo_preview_movements = None
+        return movements
+
+    def _calculate_waterloo_preview_prices(self, movements=None):
+        prices = [int(self.Aprice or 0), int(self.BPrice or 0), int(self.CPrice or 0)]
+        for movement in movements if movements is not None else (self.waterloo_preview_movements or []):
+            markets = movement.get("market")
+            if not isinstance(markets, (list, tuple, set)):
+                markets = (markets,)
+            source = movement.get("source")
+            for market in markets:
+                if market not in (0, 1, 2):
+                    continue
+                if source == "advance":
+                    prices[market] = max(2, prices[market] * 2)
+                elif source == "surge" and market == 0:
+                    surge_count = max(1, self._count_active_card_safely(415))
+                    prices[market] = max(2, prices[market] * (3 ** surge_count))
+                else:
+                    prices[market] = max(2, prices[market] + int(movement.get("price_change", 0) or 0))
+        return tuple(prices)
 
     def _finish_price_animations(self):
         """Finish regular market movement and start Gain/Drop card processing."""
@@ -3761,6 +4693,7 @@ class GameplayPage:
         self.sideway_applied_this_resolution = True
         reward = 5 * sideway_count
         game_state.add_napoleondors(self.level_number, reward)
+        game_state.record_finance_report_income("sideway", reward)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
                 is_sideway = int(card_id) == 416
@@ -3938,6 +4871,7 @@ class GameplayPage:
         self.effect_finalize_pending = False
         self._apply_boss_share_theft_if_needed()
         self._run_stock_bot_turn()
+        self._burn_cash_for_astor_if_needed()
         self._check_win_lose()
         if self._is_final_auto_liquidation_animating():
             return
@@ -3959,6 +4893,7 @@ class GameplayPage:
                     next_state, reason = self._apply_insurance_if_needed("lose", "last_turn")
                 self._finish_win_lose_result(next_state, reason)
 
+        self._clear_hand_negative_overlay_hold()
         if self.win_lose_state is None:
             self._draw_pending_cards()
             self._reset_boss_turn_timer()
@@ -3972,6 +4907,20 @@ class GameplayPage:
         self.continuation_animation_phase = False
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
+
+    def _burn_cash_for_astor_if_needed(self):
+        if not getattr(self, "boss_burns_cash_end_turn", False):
+            return 0
+        if self.win_lose_state is not None:
+            return 0
+        try:
+            burned = max(0, int(self.Money or 0))
+        except (TypeError, ValueError):
+            burned = 0
+        self.Money = 0
+        if burned:
+            print(f"Astor burned {burned} cash left at end of turn.")
+        return burned
 
     def _apply_boss_share_theft_if_needed(self):
         """Arkwright: sometimes steal a percentage of owned shares at end of turn."""
@@ -4040,12 +4989,20 @@ class GameplayPage:
             return
         round_label = build_round_label(self.round_num, is_boss_fight=self.is_boss_fight)
         difficulty_label = build_difficulty_label(self.difficulty, is_boss_fight=self.is_boss_fight)
+        sequential_round_number = build_sequential_round_number(
+            self.level_number,
+            round_num=self.round_num,
+            boss_position=int(self.defeated_count or 0) + 1,
+            is_boss_fight=self.is_boss_fight,
+            boss_number=boss_number,
+        )
         update_arkwright_stats(
             self.level_number,
             boss_number,
             round_label,
             difficulty_label,
             outcome,
+            sequential_round_number,
         )
 
     def update_price_animation(self):
@@ -4160,6 +5117,41 @@ class GameplayPage:
             'start_time': pygame.time.get_ticks() + int(delay_ms or 0)
         }
 
+    def _start_lifecycle_card_scale_animation(self, slot, now=None):
+        if not hasattr(self, "lifecycle_card_scale_animations"):
+            self.lifecycle_card_scale_animations = {}
+        self.lifecycle_card_scale_animations[slot] = {
+            "start_time": pygame.time.get_ticks() if now is None else int(now),
+            "duration": 900,
+        }
+
+    def _get_lifecycle_card_scale(self, slot, now=None):
+        animation = getattr(self, "lifecycle_card_scale_animations", {}).get(slot)
+        if not animation:
+            return 1.0
+        if now is None:
+            now = pygame.time.get_ticks()
+        duration = max(1, int(animation.get("duration", 900)))
+        progress = (int(now) - int(animation.get("start_time", now))) / duration
+        if progress < 0 or progress >= 1:
+            return 1.0
+        pulse = 1.0 - abs(progress * 2.0 - 1.0)
+        return 1.0 + 0.2 * pulse
+
+    def update_lifecycle_card_scale_animations(self, now=None):
+        if not hasattr(self, "lifecycle_card_scale_animations"):
+            self.lifecycle_card_scale_animations = {}
+        if now is None:
+            now = pygame.time.get_ticks()
+        expired = []
+        for slot, animation in list(self.lifecycle_card_scale_animations.items()):
+            duration = max(1, int(animation.get("duration", 900)))
+            if int(now) - int(animation.get("start_time", now)) >= duration:
+                expired.append(slot)
+        for slot in expired:
+            self.lifecycle_card_scale_animations.pop(slot, None)
+        return expired
+
     def _advance_jump_animation_map(self, animation_map, gravity=0.8):
         now = pygame.time.get_ticks()
         slots_to_remove = []
@@ -4231,6 +5223,7 @@ class GameplayPage:
     def _lock_market_cards(self):
         """Помечает все текущие карты на рынке как сыгранные и заблокированные до конца игры."""
         lock_market_cards(self.market_cards, self.market_cards_locked)
+        self.accumulation_stephenson_card_played_this_turn = False
 
     def _lock_side_cards(self):
         """Lock all currently played Type=2 cards on the right-side TOP panel for future turns."""
@@ -4288,6 +5281,8 @@ class GameplayPage:
         self.market_card_turns[market][slot] = base_turns * 2
         # The enhanced card is committed as soon as the waiting charge fires.
         self.market_cards_locked[market][slot] = True
+        if getattr(self, "boss_limit_red_gain_drop_per_turn", False):
+            self.accumulation_stephenson_card_played_this_turn = True
         if 0 <= source_slot < len(self.side_cards_top) and self.side_cards_top[source_slot] == 124:
             self.side_cards_locked_top[source_slot] = True
             self._start_card_jump_animation(self.side_card_jump_animations, source_slot)
@@ -4754,7 +5749,11 @@ class GameplayPage:
         self.market_clear_animations = active
 
     def _apply_full_deployment_reward_if_needed(self):
-        if getattr(self, "full_deployment_reward_applied", False) or self.deck:
+        if (
+            getattr(self, "full_deployment_reward_applied", False)
+            or self.deck
+            or any(card_id is not None for card_id in getattr(self, "hand_cards", []) or [])
+        ):
             return False
 
         card_count = 0
@@ -4770,6 +5769,7 @@ class GameplayPage:
         self.full_deployment_reward_applied = True
         reward = GOLD_FULL_DEPLOYMENT_REWARD * card_count
         game_state.add_napoleondors(self.level_number, reward)
+        game_state.record_finance_report_income("full_deployment", reward)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
                 is_full_deployment = int(card_id) == GOLD_FULL_DEPLOYMENT_CARD_ID
@@ -4779,13 +5779,12 @@ class GameplayPage:
                 self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         print(
             f"Active card 428 Full Deployment awarded {reward} napoleondors "
-            "for exhausting the deck."
+            "after every deck card was played."
         )
         return True
 
     def _draw_next_deck_card(self):
         card_id = self.deck.pop(0)
-        self._apply_full_deployment_reward_if_needed()
         return 100 if card_id == 0 else card_id
 
     def _draw_pending_cards(self):
@@ -4821,31 +5820,15 @@ class GameplayPage:
             self.pending_draws = 0
             return
 
-        # Геометрия нижней рамки и плейсхолдеров (как в draw)
-        bf_w = self.bottom_frame.get_width()
-        bf_h = self.bottom_frame.get_height()
-        bf_x = (SCREEN_WIDTH - bf_w) // 2 - 200
-        bf_y = SCREEN_HEIGHT - bf_h - 150
-
-        ph_w = 138
-        ph_h = 240
-        margin_x = 20
-        available_width = bf_w - margin_x * 2
-        if self.hand > 1:
-            spacing = ((available_width - ph_w) / (self.hand - 1)) - ph_w
-        else:
-            spacing = 0
-        total_width = ph_w * self.hand + spacing * (self.hand - 1)
-        start_x = bf_x + (bf_w - total_width) // 2
-        # Slightly lower hand area so cards don't overlap the top edge of the bottom frame
-        start_y = bf_y + (bf_h - ph_h) // 2 + 10
-
-        # Координаты слотов руки
-        slot_positions = []
-        for i in range(self.hand):
-            slot_x = start_x + i * (ph_w + spacing)
-            slot_y = start_y
-            slot_positions.append((slot_x, slot_y))
+        # Use the exact same anchored geometry as draw(), so compaction and
+        # draw animations never temporarily spread cards onto the frame.
+        hand_layout = compute_bottom_hand_layout(
+            self.bottom_frame,
+            self.hand,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+        )
+        slot_positions = hand_layout["slot_positions"]
 
         # 2) Текущее содержимое и целевой порядок (уплотнение влево)
         existing = [(idx, card) for idx, card in enumerate(self.hand_cards) if card is not None]
@@ -5100,6 +6083,9 @@ class GameplayPage:
             if current_value is None:
                 current_value = 130 + int(self.rebate_a_fall_bonus_percent or 0)
             detail = f"Текущий процент продажи: {current_value}%."
+        elif normalized == GOLD_WATERLOO_CARD_ID:
+            current_value = self._get_waterloo_chance()
+            detail = f"Текущая вероятность каждой проверки: {current_value}%."
         else:
             current_value = self._get_uptrend_rebate_bonus_percent()
             detail = f"Текущий бонус Uptrend: +{current_value}%."
@@ -5110,6 +6096,17 @@ class GameplayPage:
             normalized = int(card_id)
         except (TypeError, ValueError):
             return None
+
+        if normalized == 431:
+            content = FIELD_CARD_TOOLTIPS.get(normalized)
+            if content is None:
+                return None
+            title, description = content
+            return (
+                title,
+                f"{description} Текущий бонус карты: "
+                f"+{game_state.get_risk_premium_card_bonus_percent()}%.",
+            )
 
         disclosure_content = self._get_disclosure_card_tooltip_content(normalized)
         if disclosure_content is not None:
@@ -5183,17 +6180,8 @@ class GameplayPage:
                 return card_id
         return None
 
-    def _draw_field_card_tooltip(self):
-        if (
-            self.dragged_card_source is not None
-            or self.pause_menu_active
-            or self.win_lose_state is not None
-        ):
-            return
-
-        mouse_pos = pygame.mouse.get_pos()
-        hovered_card = self._get_hovered_field_card(mouse_pos)
-        content = self._get_field_card_tooltip_content(hovered_card)
+    def _draw_card_tooltip(self, card_id, mouse_pos):
+        content = self._get_field_card_tooltip_content(card_id)
         if content is None:
             return
         title, description = content
@@ -5231,6 +6219,66 @@ class GameplayPage:
             tooltip.blit(line_surface, (padding, text_y))
             text_y += line_height
         self.screen.blit(tooltip, (x, y))
+
+    def _draw_field_card_tooltip(self):
+        if (
+            self.dragged_card_source is not None
+            or self.pause_menu_active
+            or self.win_lose_state is not None
+        ):
+            return
+
+        mouse_pos = pygame.mouse.get_pos()
+        hovered_card = self._get_hovered_field_card(mouse_pos)
+        self._draw_card_tooltip(hovered_card, mouse_pos)
+
+    def _draw_waterloo_forecast(self):
+        if getattr(self, "waterloo_preview_movements", None) is None:
+            return
+
+        current_prices = (int(self.Aprice or 0), int(self.BPrice or 0), int(self.CPrice or 0))
+        forecast_prices = self._calculate_waterloo_preview_prices()
+        base_results = {}
+        for movement in self.waterloo_preview_movements:
+            market = movement.get("market")
+            if movement.get("source") is None and market in (0, 1, 2) and market not in base_results:
+                base_results[market] = movement.get("type")
+        panel = pygame.Rect((SCREEN_WIDTH - 690) // 2, 18, 690, 96)
+        surface = pygame.Surface(panel.size, pygame.SRCALPHA)
+        pygame.draw.rect(surface, (244, 235, 211, 248), surface.get_rect(), border_radius=7)
+        pygame.draw.rect(surface, PAPER_COLOR, surface.get_rect(), 3, border_radius=7)
+
+        title = self.disclosure_tooltip_title_font.render(
+            "Waterloo: прогноз рыночного броска",
+            True,
+            PAPER_COLOR,
+        )
+        surface.blit(title, title.get_rect(centerx=panel.width // 2, top=9))
+
+        labels = ("A", "B", "C")
+        column_width = panel.width // 3
+        for market, (current_price, forecast_price) in enumerate(zip(current_prices, forecast_prices)):
+            base_result = base_results.get(market)
+            if base_result == "rise" or (base_result is None and forecast_price > current_price):
+                result_text = "Рост"
+                color = (52, 112, 68)
+            elif base_result == "fall" or (base_result is None and forecast_price < current_price):
+                result_text = "Падение"
+                color = (148, 58, 48)
+            else:
+                result_text = "Flat"
+                color = PAPER_COLOR
+            text = self.disclosure_tooltip_text_font.render(
+                f"{labels[market]}   {result_text} до {forecast_price}",
+                True,
+                color,
+            )
+            center_x = column_width * market + column_width // 2
+            surface.blit(text, text.get_rect(center=(center_x, 64)))
+            if market < 2:
+                separator_x = column_width * (market + 1)
+                pygame.draw.line(surface, (151, 137, 119), (separator_x, 48), (separator_x, 80), 1)
+        self.screen.blit(surface, panel.topleft)
 
     def _draw_market_probability_debug(self, market, x, y):
         if not game_state.is_disclosure_active():
@@ -5333,8 +6381,14 @@ class GameplayPage:
             min_right_margin = 20  # Minimum margin from right edge to prevent overflow
             
             # Draw Goal label and value
-            goal_label = self.font_medium.render("Goal:", True, PAPER_COLOR)
-            goal_value = self.font_medium.render(str(self.Goal), True, PAPER_COLOR)
+            if self._is_capital_race_level():
+                goal_label_text = self._get_text("CapitalRaceLabel", "Victory:")
+                goal_value_text = self._get_text("CapitalRaceCondition", "capital above Bot3")
+            else:
+                goal_label_text = "Goal:"
+                goal_value_text = str(self.Goal)
+            goal_label = self.font_medium.render(goal_label_text, True, PAPER_COLOR)
+            goal_value = self.font_medium.render(goal_value_text, True, PAPER_COLOR)
             goal_label_x = label_start_x
             goal_label_y = margin_top
             goal_value_x = goal_label_x + goal_label.get_width() + value_spacing
@@ -5742,11 +6796,16 @@ class GameplayPage:
                     if first_free_side_top is not None and slot == first_free_side_top:
                         pygame.draw.rect(self.screen, GOLD, rect, 4)
 
+                # Placeholders are a background layer. Draw all of them before
+                # any lifecycle card so overlapping slots can never cover a
+                # previously drawn card.
+                for ph_info in self.side_placeholders_bottom:
+                    self.screen.blit(ph_img, ph_info["rect"].topleft)
+
+                active_bottom_cards = self._active_lifecycle_cards()
                 for ph_info in self.side_placeholders_bottom:
                     slot = ph_info["slot"]
                     rect = ph_info["rect"]
-                    self.screen.blit(ph_img, rect.topleft)
-                    active_bottom_cards = self._active_lifecycle_cards()
                     if slot < len(active_bottom_cards):
                         card_id = active_bottom_cards[slot]
                         img = (
@@ -5763,17 +6822,34 @@ class GameplayPage:
                             shake_x, shake_y = self._get_lifecycle_card_shake_offset(slot)
                             card_x += shake_x
                             card_y += shake_y
-                            self.screen.blit(img, (card_x, card_y))
+                            scale = self._get_lifecycle_card_scale(slot)
+                            drawn_size = self.card_size_side
+                            drawn_img = img
+                            if scale > 1.0:
+                                drawn_size = (
+                                    max(1, int(self.card_size_side[0] * scale)),
+                                    max(1, int(self.card_size_side[1] * scale)),
+                                )
+                                drawn_img = pygame.transform.smoothscale(img, drawn_size)
+                                card_x = rect.centerx - drawn_size[0] // 2
+                                card_y = rect.centery - drawn_size[1] // 2
+                            self.screen.blit(drawn_img, (card_x, card_y))
                             draw_bear_modifier_text(
                                 self.screen,
                                 card_id,
                                 card_x,
                                 card_y,
-                                self.card_size_side,
+                                drawn_size,
                                 self.font_path,
                                 PAPER_COLOR,
                                 modifier_percent=self._get_current_bear_goal_discount_percent(),
                             )
+                            if self._is_lifecycle_card_power_lost(card_id, slot=slot):
+                                self._draw_negative_card_overlay(
+                                    card_x,
+                                    card_y,
+                                    drawn_size,
+                                )
 
         # Draw bottom frame (strategy cards area)
         if self.bottom_frame:
@@ -5831,6 +6907,12 @@ class GameplayPage:
                             self.draw_card_action(card_id, card_x, card_y, self.card_size_bottom)
                             # Draw CardTurns if this card has one
                             self.draw_card_turns(card_id, card_x, card_y, self.card_size_bottom)
+                            if self._should_show_hand_card_negative(card_id):
+                                self._draw_negative_card_overlay(
+                                    card_x,
+                                    card_y,
+                                    self.card_size_bottom,
+                                )
                     # Highlight available hand placeholder when dragging from market:
                     # only the ORIGINAL hand slot of this card
                     if self.dragged_card_source == "market":
@@ -5873,6 +6955,20 @@ class GameplayPage:
             self.draw_card_action,
             self.draw_card_turns,
         )
+        if (
+            self.dragged_card_source == "hand"
+            and self.dragged_card_index is not None
+            and 0 <= self.dragged_card_index < len(self.hand_cards)
+        ):
+            dragged_card_id = self.hand_cards[self.dragged_card_index]
+            if dragged_card_id is not None and self._should_show_hand_card_negative(dragged_card_id):
+                card_x = self.dragged_card_pos[0] - self.drag_offset[0]
+                card_y = self.dragged_card_pos[1] - self.drag_offset[1]
+                self._draw_negative_card_overlay(
+                    card_x,
+                    card_y,
+                    self.card_size_bottom,
+                )
 
         # Draw hand compaction animations on top (когда карты плавно сдвигаются влево)
         if self.hand_compact_anim:
@@ -5921,18 +7017,24 @@ class GameplayPage:
 
         self._draw_deck_toggle()
         self._draw_current_boss_marker()
+        self._draw_waterloo_forecast()
         
-        # Draw WinLose screen if win/lose state is active
-        if self.win_lose_state is not None and self.win_lose_image:
+        # Victory reports are shown one after another: finances, then earned cards.
+        if (
+            self.win_lose_state == "win"
+            and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
+        ):
+            self._draw_finance_report()
+
+        # Defeat still uses the old result window; victory no longer does.
+        if self.win_lose_state == "lose" and self.win_lose_image:
             win_lose_y_draw = int(round(self.win_lose_y))
             # Draw WinLose window at centered position
             self.screen.blit(self.win_lose_image, (self.win_lose_x, win_lose_y_draw))
             
             # Draw appropriate Ok button based on win/lose state
             ok_button = None
-            if self.win_lose_state == "win" and self.ok1_button:
-                ok_button = self.ok1_button
-            elif self.win_lose_state == "lose" and self.ok2_button:
+            if self.ok2_button:
                 ok_button = self.ok2_button
             
             if ok_button:
@@ -5950,69 +7052,11 @@ class GameplayPage:
             winlose_width = self.win_lose_image.get_width()
             winlose_height = self.win_lose_image.get_height()
             
-            if self.win_lose_state == "win":
-                text_blocks = [self.reward_window_text]
-                if self.is_boss_fight:
-                    text_blocks.append(self.boss_victory_deck_reset_text)
-                if self.long_payout_amount:
-                    text_blocks.append(
-                        f"Long принес прибыль: {self.long_payout_amount} наполеондоров"
-                    )
-                if self.golden_stocks_reward_card:
-                    text_blocks.append("Golden Stocks сработал!")
-                if self.random_boss_reward_text:
-                    text_blocks.append(self.random_boss_reward_text)
-                window_rect = pygame.Rect(
-                    self.win_lose_x,
-                    win_lose_y_draw,
-                    winlose_width,
-                    winlose_height,
-                )
-                layout = build_win_result_layout(
-                    self.font_path,
-                    text_blocks,
-                    window_rect,
-                    self.ok_button_rect,
-                    len(self.last_earned_cards),
-                    max_font_size=36,
-                    extra_text_lines=1 if self.last_earned_napoleondors > 0 else 0,
-                )
-
-                for i, line in enumerate(layout["lines"]):
-                    text_surface = layout["font"].render(line, True, PAPER_COLOR)
-                    text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2
-                    self.screen.blit(
-                        text_surface,
-                        (text_x, layout["text_top"] + i * layout["line_height"]),
-                    )
-
-                if self.last_earned_napoleondors > 0:
-                    coin_center_y = (
-                        layout["text_top"]
-                        + len(layout["lines"]) * layout["line_height"]
-                        + layout["line_height"] // 2
-                    )
-                    self._draw_win_napoleondor_reward(
-                        self.last_earned_napoleondors,
-                        layout["font"],
-                        self.win_lose_x + winlose_width // 2,
-                        coin_center_y,
-                    )
-                
-                if self.last_earned_cards:
-                    for i, card_number in enumerate(self.last_earned_cards):
-                        card_image = self._load_winlose_card(card_number, layout["card_width"])
-                        if card_image:
-                            card_x = layout["card_start_x"] + i * (
-                                layout["card_width"] + layout["card_gap"]
-                            )
-                            self.screen.blit(card_image, (card_x, layout["card_y"]))
-            elif self.win_lose_state == "lose":
-                # Draw lose text
-                text_y = win_lose_y_draw + 85  # Top padding (50 + 35)
-                text_surface = self.font_small.render(self.lose_window_text, True, PAPER_COLOR)
-                text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2  # Center horizontally
-                self.screen.blit(text_surface, (text_x, text_y))
+            # Draw lose text
+            text_y = win_lose_y_draw + 85  # Top padding (50 + 35)
+            text_surface = self.font_small.render(self.lose_window_text, True, PAPER_COLOR)
+            text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2  # Center horizontally
+            self.screen.blit(text_surface, (text_x, text_y))
             
         if self.deck_view_active:
             self._draw_deck_view()
@@ -6068,6 +7112,7 @@ class GameplayPage:
             # Update card jump animations
             self.update_card_jump_animations()
             self.update_side_card_jump_animations()
+            self.update_lifecycle_card_scale_animations()
             self.update_lifecycle_card_shake_animations()
             self.update_market_clear_animations()
             self.update_final_auto_liquidation_animation()

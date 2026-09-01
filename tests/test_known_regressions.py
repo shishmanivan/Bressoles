@@ -157,6 +157,27 @@ class KnownRegressionTests(unittest.TestCase):
         self.assertEqual(update_stats.call_args.args[:2], (3, 6))
         self.assertEqual(update_arkwright_stats.call_args.args[:2], (3, 6))
 
+    def test_level8_fulton_round_uses_hidden_seven_point_five_stat_number(self):
+        import gameplay_page
+
+        page = gameplay_page.GameplayPage.__new__(gameplay_page.GameplayPage)
+        page.test_mode = False
+        page._stats_recorded = False
+        page.level_number = 8
+        page.boss_index = 0
+        page.defeated_count = 1
+        page.boss_filename = "3_Fulton.png"
+        page.round_num = 4
+        page.is_boss_fight = False
+        page.difficulty = "m"
+        page._get_round_end_earned_money = mock.Mock(return_value=900)
+
+        with mock.patch.object(gameplay_page, "update_game_stats") as update_stats:
+            page._record_stats_result(True)
+
+        self.assertEqual(update_stats.call_args.args[2:5], ("Раунд 4", True, "M"))
+        self.assertEqual(update_stats.call_args.args[-1], "7.5")
+
     def test_seventh_turn_advances_to_terminal_eighth_day(self):
         import gameplay_page
 

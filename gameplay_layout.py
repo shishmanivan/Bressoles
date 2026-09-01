@@ -15,16 +15,31 @@ def compute_bottom_hand_layout(bottom_frame, hand, screen_width, screen_height, 
     placeholder_height = 240
     margin_x = 20
     available_width = max(placeholder_width, frame_width - margin_x * 2)
-    if hand > 1:
+    fixed_edge_hand_size = 7
+    if hand > fixed_edge_hand_size:
+        reference_spacing = (
+            frame_width - placeholder_width * fixed_edge_hand_size
+        ) / (fixed_edge_hand_size + 1)
+        reference_step = placeholder_width + reference_spacing * 0.7
+        reference_total_width = (
+            placeholder_width
+            + reference_step * (fixed_edge_hand_size - 1)
+        )
+        left_anchor = frame_x + (frame_width - reference_total_width) / 2
+        right_anchor = left_anchor + reference_step * (fixed_edge_hand_size - 1)
+        step = (right_anchor - left_anchor) / (hand - 1)
+        start_x = left_anchor
+    elif hand > 1:
         base_spacing = (frame_width - placeholder_width * hand) / (hand + 1)
         normal_step = placeholder_width + (base_spacing * 0.7)
         fit_step = (available_width - placeholder_width) / (hand - 1)
         step = min(normal_step, fit_step)
+        total_width = placeholder_width + step * (hand - 1)
+        start_x = frame_x + (frame_width - total_width) / 2
     else:
         step = 0
+        start_x = frame_x + (frame_width - placeholder_width) / 2
     spacing = step - placeholder_width if hand > 1 else 0
-    total_width = placeholder_width + step * (hand - 1)
-    start_x = frame_x + (frame_width - total_width) / 2
     start_y = frame_y + (frame_height - placeholder_height) // 2 + y_offset
 
     slot_positions = []
@@ -201,19 +216,47 @@ def build_side_panel_placeholders(right_panel_layout, placeholder_image):
     rows = right_panel_layout["bottom_rows"]
     bottom_slots = max(1, int(right_panel_layout.get("bottom_slots", cols) or cols))
     pad_y = max(10.0, (right_panel_layout["bottom_height"] - rows * ph_h) / (rows + 1))
-    if bottom_slots <= cols:
-        pad_x = max(10.0, (frame_w - cols * ph_w) / (cols + 1))
-        x_positions = [frame_x + pad_x * (col + 1) + ph_w * col for col in range(bottom_slots)]
-    else:
-        side_margin = 10.0
-        available_width = max(ph_w, frame_w - side_margin * 2)
-        step = (available_width - ph_w) / max(1, bottom_slots - 1)
-        total_width = ph_w + step * (bottom_slots - 1)
-        start_x = frame_x + (frame_w - total_width) / 2
-        x_positions = [start_x + step * col for col in range(bottom_slots)]
+    x_positions = compute_lifecycle_card_x_positions(
+        frame_x,
+        frame_w,
+        ph_w,
+        bottom_slots,
+    )
     for col, x in enumerate(x_positions):
         y = right_panel_layout["bottom_y"] + pad_y
         rect = pygame.Rect(int(round(x)), int(round(y)), ph_w, ph_h)
         bottom_placeholders.append({"slot": col, "rect": rect})
 
     return top_placeholders, bottom_placeholders
+
+
+def compute_lifecycle_card_x_positions(
+    frame_x,
+    frame_width,
+    placeholder_width,
+    card_count,
+    side_margin=18.0,
+):
+    """Lay out three symmetric slots, or anchor larger overlapping rows."""
+    card_count = max(1, int(card_count or 1))
+    if card_count == 3:
+        columns = 3
+        spacing = max(
+            10.0,
+            (frame_width - columns * placeholder_width) / (columns + 1),
+        )
+        return [
+            frame_x + spacing * (index + 1) + placeholder_width * index
+            for index in range(columns)
+        ]
+
+    left_x = frame_x + side_margin
+    right_x = max(
+        left_x,
+        frame_x + frame_width - side_margin - placeholder_width,
+    )
+    if card_count == 1:
+        return [(left_x + right_x) / 2]
+
+    step = (right_x - left_x) / (card_count - 1)
+    return [left_x + step * index for index in range(card_count)]

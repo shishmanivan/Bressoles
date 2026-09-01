@@ -9,6 +9,8 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
+import boss_logic
+import game_data
 import game_state
 from asset_loaders import find_font_path_or_exit
 from boss_page import (
@@ -23,6 +25,7 @@ from boss_page import (
 )
 from game_data import load_language
 from game_screen import GameScreen, PAPER_COLOR
+from gameplay_page import GameplayPage
 from level_screen_helpers import build_normal_mode_layout, load_primary_level_assets
 from gameplay_winlose import build_win_result_layout
 from round_page import RoundPage
@@ -73,6 +76,63 @@ class UiLayoutTests(unittest.TestCase):
         self.assertIsNotNone(layout["arrow6_rect"])
         self.assertIsNotNone(load_primary_level_assets()["level6_picture"])
 
+    def test_completed_level_has_no_start_arrow(self):
+        page = GameScreen.__new__(GameScreen)
+        page.levelcard_image = mock.Mock()
+        page.levelcard_image.get_width.return_value = 500
+        page.levelcard_image.get_height.return_value = 300
+        page.screen = mock.Mock()
+        page.lang = {}
+        page.font_card = mock.Mock()
+        page.font_card_desc = mock.Mock()
+        page._draw_completed_stamp = mock.Mock()
+        page.startarrow_image = mock.Mock()
+
+        page._draw_level_card((100, 200), 1, None, show_start_arrow=False)
+
+        self.assertNotIn(mock.call(page.startarrow_image, mock.ANY), page.screen.blit.call_args_list)
+
+    def test_completed_level_click_is_ignored(self):
+        page = GameScreen.__new__(GameScreen)
+        page.test_mode = False
+        page.progress_flags = {"level_1_boss_defeated": True}
+        page.scroll_y = 0
+        page.arrow_rect = pygame.Rect(10, 10, 50, 50)
+        page.arrow2_rect = None
+        page.arrow3_rect = None
+        page.arrow4_rect = None
+        page.arrow5_rect = None
+        page.arrow6_rect = None
+
+        event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(20, 20))
+        with mock.patch("pygame.event.get", return_value=[event]), mock.patch("pygame.mouse.get_pos", return_value=(20, 20)):
+            self.assertIsNone(page.handle_input())
+
+    def test_campaign_selector_switches_to_second_page_and_opens_level_eight(self):
+        page = GameScreen(
+            self.screen,
+            None,
+            self.font_path,
+            lang_dict=load_language("RU"),
+            progress_flags={"level_8_unlocked": True},
+        )
+        next_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.next_page_rect.center)
+        with (
+            mock.patch("pygame.event.get", return_value=[next_event]),
+            mock.patch("pygame.mouse.get_pos", return_value=page.next_page_rect.center),
+        ):
+            self.assertIsNone(page.handle_input())
+        self.assertEqual(page.level_page_index, 1)
+        self.assertEqual(len(page.normal_card_positions), 6)
+
+        level8_rect = page.normal_arrow_rects[1]
+        level8_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=level8_rect.center)
+        with (
+            mock.patch("pygame.event.get", return_value=[level8_event]),
+            mock.patch("pygame.mouse.get_pos", return_value=level8_rect.center),
+        ):
+            self.assertEqual(page.handle_input(), "level_8")
+
     def test_round_popup_uses_the_actual_difficulty_and_boss_payouts(self):
         page = RoundPage.__new__(RoundPage)
         page.level_number = 2
@@ -90,6 +150,40 @@ class UiLayoutTests(unittest.TestCase):
         page.level_number = 1
         self.assertEqual(page._get_popup_napoleondor_reward(), 0)
 
+    def test_level6_opens_the_boss_immediately_without_money_goals(self):
+        page = RoundPage(
+            self.screen,
+            self.font_path,
+            6,
+            0,
+            boss_filename="2_AdamSmith.png",
+            lang_dict=load_language("RU"),
+            load_rounds_config=game_data.load_rounds_config,
+            load_levels_config=game_data.load_levels_config,
+            load_boss_rewards=game_data.load_boss_rewards,
+            load_rewards_config=game_data.load_rewards_config,
+            get_level2_goal=game_data.get_level2_goal,
+            get_level3_goal=game_data.get_level3_goal,
+            get_level4_goal=game_data.get_level4_goal,
+            get_boss_number_from_index=boss_logic.get_boss_number_from_index,
+            get_boss_number_from_filename=boss_logic.get_boss_number_from_filename,
+            apper_goal_boost=boss_logic.apper_goal_boost,
+            reward_token_random_red=game_data.REWARD_TOKEN_RANDOM_RED,
+        )
+
+        self.assertEqual(page.rounds_required, 0)
+        self.assertIsNone(page.get_current_active_round())
+        self.assertIsNone(page.button_e_rect)
+        self.assertIsNotNone(page.boss_icon_rect)
+
+        click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.boss_icon_rect.center)
+        with (
+            mock.patch("pygame.event.get", return_value=[click]),
+            mock.patch("pygame.mouse.get_pos", return_value=page.boss_icon_rect.center),
+        ):
+            self.assertEqual(page.handle_input(), "boss_clicked")
+        self.assertEqual(page.Goal, 0)
+
     def test_round_popup_includes_profit_and_peabody_modifiers(self):
         page = RoundPage.__new__(RoundPage)
         page.level_number = 5
@@ -98,6 +192,251 @@ class UiLayoutTests(unittest.TestCase):
 
         with mock.patch.object(game_state, "profit_reward_bonus", 2):
             self.assertEqual(page._get_popup_napoleondor_reward(), 3.5)
+
+    def test_finance_report_keeps_required_income_order_and_omits_zero_rows(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.level_number = 5
+        page.difficulty = "h"
+        page.is_boss_fight = False
+        page.boss_filename = None
+
+        with mock.patch.object(game_state, "profit_reward_bonus", 2):
+            entries = page._build_finance_report_entries(
+                [
+                    {"source": "starting_bonus", "amount": 7},
+                    {"source": "sideway", "amount": 5},
+                ],
+                interest_amount=2.5,
+                commission_amount=1,
+                obligation_amount=0,
+            )
+
+        self.assertEqual(
+            [entry["source"] for entry in entries],
+            [
+                "starting_bonus",
+                "interest",
+                "victory_reward",
+                "profit_bonus",
+                "sideway",
+                "commission",
+                "total",
+            ],
+        )
+        self.assertEqual(entries[0]["label"], "Стартовый бонус")
+        self.assertEqual(entries[1]["label"], "Проценты")
+        self.assertNotIn("obligation", [entry["source"] for entry in entries])
+        self.assertEqual(entries[-1]["label"], "Всего")
+        self.assertEqual(entries[-1]["amount"], 20.5)
+
+    def test_later_finance_reports_start_with_the_carried_account_balance(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.level_number = 2
+        page.difficulty = "m"
+        page.is_boss_fight = False
+        page.boss_filename = None
+
+        with mock.patch.object(game_state, "profit_reward_bonus", 0):
+            entries = page._build_finance_report_entries(
+                [{"source": "sideway", "amount": 5}],
+                opening_balance=4,
+                interest_amount=1,
+            )
+
+        self.assertEqual(
+            [entry["source"] for entry in entries],
+            ["account_balance", "interest", "victory_reward", "sideway", "total"],
+        )
+        self.assertEqual(entries[0]["label"], "Остаток на счету")
+        self.assertEqual(entries[-1]["amount"], 12)
+
+    def test_zero_starting_bonus_and_shop_income_are_not_reported(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.level_number = 2
+        page.difficulty = "m"
+        page.is_boss_fight = False
+        page.boss_filename = None
+
+        with mock.patch.object(game_state, "profit_reward_bonus", 0):
+            entries = page._build_finance_report_entries(
+                [
+                    {"source": "starting_bonus", "amount": 0},
+                    {"source": "interest", "amount": 2.5},
+                    {"source": "loan_profit", "amount": 5},
+                    {"source": "junk_bond", "amount": 6},
+                    {"source": "card_sales", "amount": 4},
+                ]
+            )
+
+        self.assertEqual(
+            entries,
+            [
+                {"source": "victory_reward", "label": "Награда за победу", "amount": 2.0},
+                {"source": "total", "label": "Всего", "amount": 2.0},
+            ],
+        )
+
+    def test_finance_income_queue_aggregates_sources_and_is_consumed_once(self):
+        original = [dict(entry) for entry in game_state.pending_finance_report_entries]
+        try:
+            game_state.pending_finance_report_entries = []
+            game_state.record_finance_report_income("interest", 1.5)
+            game_state.record_finance_report_income("interest", 1)
+            game_state.record_finance_report_income("loan_profit", 5)
+            game_state.record_finance_report_income("ignored", 0)
+
+            self.assertEqual(
+                game_state.consume_finance_report_income(),
+                [
+                    {"source": "interest", "amount": 2.5},
+                    {"source": "loan_profit", "amount": 5.0},
+                ],
+            )
+            self.assertEqual(game_state.consume_finance_report_income(), [])
+        finally:
+            game_state.pending_finance_report_entries = original
+
+    def test_level_one_never_opens_the_finance_report(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 1
+        self.assertFalse(page._should_show_finance_report())
+
+        page.level_number = 2
+        self.assertTrue(page._should_show_finance_report())
+
+        page.is_final_boss = True
+        self.assertFalse(page._should_show_finance_report())
+
+    def test_finance_amounts_use_the_same_left_edge(self):
+        self.assertEqual(GameplayPage._format_finance_amount(2), "2")
+        self.assertEqual(GameplayPage._format_finance_amount(0.5), "0.5")
+
+    def test_stamp_impact_shakes_sheet_and_camera_flight_scales_then_fades(self):
+        self.assertEqual(GameplayPage._get_finance_report_shake("idle", 0), (0, 0))
+        self.assertNotEqual(GameplayPage._get_finance_report_shake("flying", 0), (0, 0))
+        self.assertEqual(GameplayPage._get_finance_report_shake("flying", 180), (0, 0))
+
+        start_scale, start_alpha = GameplayPage._get_stamp_camera_flight(0)
+        end_scale, end_alpha = GameplayPage._get_stamp_camera_flight(1)
+        self.assertEqual((start_scale, start_alpha), (1.0, 255))
+        self.assertGreater(end_scale, start_scale)
+        self.assertEqual(end_alpha, 0)
+
+    def test_card_report_describes_each_reward_card_lifecycle(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.level_number = 5
+        page.is_boss_fight = False
+        page.is_final_boss = False
+        page.last_earned_cards = [11, 201, 401, 301]
+
+        original_rewards = game_state.round_reward_cards
+        try:
+            game_state.round_reward_cards = {5: [11]}
+            rows = page._get_card_report_rows()
+        finally:
+            game_state.round_reward_cards = original_rewards
+
+        self.assertEqual(
+            [row["label"] for row in rows],
+            [
+                "Временная карта. Пропадёт после победы над боссом.",
+                "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
+                "Золотая карта. Пропадёт после поражения.",
+                "Постоянная карта. Останется в вашей коллекции.",
+            ],
+        )
+
+    def test_regular_boss_card_reward_is_not_described_as_permanent(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.level_number = 2
+        page.is_boss_fight = True
+        page.is_final_boss = False
+        page.last_earned_cards = [112]
+
+        original_rewards = game_state.round_reward_cards
+        try:
+            game_state.round_reward_cards = {}
+            rows = page._get_card_report_rows()
+        finally:
+            game_state.round_reward_cards = original_rewards
+
+        self.assertEqual(
+            rows[0]["label"],
+            "Бонус за победу над боссом. Пропадёт после поражения.",
+        )
+
+    def test_boss_card_report_uses_the_actual_random_reward_description(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.is_boss_fight = True
+        page.is_final_boss = False
+        page.random_boss_reward_text = "Случайная награда: 7 наполеондоров."
+
+        self.assertEqual(
+            page._get_card_report_boss_description(),
+            "Случайная награда: 7 наполеондоров.",
+        )
+
+    def test_non_boss_card_report_has_no_boss_description(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.is_boss_fight = False
+        self.assertIsNone(page._get_card_report_boss_description())
+
+    def test_card_report_keeps_the_golden_stocks_trigger_notice(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.golden_stocks_reward_card = None
+        self.assertIsNone(page._get_card_report_notice())
+
+        page.golden_stocks_reward_card = 401
+        self.assertEqual(page._get_card_report_notice(), "Golden Stocks сработал!")
+
+    def test_card_report_cards_are_larger_and_gain_another_twenty_percent_on_hover(self):
+        previous_slot_height = 150
+        expanded_slot_height = 172
+        previous_width = max(
+            44,
+            min(92, int((previous_slot_height - 12) * (99 / 171.0))),
+        )
+        report_width = GameplayPage._get_card_report_card_width(expanded_slot_height)
+        hover_width = GameplayPage._get_card_report_hover_width(report_width)
+
+        self.assertGreaterEqual(report_width, round(previous_width * 1.15))
+        self.assertLessEqual(report_width / (99 / 171.0), expanded_slot_height)
+        self.assertEqual(hover_width, round(report_width * 1.20))
+
+    def test_finance_report_closes_into_card_report_before_round_selection(self):
+        page = GameplayPage.__new__(GameplayPage)
+        report = pygame.Surface((500, 700))
+        page.win_lose_state = "win"
+        page.result_report_stage = "finance"
+        page.finance_report_image = report
+        page.card_report_image = report
+        page.finance_report_y = float(-report.get_height() - 30)
+        page.finance_stamp_state = "closing"
+        page.finance_stamp_started_at = 0
+        page.finance_stamp_rect = pygame.Rect(0, 0, 10, 10)
+        page.report_rustle_sound = mock.Mock()
+        page.win_lose_speed_pps = 2400
+        page._winlose_last_tick = pygame.time.get_ticks()
+
+        page.update_win_lose_animation()
+
+        self.assertEqual(page.result_report_stage, "card_report")
+        self.assertEqual(page.finance_stamp_state, "idle")
+        self.assertIsNone(page.finance_stamp_rect)
+        page.report_rustle_sound.play.assert_called_once_with()
+
+        page.finance_report_y = float(-report.get_height() - 30)
+        page.finance_stamp_state = "closing"
+        page.update_win_lose_animation()
+
+        self.assertEqual(page.result_transition_ready, "round_select")
 
     def test_all_localized_boss_popup_text_fits_the_newspaper_card(self):
         popup_height = 375
@@ -161,6 +500,27 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(result["active_black_cards"], [301])
         self.assertEqual(result["active_gold_cards"], [])
 
+    def test_short_seller_and_insurance_are_disabled_before_boss_rounds(self):
+        page = SilverBlackPage(
+            self.screen,
+            self.font_path,
+            [211, 220, 201],
+            [],
+            [],
+            is_boss_fight=True,
+            lang_dict=load_language("RU"),
+        )
+
+        self.assertTrue(page._is_card_disabled(211))
+        self.assertTrue(page._is_card_disabled(220))
+        self.assertFalse(page._is_card_disabled(201))
+
+        page._begin_drag(page.silver_rects[0].center)
+        self.assertIsNone(page.drag_source)
+
+        page.selected_entries = [("silver", 0), ("silver", 1), ("silver", 2)]
+        self.assertEqual(page._selected_payload()["active_silver_cards"], [201])
+
     def test_replication_storage_shows_only_silver_slots_and_requires_selection(self):
         page = ReplicationSilverPage(
             self.screen,
@@ -223,6 +583,19 @@ class UiLayoutTests(unittest.TestCase):
         crowded_page = RetentionDeckPage(self.screen, self.font_path, list(range(11, 20)))
         self.assertEqual(crowded_page.card_size, (116, 200))
         self.assertLess(crowded_page.card_rects[-1].bottom, crowded_page.confirm_rect.top)
+
+    def test_active_shop_offers_fit_above_the_silver_card_pool(self):
+        page = GameplayPage.__new__(GameplayPage)
+        panel = pygame.Rect(168, 105, 1344, 840)
+
+        rects = page._build_active_shop_offer_rects(panel, 16)
+
+        self.assertEqual(len(rects), 16)
+        self.assertTrue(all(panel.contains(rect) for rect in rects))
+        self.assertTrue(
+            all(left.right < right.left for left, right in zip(rects, rects[1:]))
+        )
+        self.assertLess(rects[-1].bottom, panel.bottom - 280)
 
     def test_positioning_requires_exact_selection_and_supports_pages(self):
         page = PositioningPage(

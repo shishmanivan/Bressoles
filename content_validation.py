@@ -15,6 +15,7 @@ from game_data import (
     load_goals_level4,
     load_goals_level5,
     load_goals_level6,
+    load_goals_level8,
     load_language,
     load_levels_config,
     load_rewards_config,
@@ -30,7 +31,7 @@ LEVEL_DIFFICULTIES = {
     3: ("E", "M", "H"),
     4: ("E", "M", "H"),
     5: ("E", "M", "H"),
-    6: ("E", "M", "H"),
+    8: ("E", "M", "H"),
 }
 
 REQUIRED_LANGUAGE_KEYS = {
@@ -145,6 +146,13 @@ def _validate_source_csvs(csv_dir, cards, language_keys, errors):
         ("",),
         errors,
     )
+    _read_csv_rows(
+        csv_dir,
+        "GoalsLevel8.csv",
+        ("", "1", "2", "Boss Round 1", "Boss Round 2", "Boss Round 3", "Boss Round 4"),
+        ("",),
+        errors,
+    )
     reward_rows = _read_csv_rows(
         csv_dir,
         "Rewards.csv",
@@ -188,6 +196,7 @@ def validate_game_content(
     goals_level4=None,
     goals_level5=None,
     goals_level6=None,
+    goals_level8=None,
     rewards=None,
     boss_rewards=None,
     languages=None,
@@ -202,6 +211,7 @@ def validate_game_content(
     goals_level4 = goals_level4 if goals_level4 is not None else load_goals_level4()
     goals_level5 = goals_level5 if goals_level5 is not None else load_goals_level5()
     goals_level6 = goals_level6 if goals_level6 is not None else load_goals_level6()
+    goals_level8 = goals_level8 if goals_level8 is not None else load_goals_level8()
     rewards = rewards if rewards is not None else load_rewards_config()
     boss_rewards = boss_rewards if boss_rewards is not None else load_boss_rewards()
     languages = languages if languages is not None else {
@@ -279,7 +289,7 @@ def validate_game_content(
         if not base_rounds or not bosses:
             errors.append(f"LevelsData.csv: level {level} requires positive Rounds and Bosses")
             continue
-        maximum_round = base_rounds + (1 if level in (2, 3, 4, 5, 6) else 0)
+        maximum_round = base_rounds + (1 if level in (2, 3, 4, 5, 8) else 0)
         for round_number in range(1, maximum_round + 1):
             for difficulty in difficulties:
                 if (level, round_number, difficulty) not in rewards:
@@ -343,20 +353,24 @@ def validate_game_content(
                     for difficulty in difficulties
                 ):
                     errors.append(f"GoalsLevel5.csv: missing boss goal for position {position}")
-        elif level == 6:
+        elif level == 8:
             for position in range(1, bosses + 1):
                 for round_number in range(1, maximum_round + 1):
                     for difficulty in difficulties:
-                        difficulty_goals = goals_level6.get(difficulty, {})
+                        difficulty_goals = goals_level8.get(difficulty, {})
                         if difficulty_goals.get((position, round_number), difficulty_goals.get(round_number)) is None:
                             errors.append(
-                                f"GoalsLevel6.csv: missing position {position}, round {round_number}, difficulty {difficulty}"
+                                f"GoalsLevel8.csv: missing position {position}, round {round_number}, difficulty {difficulty}"
                             )
                 if not any(
-                    goals_level6.get(difficulty, {}).get(("boss", position)) is not None
+                    goals_level8.get(difficulty, {}).get(("boss", position)) is not None
                     for difficulty in difficulties
                 ):
-                    errors.append(f"GoalsLevel6.csv: missing boss goal for position {position}")
+                    errors.append(f"GoalsLevel8.csv: missing boss goal for position {position}")
+
+    level6_row = levels.get(6) or {}
+    if level6_row.get("Rounds") != 0 or level6_row.get("Bosses") != 1:
+        errors.append("LevelsData.csv: level 6 requires zero regular rounds and one boss")
 
     for reward_key, reward_data in rewards.items():
         for field in ("reward1", "reward2", "reward3"):

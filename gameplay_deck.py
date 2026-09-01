@@ -1,9 +1,11 @@
 import random
 
+from card_catalog import BLUE_CHIPS_CARD_ID
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
 BASE_STARTING_DECK = [100, 1, 1, 2, 3, 4, 11]
+CONCENTRATION_REMOVED_CARD_IDS = frozenset({1, 2, 3, 4})
 
 
 class InvestedCard(int):
@@ -104,9 +106,13 @@ def build_initial_deck(
     temporary_reward_cards=None,
     investment_card_bonuses=None,
     mirrored_cards=None,
+    concentration_active=False,
+    concentration_removes_starting_shareholder=True,
 ):
     """Build initial deck composition for a given level."""
     base_deck = list(BASE_STARTING_DECK)
+    if concentration_active and concentration_removes_starting_shareholder:
+        base_deck.remove(100)
 
     completion_cards = dedupe_red_cards(level_completion_reward_cards or [])
     if completion_cards:
@@ -168,6 +174,13 @@ def build_initial_deck(
         deck.extend(mirrored_instances)
         print(f"Added {len(mirrored_instances)} mirrored card(s) to the run deck: {mirrored_instances}")
 
+    if concentration_active:
+        deck = [
+            card_id
+            for card_id in deck
+            if int(card_id) not in CONCENTRATION_REMOVED_CARD_IDS
+        ]
+
     return deck
 
 
@@ -222,6 +235,8 @@ def setup_starting_deck_and_hand(
     investment_card_bonuses=None,
     round_guaranteed_cards=None,
     mirrored_cards=None,
+    concentration_active=False,
+    concentration_removes_starting_shareholder=True,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -233,7 +248,12 @@ def setup_starting_deck_and_hand(
         (temporary_reward_cards_by_level or {}).get(level_number, []),
         investment_card_bonuses,
         mirrored_cards,
+        concentration_active,
+        concentration_removes_starting_shareholder,
     )
-    guaranteed_cards = list(round_guaranteed_cards or [])
+    guaranteed_cards = []
+    if any(int(card_id) == BLUE_CHIPS_CARD_ID for card_id in (shop_deck_cards or [])):
+        guaranteed_cards.append(BLUE_CHIPS_CARD_ID)
+    guaranteed_cards.extend(round_guaranteed_cards or [])
     guaranteed_cards.extend((guaranteed_cards_by_level or {}).get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, guaranteed_cards)

@@ -44,6 +44,22 @@ class StartingHandTests(unittest.TestCase):
         self.assertEqual(hand, [3, 4, 112])
         self.assertNotIn(112, remaining)
 
+    def test_bought_blue_chips_is_always_dealt_in_the_starting_hand(self):
+        with mock.patch("gameplay_deck.random.shuffle"):
+            remaining, hand = setup_starting_deck_and_hand(
+                level_number=3,
+                hand_size=1,
+                earned_reward_cards={},
+                shop_deck_cards=[22],
+                guaranteed_cards_by_level={3: [112]},
+                round_guaranteed_cards=[3, 4],
+            )
+
+        self.assertEqual(hand, [22])
+        self.assertNotIn(22, remaining)
+        self.assertIn(3, remaining)
+        self.assertIn(4, remaining)
+
 
 class HandDrawTests(unittest.TestCase):
     @staticmethod

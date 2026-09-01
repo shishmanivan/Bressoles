@@ -31,14 +31,24 @@ class LevelAndGoalRulesTests(unittest.TestCase):
         config = load_levels_config()
         self.assertEqual(
             {level: (row["Rounds"], row["Bosses"]) for level, row in config.items()},
-            {1: (1, 1), 2: (2, 2), 3: (3, 3), 4: (3, 3), 5: (3, 4), 6: (3, 4)},
+            {
+                1: (1, 1),
+                2: (2, 2),
+                3: (3, 3),
+                4: (3, 3),
+                5: (3, 4),
+                6: (0, 1),
+                8: (3, 4),
+            },
         )
 
     def test_level2_goals_have_two_progression_stages(self):
         self.assertEqual(get_level2_goal(1, "e", 0), 50)
-        self.assertEqual(get_level2_goal(2, "m", 1), 160)
+        self.assertEqual(get_level2_goal(2, "e", 1), 110)
+        self.assertEqual(get_level2_goal(2, "m", 1), 150)
         self.assertEqual(get_level2_goal(None, "e", 0, True), 160)
-        self.assertEqual(get_level2_goal(None, "m", 1, True), 300)
+        self.assertEqual(get_level2_goal(None, "e", 1, True), 280)
+        self.assertEqual(get_level2_goal(None, "m", 1, True), 280)
 
     def test_level3_goals_cover_regular_and_boss_rounds(self):
         self.assertEqual(get_level3_goal(1, "e", 0), 70)
@@ -234,6 +244,32 @@ class DeckRulesTests(unittest.TestCase):
 
         self.assertEqual(deck.count(112), 2)
         self.assertEqual(deck.count(1), 3)
+
+    def test_concentration_removes_probability_cards_and_only_the_base_shareholder(self):
+        deck_args = dict(
+            level_number=4,
+            earned_reward_cards={4: [100, 1]},
+            shop_deck_cards=[100, 2],
+            temporary_reward_cards=[100, 3],
+            mirrored_cards=[100, 4],
+        )
+        deck = build_initial_deck(**deck_args, concentration_active=True)
+
+        self.assertFalse({1, 2, 3, 4}.intersection(deck))
+        self.assertEqual(deck.count(100), 4)
+        self.assertIn(11, deck)
+
+        silver_deck = build_initial_deck(
+            **deck_args,
+            concentration_active=True,
+            concentration_removes_starting_shareholder=False,
+        )
+        self.assertFalse({1, 2, 3, 4}.intersection(silver_deck))
+        self.assertEqual(silver_deck.count(100), 5)
+
+        restored_deck = build_initial_deck(**deck_args, concentration_active=False)
+        self.assertTrue({1, 2, 3, 4}.issubset(restored_deck))
+        self.assertEqual(restored_deck.count(100), 5)
 
     def test_available_guaranteed_cards_are_dealt_first(self):
         remaining, hand = deal_starting_hand([100, 1, 2, 112, 113], 3, [112, 113])

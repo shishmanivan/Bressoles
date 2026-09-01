@@ -15,6 +15,8 @@ _TURNS_Y_OFFSET_BY_CARD = {17: 1.5, 18: 1.5}
 _BEAR_TITLE_CENTER_Y_RATIO = 0.12327868852459017
 _BEAR_STORAGE_HEIGHT = 176.0
 _BEAR_STORAGE_VERTICAL_NUDGE = 0.75
+_BEAR_MULTIDIGIT_FONT_SCALE = 0.90
+_BEAR_MULTIDIGIT_X_SHIFT_RATIO = 0.025
 
 
 def get_turns_text_position(card_id, card_width, card_height, origin_x=0, origin_y=0):
@@ -30,18 +32,38 @@ def get_turns_text_position(card_id, card_width, card_height, origin_x=0, origin
     return turns_x, turns_y
 
 
-def get_bear_modifier_y(card_y, card_height, text_height, adjust_mode="default"):
+def get_bear_modifier_y(
+    card_y,
+    card_height,
+    text_height,
+    adjust_mode="default",
+    multidigit=False,
+):
     """Keep Bear's percentage centered on the title at every card scale."""
-    if adjust_mode == "shop":
+    if adjust_mode == "shop" and not multidigit:
         return card_y + card_height * 0.07 - 4
     title_center_y = card_y + card_height * _BEAR_TITLE_CENTER_Y_RATIO
-    vertical_nudge = _BEAR_STORAGE_VERTICAL_NUDGE * card_height / _BEAR_STORAGE_HEIGHT
+    vertical_nudge = 0.0
+    if adjust_mode != "shop":
+        vertical_nudge = _BEAR_STORAGE_VERTICAL_NUDGE * card_height / _BEAR_STORAGE_HEIGHT
     return title_center_y - text_height / 2 - vertical_nudge
 
 
-def get_bear_modifier_x(card_x, card_width):
+def get_bear_modifier_x(card_x, card_width, multidigit=False):
     """Use the approved shop-card horizontal proportion at every scale."""
-    return card_x + card_width * 0.53
+    x_ratio = 0.53
+    if multidigit:
+        x_ratio -= _BEAR_MULTIDIGIT_X_SHIFT_RATIO
+    return card_x + card_width * x_ratio
+
+
+def get_bear_modifier_font_size(card_width, adjust_mode="default", multidigit=False):
+    """Scale two-digit Bear discounts down so the full label stays on-card."""
+    font_ratio = 0.18 if adjust_mode == "shop" else 0.20
+    font_size = max(1, int(card_width * font_ratio))
+    if multidigit:
+        font_size = max(1, int(font_size * _BEAR_MULTIDIGIT_FONT_SCALE))
+    return font_size
 
 
 def is_bid_card(card_id):
@@ -285,24 +307,27 @@ def draw_bear_modifier_text(
     if not card_size or len(card_size) < 2 or card_size[0] <= 0:
             return
 
-    if adjust_mode == "shop":
-        font_size = max(1, int(card_size[0] * 0.18))
-    else:
-        font_size = max(1, int(card_size[0] * 0.20))
     try:
         try:
             percent = int(modifier_percent)
         except (TypeError, ValueError):
             percent = 2
         percent = max(2, percent)
+        multidigit = percent >= 10
+        font_size = get_bear_modifier_font_size(
+            card_size[0],
+            adjust_mode=adjust_mode,
+            multidigit=multidigit,
+        )
         font = pygame.font.Font(_resolve_effect_font_path(font_path), font_size)
         text = font.render(f"-{percent}%", True, paper_color)
-        x = get_bear_modifier_x(card_x, card_size[0])
+        x = get_bear_modifier_x(card_x, card_size[0], multidigit=multidigit)
         y = get_bear_modifier_y(
             card_y,
             card_size[1],
             text.get_height(),
             adjust_mode=adjust_mode,
+            multidigit=multidigit,
         )
         screen.blit(text, (int(x), int(y)))
     except Exception as e:

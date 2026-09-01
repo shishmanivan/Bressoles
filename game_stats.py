@@ -1,10 +1,13 @@
 import csv
+import functools
 import os
 
 from csv_storage import write_semicolon_csv_atomically
 
 
 STATS_FILE = "GameStats.csv"
+LEVEL6_EXPERIMENT_STATS_FILE = None
+_ACTIVE_STATS_FILE = None
 ARKWRIGHT_STAT_FIELDS = {
     "none": "АркрайтНеСыграл",
     "steal_50": "АркрайтУкрал50",
@@ -22,6 +25,7 @@ FIELDNAMES = [
     "БоссНомер",
     "Босс",
     "Раунд",
+    "ПорядковыйРаунд",
     "Сложность",
     "Сыграно",
     "Победы",
@@ -48,6 +52,7 @@ BOSS_NAMES = {
     8: "Фридрих Лист",
     9: "Жак Лаффит",
     10: "Роберт Стефенсон",
+    15: "Джон Джейкоб Астор",
 }
 
 
@@ -75,12 +80,87 @@ def build_difficulty_label(difficulty, is_boss_fight=False):
     return value if value in ("E", "M", "H") else ""
 
 
-def update_game_stats(level_number, boss_number, round_label, won, difficulty_label="", earned_money=None):
+def build_sequential_round_number(
+    level_number,
+    round_num=None,
+    boss_position=1,
+    is_boss_fight=False,
+    boss_number=None,
+):
+    """Return the hidden stage number for the marathon now hosted on level 8."""
+    try:
+        if int(level_number or 0) != 8:
+            return ""
+    except (TypeError, ValueError):
+        return ""
+
+    try:
+        position = max(1, int(boss_position or 1))
+    except (TypeError, ValueError):
+        position = 1
+    cycle_start = (position - 1) * 4
+
+    if is_boss_fight:
+        return str(cycle_start + 4)
+
+    try:
+        local_round = int(round_num or 0)
+    except (TypeError, ValueError):
+        return ""
+    if local_round in (1, 2, 3):
+        return str(cycle_start + local_round)
+    try:
+        is_fulton = int(boss_number or 0) == 3
+    except (TypeError, ValueError):
+        is_fulton = False
+    if local_round == 4 and is_fulton:
+        return _format_number(cycle_start + 3.5)
+    return ""
+
+
+def _mirror_level6_experiment(update_function):
+    """Write moved-marathon events to the primary and existing experiment logs."""
+    @functools.wraps(update_function)
+    def wrapped(level_number, *args, **kwargs):
+        global _ACTIVE_STATS_FILE
+        previous_active_file = _ACTIVE_STATS_FILE
+        _ACTIVE_STATS_FILE = STATS_FILE
+        try:
+            result = update_function(level_number, *args, **kwargs)
+        finally:
+            _ACTIVE_STATS_FILE = previous_active_file
+
+        try:
+            normalized_level = int(level_number or 0)
+        except (TypeError, ValueError):
+            normalized_level = 0
+        if normalized_level == 8 and LEVEL6_EXPERIMENT_STATS_FILE:
+            _ACTIVE_STATS_FILE = LEVEL6_EXPERIMENT_STATS_FILE
+            try:
+                update_function(level_number, *args, **kwargs)
+            finally:
+                _ACTIVE_STATS_FILE = previous_active_file
+        return result
+
+    return wrapped
+
+
+@_mirror_level6_experiment
+def update_game_stats(
+    level_number,
+    boss_number,
+    round_label,
+    won,
+    difficulty_label="",
+    earned_money=None,
+    sequential_round_number="",
+):
     rows = _read_rows()
     level_key = str(level_number)
     boss_number_key = str(boss_number) if boss_number is not None else ""
     boss_name = get_boss_name(boss_number)
     difficulty_label = _normalize_difficulty_label(difficulty_label)
+    sequential_round_number = _normalize_sequential_round_number(sequential_round_number)
 
     target = None
     for row in rows:
@@ -88,13 +168,21 @@ def update_game_stats(level_number, boss_number, round_label, won, difficulty_la
             row.get("Уровень") == level_key
             and row.get("БоссНомер") == boss_number_key
             and row.get("Раунд") == round_label
+            and row.get("ПорядковыйРаунд", "") == sequential_round_number
             and row.get("Сложность", "") == difficulty_label
         ):
             target = row
             break
 
     if target is None:
-        target = _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficulty_label)
+        target = _new_stats_row(
+            level_key,
+            boss_number_key,
+            boss_name,
+            round_label,
+            difficulty_label,
+            sequential_round_number,
+        )
         rows.append(target)
 
     played = _to_int(target.get("Сыграно")) + 1
@@ -125,7 +213,15 @@ def update_game_stats(level_number, boss_number, round_label, won, difficulty_la
     _write_rows(rows)
 
 
-def update_arkwright_stats(level_number, boss_number, round_label, difficulty_label, outcome):
+@_mirror_level6_experiment
+def update_arkwright_stats(
+    level_number,
+    boss_number,
+    round_label,
+    difficulty_label,
+    outcome,
+    sequential_round_number="",
+):
     outcome_field = ARKWRIGHT_STAT_FIELDS.get(outcome)
     if not outcome_field:
         return
@@ -135,6 +231,7 @@ def update_arkwright_stats(level_number, boss_number, round_label, difficulty_la
     boss_number_key = str(boss_number) if boss_number is not None else ""
     boss_name = get_boss_name(boss_number)
     difficulty_label = _normalize_difficulty_label(difficulty_label)
+    sequential_round_number = _normalize_sequential_round_number(sequential_round_number)
 
     target = None
     for row in rows:
@@ -142,13 +239,21 @@ def update_arkwright_stats(level_number, boss_number, round_label, difficulty_la
             row.get("Уровень") == level_key
             and row.get("БоссНомер") == boss_number_key
             and row.get("Раунд") == round_label
+            and row.get("ПорядковыйРаунд", "") == sequential_round_number
             and row.get("Сложность", "") == difficulty_label
         ):
             target = row
             break
 
     if target is None:
-        target = _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficulty_label)
+        target = _new_stats_row(
+            level_key,
+            boss_number_key,
+            boss_name,
+            round_label,
+            difficulty_label,
+            sequential_round_number,
+        )
         rows.append(target)
 
     target["Босс"] = boss_name
@@ -157,6 +262,7 @@ def update_arkwright_stats(level_number, boss_number, round_label, difficulty_la
     _write_rows(rows)
 
 
+@_mirror_level6_experiment
 def update_level_run_started(level_number):
     rows = _read_rows()
     target = _find_or_create_stats_row(
@@ -180,6 +286,7 @@ def update_level_run_started(level_number):
     _write_rows(rows)
 
 
+@_mirror_level6_experiment
 def update_level_run_result(level_number, won):
     rows = _read_rows()
     target = _find_or_create_stats_row(
@@ -206,16 +313,31 @@ def update_level_run_result(level_number, won):
     _write_rows(rows)
 
 
-def update_level_run_loss_stage_stats(level_number, stage_label, stage_number=None):
+@_mirror_level6_experiment
+def update_level_run_loss_stage_stats(
+    level_number,
+    stage_label,
+    stage_number=None,
+    boss_position=None,
+    boss_number=None,
+):
     rows = _read_rows()
     try:
         stage_number_value = int(stage_number) if stage_number is not None else None
     except (TypeError, ValueError):
         stage_number_value = None
     normalized_stage_label = str(stage_label or "")
+    is_boss_stage = normalized_stage_label.lower().startswith("boss") or normalized_stage_label.startswith("Босс")
+    sequential_round_number = build_sequential_round_number(
+        level_number,
+        round_num=None if is_boss_stage else stage_number_value,
+        boss_position=stage_number_value if is_boss_stage else boss_position,
+        is_boss_fight=is_boss_stage,
+        boss_number=boss_number,
+    )
     if stage_number_value is None:
         stage_number_key = ""
-    elif normalized_stage_label.lower().startswith("boss") or normalized_stage_label.startswith("Босс"):
+    elif is_boss_stage:
         stage_number_key = f"B{stage_number_value}"
     else:
         stage_number_key = str(stage_number_value)
@@ -226,6 +348,7 @@ def update_level_run_loss_stage_stats(level_number, stage_label, stage_number=No
         normalized_stage_label or "Поражение",
         LEVEL_RUN_LOSS_STAGE_LABEL,
         LEVEL_RUN_LOSS_STAGE_DIFFICULTY_LABEL,
+        sequential_round_number,
     )
     played = _to_int(target.get("Сыграно")) + 1
     losses = _to_int(target.get("Поражения")) + 1
@@ -241,6 +364,7 @@ def update_level_run_loss_stage_stats(level_number, stage_label, stage_number=No
     _write_rows(rows)
 
 
+@_mirror_level6_experiment
 def update_level_boss_position_stats(level_number, boss_position, won):
     rows = _read_rows()
     position = int(boss_position or 0)
@@ -253,6 +377,11 @@ def update_level_boss_position_stats(level_number, boss_position, won):
         f"Босс уровня {position}",
         LEVEL_BOSS_ROUND_LABEL,
         LEVEL_BOSS_DIFFICULTY_LABEL,
+        build_sequential_round_number(
+            level_number,
+            boss_position=position,
+            is_boss_fight=True,
+        ),
     )
     played = _to_int(target.get("Сыграно")) + 1
     wins = _to_int(target.get("Победы")) + (1 if won else 0)
@@ -274,18 +403,41 @@ def set_stats_file(path):
     ensure_stats_file()
 
 
-def ensure_stats_file():
-    stats_dir = os.path.dirname(STATS_FILE)
+def set_level6_experiment_stats_file(path):
+    global LEVEL6_EXPERIMENT_STATS_FILE
+    LEVEL6_EXPERIMENT_STATS_FILE = path or None
+    if LEVEL6_EXPERIMENT_STATS_FILE:
+        ensure_stats_file(LEVEL6_EXPERIMENT_STATS_FILE)
+
+
+def _get_active_stats_file(path=None):
+    return path or _ACTIVE_STATS_FILE or STATS_FILE
+
+
+def ensure_stats_file(path=None):
+    target_path = _get_active_stats_file(path)
+    stats_dir = os.path.dirname(target_path)
     if stats_dir:
         os.makedirs(stats_dir, exist_ok=True)
-    if not os.path.exists(STATS_FILE):
-        _write_rows([])
+    if not os.path.exists(target_path):
+        _write_rows([], target_path)
+    elif not _has_current_schema(target_path):
+        _write_rows(_read_rows(target_path), target_path)
 
 
-def _read_rows():
-    if not os.path.exists(STATS_FILE):
+def _has_current_schema(path):
+    try:
+        with open(path, "r", encoding="utf-8-sig", newline="") as stats_file:
+            return next(csv.reader(stats_file, delimiter=";"), []) == FIELDNAMES
+    except OSError:
+        return False
+
+
+def _read_rows(path=None):
+    target_path = _get_active_stats_file(path)
+    if not os.path.exists(target_path):
         return []
-    with open(STATS_FILE, "r", encoding="utf-8-sig", newline="") as stats_file:
+    with open(target_path, "r", encoding="utf-8-sig", newline="") as stats_file:
         reader = csv.DictReader(stats_file, delimiter=";")
         rows = []
         for row in reader:
@@ -310,12 +462,20 @@ def _is_encounter_stats_row(row):
     ) and difficulty in ("", "E", "M", "H", "Boss")
 
 
-def _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficulty_label):
+def _new_stats_row(
+    level_key,
+    boss_number_key,
+    boss_name,
+    round_label,
+    difficulty_label,
+    sequential_round_number="",
+):
     row = {
         "Уровень": level_key,
         "БоссНомер": boss_number_key,
         "Босс": boss_name,
         "Раунд": round_label,
+        "ПорядковыйРаунд": _normalize_sequential_round_number(sequential_round_number),
         "Сложность": difficulty_label,
         "Сыграно": "0",
         "Победы": "0",
@@ -331,18 +491,35 @@ def _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficult
     return row
 
 
-def _find_or_create_stats_row(rows, level_key, boss_number_key, boss_name, round_label, difficulty_label):
+def _find_or_create_stats_row(
+    rows,
+    level_key,
+    boss_number_key,
+    boss_name,
+    round_label,
+    difficulty_label,
+    sequential_round_number="",
+):
     difficulty_label = _normalize_difficulty_label(difficulty_label)
+    sequential_round_number = _normalize_sequential_round_number(sequential_round_number)
     for row in rows:
         if (
             row.get("Уровень") == level_key
             and row.get("БоссНомер") == boss_number_key
             and row.get("Раунд") == round_label
+            and row.get("ПорядковыйРаунд", "") == sequential_round_number
             and row.get("Сложность", "") == difficulty_label
         ):
             row["Босс"] = boss_name
             return row
-    target = _new_stats_row(level_key, boss_number_key, boss_name, round_label, difficulty_label)
+    target = _new_stats_row(
+        level_key,
+        boss_number_key,
+        boss_name,
+        round_label,
+        difficulty_label,
+        sequential_round_number,
+    )
     rows.append(target)
     return target
 
@@ -352,15 +529,26 @@ def _normalize_difficulty_label(difficulty_label):
     return "Boss" if difficulty_upper == "BOSS" else difficulty_upper
 
 
-def _write_rows(rows):
+def _normalize_sequential_round_number(value):
+    if value in (None, ""):
+        return ""
+    number = _to_number(value)
+    if number <= 0:
+        return ""
+    return _format_number(number)
+
+
+def _write_rows(rows, path=None):
+    target_path = _get_active_stats_file(path)
     rows = sorted(rows, key=_sort_key)
-    write_semicolon_csv_atomically(STATS_FILE, FIELDNAMES, rows)
+    write_semicolon_csv_atomically(target_path, FIELDNAMES, rows)
 
 
 def _sort_key(row):
     return (
         _to_int(row.get("Уровень")),
         _to_int(row.get("БоссНомер")),
+        _to_number(row.get("ПорядковыйРаунд")) or 99_999,
         _round_sort_value(row.get("Раунд")),
         _difficulty_sort_value(row.get("Сложность")),
     )

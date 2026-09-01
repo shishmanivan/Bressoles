@@ -112,10 +112,26 @@ class GameScreen:
         self.level4_picture = primary_assets["level4_picture"]
         self.level5_picture = primary_assets["level5_picture"]
         self.level6_picture = primary_assets["level6_picture"]
+        self.level_pictures = load_test_level_pictures(12)
+        for level_num, picture in enumerate(
+            (
+                self.level1_picture,
+                self.level2_picture,
+                self.level3_picture,
+                self.level4_picture,
+                self.level5_picture,
+                self.level6_picture,
+            ),
+            start=1,
+        ):
+            self.level_pictures[level_num - 1] = picture
 
         self.scroll_y = 0
         self.max_scroll_y = 0
         self.card1_rect = None
+        self.level_page_index = 0
+        self.previous_page_rect = pygame.Rect(20, SCREEN_HEIGHT // 2 - 45, 70, 90)
+        self.next_page_rect = pygame.Rect(SCREEN_WIDTH - 90, SCREEN_HEIGHT // 2 - 45, 70, 90)
 
         if self.test_mode:
             test_layout = build_test_mode_layout(
@@ -159,6 +175,22 @@ class GameScreen:
             self.arrow6_rect = normal_layout["arrow6_rect"]
             self.card1_rect = normal_layout["card1_rect"]
             self.max_scroll_y = normal_layout["max_scroll_y"]
+            self.normal_card_positions = [
+                self.card_position,
+                self.card2_position,
+                self.card3_position,
+                self.card4_position,
+                self.card5_position,
+                self.card6_position,
+            ]
+            self.normal_arrow_rects = [
+                self.arrow_rect,
+                self.arrow2_rect,
+                self.arrow3_rect,
+                self.arrow4_rect,
+                self.arrow5_rect,
+                self.arrow6_rect,
+            ]
 
     def _get_text(self, key, default=None):
         if default is None:
@@ -167,6 +199,9 @@ class GameScreen:
 
     def _is_unlocked(self, level_key):
         return bool(self.progress_flags.get(level_key))
+
+    def _is_completed(self, level_num):
+        return self._is_unlocked(f"level_{level_num}_boss_defeated")
 
     def _render_text_cached(self, font, text, color):
         cache_key = (id(font), str(text), tuple(color))
@@ -234,23 +269,40 @@ class GameScreen:
                             if adjusted_rect.collidepoint(mouse_pos):
                                 return f"level_{level_num}"
                 else:
+                    next_page_rect = getattr(self, "next_page_rect", None)
+                    previous_page_rect = getattr(self, "previous_page_rect", None)
+                    if getattr(self, "level_page_index", 0) == 0 and next_page_rect and next_page_rect.collidepoint(mouse_pos):
+                        self.level_page_index = 1
+                        self.scroll_y = 0
+                        return None
+                    if getattr(self, "level_page_index", 0) == 1 and previous_page_rect and previous_page_rect.collidepoint(mouse_pos):
+                        self.level_page_index = 0
+                        self.scroll_y = 0
+                        return None
+
                     def arrow_hit(rect):
                         if rect is None:
                             return False
                         return rect.move(0, -self.scroll_y).collidepoint(mouse_pos)
 
-                    if arrow_hit(self.arrow_rect):
-                        return "level_1"
-                    if self._is_unlocked("level_1_boss_defeated") and arrow_hit(self.arrow2_rect):
-                        return "level_2"
-                    if self._is_unlocked("level_2_boss_defeated") and arrow_hit(self.arrow3_rect):
-                        return "level_3"
-                    if self._is_unlocked("level_3_boss_defeated") and arrow_hit(self.arrow4_rect):
-                        return "level_4"
-                    if self._is_unlocked("level_3_boss_defeated") and arrow_hit(self.arrow5_rect):
-                        return "level_5"
-                    if self._is_unlocked("level_6_unlocked") and arrow_hit(self.arrow6_rect):
-                        return "level_6"
+                    if getattr(self, "level_page_index", 0) == 0:
+                        if not self._is_completed(1) and arrow_hit(self.arrow_rect):
+                            return "level_1"
+                        if self._is_unlocked("level_1_boss_defeated") and not self._is_completed(2) and arrow_hit(self.arrow2_rect):
+                            return "level_2"
+                        if self._is_unlocked("level_2_boss_defeated") and not self._is_completed(3) and arrow_hit(self.arrow3_rect):
+                            return "level_3"
+                        if self._is_unlocked("level_3_boss_defeated") and not self._is_completed(4) and arrow_hit(self.arrow4_rect):
+                            return "level_4"
+                        if self._is_unlocked("level_3_boss_defeated") and not self._is_completed(5) and arrow_hit(self.arrow5_rect):
+                            return "level_5"
+                        if self._is_unlocked("level_6_unlocked") and arrow_hit(self.arrow6_rect):
+                            return "level_6"
+                    else:
+                        for offset, rect in enumerate(self.normal_arrow_rects):
+                            level_num = 7 + offset
+                            if level_num == 8 and self._is_unlocked("level_8_unlocked") and arrow_hit(rect):
+                                return f"level_{level_num}"
 
         return None
 
@@ -273,6 +325,8 @@ class GameScreen:
         text_y = card_position[1] + 8
         year_surface = None
 
+        if level_num >= 7 and (not year_text or year_text == year_key):
+            year_text = f"Уровень {level_num}"
         if year_text and year_text != year_key:
             year_surface = self._render_text_cached(self.font_card, year_text, PAPER_COLOR)
             self.screen.blit(year_surface, (text_x, text_y))
@@ -314,14 +368,23 @@ class GameScreen:
             pygame.display.flip()
             return
 
-        cards = [
-            (1, self.card_position, self.level1_picture, True, True),
-            (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated"), True),
-            (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated"), True),
-            (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated"), True),
-            (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated"), True),
-            (6, self.card6_position, self.level6_picture, self._is_unlocked("level_6_unlocked"), True),
-        ]
+        if getattr(self, "level_page_index", 0) == 0:
+            cards = [
+                (1, self.card_position, self.level1_picture, True, not self._is_completed(1)),
+                (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated"), not self._is_completed(2)),
+                (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated"), not self._is_completed(3)),
+                (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated"), not self._is_completed(4)),
+                (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated"), not self._is_completed(5)),
+                (6, self.card6_position, self.level6_picture, self._is_unlocked("level_6_unlocked"), True),
+            ]
+        else:
+            cards = []
+            for offset, position in enumerate(self.normal_card_positions):
+                level_num = 7 + offset
+                picture = self.level_pictures[level_num - 1]
+                unlocked = self._is_unlocked(f"level_{level_num}_unlocked")
+                startable = level_num == 8 and unlocked and not self._is_completed(level_num)
+                cards.append((level_num, position, picture, True, startable))
         for level_num, position, picture, unlocked, startable in cards:
             if not unlocked or position is None:
                 continue
@@ -337,111 +400,22 @@ class GameScreen:
                 picture,
                 show_start_arrow=startable,
             )
+        self._draw_page_navigation()
         pygame.display.flip()
         return
 
-        if self.levelcard_image:
-            self.screen.blit(self.levelcard_image, self.card_position)
-
-            picture_to_draw = self.level1_picture
-
-            if picture_to_draw:
-                card_height = self.levelcard_image.get_height()
-                self.screen.blit(picture_to_draw, compute_picture_position(self.card_position, card_height, picture_to_draw))
-
-            card_text = "1815"
-            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
-            text_x = self.card_position[0] + 390
-            text_y = self.card_position[1] + 8
-            self.screen.blit(text_surface, (text_x, text_y))
-
-            desc_text = self._get_text("Level1Cond", "Level1Cond")
-            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
-            line_height = self.font_card_desc.get_height() + 5
-            start_y = text_y + text_surface.get_height() + 20
-            start_x = self.card_position[0] + 250
-            for i, line in enumerate(lines):
-                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
-                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
-
-            if self.startarrow_image:
-                self.screen.blit(self.startarrow_image, self.arrow_position)
-
-        if self._is_unlocked("level_1_boss_defeated") and self.levelcard_image:
-            self.screen.blit(self.levelcard_image, self.card2_position)
-            if self.level2_picture:
-                card_height = self.levelcard_image.get_height()
-                self.screen.blit(self.level2_picture, compute_picture_position(self.card2_position, card_height, self.level2_picture))
-
-            text_surface = self._render_text_cached(self.font_card, "1825", PAPER_COLOR)
-            text_x = self.card2_position[0] + 390
-            text_y = self.card2_position[1] + 8
-            self.screen.blit(text_surface, (text_x, text_y))
-
-            desc_text = self._get_text("Level2Cond", "Level2Cond")
-            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
-            line_height = self.font_card_desc.get_height() + 5
-            start_y = text_y + text_surface.get_height() + 20
-            start_x = self.card2_position[0] + 250
-            for i, line in enumerate(lines):
-                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
-                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
-
-            if self.startarrow_image:
-                self.screen.blit(self.startarrow_image, self.arrow2_position)
-
-        if self._is_unlocked("level_2_boss_defeated") and self.levelcard_image and self.card3_position:
-            self.screen.blit(self.levelcard_image, self.card3_position)
-            if self.level3_picture:
-                card_height = self.levelcard_image.get_height()
-                self.screen.blit(self.level3_picture, compute_picture_position(self.card3_position, card_height, self.level3_picture))
-
-            text_surface = self._render_text_cached(self.font_card, "1830", PAPER_COLOR)
-            text_x = self.card3_position[0] + 390
-            text_y = self.card3_position[1] + 8
-            self.screen.blit(text_surface, (text_x, text_y))
-
-            desc_text = self._get_text("Level3Cond", "Level3Cond")
-            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
-            line_height = self.font_card_desc.get_height() + 5
-            start_y = text_y + text_surface.get_height() + 20
-            start_x = self.card3_position[0] + 250
-            for i, line in enumerate(lines):
-                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
-                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
-
-            if self.startarrow_image:
-                self.screen.blit(self.startarrow_image, self.arrow3_position)
-
-        if self._is_unlocked("level_3_boss_defeated") and self.levelcard_image and self.card4_position:
-            self.screen.blit(self.levelcard_image, self.card4_position)
-            if self.level4_picture:
-                card_height = self.levelcard_image.get_height()
-                self.screen.blit(self.level4_picture, compute_picture_position(self.card4_position, card_height, self.level4_picture))
-
-            year_key = "Level4Year"
-            year_text = self._get_text(year_key, None)
-            card_text = year_text if year_text and year_text != year_key else "1845"
-            text_surface = self._render_text_cached(self.font_card, card_text, PAPER_COLOR)
-            text_x = self.card4_position[0] + 390
-            text_y = self.card4_position[1] + 8
-            self.screen.blit(text_surface, (text_x, text_y))
-
-            desc_key = "Level4Cond"
-            desc_text = self._get_text(desc_key, None)
-            if desc_text and desc_text != desc_key:
-                lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
-                line_height = self.font_card_desc.get_height() + 5
-                start_y = text_y + text_surface.get_height() + 20
-                start_x = self.card4_position[0] + 250
-                for i, line in enumerate(lines):
-                    line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
-                    self.screen.blit(line_surface, (start_x, start_y + i * line_height))
-
-            if self.startarrow_image:
-                self.screen.blit(self.startarrow_image, self.arrow4_position)
-
-        pygame.display.flip()
+    def _draw_page_navigation(self):
+        """Draw fixed arrows that switch between the two six-card pages."""
+        if self.test_mode:
+            return
+        rect = self.next_page_rect if getattr(self, "level_page_index", 0) == 0 else self.previous_page_rect
+        pygame.draw.rect(self.screen, (226, 205, 164), rect, border_radius=8)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, width=3, border_radius=8)
+        if getattr(self, "level_page_index", 0) == 0:
+            points = [(rect.left + 20, rect.top + 16), (rect.right - 16, rect.centery), (rect.left + 20, rect.bottom - 16)]
+        else:
+            points = [(rect.right - 20, rect.top + 16), (rect.left + 16, rect.centery), (rect.right - 20, rect.bottom - 16)]
+        pygame.draw.polygon(self.screen, PAPER_COLOR, points)
 
     def run(self):
         while True:

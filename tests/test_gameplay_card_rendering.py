@@ -1,6 +1,7 @@
 import unittest
 
 from gameplay_card_rendering import (
+    get_bear_modifier_font_size,
     get_bear_modifier_x,
     get_bear_modifier_y,
     get_turns_text_position,
@@ -49,6 +50,17 @@ class BearModifierPositionTests(unittest.TestCase):
     def test_storage_uses_shop_horizontal_proportion(self):
         self.assertAlmostEqual(get_bear_modifier_x(0, 142) / 142, 0.53)
         self.assertAlmostEqual(get_bear_modifier_x(0, 102) / 102, 0.53)
+
+    def test_two_digit_discount_is_smaller_and_shifted_left(self):
+        self.assertEqual(get_bear_modifier_font_size(102), 20)
+        self.assertEqual(
+            get_bear_modifier_font_size(102, multidigit=True),
+            18,
+        )
+        self.assertAlmostEqual(
+            get_bear_modifier_x(0, 102) - get_bear_modifier_x(0, 102, multidigit=True),
+            102 * 0.025,
+        )
 
     def test_shop_position_remains_pixel_identical(self):
         self.assertAlmostEqual(

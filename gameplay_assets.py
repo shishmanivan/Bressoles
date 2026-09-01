@@ -364,6 +364,32 @@ def load_winlose_assets(screen_width, screen_height):
     if assets["ok_button_base_size"] == (0, 0):
         assets["ok_button_base_size"] = ok2_size
 
+    finance_height = max(1, int(screen_height * 0.84))
+    finance_width = max(1, int(finance_height * 1086 / 1448))
+    finance_specs = (
+        ("finance_report_image", "FinanceReport.png", (finance_width, finance_height)),
+        ("card_report_image", "CardReport.png", (finance_width, finance_height)),
+        ("approve_stamp_image", "ApproveStamp.png", (230, 96)),
+        ("stamp_on_paper_image", "StampOnPaper.png", (205, 123)),
+    )
+    for key, filename, size in finance_specs:
+        path = os.path.join("Arts", filename)
+        if not os.path.exists(path):
+            print(f"WARNING: {filename} not found:", path)
+            assets[key] = None
+            continue
+        original = pygame.image.load(path).convert_alpha()
+        assets[key] = pygame.transform.smoothscale(original, size).convert_alpha()
+
+    assets["stamp_sound"] = _load_sound(
+        os.path.join("Sounds", "Stamp.mp3"),
+        "WARNING: Stamp.mp3 not found at",
+    )
+    assets["report_rustle_sound"] = _load_sound(
+        os.path.join("Sounds", "Pen.mp3"),
+        "WARNING: Pen.mp3 not found at",
+    )
+
     _winlose_assets_cache[cache_key] = dict(assets)
     return dict(assets)
 

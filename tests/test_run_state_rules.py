@@ -30,6 +30,9 @@ STATE_FIELDS = (
     "investment_card_bonuses",
     "profit_reward_bonus",
     "updown_probability_bonus",
+    "boss_rare_card_pool_bonus_percent",
+    "deal_flow_bonus_percent",
+    "variance_offer_bought_count",
     "pending_shop_discount_percent",
     "bailout_rounds_remaining",
     "active_long_investments",
@@ -61,6 +64,7 @@ STATE_FIELDS = (
     "retention_pending_level",
     "retention_pending_cards",
     "windfall_boss_victories",
+    "risk_premium_h_rounds",
 )
 
 
@@ -149,6 +153,15 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.reset_level_attempt(5)
 
         self.assertEqual(game_state.get_windfall_boss_victories(), 0)
+
+    def test_risk_premium_progress_resets_with_gold_run_effects(self):
+        game_state.gold_cards[:] = [431]
+        game_state.set_active_gold_cards([431])
+        game_state.risk_premium_h_rounds = 3
+
+        game_state.reset_level_attempt(5)
+
+        self.assertEqual(game_state.get_risk_premium_h_rounds(), 0)
 
     def test_capital_preservation_does_not_keep_gold_after_level_completion(self):
         game_state.gold_cards[:] = [401]

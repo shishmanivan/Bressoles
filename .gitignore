@@ -11,6 +11,7 @@ Thumbs.db
 # Local saves / runtime data
 Profiles/
 GameStats.csv
+GoldenStockChecks.log
 
 # Codex local attachments
 .codex-remote-attachments/

@@ -6,7 +6,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import game_state
 from boss_logic import apply_boss_functionality
-from gameplay_page import GameplayPage
+from gameplay_page import LEVEL6_STARTING_A_SHARES, GameplayPage
 from gameplay_trade_actions import apply_arrow_trade
 from simple_stock_bot import SimpleStockBot
 
@@ -182,9 +182,10 @@ class StockBotTurnTests(unittest.TestCase):
         page._stock_bot_portfolio_value.return_value = 41
         self.assertFalse(page._can_win_against_current_boss())
 
-    def test_level6_enables_the_competing_boss_stock_bot(self):
+    def test_level6_enables_bot3_for_the_capital_race(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 6
+        page.is_boss_fight = True
         page.boss_index = 0
         page.boss_filename = "2_AdamSmith.png"
         page.stock_bot_enabled = False
@@ -193,8 +194,27 @@ class StockBotTurnTests(unittest.TestCase):
         page._configure_boss_stock_bot()
 
         self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "simple")
+        self.assertEqual(page.stock_bot_type, "reinvestment")
+        self.assertEqual(LEVEL6_STARTING_A_SHARES, 2)
         self.assertEqual(page.stock_bot_start_quantities, {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0})
+
+    def test_level6_requires_strictly_more_capital_than_bot3(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 6
+        page.is_boss_fight = True
+        page.stock_bot_enabled = True
+        self.assertTrue(page.stock_bot_enabled)
+        page.Money = 20
+        page.Goal = 0
+        page.Aquantity = 2
+        page.Bquantity = page.Cquantity = 0
+        page.Aprice = 10
+        page.BPrice = page.CPrice = 2
+        page._stock_bot_portfolio_value = mock.Mock(return_value=40)
+
+        self.assertFalse(page._can_win_against_current_boss())
+        page.Money = 21
+        self.assertTrue(page._can_win_against_current_boss())
 
 
 class BossTradingConstraintTests(unittest.TestCase):
@@ -264,21 +284,25 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertTrue(page.boss_forbid_price_2_buys)
         self.assertEqual(page.stock_bot_blocked_buy_prices, {2})
 
-    def test_level5_first_boss_starts_even_with_player_on_two_a_shares(self):
+    def test_level5_first_category_boss_does_not_enable_stock_trading(self):
         page = self._page()
         page.level_number = 5
         page.boss_index = 0
         page.defeated_count = 0
         page._get_active_boss_number = mock.Mock(return_value=2)
+        page.stock_bot_enabled = True
+        page.stock_bot = mock.Mock()
+        page._stock_bot_saved_state = {"money": 10}
+        page.stock_bot_start_quantities = {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0}
+        page.stock_bot_blocked_buy_prices = {2}
 
         page._configure_level5_boss_stock_bot()
 
-        self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "simple")
-        self.assertEqual(
-            page.stock_bot_start_quantities,
-            {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0},
-        )
+        self.assertFalse(page.stock_bot_enabled)
+        self.assertIsNone(page.stock_bot)
+        self.assertIsNone(page._stock_bot_saved_state)
+        self.assertIsNone(page.stock_bot_start_quantities)
+        self.assertEqual(page.stock_bot_blocked_buy_prices, set())
 
     def test_category_two_bosses_use_their_balanced_b_shares_on_level5(self):
         for boss_number, expected_b_shares in ((8, 12), (9, 4), (11, 4), (12, 4), (13, 4), (14, 4)):
@@ -298,7 +322,7 @@ class BossTradingConstraintTests(unittest.TestCase):
                     {"Aquantity": 0, "Bquantity": expected_b_shares, "Cquantity": 0},
                 )
 
-    def test_category_one_bosses_start_with_two_a_shares_on_level5(self):
+    def test_category_one_bosses_do_not_trade_on_level5(self):
         page = self._page()
         page.level_number = 5
         page.boss_index = 0
@@ -307,12 +331,8 @@ class BossTradingConstraintTests(unittest.TestCase):
 
         page._configure_boss_stock_bot()
 
-        self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "simple")
-        self.assertEqual(
-            page.stock_bot_start_quantities,
-            {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0},
-        )
+        self.assertFalse(page.stock_bot_enabled)
+        self.assertIsNone(page.stock_bot_start_quantities)
 
     def test_level4_does_not_enable_boss_stock_trading(self):
         page = self._page()
@@ -384,9 +404,30 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         self.assertIs(page._get_trade_arrow_image(2, 3, original), original)
         self.assertEqual(page._get_dimmed_arrow.call_count, 4)
 
-    def test_effect_never_runs_outside_level_four(self):
+    def test_level5_uses_shareholder_market_shutdown_rule(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 5
+        page.win_lose_state = None
+        page.shareholder_effect_count = 3
+        page.shareholder_blocked_market = None
+        page.Day = 1
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_gold_cards = []
+        page.side_cards_top = [100, None, None, None, None, None]
+        page.side_card_jump_animations = {}
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.card_jump_animations = {0: {}, 1: {}, 2: {}}
+
+        with (
+            mock.patch("gameplay_page.random.random", return_value=0.19),
+            mock.patch("gameplay_page.random.choice", return_value=1),
+        ):
+            self.assertEqual(page._roll_shareholder_market_shutdown(), 1)
+
+    def test_effect_never_runs_outside_supported_levels(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 3
         page.win_lose_state = None
         page.shareholder_effect_count = 6
         page.shareholder_blocked_market = 1
@@ -397,9 +438,9 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         roll.assert_not_called()
         self.assertIsNone(page.shareholder_blocked_market)
 
-    def test_level6_also_uses_the_shareholder_market_shutdown_rule(self):
+    def test_level8_uses_the_moved_shareholder_market_shutdown_rule(self):
         page = GameplayPage.__new__(GameplayPage)
-        page.level_number = 6
+        page.level_number = 8
         page.win_lose_state = None
         page.shareholder_effect_count = 3
         page.shareholder_blocked_market = None
@@ -614,9 +655,9 @@ class RebateLiquidationTests(unittest.TestCase):
 
     def test_uptrend_adds_current_napoleondors_after_rebate_synergies(self):
         cases = (
-            (True, False, False, 0, 38),
-            (True, True, False, 0, 50),
-            (True, True, True, 4, 63),
+            (True, False, False, 0, 40),
+            (True, True, False, 0, 52),
+            (True, True, True, 4, 65),
         )
         with mock.patch.object(game_state, "napoleondors", 5):
             for red_rebate, silver_rebate, gold_rebate, fall_bonus, expected_proceeds in cases:
@@ -651,7 +692,7 @@ class RebateLiquidationTests(unittest.TestCase):
         page._has_played_side_card = mock.Mock(return_value=False)
 
         with mock.patch.object(game_state, "napoleondors", 5.5):
-            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 5)
+            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 10)
             self.assertFalse(page._apply_final_auto_liquidation_if_needed())
 
     def test_duplicate_uptrend_adds_napoleondors_once_per_copy(self):
@@ -664,8 +705,8 @@ class RebateLiquidationTests(unittest.TestCase):
         page.rebate_a_fall_bonus_percent = 0
 
         with mock.patch.object(game_state, "napoleondors", 5):
-            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 10)
-            self.assertEqual(page._get_current_rebate_sale_percent(), 140)
+            self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 20)
+            self.assertEqual(page._get_current_rebate_sale_percent(), 150)
 
     def test_no_rebate_leaves_terminal_shares_for_the_normal_loss_check(self):
         page = self._page()
@@ -711,8 +752,8 @@ class DisclosureGameplayTests(unittest.TestCase):
             uptrend = page._get_disclosure_card_tooltip_content(410)
 
             self.assertIn("10%", golden[1])
-        self.assertIn("144%", rebate[1])
-        self.assertIn("+12%", uptrend[1])
+        self.assertIn("156%", rebate[1])
+        self.assertIn("+24%", uptrend[1])
 
     def test_disclosure_card_percentages_are_hidden_after_expiration(self):
         page = self._page()

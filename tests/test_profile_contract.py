@@ -13,6 +13,20 @@ import game_state
 
 
 class ProfileContractTests(unittest.TestCase):
+    def test_risk_premium_progress_is_stored_and_restored(self):
+        original = game_state.risk_premium_h_rounds
+        try:
+            game_state.risk_premium_h_rounds = 3
+            progress = profile_manager._capture_progress()
+            self.assertEqual(progress["risk_premium_h_rounds"], 3)
+
+            profile = profile_manager._default_profile(1)
+            profile["progress"]["risk_premium_h_rounds"] = 4
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertEqual(game_state.get_risk_premium_h_rounds(), 4)
+        finally:
+            game_state.risk_premium_h_rounds = original
+
     def test_windfall_progress_is_stored_and_restored(self):
         original = game_state.windfall_boss_victories
         try:

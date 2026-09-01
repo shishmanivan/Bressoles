@@ -296,6 +296,23 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertFalse(page._consume_accumulation_charge(1, 0, 0))
         self.assertEqual(page.accumulation_pending_sources, [0])
 
+    def test_accumulation_enhanced_gain_drop_still_uses_stephenson_turn_limit(self):
+        page = self._page()
+        page.boss_limit_red_gain_drop_per_turn = True
+        page.side_cards_top[0] = 124
+        page.accumulation_pending_sources = [0]
+        page.market_cards[0][0] = 11
+        page.market_card_turns[0][0] = 1
+        page.card_actions = {11: 2, 12: 2}
+        page.card_turns = {11: 1, 12: 2}
+
+        self.assertTrue(page._consume_accumulation_charge(11, 0, 0))
+        self.assertTrue(page.market_cards_locked[0][0])
+        self.assertFalse(page._can_play_dragged_hand_card_on_market(12))
+
+        page._lock_market_cards()
+        self.assertTrue(page._can_play_dragged_hand_card_on_market(12))
+
     def test_breakout_can_be_played_only_on_the_last_playable_turn(self):
         page = self._page()
         page.Day = 1

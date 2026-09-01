@@ -224,7 +224,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(round_pages[0].boss_filename, "4_NicolasApper.png")
         self.assertEqual(game_state.boss_progress[6]["current_boss"]["boss_filename"], "4_NicolasApper.png")
 
-    def test_level_six_first_boss_victory_returns_to_level_menu_and_resets_attempt(self):
+    def test_level_eight_third_boss_victory_returns_to_level_menu_and_resets_attempt(self):
         roster = [
             ["4_NicolasApper.png"],
             ["2_AdamSmith.png"],
@@ -291,12 +291,12 @@ class MainFlowIntegrationTests(unittest.TestCase):
             def run(self):
                 return "next"
 
-        def pin_level6(state, bosses_required):
+        def pin_level8(state, bosses_required):
             state["roster"] = copy.deepcopy(roster)
             return state["roster"]
 
         start_page = self._sequenced_page(["start"])
-        level_page = self._sequenced_page(["level_6", "quit"])
+        level_page = self._sequenced_page(["level_8", "quit"])
         with (
             patch.object(Main, "StartPage", start_page),
             patch.object(Main, "GameScreen", level_page),
@@ -304,16 +304,18 @@ class MainFlowIntegrationTests(unittest.TestCase):
             patch.object(Main, "RoundPage", FakeRoundPage),
             patch.object(Main, "GameplayPage", WinningGameplayPage),
             patch.object(Main, "ShopPage", CountingShopPage),
-            patch.object(Main, "_ensure_level6_roster", side_effect=pin_level6),
+            patch.object(Main, "_ensure_level8_roster", side_effect=pin_level8),
         ):
             Main.main()
 
-        self.assertEqual(len(gameplay_contexts), 4)
-        self.assertEqual(sum(bool(context.get("is_boss_fight")) for context in gameplay_contexts), 1)
-        self.assertEqual(shop_visits, [6, 6, 6])
-        self.assertEqual(game_state.boss_progress[6]["defeated"], 0)
-        self.assertIsNone(game_state.boss_progress[6]["current_boss"])
-        self.assertEqual(game_state.boss_progress[6]["round_progress"], {})
+        self.assertEqual(len(gameplay_contexts), 12)
+        self.assertEqual(sum(bool(context.get("is_boss_fight")) for context in gameplay_contexts), 3)
+        self.assertTrue(all(context.get("boss_filename") == "8_List.png" for context in gameplay_contexts[-4:]))
+        self.assertTrue(all(context.get("defeated_count") == 2 for context in gameplay_contexts[-4:]))
+        self.assertEqual(shop_visits, [8] * 11)
+        self.assertEqual(game_state.boss_progress[8]["defeated"], 0)
+        self.assertIsNone(game_state.boss_progress[8]["current_boss"])
+        self.assertEqual(game_state.boss_progress[8]["round_progress"], {})
         self.assertIsNone(profile_manager.get_active_game(1))
 
     def test_levels_two_to_five_complete_every_campaign_position(self):

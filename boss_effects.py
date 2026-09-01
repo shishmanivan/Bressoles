@@ -52,6 +52,8 @@ REWARD_KINDS = {
     "shopofferplus1": "shop_offer_plus1",
     "extrashopoffer": "shop_offer_plus1",
     "napoleondors20": "napoleondors_20",
+    "rarecardpoolplus10": "rare_card_pool_plus10",
+    "astorrarecardplus10": "rare_card_pool_plus10",
 }
 
 FUNCTIONALITY_KINDS = {
@@ -77,6 +79,8 @@ FUNCTIONALITY_KINDS = {
     "sayturntimer": "turn_timer",
     "halfroundnapoleondors": "half_round_napoleondors",
     "peabodyhalfroundreward": "half_round_napoleondors",
+    "burncashendturn": "burn_cash_end_turn",
+    "astorburncash": "burn_cash_end_turn",
     "simplestockbot": "simple_stock_bot",
     "stockbot": "simple_stock_bot",
     "bot": "simple_stock_bot",

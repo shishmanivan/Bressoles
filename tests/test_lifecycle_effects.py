@@ -16,6 +16,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.original_state = {
             "bear_goal_reduction_steps": game_state.bear_goal_reduction_steps,
             "windfall_boss_victories": game_state.windfall_boss_victories,
+            "risk_premium_h_rounds": game_state.risk_premium_h_rounds,
             "insurance_goal_debt": game_state.insurance_goal_debt,
             "Frugality": game_state.Frugality,
             "napoleondors": game_state.napoleondors,
@@ -25,6 +26,7 @@ class LifecycleEffectTests(unittest.TestCase):
         }
         game_state.bear_goal_reduction_steps = 0
         game_state.windfall_boss_victories = 0
+        game_state.risk_premium_h_rounds = 0
         game_state.insurance_goal_debt = 0
         game_state.Frugality = 0
         game_state.napoleondors = 0
@@ -408,6 +410,54 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertFalse(page._record_windfall_boss_victory_progress())
         self.assertEqual(game_state.get_windfall_boss_victories(), 0)
 
+    def test_risk_premium_records_h_round_immediately_and_not_on_restore(self):
+        page = self._page(gold=[431])
+        page.difficulty = "h"
+        page._initial_saved_state = None
+
+        self.assertTrue(page._apply_risk_premium_round_start_bonus())
+        self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 10)
+
+        resumed = self._page(gold=[431])
+        resumed.difficulty = "h"
+        resumed._initial_saved_state = {"Day": 1}
+        self.assertFalse(resumed._apply_risk_premium_round_start_bonus())
+        self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 10)
+
+    def test_risk_premium_ignores_non_h_rounds_and_requires_an_active_copy(self):
+        page = self._page(gold=[431])
+        page.difficulty = "m"
+        page._initial_saved_state = None
+        self.assertFalse(page._apply_risk_premium_round_start_bonus())
+
+        page.active_gold_cards = []
+        page.difficulty = "h"
+        self.assertFalse(page._apply_risk_premium_round_start_bonus())
+        self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 0)
+
+    def test_risk_premium_adds_ten_per_h_round_for_each_active_copy(self):
+        game_state.risk_premium_h_rounds = 2
+        page = self._page(gold=[407, 431])
+        page.rebate_a_fall_bonus_percent = 0
+        page.side_cards_top = []
+        page.hand_cards = []
+
+        self.assertEqual(page._get_risk_premium_rebate_bonus_percent(), 20)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 150)
+
+        page.active_gold_cards.append(431)
+        self.assertEqual(page._get_risk_premium_rebate_bonus_percent(), 40)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 170)
+
+    def test_risk_premium_field_description_shows_current_bonus(self):
+        game_state.risk_premium_h_rounds = 2
+        page = self._page(gold=[431])
+
+        title, description = page._get_field_card_tooltip_content(431)
+
+        self.assertEqual(title, "Risk Premium")
+        self.assertIn("Текущий бонус карты: +20%", description)
+
     def test_gold_disclosure_stacks_only_with_probability_effects(self):
         page = self._page(gold=[427, 427])
 
@@ -425,9 +475,9 @@ class LifecycleEffectTests(unittest.TestCase):
         page.Aquantity, page.Bquantity, page.Cquantity = 1, 0, 0
         page.lifecycle_card_jump_animations = {}
 
-        with mock.patch("gameplay_page.random.randint", return_value=22):
+        with mock.patch("gameplay_page.random.randint", return_value=17):
             self.assertEqual(len(page._build_advance_movements()), 1)
-        with mock.patch("gameplay_page.random.randint", return_value=23):
+        with mock.patch("gameplay_page.random.randint", return_value=18):
             self.assertEqual(page._build_advance_movements(), [])
 
     def test_duplicate_insider_adds_two_c_growth_movements_on_each_active_turn(self):
@@ -466,8 +516,8 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(game_state.pending_shop_discount_percent, 60)
 
         game_state.napoleondors = 5
-        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 15)
-        self.assertEqual(page._get_current_rebate_sale_percent(), 155)
+        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 20)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 160)
 
     def test_gold_catalyst_stacks_with_silver_catalyst_for_twenty_five_points(self):
         page = self._page(silver=[210, 215], gold=[401, 406, 407, 410, 414])
@@ -487,8 +537,8 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(game_state.pending_shop_discount_percent, 75)
 
         game_state.napoleondors = 5
-        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 30)
-        self.assertEqual(page._get_current_rebate_sale_percent(), 185)
+        self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 35)
+        self.assertEqual(page._get_current_rebate_sale_percent(), 190)
 
     @staticmethod
     def _short_seller_page():
@@ -929,7 +979,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page._start_card_jump_animation = mock.Mock()
         page.typewriter_sound = None
 
-        with mock.patch("gameplay_page.random.randint", return_value=30) as roll:
+        with mock.patch("gameplay_page.random.randint", return_value=25) as roll:
             movements = page._build_advance_movements()
 
         roll.assert_called_once_with(1, 100)
@@ -958,7 +1008,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page.Aquantity = page.Bquantity = page.Cquantity = 1
         page.lifecycle_card_jump_animations = {}
 
-        with mock.patch("gameplay_page.random.randint", return_value=46) as roll:
+        with mock.patch("gameplay_page.random.randint", return_value=41) as roll:
             self.assertEqual(page._build_advance_movements(), [])
 
         roll.assert_called_once_with(1, 100)
@@ -1036,16 +1086,20 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertTrue(page._apply_sideway_reward_if_needed())
         self.assertEqual(game_state.napoleondors, 10)
 
-    def test_full_deployment_rewards_when_the_last_deck_card_is_drawn(self):
+    def test_full_deployment_requires_empty_deck_and_empty_hand(self):
         page = self._page(gold=[428])
-        page.deck = [11, 12]
+        page.deck = [11]
+        page.hand_cards = [12, None]
         page.full_deployment_reward_applied = False
         page.lifecycle_card_jump_animations = {}
         page._start_card_jump_animation = mock.Mock()
 
         self.assertEqual(page._draw_next_deck_card(), 11)
         self.assertEqual(game_state.napoleondors, 0)
-        self.assertEqual(page._draw_next_deck_card(), 12)
+        self.assertFalse(page._apply_full_deployment_reward_if_needed())
+
+        page.hand_cards = [None, None]
+        self.assertTrue(page._apply_full_deployment_reward_if_needed())
         self.assertEqual(game_state.napoleondors, 7)
         self.assertTrue(page.full_deployment_reward_applied)
         self.assertFalse(page._apply_full_deployment_reward_if_needed())
@@ -1058,6 +1112,7 @@ class LifecycleEffectTests(unittest.TestCase):
     def test_duplicate_full_deployment_awards_fourteen_napoleondors(self):
         page = self._page(gold=[428, 428])
         page.deck = []
+        page.hand_cards = []
         page.full_deployment_reward_applied = False
         page.lifecycle_card_jump_animations = {}
         page._start_card_jump_animation = mock.Mock()
@@ -1066,6 +1121,69 @@ class LifecycleEffectTests(unittest.TestCase):
 
         self.assertEqual(game_state.napoleondors, 14)
         self.assertEqual(page._start_card_jump_animation.call_count, 2)
+
+    def test_waterloo_stores_the_roll_without_ending_the_turn(self):
+        page = self._page(gold=[430])
+        page.waterloo_preview_movements = None
+        page.lifecycle_card_scale_animations = {}
+        movements = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 1, "type": "fall", "price_change": -4},
+            {"market": 2, "type": "unchanged", "price_change": 0},
+        ]
+        page.update_stock_prices = mock.Mock(return_value=movements)
+        page._reset_boss_turn_timer = mock.Mock()
+        page._save_active_game = mock.Mock()
+
+        with mock.patch.object(gameplay_page.random, "randint", return_value=15):
+            self.assertTrue(page._try_start_waterloo_preview())
+
+        self.assertEqual(page.waterloo_preview_movements, movements)
+        page.update_stock_prices.assert_called_once_with()
+        page._reset_boss_turn_timer.assert_called_once_with()
+        page._save_active_game.assert_called_once_with()
+        self.assertIn(0, page.lifecycle_card_scale_animations)
+
+    def test_duplicate_waterloo_cards_each_get_a_check(self):
+        page = self._page(gold=[430, 430])
+        page.waterloo_preview_movements = None
+        page.lifecycle_card_scale_animations = {}
+        page.update_stock_prices = mock.Mock(return_value=[])
+        page._reset_boss_turn_timer = mock.Mock()
+        page._save_active_game = mock.Mock()
+
+        with mock.patch.object(gameplay_page.random, "randint", side_effect=[16, 15]) as roll:
+            self.assertTrue(page._try_start_waterloo_preview())
+
+        self.assertEqual(roll.call_count, 2)
+        self.assertIn(1, page.lifecycle_card_scale_animations)
+
+    def test_waterloo_chance_is_strengthened_by_catalyst_and_disclosure(self):
+        page = self._page(silver=[210], gold=[414, 427, 430])
+
+        self.assertEqual(page._get_waterloo_chance(), 42)
+
+    def test_second_waterloo_end_turn_uses_the_saved_roll(self):
+        page = self._page(gold=[430])
+        movements = [{"market": 2, "type": "rise", "price_change": 6}]
+        page.waterloo_preview_movements = movements
+        page.update_stock_prices = mock.Mock()
+
+        self.assertEqual(page._take_waterloo_preview_or_roll(), movements)
+        self.assertIsNone(page.waterloo_preview_movements)
+        page.update_stock_prices.assert_not_called()
+
+    def test_waterloo_forecast_calculates_additive_and_multiplier_movements(self):
+        page = self._page(gold=[415, 420, 430])
+        page.Aprice, page.BPrice, page.CPrice = 4, 8, 12
+        movements = [
+            {"market": 0, "type": "rise", "price_change": 2},
+            {"market": 1, "type": "fall", "price_change": -10},
+            {"market": (0, 2), "type": "rise", "price_change": 0, "source": "advance"},
+            {"market": 0, "type": "rise", "price_change": 0, "source": "surge"},
+        ]
+
+        self.assertEqual(page._calculate_waterloo_preview_prices(movements), (36, 2, 24))
 
     def test_continuation_rewards_second_and_later_consecutive_growth(self):
         page = self._page(gold=[419])

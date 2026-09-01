@@ -48,6 +48,11 @@ def get_stats_file(slot):
     return os.path.join(PROFILES_DIR, f"GameStats_profile_{int(slot)}.csv")
 
 
+def get_level6_experiment_stats_file(slot):
+    ensure_profiles_dir()
+    return os.path.join(PROFILES_DIR, f"Level6ExperimentStats_profile_{int(slot)}.csv")
+
+
 def get_shop_card_stats_file(slot):
     ensure_profiles_dir()
     return os.path.join(PROFILES_DIR, f"ShopCardStats_profile_{int(slot)}.csv")
@@ -110,6 +115,8 @@ def _empty_progress():
         "issuer_bought_count": 0,
         "boss_lifecycle_slot_bonus": 0,
         "boss_shop_offer_bonus": 0,
+        "boss_rare_card_pool_bonus_percent": 0,
+        "deal_flow_bonus_percent": 0,
         "bank_bought": False,
         "bank_interest_base": None,
         "multibagger_bought": False,
@@ -124,6 +131,7 @@ def _empty_progress():
         "loan_boss_positions_by_level": {},
         "napoleondors": 0,
         "napoleondor_level": None,
+        "pending_finance_report_entries": [],
         "earned_reward_cards": {},
         "round_reward_cards": {},
         "shop_deck_cards": [],
@@ -131,6 +139,7 @@ def _empty_progress():
         "investment_card_bonuses": {},
         "profit_reward_bonus": 0,
         "updown_probability_bonus": 0,
+        "variance_offer_bought_count": 0,
         "pending_shop_discount_percent": 0,
         "correction_shop_cooldown": 0,
         "bailout_rounds_remaining": 0,
@@ -148,6 +157,7 @@ def _empty_progress():
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "windfall_boss_victories": 0,
+        "risk_premium_h_rounds": 0,
         "insurance_goal_debt": 0,
         "Frugality": 0,
         "guaranteed_start_hand_cards_by_level": {},
@@ -330,6 +340,20 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.boss_shop_offer_bonus = 0
+    try:
+        game_state.boss_rare_card_pool_bonus_percent = max(
+            0,
+            min(10, int(progress.get("boss_rare_card_pool_bonus_percent", 0) or 0)),
+        )
+    except (TypeError, ValueError):
+        game_state.boss_rare_card_pool_bonus_percent = 0
+    try:
+        game_state.deal_flow_bonus_percent = max(
+            0,
+            min(100, int(progress.get("deal_flow_bonus_percent", 0) or 0)),
+        )
+    except (TypeError, ValueError):
+        game_state.deal_flow_bonus_percent = 0
     game_state.bank_bought = bool(progress.get("bank_bought", False))
     try:
         game_state.bank_interest_base = (
@@ -387,13 +411,37 @@ def apply_profile_to_game_state(profile_or_slot):
         game_state.napoleondor_level = int(progress.get("napoleondor_level"))
     except (TypeError, ValueError):
         game_state.napoleondor_level = None
+    game_state.pending_finance_report_entries = []
+    for entry in progress.get("pending_finance_report_entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("source") or "") == "starting_bonus":
+            try:
+                amount = max(0.0, float(entry.get("amount", 0) or 0))
+            except (TypeError, ValueError):
+                amount = 0.0
+            game_state.pending_finance_report_entries.append(
+                {"source": "starting_bonus", "amount": amount}
+            )
+        else:
+            game_state.record_finance_report_income(entry.get("source"), entry.get("amount"))
     game_state.earned_reward_cards = _restore_int_key_lists(progress.get("earned_reward_cards") or {})
     game_state.round_reward_cards = _restore_int_key_lists(progress.get("round_reward_cards") or {})
     game_state.shop_deck_cards = _restore_int_list(progress.get("shop_deck_cards") or [])
     game_state.removed_deck_cards_by_level = _restore_int_key_lists(progress.get("removed_deck_cards_by_level") or {})
-    game_state.investment_card_bonuses = _restore_int_value_dict(progress.get("investment_card_bonuses") or {})
+    game_state.investment_card_bonuses = {
+        card_id: bonus
+        for card_id, bonus in _restore_int_value_dict(
+            progress.get("investment_card_bonuses") or {}
+        ).items()
+        if game_state.is_investment_eligible_card(card_id)
+    }
     game_state.profit_reward_bonus = int(progress.get("profit_reward_bonus", 0) or 0)
     game_state.updown_probability_bonus = max(0, int(progress.get("updown_probability_bonus", 0) or 0))
+    game_state.variance_offer_bought_count = max(
+        0,
+        int(progress.get("variance_offer_bought_count", 0) or 0),
+    )
     try:
         game_state.pending_shop_discount_percent = max(
             0,
@@ -461,6 +509,13 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.windfall_boss_victories = 0
+    try:
+        game_state.risk_premium_h_rounds = max(
+            0,
+            int(progress.get("risk_premium_h_rounds", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        game_state.risk_premium_h_rounds = 0
     try:
         game_state.insurance_goal_debt = max(0, int(progress.get("insurance_goal_debt", 0) or 0))
     except (TypeError, ValueError):
@@ -538,6 +593,8 @@ def _capture_progress():
         "issuer_bought_count": game_state.get_issuer_bought_count(),
         "boss_lifecycle_slot_bonus": max(0, int(game_state.boss_lifecycle_slot_bonus or 0)),
         "boss_shop_offer_bonus": game_state.get_boss_shop_offer_bonus(),
+        "boss_rare_card_pool_bonus_percent": game_state.get_boss_rare_card_pool_bonus(),
+        "deal_flow_bonus_percent": game_state.get_deal_flow_bonus(),
         "bank_bought": bool(game_state.bank_bought),
         "bank_interest_base": game_state.bank_interest_base,
         "multibagger_bought": bool(game_state.multibagger_bought),
@@ -559,13 +616,19 @@ def _capture_progress():
         ),
         "napoleondors": float(game_state.napoleondors),
         "napoleondor_level": game_state.napoleondor_level,
+        "pending_finance_report_entries": [
+            dict(entry) for entry in game_state.pending_finance_report_entries
+        ],
         "earned_reward_cards": _serialize_int_key_lists(game_state.earned_reward_cards),
         "round_reward_cards": _serialize_int_key_lists(game_state.round_reward_cards),
         "shop_deck_cards": _serialize_int_list(game_state.shop_deck_cards),
         "removed_deck_cards_by_level": _serialize_int_key_lists(game_state.removed_deck_cards_by_level),
-        "investment_card_bonuses": _serialize_int_value_dict(game_state.investment_card_bonuses),
+        "investment_card_bonuses": _serialize_int_value_dict(
+            game_state.get_active_investment_card_bonuses()
+        ),
         "profit_reward_bonus": int(game_state.profit_reward_bonus),
         "updown_probability_bonus": game_state.get_updown_probability_bonus(),
+        "variance_offer_bought_count": max(0, int(game_state.variance_offer_bought_count or 0)),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
@@ -583,6 +646,7 @@ def _capture_progress():
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "windfall_boss_victories": game_state.get_windfall_boss_victories(),
+        "risk_premium_h_rounds": game_state.get_risk_premium_h_rounds(),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "Frugality": max(0, int(game_state.Frugality or 0)),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(

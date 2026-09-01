@@ -38,6 +38,15 @@ SILVER_ROW_Y = 252
 BLACK_ROW_Y = 450
 GOLD_ROW_Y = 648
 INVENTORY_ROW_GAP = 34
+
+
+def is_markdown_effective_for_round(round_number, is_boss_fight=False):
+    if is_boss_fight:
+        return False
+    try:
+        return int(round_number) in (3, 4)
+    except (TypeError, ValueError):
+        return False
 ACTIVE_ROW_GAP = 42
 POSITIONING_CARDS_PER_PAGE = 24
 POSITIONING_GRID_COLUMNS = 8
@@ -91,7 +100,7 @@ CARD_TOOLTIPS = {
     ),
     210: (
         "Catalyst",
-        "Усиливает числовые процентные эффекты карт на 10 процентных пунктов, сохраняя полезное направление эффекта.",
+        "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
     ),
     211: (
         "Short Seller",
@@ -100,6 +109,10 @@ CARD_TOOLTIPS = {
     212: (
         "Manipulation",
         "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
+    ),
+    213: (
+        "Concentration",
+        "Пока активна, убирает из игры все Upside и Downside.",
     ),
     214: ("Grant", "Добавляет 4 к стартовым деньгам в начале раунда."),
     215: (
@@ -171,7 +184,7 @@ CARD_TOOLTIPS.update(
         ),
         410: (
             "Uptrend",
-            "Добавляет к эффекту Rebate по 1% за каждый имеющийся наполеондор.",
+            "Добавляет к эффекту Rebate по 2% за каждый имеющийся наполеондор.",
         ),
         411: (
             "Spoofing",
@@ -187,7 +200,7 @@ CARD_TOOLTIPS.update(
         ),
         414: (
             "Catalyst",
-            "Усиливает числовые процентные эффекты карт на 15 процентных пунктов, сохраняя полезное направление эффекта.",
+            "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
         ),
         415: (
             "Surge",
@@ -211,7 +224,7 @@ CARD_TOOLTIPS.update(
         ),
         420: (
             "Advance",
-            "С шансом 20% удваивает цены всех акций, которыми владеет игрок. Карты, добавляющие процентные пункты, повышают этот шанс.",
+            "С шансом 15% удваивает цены всех акций, которыми владеет игрок.",
         ),
         421: (
             "Issue Price",
@@ -243,7 +256,19 @@ CARD_TOOLTIPS.update(
         ),
         428: (
             "Full Deployment",
-            "Даёт 7 наполеондоров, если вся колода израсходована.",
+            "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
+        ),
+        429: (
+            "Concentration",
+            "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
+        ),
+        430: (
+            "Waterloo",
+            "С вероятностью 15% показывает следующий рыночный бросок и позволяет переиграть ход.",
+        ),
+        431: (
+            "Risk Premium",
+            "Каждый начатый раунд H добавляет 10 процентных пунктов к итоговому эффекту Rebate.",
         ),
     }
 )
@@ -263,6 +288,7 @@ class SilverBlackPage:
         active_gold_cards=None,
         active_lifecycle_card_order=None,
         is_boss_fight=False,
+        round_number=None,
         lang_dict=None,
     ):
         self.screen = screen
@@ -272,6 +298,7 @@ class SilverBlackPage:
         self.black_cards = list(black_cards or [])[:CARD_ROW_SLOTS]
         self.gold_cards = list(gold_cards or [])[:CARD_ROW_SLOTS]
         self.is_boss_fight = bool(is_boss_fight)
+        self.round_number = round_number
         self.lang = lang_dict or {}
         self.selected_entries = []
         self.active_slot_count = game_state.get_lifecycle_card_slot_limit()
@@ -285,6 +312,10 @@ class SilverBlackPage:
         self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
         self.placeholder = self._load_placeholder()
+        self.negative_card_overlay = self._load_image(
+            os.path.join("Cards", "Arts", "Negative.png"),
+            (self.card_width, self.card_height),
+        )
         self.card_images = {}
         self.tooltip_title_font = pygame.font.Font(self.font_path, 27)
         self.tooltip_text_font = pygame.font.Font(self.font_path, 22)
@@ -583,6 +614,22 @@ class SilverBlackPage:
                 PAPER_COLOR,
                 modifier_percent=game_state.get_bear_goal_discount_percent([card_id]),
             )
+            if self._should_show_negative_overlay(card_id) and self.negative_card_overlay:
+                self.screen.blit(self.negative_card_overlay, rect.topleft)
+
+    def _should_show_negative_overlay(self, card_id):
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            return False
+        if normalized == 302:
+            return game_state.is_golden_stocks_triggered()
+        if normalized == 422:
+            return not is_markdown_effective_for_round(
+                self.round_number,
+                self.is_boss_fight,
+            )
+        return False
 
     def _draw_tint(self, rect, color):
         tint = pygame.Surface(rect.size, pygame.SRCALPHA)
@@ -591,7 +638,7 @@ class SilverBlackPage:
 
     def _is_card_disabled(self, card_id):
         try:
-            return self.is_boss_fight and int(card_id) == 220
+            return self.is_boss_fight and int(card_id) in {211, 220}
         except (TypeError, ValueError):
             return False
 
@@ -662,6 +709,11 @@ class SilverBlackPage:
             return "Случайная серебряная карта", "При получении превращается в случайную доступную серебряную карту."
         if normalized in CARD_TOOLTIPS:
             title, description = CARD_TOOLTIPS[normalized]
+            if normalized == 431:
+                description = (
+                    f"{description} Текущий бонус карты: "
+                    f"+{game_state.get_risk_premium_card_bonus_percent()}%."
+                )
             if self._is_card_disabled(normalized):
                 description = f"НЕДОСТУПНО ПЕРЕД БОССОМ. {description}"
             return title, description

@@ -8,32 +8,30 @@ import game_state
 from boss_effects import parse_boss_functionality_spec, parse_boss_reward_spec
 from boss_logic import BOSS_LEVELS, _generate_level6_boss_roster, get_configured_levels, resolve_boss_number
 from content_validation import _read_csv_rows, validate_game_content
-from game_data import load_boss_rewards, load_cards_config, load_goals_level5, load_goals_level6, load_language
+from game_data import load_boss_rewards, load_cards_config, load_goals_level5, load_goals_level8, load_language
 from round_page import RoundPage
 from round_page_helpers import resolve_boss_goal
 
 
 class ContentValidationTests(unittest.TestCase):
-    def test_level6_goals_and_roster_match_the_testing_contract(self):
-        goals = load_goals_level6()
+    def test_level8_goals_and_roster_match_the_testing_contract(self):
+        goals = load_goals_level8()
         self.assertEqual([goals[key][1] for key in ("E", "M", "H")], [100, 120, 150])
-        for boss_position in range(1, 5):
-            round_two_key = 2 if boss_position == 1 else (boss_position, 2)
-            round_three_key = 3 if boss_position == 1 else (boss_position, 3)
-            self.assertEqual(
-                [goals[key][round_two_key] for key in ("E", "M", "H")],
-                [350, 400, 500],
-            )
-            self.assertEqual(
-                [goals[key][round_three_key] for key in ("E", "M", "H")],
-                [450, 550, 650],
-            )
-            round_four_key = 4 if boss_position == 1 else (boss_position, 4)
-            self.assertEqual(
-                [goals[key][round_four_key] for key in ("E", "M", "H")],
-                [450, 550, 650],
-            )
-            self.assertEqual(goals["E"][("boss", boss_position)], 900)
+        self.assertEqual(
+            [[goals[key][round_number] for key in ("E", "M", "H")] for round_number in range(1, 5)],
+            [[100, 120, 150], [250, 300, 400], [350, 450, 550], [450, 550, 650]],
+        )
+        self.assertEqual(
+            [[goals[key][(2, round_number)] for key in ("E", "M", "H")] for round_number in range(1, 5)],
+            [[250, 350, 500], [500, 600, 750], [900, 1000, 1150], [1000, 1100, 1250]],
+        )
+        self.assertEqual(
+            [[goals[key][(3, round_number)] for key in ("E", "M", "H")] for round_number in range(1, 5)],
+            [[350, 450, 600], [650, 750, 900], [1000, 1100, 1250], [1000, 1100, 1250]],
+        )
+        self.assertEqual(goals["E"][("boss", 1)], 900)
+        self.assertEqual(goals["E"][("boss", 2)], 1500)
+        self.assertEqual(goals["E"][("boss", 3)], 2000)
 
         with mock.patch("boss_logic.random.shuffle", side_effect=lambda values: None):
             roster = _generate_level6_boss_roster(4)

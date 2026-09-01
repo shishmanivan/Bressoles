@@ -111,7 +111,7 @@ def build_round_button_base_rects(button_goals, button_images, button_x=350, bas
 
 def load_boss_icon_assets(level_number, boss_index, boss_filename, completed_count, level_rounds, prev_selection_rect, fallback_anchor_rect):
     """Load the boss icon and its animation frames when boss becomes active."""
-    if level_rounds <= 0 or completed_count < level_rounds:
+    if level_rounds < 0 or completed_count < level_rounds:
         return None, None, []
 
     resolved_boss_filename = boss_filename

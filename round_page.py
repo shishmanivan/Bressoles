@@ -104,7 +104,10 @@ class RoundPage:
         rounds_cfg_value = (levels_cfg.get(self.level_number, {}) or {}).get("Rounds")
         if rounds_cfg_value is None:
             rounds_cfg_value = level_cfg.get("Rounds")
-        self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
+        if self.level_number == 6 and rounds_cfg_value == 0:
+            self.rounds_required = 0
+        else:
+            self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
 
         if self.boss_number:
             boss_rewards = self._load_boss_rewards()
@@ -314,7 +317,7 @@ class RoundPage:
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3, 4, 5, 6):
+        if self.level_number in (2, 3, 4, 5, 8):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(
@@ -469,10 +472,12 @@ class RoundPage:
     def _load_boss_icon_if_needed(self):
         self._refresh_button_rects()
         level_rounds = self.rounds_required
-        if level_rounds <= 0:
+        if level_rounds < 0:
             return
         completed_count = len(self.completed_rounds)
         fallback_anchor_rect = self.button_e_rect or self.button_m_rect or self.button_h_rect
+        if level_rounds == 0 and fallback_anchor_rect is None:
+            fallback_anchor_rect = pygame.Rect(234, 831, 2, 2)
         self.boss_icon, self.boss_icon_rect, self.boss_animation_frames = load_boss_icon_assets(
             self.level_number,
             self.boss_index,
@@ -484,6 +489,8 @@ class RoundPage:
         )
 
     def _apply_level_rounds_functionality(self, func_string: str):
+        if self.level_number == 6:
+            return
         for effect in parse_boss_functionality_spec(func_string):
             if effect.kind != "assignment" or effect.target != "LevelRounds":
                 continue

@@ -26,6 +26,7 @@ BOSS_LEVELS = {
     "12_Ricardo.png": 2,
     "13_Say.png": 2,
     "14_Peabody.png": 2,
+    "15_Astor.png": 1,
 }
 
 CATEGORY_TWO_BASE_B_SHARES = 4
@@ -88,7 +89,13 @@ def _build_level5_default_roster():
 
 
 def _build_level6_default_roster():
-    """Build a deterministic no-choice fallback for the level-6 route."""
+    """Build the single category-one boss fallback for level 6."""
+    level_one_bosses = get_bosses_for_boss_level(1)
+    return [[level_one_bosses[0]]]
+
+
+def _build_level8_default_roster():
+    """Build a deterministic fallback for the moved marathon route."""
     level_one_bosses = get_bosses_for_boss_level(1)
     level_two_bosses = get_bosses_for_boss_level(2)
     return [
@@ -106,6 +113,7 @@ LEVEL_BOSS_ROUNDS = {
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
     6: _build_level6_default_roster(),
+    8: _build_level8_default_roster(),
 }
 
 # -------------------------------
@@ -244,7 +252,7 @@ def _generate_level6_boss_roster(bosses_required: int):
 
 
 def _ensure_level6_roster(bp_state: dict, bosses_required: int):
-    """Ensure level 6 has a stable no-choice category roster."""
+    """Ensure level 6 has one stable random category-one boss."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
     level_one_bosses = set(get_bosses_for_boss_level(1))
@@ -265,6 +273,11 @@ def _ensure_level6_roster(bp_state: dict, bosses_required: int):
     roster = _generate_level6_boss_roster(bosses_required)
     bp_state["roster"] = roster
     return roster
+
+
+def _ensure_level8_roster(bp_state: dict, bosses_required: int):
+    """Ensure the moved marathon has its stable category progression."""
+    return _ensure_level6_roster(bp_state, bosses_required)
 
 def apper_goal_boost(goal_value, multiplier=1.3):
     """Boost goal by multiplier and round UP to tens.
@@ -578,6 +591,17 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print(f"Applied boss reward ShopOfferPlus1: special shop offers={offer_count}")
             return
 
+        if normalized_reward in ("rarecardpoolplus10", "astorrarecardplus10"):
+            bonus = game_state.add_boss_rare_card_pool_bonus(10)
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            if level_num > 0:
+                game_state.start_silver_cards_deck_for_level(level_num)
+            print(
+                "Applied boss reward RareCardPoolPlus10: rare-card pool chance "
+                f"bonus={bonus}%"
+            )
+            return
+
         if normalized_reward == "napoleondors20":
             level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
             game_state.add_napoleondors(level_num, 20)
@@ -752,6 +776,11 @@ def apply_boss_functionality(func_string, gameplay_instance):
             print("Applied boss functionality: regular-round Napoleondor reward halved")
             return
 
+        if normalized_func in ("burncashendturn", "astorburncash"):
+            setattr(gameplay_instance, "boss_burns_cash_end_turn", True)
+            print("Applied boss functionality: remaining cash burns at end of turn")
+            return
+
         if normalized_func in ("simplestockbot", "stockbot", "bot"):
             setattr(gameplay_instance, "stock_bot_enabled", False)
             print("Skipped Simple stock bot functionality: stock bot is only enabled for Friedrich List")
@@ -807,7 +836,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                     boss_number = gameplay_instance._get_active_boss_number()
             except Exception:
                 boss_number = None
-            if level_num == 5:
+            if level_num == 5 and get_boss_level_from_number(boss_number) == 2:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "advanced")
                 start_quantities = {
@@ -822,7 +851,10 @@ def apply_boss_functionality(func_string, gameplay_instance):
                 print(f"Applied boss functionality: advanced stock bot enabled for boss {boss_number}")
             else:
                 setattr(gameplay_instance, "stock_bot_enabled", False)
-                print(f"Skipped advanced stock bot functionality on level {level_num}, boss {boss_number}")
+                print(
+                    f"Skipped advanced stock bot functionality on level {level_num}, "
+                    f"category-{get_boss_level_from_number(boss_number) or 0} boss {boss_number}"
+                )
             return
 
         if normalized_func == "goal=goal*1.3":
