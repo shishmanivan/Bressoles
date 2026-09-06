@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest import mock
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
@@ -31,6 +32,13 @@ class PlaceholderDropZoneTests(unittest.TestCase):
 
         self.assertEqual(candidates[0], neighbor)
         self.assertIn(first, candidates)
+
+    def test_card_placing_sound_plays_through_shared_gameplay_helper(self):
+        self.page.card_placing_sound = mock.Mock()
+
+        self.page._play_card_placing_sound()
+
+        self.page.card_placing_sound.play.assert_called_once_with()
 
 
 if __name__ == "__main__":

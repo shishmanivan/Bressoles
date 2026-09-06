@@ -60,6 +60,43 @@ class StartingHandTests(unittest.TestCase):
         self.assertIn(3, remaining)
         self.assertIn(4, remaining)
 
+    def test_downside_risk_guarantees_two_available_drop_cards(self):
+        with mock.patch("gameplay_deck.random.shuffle"):
+            remaining, hand = setup_starting_deck_and_hand(
+                level_number=3,
+                hand_size=4,
+                earned_reward_cards={3: [15, 16]},
+                guaranteed_drop_count=2,
+            )
+
+        self.assertEqual(hand[:2], [15, 16])
+        self.assertNotIn(15, remaining)
+        self.assertNotIn(16, remaining)
+
+    def test_downside_risk_uses_every_drop_card_when_fewer_than_two_exist(self):
+        with mock.patch("gameplay_deck.random.shuffle"):
+            _remaining, hand = setup_starting_deck_and_hand(
+                level_number=3,
+                hand_size=3,
+                earned_reward_cards={3: [15]},
+                guaranteed_drop_count=2,
+            )
+
+        self.assertEqual(hand[0], 15)
+
+    def test_duplicate_downside_risk_can_guarantee_four_drop_instances(self):
+        with mock.patch("gameplay_deck.random.shuffle"):
+            remaining, hand = setup_starting_deck_and_hand(
+                level_number=3,
+                hand_size=5,
+                earned_reward_cards={3: [15, 16]},
+                mirrored_cards=[15, 16],
+                guaranteed_drop_count=4,
+            )
+
+        self.assertEqual(hand[:4], [15, 16, 15, 16])
+        self.assertFalse(any(card_id in (15, 16) for card_id in remaining))
+
 
 class HandDrawTests(unittest.TestCase):
     @staticmethod
@@ -75,6 +112,7 @@ class HandDrawTests(unittest.TestCase):
         page.hand_compact_target_hand = None
         page.hand_compact_draw_count = 0
         page.hand_draw_anim = []
+        page.card_taking_sound = mock.Mock()
         return page
 
     def test_instant_draw_compacts_hand_and_preserves_card_count(self):
@@ -87,6 +125,7 @@ class HandDrawTests(unittest.TestCase):
         self.assertEqual(page.hand_cards, [1, 2, 3, 4])
         self.assertEqual(page.deck, [11])
         self.assertEqual(page.pending_draws, 0)
+        page.card_taking_sound.play.assert_called_once_with()
         self.assertCountEqual(
             page.deck + [card for card in page.hand_cards if card is not None],
             before_cards,
@@ -114,6 +153,7 @@ class HandDrawTests(unittest.TestCase):
 
         self.assertTrue(page.hand_compact_anim)
         self.assertEqual(page.deck, [3, 4])
+        page.card_taking_sound.play.assert_not_called()
 
         with mock.patch.object(pygame.time, "get_ticks", return_value=2):
             page.update_hand_compact_animation()
@@ -121,6 +161,7 @@ class HandDrawTests(unittest.TestCase):
         self.assertEqual(page.hand_cards, [1, 2, None, None])
         self.assertEqual(page.deck, [])
         self.assertEqual([entry["card_id"] for entry in page.hand_draw_anim], [3, 4])
+        page.card_taking_sound.play.assert_called_once_with()
 
         with mock.patch.object(pygame.time, "get_ticks", return_value=4):
             page.update_hand_draw_animation()

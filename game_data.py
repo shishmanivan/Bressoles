@@ -313,17 +313,12 @@ def get_level3_goal(round_num, button, defeated_count, is_boss_round=False):
     return goals[button_upper].get(r)
 
 
-def load_goals_level4():
-    """Load goals for level 4 from GoalsLevel4.csv."""
-    global _goals_level4_cache
-    if _goals_level4_cache is not None:
-        return _goals_level4_cache
+def _load_staged_goals(goals_file):
+    """Read regular, boss, and per-boss-position goals for levels 4 and 5."""
 
     goals = {"E": {}, "M": {}, "H": {}}
-    goals_file = "GoalsLevel4.csv"
     if not os.path.exists(goals_file):
-        print(f"WARNING: GoalsLevel4.csv not found: {goals_file}")
-        _goals_level4_cache = goals
+        print(f"WARNING: {goals_file} not found: {goals_file}")
         return goals
 
     try:
@@ -368,101 +363,13 @@ def load_goals_level4():
                             except (TypeError, ValueError):
                                 pass
     except Exception as e:
-        print(f"ERROR loading GoalsLevel4.csv: {e}")
+        print(f"ERROR loading {goals_file}: {e}")
 
-    _goals_level4_cache = goals
     return goals
 
 
-def get_level4_goal(round_num, button, defeated_count, is_boss_round=False):
-    """Get goal for level 4 from GoalsLevel4.csv."""
-    goals = load_goals_level4()
-    button_upper = (button or "").strip().upper()
-    if button_upper not in goals:
-        return None
-
-    if round_num is None or is_boss_round:
-        try:
-            boss_idx = int(defeated_count or 0) + 1
-        except (TypeError, ValueError):
-            boss_idx = 1
-        return goals[button_upper].get(("boss", boss_idx))
-
-    try:
-        r = int(round_num)
-    except (TypeError, ValueError):
-        return None
-    try:
-        boss_idx = int(defeated_count or 0) + 1
-    except (TypeError, ValueError):
-        boss_idx = 1
-    return goals[button_upper].get((boss_idx, r), goals[button_upper].get(r))
-
-
-def load_goals_level5():
-    """Load goals for level 5 from GoalsLevel5.csv."""
-    global _goals_level5_cache
-    if _goals_level5_cache is not None:
-        return _goals_level5_cache
-
-    goals = {"E": {}, "M": {}, "H": {}}
-    goals_file = "GoalsLevel5.csv"
-    if not os.path.exists(goals_file):
-        print(f"WARNING: GoalsLevel5.csv not found: {goals_file}")
-        _goals_level5_cache = goals
-        return goals
-
-    try:
-        with open(goals_file, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            for row in reader:
-                button = (row.get("", "") or "").strip().upper()
-                if button not in ("E", "M", "H"):
-                    continue
-
-                for key, raw in (row or {}).items():
-                    if key is None:
-                        continue
-                    k = str(key).strip()
-                    v = (raw or "").strip()
-                    if not v:
-                        continue
-
-                    if k.isdigit():
-                        try:
-                            goals[button][int(k)] = int(v)
-                        except (TypeError, ValueError):
-                            pass
-                        continue
-
-                    norm = k.replace(" ", "")
-                    if norm.lower().startswith("bossround"):
-                        suffix = norm[len("BossRound"):]
-                        if suffix.isdigit():
-                            try:
-                                goals[button][("boss", int(suffix))] = int(v)
-                            except (TypeError, ValueError):
-                                pass
-                        continue
-
-                    stage_round = norm.replace("-", "_")
-                    if stage_round.upper().startswith("B") and "_" in stage_round:
-                        stage_raw, round_raw = stage_round[1:].split("_", 1)
-                        if stage_raw.isdigit() and round_raw.isdigit():
-                            try:
-                                goals[button][(int(stage_raw), int(round_raw))] = int(v)
-                            except (TypeError, ValueError):
-                                pass
-    except Exception as e:
-        print(f"ERROR loading GoalsLevel5.csv: {e}")
-
-    _goals_level5_cache = goals
-    return goals
-
-
-def get_level5_goal(round_num, button, defeated_count, is_boss_round=False):
-    """Get a goal for level 5 from GoalsLevel5.csv."""
-    goals = load_goals_level5()
+def _get_staged_goal(goals, round_num, button, defeated_count, is_boss_round):
+    """Prefer a position-specific round goal, falling back to the shared goal."""
     button_upper = (button or "").strip().upper()
     if button_upper not in goals:
         return None
@@ -483,6 +390,36 @@ def get_level5_goal(round_num, button, defeated_count, is_boss_round=False):
     except (TypeError, ValueError):
         boss_idx = 1
     return goals[button_upper].get((boss_idx, round_index), goals[button_upper].get(round_index))
+
+
+def load_goals_level4():
+    """Load and cache goals for level 4 from GoalsLevel4.csv."""
+    global _goals_level4_cache
+    if _goals_level4_cache is None:
+        _goals_level4_cache = _load_staged_goals("GoalsLevel4.csv")
+    return _goals_level4_cache
+
+
+def get_level4_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Get a goal for level 4 from GoalsLevel4.csv."""
+    return _get_staged_goal(
+        load_goals_level4(), round_num, button, defeated_count, is_boss_round,
+    )
+
+
+def load_goals_level5():
+    """Load and cache goals for level 5 from GoalsLevel5.csv."""
+    global _goals_level5_cache
+    if _goals_level5_cache is None:
+        _goals_level5_cache = _load_staged_goals("GoalsLevel5.csv")
+    return _goals_level5_cache
+
+
+def get_level5_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Get a goal for level 5 from GoalsLevel5.csv."""
+    return _get_staged_goal(
+        load_goals_level5(), round_num, button, defeated_count, is_boss_round,
+    )
 
 
 def load_goals_level6():

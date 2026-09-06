@@ -51,19 +51,22 @@ class UiLayoutTests(unittest.TestCase):
         page.levelcard_image.get_width.return_value = 500
         page.levelcard_image.get_height.return_value = 300
         page.screen = mock.Mock()
+        page.test_mode = True
         page.lang = {"Level6Year": "1850"}
         page.font_card = mock.sentinel.font_card
         page.font_card_desc = mock.Mock()
         year_surface = mock.Mock()
+        year_surface.get_width.return_value = 120
+        year_surface.get_height.return_value = 48
         page._render_text_cached = mock.Mock(return_value=year_surface)
         page._wrap_text_cached = mock.Mock()
         page._draw_completed_stamp = mock.Mock()
         page.startarrow_image = None
 
-        page._draw_level_card((100, 200), 6, None)
+        page._draw_level_card((100, 200), 13, None)
 
         page._render_text_cached.assert_called_once_with(page.font_card, "1850", PAPER_COLOR)
-        page.screen.blit.assert_any_call(year_surface, (490, 208))
+        page.screen.blit.assert_any_call(year_surface, (407, 208))
         page._wrap_text_cached.assert_not_called()
 
     def test_normal_campaign_layout_contains_the_sixth_level_card_and_picture(self):
@@ -82,6 +85,7 @@ class UiLayoutTests(unittest.TestCase):
         page.levelcard_image.get_width.return_value = 500
         page.levelcard_image.get_height.return_value = 300
         page.screen = mock.Mock()
+        page.test_mode = False
         page.lang = {}
         page.font_card = mock.Mock()
         page.font_card_desc = mock.Mock()
@@ -91,6 +95,24 @@ class UiLayoutTests(unittest.TestCase):
         page._draw_level_card((100, 200), 1, None, show_start_arrow=False)
 
         self.assertNotIn(mock.call(page.startarrow_image, mock.ANY), page.screen.blit.call_args_list)
+
+    def test_completed_level_uses_its_progress_for_the_stamp(self):
+        page = GameScreen.__new__(GameScreen)
+        page.test_mode = False
+        page.progress_flags = {"level_2_boss_defeated": True}
+        page.stamp_image = mock.Mock()
+        rotated_stamp = mock.Mock()
+        rotated_stamp.get_width.return_value = 80
+        rotated_stamp.get_height.return_value = 80
+        page._rotated_stamps = {2: rotated_stamp}
+        page.levelcard_image = mock.Mock()
+        page.levelcard_image.get_width.return_value = 500
+        page.levelcard_image.get_height.return_value = 300
+        page.screen = mock.Mock()
+
+        page._draw_completed_stamp((100, 200), 2)
+
+        page.screen.blit.assert_called_once_with(rotated_stamp, mock.ANY)
 
     def test_completed_level_click_is_ignored(self):
         page = GameScreen.__new__(GameScreen)
@@ -122,16 +144,57 @@ class UiLayoutTests(unittest.TestCase):
             mock.patch("pygame.mouse.get_pos", return_value=page.next_page_rect.center),
         ):
             self.assertIsNone(page.handle_input())
+        self.assertEqual(page.level_page_index, 0)
+        from game_screen import PAGE_ARROW_FRAME_MS
+        started = page._page_animation_started_at
+        page._update_page_animation(started + 3 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(page.level_page_index, 1)
+        page._update_page_animation(started + 4 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(len(page.normal_card_positions), 6)
 
         level8_rect = page.normal_arrow_rects[1]
+        page.button_sound = mock.Mock()
         level8_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=level8_rect.center)
         with (
             mock.patch("pygame.event.get", return_value=[level8_event]),
             mock.patch("pygame.mouse.get_pos", return_value=level8_rect.center),
         ):
             self.assertEqual(page.handle_input(), "level_8")
+        page.button_sound.play.assert_called_once_with()
+
+    def test_fresh_profile_cannot_open_the_locked_second_page(self):
+        page = GameScreen(
+            self.screen,
+            None,
+            self.font_path,
+            lang_dict=load_language("RU"),
+            progress_flags={},
+        )
+        event = pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN,
+            button=1,
+            pos=page.next_page_rect.center,
+        )
+        with mock.patch("pygame.event.get", return_value=[event]):
+            self.assertIsNone(page.handle_input())
+
+        self.assertEqual(page.level_page_index, 0)
+        self.assertIsNone(page._page_animation_started_at)
+
+    def test_locked_second_page_levels_are_not_drawn(self):
+        page = GameScreen(
+            self.screen,
+            None,
+            self.font_path,
+            lang_dict=load_language("RU"),
+            progress_flags={},
+        )
+        page.level_page_index = 1
+        page._draw_level_card = mock.Mock()
+
+        page._draw_cards()
+
+        page._draw_level_card.assert_not_called()
 
     def test_round_popup_uses_the_actual_difficulty_and_boss_payouts(self):
         page = RoundPage.__new__(RoundPage)
@@ -346,8 +409,12 @@ class UiLayoutTests(unittest.TestCase):
                 "Временная карта. Пропадёт после победы над боссом.",
                 "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
                 "Золотая карта. Пропадёт после поражения.",
-                "Постоянная карта. Останется в вашей коллекции.",
+                "Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде",
             ],
+        )
+        self.assertEqual(
+            page._get_text("CardReportNewCardsTitle"),
+            "Вы получили новые карты:",
         )
 
     def test_regular_boss_card_reward_is_not_described_as_permanent(self):
@@ -387,6 +454,44 @@ class UiLayoutTests(unittest.TestCase):
         page.is_boss_fight = False
         self.assertIsNone(page._get_card_report_boss_description())
 
+    def test_arkwright_card_report_does_not_repeat_the_three_silver_cards_reward(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.is_boss_fight = True
+        page.is_final_boss = False
+        page.random_boss_reward_text = None
+        page.boss_filename = "6_Arkwright.png"
+        page.boss_index = 0
+        page.defeated_count = 0
+        page.level_number = 3
+
+        self.assertIsNone(page._get_card_report_boss_description())
+        self.assertEqual(
+            page.lang_dict["Boss6Reward"],
+            "Вы получаете 3 серебряные карты (должно быть место).",
+        )
+
+    def test_slater_report_keeps_only_the_non_card_bonus(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.is_boss_fight = True
+        page.is_final_boss = False
+        page.random_boss_reward_text = None
+        page.boss_filename = "5_SamuelSlater.png"
+        page.boss_index = 0
+        page.defeated_count = 0
+        page.level_number = 2
+
+        self.assertEqual(
+            page._get_card_report_boss_description(),
+            "Игра длится на два хода дольше.",
+        )
+        self.assertEqual(
+            page.lang_dict["Boss5Reward"],
+            "Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.",
+        )
+        self.assertNotIn("необязательно", page.lang_dict["Boss5Reward"])
+
     def test_card_report_keeps_the_golden_stocks_trigger_notice(self):
         page = GameplayPage.__new__(GameplayPage)
         page.lang_dict = load_language("RU")
@@ -396,17 +501,16 @@ class UiLayoutTests(unittest.TestCase):
         page.golden_stocks_reward_card = 401
         self.assertEqual(page._get_card_report_notice(), "Golden Stocks сработал!")
 
-    def test_card_report_cards_are_larger_and_gain_another_twenty_percent_on_hover(self):
-        previous_slot_height = 150
+    def test_card_report_cards_are_fifteen_percent_smaller_and_grow_on_hover(self):
         expanded_slot_height = 172
-        previous_width = max(
-            44,
-            min(92, int((previous_slot_height - 12) * (99 / 171.0))),
-        )
         report_width = GameplayPage._get_card_report_card_width(expanded_slot_height)
         hover_width = GameplayPage._get_card_report_hover_width(report_width)
+        previous_report_width = min(
+            round(max(44, min(92, int((expanded_slot_height - 12) * (99 / 171.0)))) * 1.15),
+            int(expanded_slot_height * (99 / 171.0)),
+        )
 
-        self.assertGreaterEqual(report_width, round(previous_width * 1.15))
+        self.assertEqual(report_width, round(previous_report_width * 0.85))
         self.assertLessEqual(report_width / (99 / 171.0), expanded_slot_height)
         self.assertEqual(hover_width, round(report_width * 1.20))
 
@@ -499,6 +603,27 @@ class UiLayoutTests(unittest.TestCase):
 
         self.assertEqual(result["active_black_cards"], [301])
         self.assertEqual(result["active_gold_cards"], [])
+
+    def test_lifecycle_card_placement_and_return_use_placing_sound(self):
+        page = SilverBlackPage(
+            self.screen,
+            self.font_path,
+            [201],
+            [],
+            [],
+            lang_dict=load_language("RU"),
+        )
+        page.card_placing_sound = mock.Mock()
+
+        page._begin_drag(page.silver_rects[0].center)
+        page._finish_drag(page.active_rects[0].center)
+        page._begin_drag(page.active_rects[0].center)
+        page._finish_drag(page.active_rects[0].center)
+        page._begin_drag(page.active_rects[0].center)
+        page._finish_drag(page.silver_rects[0].center)
+
+        self.assertEqual(page.card_placing_sound.play.call_count, 3)
+        self.assertEqual(page.selected_entries, [])
 
     def test_short_seller_and_insurance_are_disabled_before_boss_rounds(self):
         page = SilverBlackPage(

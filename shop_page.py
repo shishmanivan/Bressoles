@@ -155,6 +155,7 @@ CARD_NAMES = {
     211: "Short Seller",
     214: "Грант",
     215: "Вексель",
+    216: "Набоб",
     217: "Облигация",
     218: "Облигация",
     219: "Облигация",
@@ -197,8 +198,10 @@ CARD_DESCRIPTIONS.update(
         427: "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
         428: "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
         429: "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
-        430: "С вероятностью 15% показывает следующий рыночный бросок и позволяет переиграть ход.",
+        430: "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
         431: "Каждый начатый раунд H добавляет 10 процентных пунктов к итоговому эффекту Rebate.",
+        432: "Гарантирует падение одной случайно выбранной акции каждый ход. Остальные акции получают обычный рыночный бросок.",
+        433: "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
     }
 )
 CARD_NAMES.update(
@@ -228,6 +231,8 @@ CARD_NAMES.update(
         429: "Concentration",
         430: "Waterloo",
         431: "Risk Premium",
+        432: "Selling Pressure",
+        433: "Downside Risk",
     }
 )
 
@@ -255,6 +260,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     211: "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
     214: "Добавляет 4 к стартовым деньгам в начале раунда.",
     215: "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    216: "Удваивает всю прибыль, полученную за раунд, после применения остальных бонусов.",
     217: "После победы приносит дополнительно 5 наполеондоров.",
     218: "После победы приносит дополнительно 10 наполеондоров.",
     219: "После победы приносит дополнительно 15 наполеондоров.",
@@ -290,17 +296,25 @@ class ShopPage:
         lang_dict=None,
         discount_percent=0,
         stats_enabled=False,
+        defeated_count=0,
+        bosses_required=None,
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.level_number = int(level_number or 1)
+        self.defeated_count = max(0, int(defeated_count or 0))
+        self.bosses_required = (
+            max(1, int(bosses_required)) if bosses_required is not None else None
+        )
         self.lang_dict = lang_dict or {}
         self.napoleondors = float(napoleondors or 0)
         self.discount_percent = max(0, min(100, int(discount_percent or 0)))
         self.offers = game_state.generate_shop_offers(
             level_number=self.level_number,
             discount_percent=self.discount_percent,
+            defeated_count=self.defeated_count,
+            bosses_required=self.bosses_required,
         )
         if stats_enabled:
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
@@ -900,9 +914,12 @@ class ShopPage:
             return
 
         if special_id == "retention":
-            if not game_state.buy_retention():
+            if not game_state.buy_retention(
+                getattr(self, "defeated_count", 0),
+                getattr(self, "bosses_required", None),
+            ):
                 self.sold_offer_indexes.add(index)
-                self.message = "Удержание уже активно"
+                self.message = "Удержание недоступно"
                 return
             game_state.spend_napoleondors(cost)
             self._sync_balance()
@@ -914,6 +931,8 @@ class ShopPage:
             choices = game_state.build_screening_offer_pool(
                 self.level_number,
                 offer_count=5,
+                defeated_count=getattr(self, "defeated_count", 0),
+                bosses_required=getattr(self, "bosses_required", None),
             )
             if len(choices) < 5:
                 self.sold_offer_indexes.add(index)

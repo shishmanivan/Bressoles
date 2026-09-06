@@ -11,6 +11,7 @@ level_2_boss_defeated = False
 level_3_boss_defeated = False
 level_4_boss_defeated = False
 level_5_boss_defeated = False
+level_6_boss_defeated = False
 
 # Boss defeat tracking per level:
 # {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
@@ -97,7 +98,7 @@ SHOP_SPECIAL_COSTS = {
     "diversification": 5,
     "expansion": 5,
     "bill_of_exchange": 4,
-    "disclosure": 4,
+    "disclosure": 3,
     "compounding": 7,
     "replication": 2,
     "replication_plus": 6,
@@ -158,6 +159,8 @@ GOLD_CARD_MIN_LEVELS = {
     WINDFALL_CARD_ID: 5,
     429: 5,
     RISK_PREMIUM_CARD_ID: 5,
+    432: 3,
+    433: 3,
 }
 SILVER_CARD_MIN_LEVELS = {213: 5}
 
@@ -199,6 +202,8 @@ SHOP_CARD_COSTS = {
     429: 7,
     430: 5,
     431: 5,
+    432: 4,
+    433: 4,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -226,6 +231,7 @@ LICENSE_COSTS = {
     211: 5,
     214: 7,
     215: 7,
+    216: 5,
     217: 7,
     218: 7,
     219: 8,
@@ -234,7 +240,7 @@ LICENSE_COSTS = {
 LICENSES_BY_LEVEL = {
     3: [112, 113, 114, 115, 123, 124, 125, 203, 204, 207, 209, 210, 212, 214, 215, 217, 218, 219, 220],
     4: [205, 211],
-    5: [118, 119, 120, 121, 122, 213],
+    5: [118, 119, 120, 121, 122, 213, 216],
 }
 # Licenses normally remain available from their unlock level onward until bought.
 LICENSE_LEVEL_RESTRICTIONS = {}
@@ -410,13 +416,22 @@ def buy_replication_plus_card(card_id):
     return _add_card_to_inventory(gold_cards, MAX_GOLD_CARDS, normalized, "Gold")
 
 
-def is_retention_offer_available():
-    return not retention_active and not retention_pending_cards
+def is_retention_offer_available(defeated_count=None, bosses_required=None):
+    if retention_active or retention_pending_cards:
+        return False
+    if bosses_required is None:
+        return True
+    try:
+        position = max(0, int(defeated_count or 0))
+        boss_count = max(1, int(bosses_required or 1))
+    except (TypeError, ValueError):
+        return True
+    return position < boss_count - 1
 
 
-def buy_retention():
+def buy_retention(defeated_count=None, bosses_required=None):
     global retention_active
-    if not is_retention_offer_available():
+    if not is_retention_offer_available(defeated_count, bosses_required):
         return False
     retention_active = True
     return True
@@ -814,6 +829,8 @@ def is_level_completed(level_number):
         return bool(level_4_boss_defeated)
     if level == 5:
         return bool(level_5_boss_defeated)
+    if level == 6:
+        return bool(level_6_boss_defeated)
     return False
 
 
@@ -1892,6 +1909,7 @@ def get_progress_flags():
         "level_3_boss_defeated": level_3_boss_defeated,
         "level_4_boss_defeated": level_4_boss_defeated,
         "level_5_boss_defeated": level_5_boss_defeated,
+        "level_6_boss_defeated": level_6_boss_defeated,
         "level_6_unlocked": bool(level_5_boss_defeated),
         "level_7_unlocked": bool(level_5_boss_defeated),
         "level_8_unlocked": bool(level_5_boss_defeated),
@@ -2798,7 +2816,11 @@ def is_deal_flow_offer_available(level_number):
     return level >= 4
 
 
-def _available_screening_offer_ids(level_number):
+def _available_screening_offer_ids(
+    level_number,
+    defeated_count=None,
+    bosses_required=None,
+):
     """Return currently usable special offers, excluding Screening itself."""
     try:
         level = int(level_number or 0)
@@ -2829,7 +2851,7 @@ def _available_screening_offer_ids(level_number):
         "replication_plus": is_replication_plus_offer_available(),
         "capital_preservation": is_capital_preservation_offer_available(level),
         "mirroring": is_mirroring_offer_available(level),
-        "retention": is_retention_offer_available(),
+        "retention": is_retention_offer_available(defeated_count, bosses_required),
         "deal_flow": is_deal_flow_offer_available(level),
     }
     if level < 3:
@@ -2855,15 +2877,26 @@ def _available_screening_offer_ids(level_number):
     ]
 
 
-def is_screening_offer_available(level_number):
+def is_screening_offer_available(
+    level_number,
+    defeated_count=None,
+    bosses_required=None,
+):
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
-    return level >= 4 and len(_available_screening_offer_ids(level)) >= 5
+    return level >= 4 and len(
+        _available_screening_offer_ids(level, defeated_count, bosses_required)
+    ) >= 5
 
 
-def build_shop_special_offer_pool(level_number=1, max_offers=2):
+def build_shop_special_offer_pool(
+    level_number=1,
+    max_offers=2,
+    defeated_count=None,
+    bosses_required=None,
+):
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -2962,7 +2995,7 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         and random.randint(1, 100) <= get_shop_special_offer_chance(2)
     )
     screening_hit = (
-        is_screening_offer_available(level)
+        is_screening_offer_available(level, defeated_count, bosses_required)
         and random.randint(1, 100) <= get_shop_special_offer_chance(10)
     )
     capital_preservation_hit = (
@@ -2975,7 +3008,7 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
         <= get_shop_special_offer_chance(get_mirroring_shop_chance())
     )
     retention_hit = (
-        is_retention_offer_available()
+        is_retention_offer_available(defeated_count, bosses_required)
         and random.randint(1, 100) <= get_shop_special_offer_chance(20)
     )
     profit_hit = random.randint(1, 100) <= get_shop_special_offer_chance(20)
@@ -3061,7 +3094,12 @@ def build_shop_special_offer_pool(level_number=1, max_offers=2):
     return random.sample(offer_pool, offer_limit)
 
 
-def build_screening_offer_pool(level_number=1, offer_count=5):
+def build_screening_offer_pool(
+    level_number=1,
+    offer_count=5,
+    defeated_count=None,
+    bosses_required=None,
+):
     """Build a unique set of free choices using the regular special-offer rolls."""
     try:
         count = max(0, int(offer_count or 0))
@@ -3069,7 +3107,11 @@ def build_screening_offer_pool(level_number=1, offer_count=5):
         count = 5
     available = [
         offer_id
-        for offer_id in _available_screening_offer_ids(level_number)
+        for offer_id in _available_screening_offer_ids(
+            level_number,
+            defeated_count,
+            bosses_required,
+        )
         if offer_id != "screening"
     ]
     if len(available) < count:
@@ -3081,6 +3123,8 @@ def build_screening_offer_pool(level_number=1, offer_count=5):
         rolled = build_shop_special_offer_pool(
             level_number,
             max_offers=len(SHOP_SPECIAL_COSTS),
+            defeated_count=defeated_count,
+            bosses_required=bosses_required,
         )
         for offer_id in rolled:
             if offer_id in available_set and offer_id not in choices:
@@ -3094,7 +3138,15 @@ def build_screening_offer_pool(level_number=1, offer_count=5):
     return choices[:count]
 
 
-def generate_shop_offers(level_number=1, card_slots=None, special_slots=None, license_slots=1, discount_percent=0):
+def generate_shop_offers(
+    level_number=1,
+    card_slots=None,
+    special_slots=None,
+    license_slots=1,
+    discount_percent=0,
+    defeated_count=None,
+    bosses_required=None,
+):
     global correction_shop_cooldown
     try:
         level = int(level_number or 0)
@@ -3115,7 +3167,12 @@ def generate_shop_offers(level_number=1, card_slots=None, special_slots=None, li
         normalized = int(card_id)
         card_offers.append({"kind": "card", "card_id": normalized, "cost": SHOP_CARD_COSTS.get(normalized, 1)})
 
-    special_pool = build_shop_special_offer_pool(level, max_offers=special_slots)
+    special_pool_kwargs = {"max_offers": special_slots}
+    if defeated_count is not None:
+        special_pool_kwargs["defeated_count"] = defeated_count
+    if bosses_required is not None:
+        special_pool_kwargs["bosses_required"] = bosses_required
+    special_pool = build_shop_special_offer_pool(level, **special_pool_kwargs)
     if "correction" in special_pool:
         correction_shop_cooldown = CORRECTION_SHOP_COOLDOWN
     else:

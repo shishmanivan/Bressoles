@@ -1,11 +1,24 @@
 Key;RU;ENG
 Profile;Профиль;Profile
+ProfileUnavailable;Недоступен;Unavailable
+ProfileUnavailableMessage;Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.;Profile {slots} is unavailable. Recovery failed. Original files are preserved. Choose another profile.
+ProfileRecoveredMessage;Профиль {slots} восстановлен из резервной копии. Последнее сохранение могло быть потеряно.;Profile {slots} was restored from a backup. The most recent save may have been lost.
+ProfileSaveFailed;Не удалось сохранить профиль. Проверьте доступ к папке Profiles и свободное место.;Could not save the profile. Check access to the Profiles folder and free disk space.
 MenuStart;Начать игру;Start
 MenuOption;Настройки;Options
 SettingsTitle;Настройки;Options
 MusicVolume;Громкость музыки;Music volume
 CapitalRaceLabel;Победа:;Victory:
 CapitalRaceCondition;капитал больше Бота3;capital above Bot3
+Level6PlayerTurn;Ход игрока;Player turn
+Level6BotTurn;Ход Бота3;Bot3 turn
+Level6BotThinking;Бот3 думает...;Bot3 is thinking...
+Level6BotSelling;Продаёт;Selling
+Level6BotBuying;Покупает;Buying
+Level6BotHolding;Держит;Holding
+Level6BotNoTrades;Без сделок;No trades
+Level6BotEnding;Бот3 завершает ход;Bot3 ends turn
+Level6MarketTurn;Изменение рынка;Market movement
 SettingsBack;Назад;Back
 MenuTestMode;Тестовый режим;Test Mode
 MenuQuit;Выход;Quit
@@ -42,7 +55,8 @@ Boss3Reward;Следующие раунды начинаются с 2$. Случ
 Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.
 Boss4Reward;В стартовой руке будут до двух случайно выбранных красных карт, уже находящихся в колоде.;Your starting hand contains up to two randomly selected red cards already present in your deck.
 Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.
-Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь. Разыгрывать её необязательно.;The game lasts two turns longer. A random silver card enters your separate inventory. Playing it is optional.
+Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.;The game lasts two turns longer. A random silver card enters your separate inventory.
+CardReportBoss5Reward;Игра длится на два хода дольше.;The game lasts two turns longer.
 Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.
 Boss6Reward;Вы получаете 3 серебряные карты (должно быть место).;You receive 3 silver cards (storage space required).
 Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
@@ -97,6 +111,7 @@ FinanceInterest;Проценты;Interest
 FinanceLoanProfit;Loan дал прибыль;Loan made a profit
 FinanceBossReward;Награда босса;Boss reward
 FinanceCommission;Комиссия;Commission
+FinanceNabob;Бонус Набоба;Nabob bonus
 FinanceObligation;Облигации;Obligations
 FinanceLongProfit;Long дал прибыль;Long made a profit
 FinanceSideway;Бонус Sideway;Sideway bonus
@@ -107,16 +122,18 @@ FinanceJunkBondRefund;Возврат Junk Bond;Junk Bond refund
 FinanceOtherIncome;Прочий доход;Other income
 FinanceTotal;Всего;Total
 CardReportTemporary;Временная карта. Пропадёт после победы над боссом.;Temporary card. Disappears after defeating the boss.
+CardReportNewCardsTitle;Вы получили новые карты:;You received new cards:
 CardReportSilver;Серебряная карта. Пропадёт только тогда, когда вы её используете.;Silver card. Disappears only when you use it.
 CardReportGold;Золотая карта. Пропадёт после поражения.;Gold card. Disappears after defeat.
-CardReportPermanent;Постоянная карта. Останется в вашей коллекции.;Permanent card. Remains in your collection.
+CardReportPermanent;Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде;You received a permanent card. It will now always be in your starting deck.
 CardReportBossReward;Бонус за победу над боссом. Пропадёт после поражения.;Boss victory bonus. Disappears after defeat.
 CardReportBossTitle;Бонус за победу над боссом:;Boss victory bonus:
+CardReportLevelCompleteTitle;Вы разблокировали новый уровень!;You unlocked a new level!
 CardReportTemporaryReset;Временные карты обнулились;Temporary cards were reset.
 CardReportGoldenStocksTriggered;Golden Stocks сработал!;Golden Stocks triggered!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
-RewardLevel2FinalBoss;Теперь в игре будут попадаться серебряные карты.;Silver cards will now appear in the game.
+RewardLevel2FinalBoss;Вы разблокировали золотые и серебряные карты;You unlocked gold and silver cards.
 RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
 RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Вы получили чёрную карту Golden Stocks и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You received the Golden Stocks black card and now start subsequent levels with 2 additional Napoleondors.
 RewardLevel5FinalBoss;Вы завершили пятый уровень! Открыты шестой, седьмой и восьмой уровни. Вы получили чёрную карту «Комиссия», теперь начинаете следующие уровни ещё с 2 Наполеонами и можете одновременно использовать 4 серебряные, чёрные или золотые карты вместо 3.;You completed level five! Levels six, seven, and eight are now unlocked. You received the Commission black card, now start subsequent levels with 2 additional Napoleondors, and can use 4 silver, black, or gold cards at once instead of 3.

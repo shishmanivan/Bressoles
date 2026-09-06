@@ -1,5 +1,7 @@
 import json
+import math
 import os
+import shutil
 import tempfile
 
 import pygame
@@ -11,6 +13,116 @@ from gameplay_deck import restore_card_instance, serialize_card_instance
 PROFILES_DIR = "Profiles"
 INDEX_FILE = os.path.join(PROFILES_DIR, "index.json")
 MAX_PROFILES = 4
+_recovered_profile_paths = set()
+
+
+class ProfileLoadError(OSError):
+    """An existing profile cannot safely be loaded or overwritten."""
+
+
+def was_profile_recovered(slot):
+    return os.path.abspath(get_profile_path(slot)) in _recovered_profile_paths
+
+
+def _validate_profile_data(data):
+    # Missing optional fields are supported for older saves. A missing progress
+    # object is not an empty slot: only a missing file represents a new profile.
+    if not isinstance(data, dict) or not isinstance(data.get("progress"), dict):
+        raise ValueError("profile must contain a progress object")
+    if "name" in data and not isinstance(data["name"], str):
+        raise ValueError("profile name must be text")
+    progress = data["progress"]
+    for field, default in _empty_progress().items():
+        if field not in progress:
+            continue
+        value = progress[field]
+        if isinstance(default, (dict, list)) and value is not None and not isinstance(value, type(default)):
+            raise ValueError(f"progress.{field} has an invalid container type")
+        if type(default) in (int, float) and value is not None:
+            # Numeric strings in legacy profiles are still accepted.
+            try:
+                numeric = type(default)(value)
+                if not math.isfinite(numeric):
+                    raise ValueError("non-finite number")
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError(f"progress.{field} must be numeric") from error
+    for state in (progress.get("boss_progress") or {}).values():
+        if not isinstance(state, dict):
+            raise ValueError("boss progress entries must be objects")
+        defeated_bosses = state.get("defeated_bosses") or []
+        if not isinstance(defeated_bosses, list) or any(not isinstance(boss, dict) for boss in defeated_bosses):
+            raise ValueError("defeated bosses must be a list of objects")
+        rounds = state.get("round_progress") or {}
+        if not isinstance(rounds, dict) or any(not isinstance(round_state, dict) for round_state in rounds.values()):
+            raise ValueError("round progress entries must be objects")
+    active_game = data.get("active_game")
+    if active_game is not None:
+        if not isinstance(active_game, dict):
+            raise ValueError("active_game must be an object or null")
+        for field in ("context", "state"):
+            if not isinstance(active_game.get(field), dict):
+                raise ValueError(f"active_game.{field} must be an object")
+    if data.get("_load_error"):
+        raise ValueError("unavailable profile cannot be saved")
+
+
+def _read_profile_data(path):
+    def reject_nonfinite(value):
+        raise ValueError(f"non-finite JSON number: {value}")
+
+    with open(path, "r", encoding="utf-8") as source:
+        data = json.load(source, parse_constant=reject_nonfinite)
+    _validate_profile_data(data)
+    return data
+
+
+def _archive_corrupt_profile(path):
+    """Keep the original bytes before recovery; abort if this copy fails."""
+    descriptor, archive_path = tempfile.mkstemp(
+        prefix=f"{os.path.basename(path)}.corrupt-",
+        suffix=".bak",
+        dir=os.path.dirname(path) or ".",
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as target, open(path, "rb") as source:
+            shutil.copyfileobj(source, target)
+            target.flush()
+            os.fsync(target.fileno())
+    except Exception:
+        os.remove(archive_path)
+        raise
+    return archive_path
+
+
+def _load_profile_data_with_recovery(path):
+    missing = False
+    try:
+        return _read_profile_data(path)
+    except FileNotFoundError:
+        missing = True
+    except (ValueError, UnicodeError):
+        pass
+    except OSError as error:
+        # Access errors are not evidence of corruption. Never replace that file.
+        raise ProfileLoadError(f"Cannot read profile: {path}") from error
+
+    try:
+        backup = _read_profile_data(path + ".bak")
+    except FileNotFoundError as error:
+        if missing:
+            return None
+        raise ProfileLoadError(f"Damaged profile has no backup: {path}") from error
+    except (OSError, ValueError, UnicodeError) as error:
+        raise ProfileLoadError(f"No readable backup for profile: {path}") from error
+
+    try:
+        if not missing:
+            _archive_corrupt_profile(path)
+        _write_json_atomically(path, backup)
+    except OSError as error:
+        raise ProfileLoadError(f"Cannot restore profile: {path}") from error
+    _recovered_profile_paths.add(os.path.abspath(path))
+    return backup
 
 
 def ensure_profiles_dir():
@@ -27,7 +139,7 @@ def _write_json_atomically(path, data):
     )
     try:
         with os.fdopen(file_descriptor, "w", encoding="utf-8") as output_file:
-            json.dump(data, output_file, ensure_ascii=False, indent=2)
+            json.dump(data, output_file, ensure_ascii=False, indent=2, allow_nan=False)
             output_file.flush()
             os.fsync(output_file.fileno())
         os.replace(temporary_path, path)
@@ -105,6 +217,7 @@ def _empty_progress():
         "level_3_boss_defeated": False,
         "level_4_boss_defeated": False,
         "level_5_boss_defeated": False,
+        "level_6_boss_defeated": False,
         "boss_progress": {},
         "global_dobor": 1,
         "global_start_money_bonus": 0,
@@ -174,25 +287,19 @@ def load_profile(slot):
     ensure_profiles_dir()
     slot = int(slot)
     path = get_profile_path(slot)
-    if not os.path.exists(path):
+    data = _load_profile_data_with_recovery(path)
+    if data is None:
         return _default_profile(slot)
-    try:
-        with open(path, "r", encoding="utf-8") as profile_file:
-            data = json.load(profile_file)
-    except Exception:
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
     profile = _default_profile(slot)
     profile.update(data)
     profile["slot"] = slot
-    profile.setdefault("progress", _capture_progress())
+    profile["version"] = data.get("version", 1)
     profile.setdefault("active_game", None)
     migrated = _migrate_campaign_v2(profile)
     if _migrate_completed_black_rewards(profile):
         migrated = True
     if migrated:
-        _write_json_atomically(path, profile)
+        save_profile(profile)
     return profile
 
 
@@ -281,11 +388,32 @@ def save_profile(profile):
     ensure_profiles_dir()
     slot = int(profile.get("slot") or 1)
     profile["slot"] = slot
-    _write_json_atomically(get_profile_path(slot), profile)
+    _validate_profile_data(profile)
+    path = get_profile_path(slot)
+    try:
+        previous = _read_profile_data(path)
+    except FileNotFoundError:
+        if os.path.exists(path + ".bak"):
+            raise ProfileLoadError(f"Load the backup before saving profile: {path}")
+        previous = profile
+    except (OSError, ValueError, UnicodeError) as error:
+        raise ProfileLoadError(f"Refusing to overwrite unreadable profile: {path}") from error
+    # Store a valid recovery point before replacing the primary. On the first
+    # save both files contain the new profile; later the backup is one save old.
+    _write_json_atomically(path + ".bak", previous)
+    _write_json_atomically(path, profile)
 
 
 def list_profiles():
-    return [load_profile(slot) for slot in range(1, MAX_PROFILES + 1)]
+    profiles = []
+    for slot in range(1, MAX_PROFILES + 1):
+        try:
+            profiles.append(load_profile(slot))
+        except ProfileLoadError as error:
+            unavailable = _default_profile(slot)
+            unavailable["_load_error"] = str(error)
+            profiles.append(unavailable)
+    return profiles
 
 
 def select_profile(slot, name=None):
@@ -312,6 +440,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.level_3_boss_defeated = bool(progress.get("level_3_boss_defeated", False))
     game_state.level_4_boss_defeated = bool(progress.get("level_4_boss_defeated", False))
     game_state.level_5_boss_defeated = bool(progress.get("level_5_boss_defeated", False))
+    game_state.level_6_boss_defeated = bool(progress.get("level_6_boss_defeated", False))
     game_state.boss_progress = _restore_boss_progress(progress.get("boss_progress") or {})
     game_state.global_dobor = int(progress.get("global_dobor", 1) or 1)
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
@@ -583,6 +712,7 @@ def _capture_progress():
         "level_3_boss_defeated": bool(game_state.level_3_boss_defeated),
         "level_4_boss_defeated": bool(game_state.level_4_boss_defeated),
         "level_5_boss_defeated": bool(game_state.level_5_boss_defeated),
+        "level_6_boss_defeated": bool(game_state.level_6_boss_defeated),
         "boss_progress": _serialize_boss_progress(game_state.boss_progress),
         "global_dobor": int(game_state.global_dobor),
         "global_start_money_bonus": int(game_state.global_start_money_bonus),

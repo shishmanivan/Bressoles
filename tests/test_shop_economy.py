@@ -276,15 +276,15 @@ class ShopTransactionTests(ShopEconomyTestCase):
             self.assertEqual(game_state.build_gold_cards_pool(5), [401])
             self.assertEqual(game_state.build_silver_cards_pool(5), [])
 
-    def test_disclosure_costs_four_and_returns_after_five_rounds(self):
+    def test_disclosure_costs_three_and_returns_after_five_rounds(self):
         game_state.napoleondors = 10
         page = self._shop(
-            {"kind": "special", "special_id": "disclosure", "cost": 4}
+            {"kind": "special", "special_id": "disclosure", "cost": 3}
         )
 
         page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(game_state.napoleondors, 7)
         self.assertEqual(game_state.get_disclosure_rounds_remaining(), 5)
         self.assertTrue(game_state.is_disclosure_active())
         self.assertFalse(game_state.is_disclosure_offer_available())
@@ -324,7 +324,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers = game_state.build_shop_special_offer_pool(2, max_offers=2)
 
         self.assertIn("disclosure", offers)
-        self.assertEqual(game_state.get_shop_special_cost("disclosure", 2), 4)
+        self.assertEqual(game_state.get_shop_special_cost("disclosure", 2), 3)
 
     def test_expansion_costs_five_and_combines_with_peabody_bonus(self):
         game_state.napoleondors = 10
@@ -990,6 +990,52 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertNotIn("retention", offers)
         self.assertEqual(game_state.get_shop_special_cost("retention", 3), 3)
 
+    def test_retention_is_unavailable_before_the_final_boss(self):
+        self.assertTrue(
+            game_state.is_retention_offer_available(
+                defeated_count=1,
+                bosses_required=3,
+            )
+        )
+        self.assertFalse(
+            game_state.is_retention_offer_available(
+                defeated_count=2,
+                bosses_required=3,
+            )
+        )
+
+        with mock.patch.object(game_state.random, "randint", return_value=1):
+            offers = game_state.build_shop_special_offer_pool(
+                4,
+                max_offers=30,
+                defeated_count=2,
+                bosses_required=3,
+            )
+        self.assertNotIn("retention", offers)
+
+    def test_screening_excludes_retention_before_the_final_boss(self):
+        choices = game_state._available_screening_offer_ids(
+            4,
+            defeated_count=2,
+            bosses_required=3,
+        )
+
+        self.assertNotIn("retention", choices)
+
+    def test_stale_final_boss_retention_cannot_be_bought(self):
+        game_state.napoleondors = 8
+        page = self._shop(
+            {"kind": "special", "special_id": "retention", "cost": 3}
+        )
+        page.defeated_count = 2
+        page.bosses_required = 3
+
+        page._buy_offer(0)
+
+        self.assertFalse(game_state.retention_active)
+        self.assertEqual(game_state.napoleondors, 8)
+        self.assertEqual(page.message, "Удержание недоступно")
+
     def test_loan_is_free_pays_five_and_is_limited_per_boss_and_run(self):
         first_shop = self._shop({"kind": "special", "special_id": "loan", "cost": 0})
 
@@ -1533,6 +1579,19 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(CARD_NAMES[210], "Catalyst")
         self.assertNotIn("Шанс попадания в пул", LICENSE_EFFECT_DESCRIPTIONS[210])
 
+    def test_nabob_license_costs_five_and_unlocks_from_level_five(self):
+        self.assertNotIn(216, game_state.build_license_offer_pool(3))
+        self.assertNotIn(216, game_state.build_license_offer_pool(4))
+        with mock.patch.object(game_state, "level_5_boss_defeated", False):
+            self.assertIn(216, game_state.build_license_offer_pool(5))
+        self.assertIn(216, game_state.build_license_offer_pool(6))
+        self.assertEqual(game_state.get_license_cost(216), 5)
+        self.assertEqual(CARD_NAMES[216], "Набоб")
+        self.assertEqual(
+            LICENSE_EFFECT_DESCRIPTIONS[216],
+            "Удваивает всю прибыль, полученную за раунд, после применения остальных бонусов.",
+        )
+
     def test_short_seller_unlocks_from_level_four_and_has_seven_percent_chance(self):
         self.assertNotIn(211, game_state.build_license_offer_pool(3))
         self.assertIn(211, game_state.build_license_offer_pool(4))
@@ -1647,7 +1706,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(CARD_NAMES[430], "Waterloo")
         self.assertEqual(
             CARD_DESCRIPTIONS[430],
-            "С вероятностью 15% показывает следующий рыночный бросок и позволяет переиграть ход.",
+            "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
         )
 
         cards = {430: {"Type": 5, "Open": 1, "Variable": 15}}
@@ -1677,6 +1736,42 @@ class ShopTransactionTests(ShopEconomyTestCase):
         with mock.patch.object(game_state, "load_cards_config", return_value=cards):
             self.assertNotIn(431, game_state.build_all_available_shop_cards(4))
             self.assertIn(431, game_state.build_all_available_shop_cards(5))
+
+    def test_selling_pressure_costs_four_and_unlocks_from_level_three(self):
+        self.assertEqual(game_state.SHOP_CARD_COSTS[432], 4)
+        self.assertEqual(CARD_NAMES[432], "Selling Pressure")
+        self.assertNotIn("30%", CARD_DESCRIPTIONS[432])
+
+        cards = {432: {"Type": 5, "Open": 1, "Variable": 30}}
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            with mock.patch.object(game_state.random, "randint", return_value=30) as roll:
+                self.assertEqual(game_state.build_gold_cards_pool(2), [])
+                roll.assert_not_called()
+                self.assertEqual(game_state.build_gold_cards_pool(3), [432])
+            with mock.patch.object(game_state.random, "randint", return_value=31):
+                self.assertEqual(game_state.build_gold_cards_pool(3), [])
+
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            self.assertNotIn(432, game_state.build_all_available_shop_cards(2))
+            self.assertIn(432, game_state.build_all_available_shop_cards(3))
+
+    def test_downside_risk_costs_four_and_unlocks_from_level_three(self):
+        self.assertEqual(game_state.SHOP_CARD_COSTS[433], 4)
+        self.assertEqual(CARD_NAMES[433], "Downside Risk")
+        self.assertNotIn("30%", CARD_DESCRIPTIONS[433])
+
+        cards = {433: {"Type": 5, "Open": 1, "Variable": 30}}
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            with mock.patch.object(game_state.random, "randint", return_value=30) as roll:
+                self.assertEqual(game_state.build_gold_cards_pool(2), [])
+                roll.assert_not_called()
+                self.assertEqual(game_state.build_gold_cards_pool(3), [433])
+            with mock.patch.object(game_state.random, "randint", return_value=31):
+                self.assertEqual(game_state.build_gold_cards_pool(3), [])
+
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            self.assertNotIn(433, game_state.build_all_available_shop_cards(2))
+            self.assertIn(433, game_state.build_all_available_shop_cards(3))
 
     def test_gold_card_level_gates_match_the_current_progression(self):
         level_four_cards = {401, 402, 403, 407, 418, 420, 422}

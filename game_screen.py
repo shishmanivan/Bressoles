@@ -4,20 +4,27 @@ import sys
 
 import pygame
 
-from asset_loaders import load_scaled_background, load_scaled_image
+from asset_loaders import load_scaled_image
+from adaptive_ui import cover_geometry
 from level_screen_helpers import (
+    LEVEL_CONTENT_SIZE,
+    level_content_rect,
     build_normal_mode_layout,
     build_test_mode_layout,
     compute_picture_position,
     load_primary_level_assets,
     load_test_level_pictures,
 )
+from level_routes import get_test_content_level
 from shared_utils import wrap_text
+from sound_assets import load_button_sound, load_sound
 
 
-SCREEN_WIDTH = 1680
-SCREEN_HEIGHT = 1050
+SCREEN_WIDTH, SCREEN_HEIGHT = LEVEL_CONTENT_SIZE
+MASTER_BACKGROUND_PATH = os.path.join("UI", "Master Background 2.png")
 FPS = 60
+PAGE_ARROW_FRAME_MS = 80
+PAGE_ARROW_SIZE = (150, 100)
 
 BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
@@ -30,14 +37,19 @@ class GameScreen:
         self.test_mode = test_mode
         self.lang = lang_dict or {}
         self.progress_flags = progress_flags or {}
+        self.button_sound = load_button_sound()
+        self.page_arrow_sound = load_sound(os.path.join("Sounds", "Skrip.wav"))
 
-        back3_path = os.path.join("UI", "Back3.png")
-        self.background = load_scaled_background(
-            back3_path,
-            (SCREEN_WIDTH, SCREEN_HEIGHT),
-            fallback_surface=background,
-            warning_message="WARNING: Back3.png not found:",
-        )
+        # Keep the master at its native aspect ratio; cover is applied to the
+        # actual viewport, independently of the card composition.
+        self.background = background
+        if os.path.exists(MASTER_BACKGROUND_PATH):
+            self.background = pygame.image.load(MASTER_BACKGROUND_PATH).convert()
+        else:
+            print("WARNING: Level master background not found:", MASTER_BACKGROUND_PATH)
+        self._background_viewport_size = None
+        self._viewport_background = None
+        self._content_surface = pygame.Surface(LEVEL_CONTENT_SIZE, pygame.SRCALPHA)
 
         levelcard_path = os.path.join("LevelPage", "LevelCard.jpg")
         self.levelcard_image = load_scaled_image(
@@ -64,6 +76,8 @@ class GameScreen:
 
         self.font_card = pygame.font.Font(font_path, 48)
         self.font_card_desc = pygame.font.Font(font_path, 32)
+        self._description_fonts = {32: self.font_card_desc}
+        self._font_path = font_path
         self._text_surface_cache = {}
         self._wrapped_text_cache = {}
 
@@ -112,7 +126,7 @@ class GameScreen:
         self.level4_picture = primary_assets["level4_picture"]
         self.level5_picture = primary_assets["level5_picture"]
         self.level6_picture = primary_assets["level6_picture"]
-        self.level_pictures = load_test_level_pictures(12)
+        self.level_pictures = load_test_level_pictures(13)
         for level_num, picture in enumerate(
             (
                 self.level1_picture,
@@ -125,13 +139,26 @@ class GameScreen:
             start=1,
         ):
             self.level_pictures[level_num - 1] = picture
+        self.level_pictures[12] = self.level6_picture
 
         self.scroll_y = 0
         self.max_scroll_y = 0
         self.card1_rect = None
         self.level_page_index = 0
-        self.previous_page_rect = pygame.Rect(20, SCREEN_HEIGHT // 2 - 45, 70, 90)
-        self.next_page_rect = pygame.Rect(SCREEN_WIDTH - 90, SCREEN_HEIGHT // 2 - 45, 70, 90)
+        self.page_arrow_frames = [
+            load_scaled_image(os.path.join("UI", "Arrow", f"Arrow_{frame}.png"),
+                              target_size=PAGE_ARROW_SIZE)
+            for frame in range(1, 5)
+        ]
+        self.page_arrow_back_frames = [
+            pygame.transform.flip(frame, True, False) if frame is not None else None
+            for frame in self.page_arrow_frames
+        ]
+        self.previous_page_rect = pygame.Rect(20, SCREEN_HEIGHT // 2 - 50, *PAGE_ARROW_SIZE)
+        self.next_page_rect = pygame.Rect(SCREEN_WIDTH - 170, SCREEN_HEIGHT // 2 - 50, *PAGE_ARROW_SIZE)
+        self._page_animation_started_at = None
+        self._page_animation_fourth_at = None
+        self._page_animation_frame = 0
 
         if self.test_mode:
             test_layout = build_test_mode_layout(
@@ -203,6 +230,27 @@ class GameScreen:
     def _is_completed(self, level_num):
         return self._is_unlocked(f"level_{level_num}_boss_defeated")
 
+    def _is_level_unlocked(self, level_num):
+        if self.test_mode:
+            return True
+        return {
+            1: True,
+            2: self._is_unlocked("level_1_boss_defeated"),
+            3: self._is_unlocked("level_2_boss_defeated"),
+            4: self._is_unlocked("level_3_boss_defeated"),
+            5: self._is_unlocked("level_3_boss_defeated"),
+            8: self._is_unlocked("level_8_unlocked"),
+        }.get(int(level_num or 0), False)
+
+    def _can_open_next_page(self):
+        return any(self._is_level_unlocked(level_num) for level_num in range(7, 13))
+
+    def _start_level(self, level_num):
+        sound = getattr(self, "button_sound", None)
+        if sound:
+            sound.play()
+        return f"level_{level_num}"
+
     def _render_text_cached(self, font, text, color):
         cache_key = (id(font), str(text), tuple(color))
         surface = self._text_surface_cache.get(cache_key)
@@ -220,7 +268,7 @@ class GameScreen:
         return lines
 
     def _draw_completed_stamp(self, card_position, level_num):
-        if not self.stamp_image or not self._is_unlocked(f"level_{level_num}_boss_defeated"):
+        if not self.stamp_image or not self._is_completed(level_num):
             return
 
         rotated_stamp = self._rotated_stamps.get(level_num)
@@ -240,12 +288,29 @@ class GameScreen:
         offset_y = rng.randint(margin, max_y)
         self.screen.blit(rotated_stamp, (card_position[0] + offset_x, card_position[1] + offset_y))
 
+    def _viewport_to_content(self, position):
+        """Use the same transform for hit testing as for drawing the UI layer."""
+        if not hasattr(self, "screen"):
+            return position
+        rect = level_content_rect(self.screen.get_size())
+        if not rect.collidepoint(position):
+            return None
+        return (
+            (position[0] - rect.x) * SCREEN_WIDTH / rect.width,
+            (position[1] - rect.y) * SCREEN_HEIGHT / rect.height,
+        )
+
     def handle_input(self):
-        mouse_pos = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return "quit"
+
+            if event.type == pygame.VIDEORESIZE:
+                display_surface = pygame.display.get_surface()
+                if display_surface is not None:
+                    self.screen = display_surface
+                continue
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -260,6 +325,13 @@ class GameScreen:
                 self.scroll_y = max(0, min(self.max_scroll_y, self.scroll_y - scroll_amount))
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if getattr(self, "_page_animation_started_at", None) is not None:
+                    continue
+                mouse_pos = self._viewport_to_content(
+                    getattr(event, "pos", pygame.mouse.get_pos())
+                )
+                if mouse_pos is None:
+                    continue
                 if self.test_mode:
                     for level_num in range(1, self.num_levels + 1):
                         card_index = level_num - 1
@@ -267,17 +339,20 @@ class GameScreen:
                             rect = self.test_card_rects[card_index]
                             adjusted_rect = pygame.Rect(rect.x, rect.y - self.scroll_y, rect.width, rect.height)
                             if adjusted_rect.collidepoint(mouse_pos):
-                                return f"level_{level_num}"
+                                return self._start_level(level_num)
                 else:
                     next_page_rect = getattr(self, "next_page_rect", None)
                     previous_page_rect = getattr(self, "previous_page_rect", None)
-                    if getattr(self, "level_page_index", 0) == 0 and next_page_rect and next_page_rect.collidepoint(mouse_pos):
-                        self.level_page_index = 1
-                        self.scroll_y = 0
+                    if (
+                        getattr(self, "level_page_index", 0) == 0
+                        and self._can_open_next_page()
+                        and next_page_rect
+                        and next_page_rect.collidepoint(mouse_pos)
+                    ):
+                        self._start_page_animation(1)
                         return None
                     if getattr(self, "level_page_index", 0) == 1 and previous_page_rect and previous_page_rect.collidepoint(mouse_pos):
-                        self.level_page_index = 0
-                        self.scroll_y = 0
+                        self._start_page_animation(0)
                         return None
 
                     def arrow_hit(rect):
@@ -286,23 +361,18 @@ class GameScreen:
                         return rect.move(0, -self.scroll_y).collidepoint(mouse_pos)
 
                     if getattr(self, "level_page_index", 0) == 0:
-                        if not self._is_completed(1) and arrow_hit(self.arrow_rect):
-                            return "level_1"
-                        if self._is_unlocked("level_1_boss_defeated") and not self._is_completed(2) and arrow_hit(self.arrow2_rect):
-                            return "level_2"
-                        if self._is_unlocked("level_2_boss_defeated") and not self._is_completed(3) and arrow_hit(self.arrow3_rect):
-                            return "level_3"
-                        if self._is_unlocked("level_3_boss_defeated") and not self._is_completed(4) and arrow_hit(self.arrow4_rect):
-                            return "level_4"
-                        if self._is_unlocked("level_3_boss_defeated") and not self._is_completed(5) and arrow_hit(self.arrow5_rect):
-                            return "level_5"
-                        if self._is_unlocked("level_6_unlocked") and arrow_hit(self.arrow6_rect):
-                            return "level_6"
+                        arrow_rects = getattr(self, "normal_arrow_rects", [
+                            getattr(self, f"arrow{level_num if level_num > 1 else ''}_rect", None)
+                            for level_num in range(1, 7)
+                        ])
+                        for level_num, rect in enumerate(arrow_rects, start=1):
+                            if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and arrow_hit(rect):
+                                return self._start_level(level_num)
                     else:
                         for offset, rect in enumerate(self.normal_arrow_rects):
                             level_num = 7 + offset
-                            if level_num == 8 and self._is_unlocked("level_8_unlocked") and arrow_hit(rect):
-                                return f"level_{level_num}"
+                            if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and arrow_hit(rect):
+                                return self._start_level(level_num)
 
         return None
 
@@ -317,11 +387,17 @@ class GameScreen:
         if level_picture:
             self.screen.blit(level_picture, compute_picture_position(card_position, card_height, level_picture))
 
-        desc_key = f"Level{level_num}Cond"
+        content_level = (
+            get_test_content_level(level_num)
+            if getattr(self, "test_mode", False)
+            else level_num
+        )
+        desc_key = f"Level{content_level}Cond"
         desc_text = self._get_text(desc_key, None)
-        year_key = f"Level{level_num}Year"
+        year_key = f"Level{content_level}Year"
         year_text = self._get_text(year_key, None)
-        text_x = card_position[0] + 390
+        text_left = card_position[0] + 250
+        text_width = card_width - 250 - 15
         text_y = card_position[1] + 8
         year_surface = None
 
@@ -329,18 +405,32 @@ class GameScreen:
             year_text = f"Уровень {level_num}"
         if year_text and year_text != year_key:
             year_surface = self._render_text_cached(self.font_card, year_text, PAPER_COLOR)
-            self.screen.blit(year_surface, (text_x, text_y))
+            self.screen.blit(year_surface, (text_left + (text_width - year_surface.get_width()) // 2, text_y))
 
         if desc_text and desc_text != desc_key:
-            lines = self._wrap_text_cached(desc_text, self.font_card_desc, 400)
-            line_height = self.font_card_desc.get_height() + 5
             year_height = year_surface.get_height() if year_surface else 0
             start_y = text_y + year_height + 20
-            start_x = card_position[0] + 250
+            bottom = card_position[1] + card_height - 50
+            if show_start_arrow and self.startarrow_image:
+                bottom = min(bottom, card_position[1] + card_height
+                             - self.startarrow_image.get_height() - 20)
+            available_height = bottom - start_y
+
+            # Fit the full description inside the card, including space for
+            # the start arrow. Cache each font and wrap for subsequent frames.
+            for font_size in range(32, 0, -1):
+                if font_size not in self._description_fonts:
+                    self._description_fonts[font_size] = pygame.font.Font(self._font_path, font_size)
+                font = self._description_fonts[font_size]
+                lines = self._wrap_text_cached(desc_text, font, text_width)
+                line_height = font.get_height() + 5
+                if (len(lines) * line_height - 5 <= available_height
+                        and all(font.size(line)[0] <= text_width for line in lines)):
+                    break
 
             for i, line in enumerate(lines):
-                line_surface = self._render_text_cached(self.font_card_desc, line, PAPER_COLOR)
-                self.screen.blit(line_surface, (start_x, start_y + i * line_height))
+                line_surface = self._render_text_cached(font, line, PAPER_COLOR)
+                self.screen.blit(line_surface, (text_left, start_y + i * line_height))
 
         self._draw_completed_stamp(card_position, level_num)
 
@@ -349,12 +439,8 @@ class GameScreen:
             arrow_y = card_position[1] + card_height - self.startarrow_image.get_height() - 15
             self.screen.blit(self.startarrow_image, (arrow_x, arrow_y))
 
-    def draw(self):
-        if self.background:
-            self.screen.blit(self.background, (0, 0))
-        else:
-            self.screen.fill(BLACK)
-
+    def _draw_cards(self):
+        """Draw only the UI layer in the original card coordinate system."""
         if self.test_mode and self.levelcard_image:
             for level_num in range(1, self.num_levels + 1):
                 card_index = level_num - 1
@@ -365,26 +451,21 @@ class GameScreen:
                         card_position = (card_x, adjusted_y)
                         level_picture = self.test_level_pictures[card_index] if card_index < len(self.test_level_pictures) else None
                         self._draw_level_card(card_position, level_num, level_picture)
-            pygame.display.flip()
             return
 
         if getattr(self, "level_page_index", 0) == 0:
             cards = [
-                (1, self.card_position, self.level1_picture, True, not self._is_completed(1)),
-                (2, self.card2_position, self.level2_picture, self._is_unlocked("level_1_boss_defeated"), not self._is_completed(2)),
-                (3, self.card3_position, self.level3_picture, self._is_unlocked("level_2_boss_defeated"), not self._is_completed(3)),
-                (4, self.card4_position, self.level4_picture, self._is_unlocked("level_3_boss_defeated"), not self._is_completed(4)),
-                (5, self.card5_position, self.level5_picture, self._is_unlocked("level_3_boss_defeated"), not self._is_completed(5)),
-                (6, self.card6_position, self.level6_picture, self._is_unlocked("level_6_unlocked"), True),
+                (level_num, position, self.level_pictures[level_num - 1], self._is_level_unlocked(level_num), not self._is_completed(level_num))
+                for level_num, position in enumerate(self.normal_card_positions, start=1)
             ]
         else:
             cards = []
             for offset, position in enumerate(self.normal_card_positions):
                 level_num = 7 + offset
                 picture = self.level_pictures[level_num - 1]
-                unlocked = self._is_unlocked(f"level_{level_num}_unlocked")
-                startable = level_num == 8 and unlocked and not self._is_completed(level_num)
-                cards.append((level_num, position, picture, True, startable))
+                unlocked = self._is_level_unlocked(level_num)
+                startable = unlocked and not self._is_completed(level_num)
+                cards.append((level_num, position, picture, unlocked, startable))
         for level_num, position, picture, unlocked, startable in cards:
             if not unlocked or position is None:
                 continue
@@ -401,21 +482,78 @@ class GameScreen:
                 show_start_arrow=startable,
             )
         self._draw_page_navigation()
-        pygame.display.flip()
         return
 
+    def draw(self):
+        self._update_page_animation()
+        viewport = self.screen
+        viewport_size = viewport.get_size()
+        if self.background is not None:
+            if self._background_viewport_size != viewport_size:
+                size, self._background_position = cover_geometry(
+                    self.background.get_size(), viewport_size
+                )
+                self._viewport_background = pygame.transform.smoothscale(self.background, size)
+                self._background_viewport_size = viewport_size
+            viewport.blit(self._viewport_background, self._background_position)
+        else:
+            viewport.fill(BLACK)
+
+        self._content_surface.fill((0, 0, 0, 0))
+        self.screen = self._content_surface
+        try:
+            self._draw_cards()
+        finally:
+            self.screen = viewport
+
+        rect = level_content_rect(viewport_size)
+        content = self._content_surface
+        if rect.size != LEVEL_CONTENT_SIZE:
+            content = pygame.transform.smoothscale(content, rect.size)
+        viewport.blit(content, rect)
+        pygame.display.flip()
+
+    def _start_page_animation(self, target):
+        sound = getattr(self, "page_arrow_sound", None)
+        if sound is not None:
+            sound.play()
+        self._page_animation_source = self.level_page_index
+        self._page_animation_target = target
+        self._page_animation_started_at = pygame.time.get_ticks()
+        self._page_animation_fourth_at = None
+        self._page_animation_frame = 0
+
+    def _update_page_animation(self, now=None):
+        started = getattr(self, "_page_animation_started_at", None)
+        if started is None:
+            return
+        if now is None:
+            now = pygame.time.get_ticks()
+        self._page_animation_frame = min(3, max(0, (now - started) // PAGE_ARROW_FRAME_MS))
+        if self._page_animation_frame == 3:
+            if self._page_animation_fourth_at is None:
+                # Commit before drawing the cards, and keep frame 4 visible for
+                # a full interval even if a slow render skipped earlier frames.
+                self.level_page_index = self._page_animation_target
+                self.scroll_y = 0
+                self._page_animation_fourth_at = now
+            elif now - self._page_animation_fourth_at >= PAGE_ARROW_FRAME_MS:
+                self._page_animation_started_at = None
+                self._page_animation_frame = 0
+
     def _draw_page_navigation(self):
-        """Draw fixed arrows that switch between the two six-card pages."""
+        """Keep the pressed arrow on its original side through frame 4."""
         if self.test_mode:
             return
-        rect = self.next_page_rect if getattr(self, "level_page_index", 0) == 0 else self.previous_page_rect
-        pygame.draw.rect(self.screen, (226, 205, 164), rect, border_radius=8)
-        pygame.draw.rect(self.screen, PAPER_COLOR, rect, width=3, border_radius=8)
-        if getattr(self, "level_page_index", 0) == 0:
-            points = [(rect.left + 20, rect.top + 16), (rect.right - 16, rect.centery), (rect.left + 20, rect.bottom - 16)]
-        else:
-            points = [(rect.right - 20, rect.top + 16), (rect.left + 16, rect.centery), (rect.right - 20, rect.bottom - 16)]
-        pygame.draw.polygon(self.screen, PAPER_COLOR, points)
+        active = self._page_animation_started_at is not None
+        source = self._page_animation_source if active else self.level_page_index
+        if source == 0 and not self._can_open_next_page():
+            return
+        rect = self.next_page_rect if source == 0 else self.previous_page_rect
+        frames = self.page_arrow_frames if source == 0 else self.page_arrow_back_frames
+        frame = frames[self._page_animation_frame if active else 0]
+        if frame is not None:
+            self.screen.blit(frame, rect)
 
     def run(self):
         while True:

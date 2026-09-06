@@ -73,6 +73,37 @@ class MainFlowIntegrationTests(unittest.TestCase):
 
         return SequencedPage
 
+    def test_unrecoverable_selected_profile_opens_profile_page_without_overwriting(self):
+        path = profile_manager.get_profile_path(1)
+        for target in (path, path + ".bak"):
+            with open(target, "wb") as output:
+                output.write(b"broken")
+        profile_pages, start_pages = [], []
+        with (
+            patch.object(Main, "ProfilePage", self._sequenced_page(["back"], profile_pages)),
+            patch.object(Main, "StartPage", self._sequenced_page(["quit"], start_pages)),
+        ):
+            Main.main()
+        self.assertEqual(len(profile_pages), 1)
+        self.assertIsNone(start_pages[0].kwargs["profile_name"])
+        with open(path, "rb") as source:
+            self.assertEqual(source.read(), b"broken")
+
+    def test_recovered_selected_profile_shows_notice_before_main_menu(self):
+        path = profile_manager.get_profile_path(1)
+        with open(path, "wb") as output:
+            output.write(b"broken")
+        profile_pages, start_pages = [], []
+        with (
+            patch.object(Main, "ProfilePage", self._sequenced_page(["back"], profile_pages)),
+            patch.object(Main, "StartPage", self._sequenced_page(["quit"], start_pages)),
+        ):
+            Main.main()
+        self.assertEqual(len(profile_pages), 1)
+        self.assertEqual(start_pages[0].kwargs["profile_name"], "Integration")
+        self.assertTrue(profile_manager.was_profile_recovered(1))
+        self.assertEqual(profile_manager.load_profile(1)["name"], "Integration")
+
     def test_level_one_victory_completes_route_and_unlocks_level_two(self):
         gameplay_instances = []
         round_results = deque(["button_e", "boss_clicked"])
@@ -169,60 +200,44 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(len(settings_pages), 1)
         save_volume.assert_called_once_with(0.35)
 
-    def test_level_six_shows_single_category_one_boss_before_round_page(self):
-        roster = [
-            ["4_NicolasApper.png"],
-            ["2_AdamSmith.png"],
-            ["8_List.png"],
-            ["9_Laffitte.png"],
-        ]
-        boss_pages = []
-        round_pages = []
+    def test_test_level_thirteen_opens_bot_match_without_boss_or_round_pages(self):
+        gameplay_pages = []
 
-        class SingleBossPage:
+        class ForbiddenPage:
             def __init__(self, *args, **kwargs):
-                self.level_number = int(args[2])
-                self.current_boss_filenames = list(roster[int(kwargs.get("defeated_count", 0) or 0)])
-                self.clicked_boss_filename = self.current_boss_filenames[0]
-                self.clicked_boss_rect = pygame.Rect(300, 200, 100, 100)
-                self.saved_lines = [(235, 832, 350, 250)]
-                boss_pages.append(self)
+                raise AssertionError("Test level 13 must open gameplay directly")
 
-            def run(self):
-                return f"boss_{self.level_number}_0"
-
-        class CapturingRoundPage:
+        class CapturingGameplayPage:
             def __init__(self, *args, **kwargs):
-                self.level_number = int(args[2])
-                self.boss_index = int(args[3])
-                self.boss_filename = kwargs.get("boss_filename")
-                round_pages.append(self)
+                self.args = args
+                self.kwargs = kwargs
+                gameplay_pages.append(self)
 
             def run(self):
                 return "quit"
 
-        def pin_level6(state, bosses_required):
-            state["roster"] = copy.deepcopy(roster)
-            return state["roster"]
-
-        start_page = self._sequenced_page(["start"])
-        level_page = self._sequenced_page(["level_6"])
+        start_page = self._sequenced_page(["test_mode"])
+        level_page = self._sequenced_page(["level_13"])
         with (
             patch.object(Main, "StartPage", start_page),
             patch.object(Main, "GameScreen", level_page),
-            patch.object(Main, "BossPage", SingleBossPage),
-            patch.object(Main, "RoundPage", CapturingRoundPage),
-            patch.object(Main, "_ensure_level6_roster", side_effect=pin_level6),
+            patch.object(Main, "BossPage", ForbiddenPage),
+            patch.object(Main, "RoundPage", ForbiddenPage),
+            patch.object(Main, "GameplayPage", CapturingGameplayPage),
         ):
             Main.main()
 
-        self.assertEqual(len(boss_pages), 1)
-        self.assertEqual(boss_pages[0].current_boss_filenames, ["4_NicolasApper.png"])
-        self.assertEqual(len(round_pages), 1)
-        self.assertEqual(round_pages[0].level_number, 6)
-        self.assertEqual(round_pages[0].boss_index, 0)
-        self.assertEqual(round_pages[0].boss_filename, "4_NicolasApper.png")
-        self.assertEqual(game_state.boss_progress[6]["current_boss"]["boss_filename"], "4_NicolasApper.png")
+        self.assertEqual(len(gameplay_pages), 1)
+        context = gameplay_pages[0].kwargs
+        self.assertEqual(context["level_number"], 6)
+        self.assertTrue(context["is_boss_fight"])
+        self.assertEqual(context["boss_index"], 0)
+        self.assertIsNone(context["boss_filename"])
+        self.assertEqual(context["rounds_required"], 0)
+        self.assertEqual(context["active_silver_cards"], [])
+        self.assertEqual(context["active_black_cards"], [])
+        self.assertEqual(context["active_gold_cards"], [])
+        self.assertIsNone(game_state.boss_progress[6]["current_boss"])
 
     def test_level_eight_third_boss_victory_returns_to_level_menu_and_resets_attempt(self):
         roster = [
@@ -364,6 +379,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
 
         for level, campaign in campaigns.items():
             with self.subTest(level=level):
+                content_level = level
                 profile = profile_manager._default_profile(1)
                 profile["name"] = "Integration"
                 profile_manager.save_profile(profile)
@@ -456,7 +472,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
                 start_page = self._sequenced_page(["start"])
                 level_page = self._sequenced_page([f"level_{level}", "quit"])
                 with (
-                    patch.dict(Main.LEVEL_BOSS_ROUNDS, {level: copy.deepcopy(roster)}, clear=False),
+                    patch.dict(Main.LEVEL_BOSS_ROUNDS, {content_level: copy.deepcopy(roster)}, clear=False),
                     patch.object(Main, "StartPage", start_page),
                     patch.object(Main, "GameScreen", level_page),
                     patch.object(Main, "BossPage", FakeBossPage),
@@ -481,20 +497,18 @@ class MainFlowIntegrationTests(unittest.TestCase):
 
                 self.assertEqual([context.get("boss_filename") for context in boss_contexts], selected_bosses)
                 self.assertEqual(regular_counts, campaign["rounds"])
-                self.assertEqual(game_state.boss_progress[level]["defeated"], len(roster))
+                self.assertEqual(game_state.boss_progress[content_level]["defeated"], len(roster))
                 self.assertEqual(
-                    [entry["filename"] for entry in game_state.boss_progress[level]["defeated_bosses"]],
+                    [entry["filename"] for entry in game_state.boss_progress[content_level]["defeated_bosses"]],
                     selected_bosses,
                 )
-                if level in (2, 3, 4, 5):
-                    self.assertTrue(getattr(game_state, f"level_{level}_boss_defeated"))
+                self.assertTrue(getattr(game_state, f"level_{content_level}_boss_defeated"))
                 if campaign["completion_card"] is not None:
                     self.assertIn(campaign["completion_card"], game_state.get_completed_level_reward_cards())
                 self.assertIsNone(profile_manager.get_active_game(1))
                 saved_progress = profile_manager.load_profile(1)["progress"]
-                self.assertEqual(saved_progress["boss_progress"][str(level)]["defeated"], len(roster))
-                if level in (2, 3, 4, 5):
-                    self.assertTrue(saved_progress[f"level_{level}_boss_defeated"])
+                self.assertEqual(saved_progress["boss_progress"][str(content_level)]["defeated"], len(roster))
+                self.assertTrue(saved_progress[f"level_{content_level}_boss_defeated"])
 
     def test_saved_regular_round_resumes_and_commits_map_progress(self):
         context = {

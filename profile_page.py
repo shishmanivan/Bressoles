@@ -5,6 +5,7 @@ import pygame
 
 import profile_manager
 from asset_loaders import load_scaled_image
+from shared_utils import wrap_text
 
 
 SCREEN_WIDTH = 1680
@@ -27,11 +28,19 @@ class ProfilePage:
         self.font_title = pygame.font.Font(font_path, 64)
         self.font_medium = pygame.font.Font(font_path, 44)
         self.font_small = pygame.font.Font(font_path, 30)
+        self.status_font = pygame.font.Font(font_path, 24)
         self.profiles = profile_manager.list_profiles()
         self.selected_slot = profile_manager.get_selected_slot()
         self.editing_slot = None
         self.input_text = ""
         self._text_cache = {}
+        self.status_message = ""
+        unavailable = [str(p["slot"]) for p in self.profiles if p.get("_load_error")]
+        recovered = [str(p["slot"]) for p in self.profiles if profile_manager.was_profile_recovered(p["slot"])]
+        if unavailable:
+            self.status_message = self._unavailable_message(", ".join(unavailable))
+        elif recovered:
+            self.status_message = self._recovered_message(", ".join(recovered))
 
         window_path = os.path.join("GameplayPage", "WinLose.png")
         self.window_image = load_scaled_image(
@@ -87,13 +96,43 @@ class ProfilePage:
         return (profile.get("name") or "").strip()
 
     def _start_editing(self, slot):
+        if self.profiles[slot - 1].get("_load_error"):
+            self.editing_slot = None
+            self.status_message = self._unavailable_message(slot)
+            return
+        self.status_message = (
+            self._recovered_message(slot) if profile_manager.was_profile_recovered(slot) else ""
+        )
         self.editing_slot = slot
         self.input_text = self._profile_name_for_slot(slot)
+
+    def _unavailable_message(self, slots):
+        return self._get_text(
+            "ProfileUnavailableMessage",
+            "Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.",
+        ).format(slots=slots)
+
+    def _recovered_message(self, slots):
+        return self._get_text(
+            "ProfileRecoveredMessage",
+            "Профиль {slots} восстановлен из резервной копии. Последнее сохранение могло быть потеряно.",
+        ).format(slots=slots)
 
     def _confirm_selection(self):
         if self.editing_slot is None:
             return None
-        profile = profile_manager.select_profile(self.editing_slot, self.input_text)
+        try:
+            profile = profile_manager.select_profile(self.editing_slot, self.input_text)
+        except profile_manager.ProfileLoadError:
+            self.status_message = self._unavailable_message(self.editing_slot)
+            self.profiles = profile_manager.list_profiles()
+            self.editing_slot = None
+            return None
+        except OSError:
+            self.status_message = self._get_text(
+                "ProfileSaveFailed", "Не удалось сохранить профиль. Проверьте доступ к папке Profiles и свободное место.",
+            )
+            return None
         return {"slot": int(profile["slot"]), "name": profile.get("name", "")}
 
     def handle_input(self):
@@ -160,6 +199,8 @@ class ProfilePage:
             self.screen.blit(number, number_rect)
 
             name = self._profile_name_for_slot(slot) or self._get_text("Profile", "Profile")
+            if self.profiles[index].get("_load_error"):
+                name = self._get_text("ProfileUnavailable", "Недоступен")
             name_surface = self._render_text_cached(self.font_small, name, PAPER_COLOR)
             max_name_width = rect.width - 95
             if name_surface.get_width() > max_name_width:
@@ -177,6 +218,10 @@ class ProfilePage:
             input_surface = self._render_text_cached(self.font_medium, text, PAPER_COLOR)
             input_rect = input_surface.get_rect(midleft=(self.input_rect.x + 18, self.input_rect.centery))
             self.screen.blit(input_surface, input_rect)
+
+        for index, line in enumerate(wrap_text(self.status_message, self.status_font, self.window_rect.width - 60)):
+            surface = self._render_text_cached(self.status_font, line, PAPER_COLOR)
+            self.screen.blit(surface, (self.window_rect.x + 30, self.window_rect.bottom - 70 + index * 26))
 
         pygame.display.flip()
 

@@ -3,6 +3,7 @@ import functools
 import os
 
 from csv_storage import write_semicolon_csv_atomically
+from game_data import get_level_rounds_required, load_levels_config
 
 
 STATS_FILE = "GameStats.csv"
@@ -87,34 +88,42 @@ def build_sequential_round_number(
     is_boss_fight=False,
     boss_number=None,
 ):
-    """Return the hidden stage number for the marathon now hosted on level 8."""
+    """Return the ordinal stage number for every configured level route."""
     try:
-        if int(level_number or 0) != 8:
-            return ""
+        normalized_level = int(level_number or 0)
     except (TypeError, ValueError):
         return ""
+
+    levels_config = load_levels_config()
+    if normalized_level not in levels_config:
+        return ""
+    rounds_before_boss = get_level_rounds_required(
+        normalized_level,
+        levels_config=levels_config,
+    )
 
     try:
         position = max(1, int(boss_position or 1))
     except (TypeError, ValueError):
         position = 1
-    cycle_start = (position - 1) * 4
+    cycle_width = rounds_before_boss + 1
+    cycle_start = (position - 1) * cycle_width
 
     if is_boss_fight:
-        return str(cycle_start + 4)
+        return str(cycle_start + cycle_width)
 
     try:
         local_round = int(round_num or 0)
     except (TypeError, ValueError):
         return ""
-    if local_round in (1, 2, 3):
+    if 1 <= local_round <= rounds_before_boss:
         return str(cycle_start + local_round)
     try:
         is_fulton = int(boss_number or 0) == 3
     except (TypeError, ValueError):
         is_fulton = False
-    if local_round == 4 and is_fulton:
-        return _format_number(cycle_start + 3.5)
+    if local_round == rounds_before_boss + 1 and is_fulton:
+        return _format_number(cycle_start + rounds_before_boss + 0.5)
     return ""
 
 

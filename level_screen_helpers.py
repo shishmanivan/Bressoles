@@ -5,6 +5,19 @@ import pygame
 from asset_loaders import load_fitted_image
 
 
+LEVEL_CONTENT_SIZE = (1680, 1050)
+
+
+def level_content_rect(viewport_size):
+    """Fit the existing card composition, without enlarging it on ultrawide."""
+    width, height = viewport_size
+    scale = min(width / LEVEL_CONTENT_SIZE[0], height / LEVEL_CONTENT_SIZE[1], 1.0)
+    size = tuple(max(1, round(dimension * scale)) for dimension in LEVEL_CONTENT_SIZE)
+    rect = pygame.Rect((0, 0), size)
+    rect.center = (width // 2, height // 2)
+    return rect
+
+
 def compute_arrow_position(card_position, card_size, arrow_size, padding=15):
     """Compute the bottom-right arrow position for a card."""
     card_x, card_y = card_position
@@ -91,17 +104,17 @@ def build_test_mode_layout(levelcard_image, startarrow_image, screen_width, scre
     """Build positions, click rects, and scroll bounds for test mode."""
     if not levelcard_image:
         return {
-            "num_levels": 12,
+            "num_levels": 13,
             "cards_per_row": 2,
-            "cards_per_col": 6,
+            "cards_per_col": 7,
             "test_card_positions": [],
             "test_card_rects": [],
             "max_scroll_y": 0,
         }
 
-    num_levels = 12
+    num_levels = 13
     cards_per_row = 2
-    cards_per_col = 6
+    cards_per_col = 7
     card_width = levelcard_image.get_width()
     card_height = levelcard_image.get_height()
     card_spacing = 50

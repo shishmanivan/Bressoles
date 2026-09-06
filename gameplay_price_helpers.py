@@ -158,7 +158,15 @@ def _normalize_market_set(markets):
     return forced
 
 
-def _roll_market_animation(market, step, probabilities, forced_rise_markets):
+def _roll_market_animation(
+    market,
+    step,
+    probabilities,
+    forced_rise_markets,
+    forced_fall_markets,
+):
+    if market in forced_fall_markets:
+        return {"market": market, "type": "fall", "price_change": -step}
     if market in forced_rise_markets:
         return {"market": market, "type": "rise", "price_change": step}
 
@@ -177,6 +185,7 @@ def build_stock_price_animation_queue(
     step_c,
     market_cards=None,
     forced_rise_markets=None,
+    forced_fall_markets=None,
     probability_card_bonus=0,
     force_flat=False,
     force_flat_markets=None,
@@ -187,11 +196,14 @@ def build_stock_price_animation_queue(
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
+    forced_fall_markets = _normalize_market_set(forced_fall_markets)
     if force_flat:
         steps = {0: step_a, 1: step_b, 2: step_c}
         return [
             (
-                {"market": market, "type": "rise", "price_change": steps[market]}
+                {"market": market, "type": "fall", "price_change": -steps[market]}
+                if market in forced_fall_markets
+                else {"market": market, "type": "rise", "price_change": steps[market]}
                 if market in forced_rise_markets
                 else {"market": market, "type": "unchanged", "price_change": 0}
             )
@@ -209,9 +221,9 @@ def build_stock_price_animation_queue(
     )
 
     return [
-        _roll_market_animation(0, step_a, probabilities, forced_rise_markets),
-        _roll_market_animation(1, step_b, probabilities, forced_rise_markets),
-        _roll_market_animation(2, step_c, probabilities, forced_rise_markets),
+        _roll_market_animation(0, step_a, probabilities, forced_rise_markets, forced_fall_markets),
+        _roll_market_animation(1, step_b, probabilities, forced_rise_markets, forced_fall_markets),
+        _roll_market_animation(2, step_c, probabilities, forced_rise_markets, forced_fall_markets),
     ]
 
 

@@ -5,7 +5,7 @@ from simple_stock_bot import MARKETS
 class ReinvestmentStockBot(AdvancedStockBot):
     """Probability-aware bot that prioritizes growing its share count."""
 
-    display_name = "Бот3 - Перевложение"
+    display_name = "Бот3"
 
     def trade(self, prices, probabilities):
         base_decision = super().trade(prices, probabilities)

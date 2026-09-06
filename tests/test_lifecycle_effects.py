@@ -123,6 +123,41 @@ class LifecycleEffectTests(unittest.TestCase):
         with mock.patch.object(game_state, "profit_reward_bonus", 2):
             self.assertEqual(page._get_pending_victory_napoleondor_reward(), 3.5)
 
+    def test_nabob_doubles_all_round_income_but_not_the_carried_balance(self):
+        page = self._page(silver=[216])
+        page.level_number = 2
+        page.difficulty = "m"
+        page.is_boss_fight = False
+        page.boss_filename = None
+        page.lang_dict = {}
+        game_state.napoleondor_level = 2
+        game_state.napoleondors = 1
+
+        entries = page._build_finance_report_entries(
+            [],
+            opening_balance=1,
+            commission_amount=1,
+            long_amount=6,
+        )
+        nabob_amount = page._apply_nabob_win_bonus(entries)
+        report = page._build_finance_report_entries(
+            [],
+            opening_balance=1,
+            commission_amount=1,
+            long_amount=6,
+            nabob_amount=nabob_amount,
+        )
+
+        self.assertEqual(nabob_amount, 9)
+        self.assertEqual(game_state.napoleondors, 10)
+        self.assertEqual(
+            [entry["source"] for entry in report],
+            ["account_balance", "victory_reward", "commission", "long_profit", "nabob", "total"],
+        )
+        self.assertEqual(report[-2]["label"], "Бонус Набоба")
+        self.assertEqual(report[-2]["amount"], 9)
+        self.assertEqual(report[-1]["amount"], 19)
+
     def test_contango_and_rollover_stack_with_multiple_copies(self):
         page = self._page(silver=[204, 204, 208, 208])
         page.card_actions = {11: 2, 15: -2}
@@ -497,7 +532,35 @@ class LifecycleEffectTests(unittest.TestCase):
             [(entry["type"], entry["price_change"]) for entry in c_movements],
             [("rise", 6), ("rise", 6)],
         )
+        self.assertEqual(
+            [(entry.get("source"), entry.get("card_slot")) for entry in c_movements],
+            [("insider", 1), ("insider", 2)],
+        )
         self.assertEqual(page.insider_c_growth_turns_remaining, 1)
+
+    def test_insider_jumps_only_when_c_growth_animation_starts(self):
+        page = self._page(gold=[404, 405])
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.Day = 1
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 2
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page._apply_price_change = mock.Mock(return_value=False)
+        page.typewriter_sound = None
+
+        page.price_animation_queue = page.update_stock_prices()
+        page._start_card_jump_animation.assert_not_called()
+
+        self.assertTrue(page._start_next_price_animation(now=100))
+        page._start_card_jump_animation.assert_not_called()
+        self.assertTrue(page._start_next_price_animation(now=200))
+        page._start_card_jump_animation.assert_not_called()
+        self.assertTrue(page._start_next_price_animation(now=300))
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            1,
+        )
 
     def test_catalyst_strengthens_bear_gambling_bill_rebate_and_uptrend(self):
         page = self._page(silver=[210, 215], gold=[401, 406, 407, 410])
@@ -518,6 +581,11 @@ class LifecycleEffectTests(unittest.TestCase):
         game_state.napoleondors = 5
         self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 20)
         self.assertEqual(page._get_current_rebate_sale_percent(), 160)
+
+    def test_each_downside_risk_copy_guarantees_two_drop_cards(self):
+        page = self._page(gold=[433, 433])
+
+        self.assertEqual(page._get_downside_risk_guaranteed_drop_count(), 4)
 
     def test_gold_catalyst_stacks_with_silver_catalyst_for_twenty_five_points(self):
         page = self._page(silver=[210, 215], gold=[401, 406, 407, 410, 414])
@@ -897,6 +965,79 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(len(a_rises), 4)
         self.assertEqual([entry.get("source") for entry in a_rises], [None, "momentum", "spoofing", "momentum"])
 
+    def test_selling_pressure_forces_one_market_fall_and_jumps_with_that_graph(self):
+        page = self._page(gold=[404, 432])
+        page.Day = 1
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page._apply_price_change = mock.Mock(return_value=False)
+        page.typewriter_sound = None
+
+        with mock.patch.object(gameplay_page.random, "randint", return_value=2):
+            page.price_animation_queue = page.update_stock_prices()
+
+        self.assertEqual(
+            [
+                (entry["market"], entry["type"], entry["price_change"], entry.get("source"))
+                for entry in page.price_animation_queue
+            ],
+            [
+                (0, "unchanged", 0, None),
+                (1, "fall", -4, "selling_pressure"),
+                (2, "unchanged", 0, None),
+            ],
+        )
+        self.assertTrue(page._start_next_price_animation(now=100))
+        page._start_card_jump_animation.assert_not_called()
+        self.assertTrue(page._start_next_price_animation(now=200))
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            1,
+        )
+
+    def test_duplicate_selling_pressure_cards_each_force_a_fall(self):
+        page = self._page(gold=[432, 432])
+        page.Day = 1
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        with mock.patch.object(gameplay_page.random, "randint", side_effect=[1, 1]) as roll:
+            movements = page.update_stock_prices()
+
+        a_falls = [entry for entry in movements if entry["market"] == 0]
+        self.assertEqual(roll.call_count, 2)
+        self.assertEqual(
+            [(entry["type"], entry["price_change"], entry.get("card_slot")) for entry in a_falls],
+            [("fall", -2, 0), ("fall", -2, 1)],
+        )
+
+    def test_selling_pressure_and_insider_both_resolve_on_market_c(self):
+        page = self._page(gold=[404, 405, 432])
+        page.Day = 1
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 2
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        with mock.patch.object(gameplay_page.random, "randint", return_value=3):
+            movements = page.update_stock_prices()
+
+        c_movements = [entry for entry in movements if entry["market"] == 2]
+        self.assertEqual(
+            [(entry["type"], entry["price_change"], entry.get("source")) for entry in c_movements],
+            [("fall", -6, "selling_pressure"), ("rise", 6, "insider")],
+        )
+
     def test_shakeout_targets_only_markets_without_player_shares(self):
         page = self._page(gold=[413])
         page.Aquantity = 2
@@ -1135,7 +1276,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page._reset_boss_turn_timer = mock.Mock()
         page._save_active_game = mock.Mock()
 
-        with mock.patch.object(gameplay_page.random, "randint", return_value=15):
+        with mock.patch.object(gameplay_page.random, "randint", return_value=25):
             self.assertTrue(page._try_start_waterloo_preview())
 
         self.assertEqual(page.waterloo_preview_movements, movements)
@@ -1152,7 +1293,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page._reset_boss_turn_timer = mock.Mock()
         page._save_active_game = mock.Mock()
 
-        with mock.patch.object(gameplay_page.random, "randint", side_effect=[16, 15]) as roll:
+        with mock.patch.object(gameplay_page.random, "randint", side_effect=[26, 25]) as roll:
             self.assertTrue(page._try_start_waterloo_preview())
 
         self.assertEqual(roll.call_count, 2)
@@ -1161,7 +1302,7 @@ class LifecycleEffectTests(unittest.TestCase):
     def test_waterloo_chance_is_strengthened_by_catalyst_and_disclosure(self):
         page = self._page(silver=[210], gold=[414, 427, 430])
 
-        self.assertEqual(page._get_waterloo_chance(), 42)
+        self.assertEqual(page._get_waterloo_chance(), 52)
 
     def test_second_waterloo_end_turn_uses_the_saved_roll(self):
         page = self._page(gold=[430])

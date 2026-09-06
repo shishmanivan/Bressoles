@@ -70,30 +70,118 @@ class StatsContractTests(unittest.TestCase):
         self.assertEqual(row["ДеньгиМаксимум"], "37")
         self.assertEqual(row["ДеньгиПоследние"], "13")
 
-    def test_level8_sequential_round_numbers_do_not_shift_for_fulton(self):
+    def test_every_configured_level_uses_ordinal_round_numbers(self):
+        cases = {
+            1: (1, ["1"], "2"),
+            2: (2, ["1", "2"], "3"),
+            3: (3, ["1", "2", "3"], "4"),
+            4: (3, ["1", "2", "3"], "4"),
+            5: (3, ["1", "2", "3"], "4"),
+            6: (0, [], "1"),
+            8: (3, ["1", "2", "3"], "4"),
+        }
+        for level_number, (round_count, expected_rounds, expected_boss) in cases.items():
+            with self.subTest(level_number=level_number):
+                self.assertEqual(
+                    [
+                        game_stats.build_sequential_round_number(
+                            level_number,
+                            round_num,
+                            1,
+                        )
+                        for round_num in range(1, round_count + 1)
+                    ],
+                    expected_rounds,
+                )
+                self.assertEqual(
+                    game_stats.build_sequential_round_number(
+                        level_number,
+                        boss_position=1,
+                        is_boss_fight=True,
+                    ),
+                    expected_boss,
+                )
+
+        self.assertEqual(game_stats.build_sequential_round_number(99, 1, 1), "")
+
+    def test_sequential_round_numbers_continue_after_each_boss(self):
         self.assertEqual(
-            [
-                game_stats.build_sequential_round_number(8, round_num, 1, boss_number=3)
-                for round_num in range(1, 5)
-            ],
-            ["1", "2", "3", "3.5"],
+            [game_stats.build_sequential_round_number(2, round_num, 2) for round_num in (1, 2)],
+            ["4", "5"],
         )
         self.assertEqual(
-            game_stats.build_sequential_round_number(8, boss_position=1, is_boss_fight=True),
-            "4",
+            game_stats.build_sequential_round_number(2, boss_position=2, is_boss_fight=True),
+            "6",
+        )
+
+        for level_number in (3, 4, 5, 8):
+            with self.subTest(level_number=level_number):
+                self.assertEqual(
+                    [
+                        game_stats.build_sequential_round_number(
+                            level_number,
+                            round_num,
+                            2,
+                        )
+                        for round_num in range(1, 4)
+                    ],
+                    ["5", "6", "7"],
+                )
+                self.assertEqual(
+                    game_stats.build_sequential_round_number(
+                        level_number,
+                        boss_position=2,
+                        is_boss_fight=True,
+                    ),
+                    "8",
+                )
+
+    def test_fulton_extra_round_uses_half_step_without_shifting_boss(self):
+        self.assertEqual(
+            game_stats.build_sequential_round_number(2, 3, 1, boss_number=3),
+            "2.5",
         )
         self.assertEqual(
-            [
-                game_stats.build_sequential_round_number(8, round_num, 2, boss_number=3)
-                for round_num in range(1, 5)
-            ],
-            ["5", "6", "7", "7.5"],
+            game_stats.build_sequential_round_number(2, boss_position=1, is_boss_fight=True),
+            "3",
         )
+
+        for level_number in (3, 4, 5, 8):
+            with self.subTest(level_number=level_number):
+                self.assertEqual(
+                    [
+                        game_stats.build_sequential_round_number(
+                            level_number,
+                            round_num,
+                            2,
+                            boss_number=3,
+                        )
+                        for round_num in range(1, 5)
+                    ],
+                    ["5", "6", "7", "7.5"],
+                )
+                self.assertEqual(
+                    game_stats.build_sequential_round_number(
+                        level_number,
+                        boss_position=2,
+                        is_boss_fight=True,
+                    ),
+                    "8",
+                )
+
+    def test_level5_round_stats_are_split_by_ordinal_round_number(self):
+        game_stats.update_game_stats(
+            5, 8, "Раунд 1", True, "H", earned_money=300, sequential_round_number="1"
+        )
+        game_stats.update_game_stats(
+            5, 8, "Раунд 1", False, "H", earned_money=200, sequential_round_number="5"
+        )
+
+        rows = game_stats._read_rows()
         self.assertEqual(
-            game_stats.build_sequential_round_number(8, boss_position=2, is_boss_fight=True),
-            "8",
+            [(row["ПорядковыйРаунд"], row["Победы"], row["Поражения"]) for row in rows],
+            [("1", "1", "0"), ("5", "0", "1")],
         )
-        self.assertEqual(game_stats.build_sequential_round_number(5, 1, 1), "")
 
     def test_level8_round_stats_are_split_by_sequential_round_number(self):
         game_stats.update_game_stats(
@@ -105,6 +193,20 @@ class StatsContractTests(unittest.TestCase):
 
         rows = game_stats._read_rows()
         self.assertEqual(len(rows), 2)
+        self.assertEqual(
+            [(row["ПорядковыйРаунд"], row["Победы"], row["Поражения"]) for row in rows],
+            [("2", "1", "0"), ("6", "0", "1")],
+        )
+
+    def test_level3_round_stats_are_split_by_sequential_round_number(self):
+        game_stats.update_game_stats(
+            3, 4, "Раунд 2", True, "M", earned_money=140, sequential_round_number="2"
+        )
+        game_stats.update_game_stats(
+            3, 4, "Раунд 2", False, "M", earned_money=100, sequential_round_number="6"
+        )
+
+        rows = game_stats._read_rows()
         self.assertEqual(
             [(row["ПорядковыйРаунд"], row["Победы"], row["Поражения"]) for row in rows],
             [("2", "1", "0"), ("6", "0", "1")],
@@ -124,6 +226,22 @@ class StatsContractTests(unittest.TestCase):
         self.assertEqual(
             sorted(row["ПорядковыйРаунд"] for row in rows),
             ["7", "8"],
+        )
+
+    def test_level3_loss_stage_uses_sequential_round_number(self):
+        game_stats.update_level_run_loss_stage_stats(
+            3,
+            "Раунд 4",
+            4,
+            boss_position=2,
+            boss_number=3,
+        )
+        game_stats.update_level_run_loss_stage_stats(3, "Босс уровня 3", 3)
+
+        rows = game_stats._read_rows()
+        self.assertEqual(
+            sorted((row["ПорядковыйРаунд"] for row in rows), key=float),
+            ["7.5", "12"],
         )
 
     def test_level6_experiment_log_is_parallel_and_starts_without_history(self):

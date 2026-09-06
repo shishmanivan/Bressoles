@@ -13,6 +13,7 @@ from gameplay_card_rendering import (
     draw_card_turns_text,
 )
 from gameplay_deck import get_card_investment_bonus
+from gameplay_assets import load_card_placing_sound
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 
@@ -118,6 +119,10 @@ CARD_TOOLTIPS = {
     215: (
         "Bill of exchange",
         "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    ),
+    216: (
+        "Набоб",
+        "Удваивает всю прибыль, полученную за раунд, после применения остальных бонусов.",
     ),
     217: ("Obligation", "После победы приносит дополнительно 5 наполеондоров."),
     218: ("Obligation", "После победы приносит дополнительно 10 наполеондоров."),
@@ -264,11 +269,19 @@ CARD_TOOLTIPS.update(
         ),
         430: (
             "Waterloo",
-            "С вероятностью 15% показывает следующий рыночный бросок и позволяет переиграть ход.",
+            "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
         ),
         431: (
             "Risk Premium",
             "Каждый начатый раунд H добавляет 10 процентных пунктов к итоговому эффекту Rebate.",
+        ),
+        432: (
+            "Selling Pressure",
+            "Гарантирует падение одной случайно выбранной акции каждый ход. Остальные акции получают обычный рыночный бросок.",
+        ),
+        433: (
+            "Downside Risk",
+            "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
         ),
     }
 )
@@ -350,6 +363,7 @@ class SilverBlackPage:
         self.drag_card_id = None
         self.drag_offset = (0, 0)
         self.drag_pos = (0, 0)
+        self.card_placing_sound = load_card_placing_sound()
 
     def _get_text(self, key, default):
         return self.lang.get(key, default)
@@ -567,6 +581,7 @@ class SilverBlackPage:
             return
 
         target_slot = self._active_slot_at(pos)
+        placed = False
         if self.drag_source == "inventory":
             if (
                 target_slot is not None
@@ -576,13 +591,22 @@ class SilverBlackPage:
             ):
                 target_slot = min(target_slot, len(self.selected_entries))
                 self.selected_entries.insert(target_slot, self.drag_entry)
+                placed = True
+            elif self._inventory_entry_at(pos) == self.drag_entry:
+                # The card was deliberately put back onto its source placeholder.
+                placed = True
         elif self.drag_source == "active":
             if self.drag_active_slot is not None and 0 <= self.drag_active_slot < len(self.selected_entries):
                 moving_entry = self.selected_entries.pop(self.drag_active_slot)
                 if target_slot is not None:
                     target_slot = min(target_slot, len(self.selected_entries))
                     self.selected_entries.insert(target_slot, moving_entry)
+                    placed = True
+                elif self._inventory_entry_at(pos) == moving_entry:
+                    placed = True
 
+        if placed and self.card_placing_sound:
+            self.card_placing_sound.play()
         self._clear_drag()
 
     def _clear_drag(self):

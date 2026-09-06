@@ -152,6 +152,22 @@ class RedRewardPoolTests(RewardPoolTestCase):
 
 
 class SilverRewardPoolTests(RewardPoolTestCase):
+    def test_nabob_uses_a_ten_percent_pool_roll(self):
+        cards = {216: {"Type": 3, "Open": 1, "Variable": 10}}
+        game_state.licensed_card_ids.add(216)
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=10),
+        ):
+            self.assertEqual(game_state.build_silver_cards_pool(), [216])
+
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state.random, "randint", return_value=11),
+        ):
+            self.assertEqual(game_state.build_silver_cards_pool(), [])
+
     def test_catalyst_uses_a_twenty_percent_pool_roll(self):
         cards = {210: {"Type": 3, "Open": 1, "Variable": 20}}
         game_state.licensed_card_ids.add(210)

@@ -5,6 +5,7 @@ import pygame
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, PRICE_CARD_IDS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
+from sound_assets import load_card_taking_sound
 
 
 _gameplay_core_assets_cache = {}
@@ -13,6 +14,8 @@ _gameplay_placeholders_cache = None
 _gameplay_card_assets_cache = {}
 _winlose_assets_cache = {}
 _deck_view_assets_cache = {}
+_card_placing_sound_cache = None
+_card_placing_sound_loaded = False
 
 
 def load_gameplay_core_assets(screen_width, screen_height):
@@ -97,6 +100,8 @@ def load_gameplay_core_assets(screen_width, screen_height):
         os.path.join("Sounds", "cash-register.mp3"),
         "WARNING: cash-register.mp3 not found at",
     )
+    assets["card_placing_sound"] = load_card_placing_sound()
+    assets["card_taking_sound"] = load_card_taking_sound()
 
     assets["animation_width"] = 118
     assets["animation_height"] = 101
@@ -494,6 +499,18 @@ def _load_sound(path, warning_message):
         return pygame.mixer.Sound(path)
     print(warning_message, path)
     return None
+
+
+def load_card_placing_sound():
+    """Load the shared sound used whenever a card lands on a placeholder."""
+    global _card_placing_sound_cache, _card_placing_sound_loaded
+    if not _card_placing_sound_loaded:
+        _card_placing_sound_cache = _load_sound(
+            os.path.join("Sounds", "Placing-playing-card.wav"),
+            "WARNING: Placing-playing-card.wav not found at",
+        )
+        _card_placing_sound_loaded = True
+    return _card_placing_sound_cache
 
 
 def _build_card_base_mapping():

@@ -25,12 +25,12 @@ class DisplayRuntimeTests(unittest.TestCase):
     def tearDownClass(cls):
         pygame.quit()
 
-    def test_adaptive_display_keeps_the_logical_canvas(self):
+    def test_adaptive_display_uses_a_resizable_native_viewport(self):
         screen = create_game_display()
 
         self.assertEqual(screen.get_size(), LOGICAL_SCREEN_SIZE)
-        self.assertTrue(ADAPTIVE_DISPLAY_FLAGS & pygame.SCALED)
         self.assertTrue(ADAPTIVE_DISPLAY_FLAGS & pygame.RESIZABLE)
+        self.assertFalse(ADAPTIVE_DISPLAY_FLAGS & pygame.SCALED)
 
     def test_display_falls_back_to_the_fixed_mode_when_scaling_fails(self):
         fallback_surface = pygame.Surface(LOGICAL_SCREEN_SIZE)

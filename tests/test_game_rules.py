@@ -16,7 +16,10 @@ from gameplay_deck import (
     restore_card_instance,
     serialize_card_instance,
 )
-from gameplay_price_helpers import build_market_probabilities
+from gameplay_price_helpers import (
+    build_market_probabilities,
+    build_stock_price_animation_queue,
+)
 from gameplay_winlose import resolve_win_lose_state
 
 
@@ -190,6 +193,25 @@ class MarketRulesTests(unittest.TestCase):
 
         for values in probabilities.values():
             self.assertEqual(values, {"fall": 0.0, "flat": 100.0, "rise": 0.0})
+
+    def test_card_forced_fall_overrides_flat_and_forced_rise(self):
+        movements = build_stock_price_animation_queue(
+            2,
+            4,
+            6,
+            force_flat=True,
+            forced_rise_markets={1},
+            forced_fall_markets={1},
+        )
+
+        self.assertEqual(
+            movements,
+            [
+                {"market": 0, "type": "unchanged", "price_change": 0},
+                {"market": 1, "type": "fall", "price_change": -4},
+                {"market": 2, "type": "unchanged", "price_change": 0},
+            ],
+        )
 
 
 class DeckRulesTests(unittest.TestCase):

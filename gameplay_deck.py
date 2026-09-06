@@ -1,6 +1,6 @@
 import random
 
-from card_catalog import BLUE_CHIPS_CARD_ID
+from card_catalog import BLUE_CHIPS_CARD_ID, DROP_CARD_IDS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
@@ -194,9 +194,11 @@ def deal_starting_hand(deck, hand_size, guaranteed_cards):
     except (TypeError, ValueError):
         hand_size = 0
 
-    guaranteed_cards = dedupe_red_cards(
-        card_id for card_id in (guaranteed_cards or []) if card_id is not None
-    )
+    guaranteed_cards = [
+        normalize_card_id(card_id)
+        for card_id in (guaranteed_cards or [])
+        if card_id is not None
+    ]
     available_guaranteed_cards = []
 
     # Guaranteed cards that do not fit remain in the shuffled deck.
@@ -237,6 +239,7 @@ def setup_starting_deck_and_hand(
     mirrored_cards=None,
     concentration_active=False,
     concentration_removes_starting_shareholder=True,
+    guaranteed_drop_count=0,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -254,6 +257,15 @@ def setup_starting_deck_and_hand(
     guaranteed_cards = []
     if any(int(card_id) == BLUE_CHIPS_CARD_ID for card_id in (shop_deck_cards or [])):
         guaranteed_cards.append(BLUE_CHIPS_CARD_ID)
+    try:
+        guaranteed_drop_count = max(0, int(guaranteed_drop_count or 0))
+    except (TypeError, ValueError):
+        guaranteed_drop_count = 0
+    guaranteed_cards.extend(
+        [card_id for card_id in deck if int(card_id) in DROP_CARD_IDS][
+            :guaranteed_drop_count
+        ]
+    )
     guaranteed_cards.extend(round_guaranteed_cards or [])
     guaranteed_cards.extend((guaranteed_cards_by_level or {}).get(level_number, []) or [])
     return deal_starting_hand(deck, hand_size, guaranteed_cards)
