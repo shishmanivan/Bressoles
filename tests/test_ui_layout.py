@@ -154,7 +154,7 @@ class UiLayoutTests(unittest.TestCase):
 
         level8_rect = page.normal_arrow_rects[1]
         page.button_sound = mock.Mock()
-        level8_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=level8_rect.center)
+        level8_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page._card_point_to_content(level8_rect.center, 8))
         with (
             mock.patch("pygame.event.get", return_value=[level8_event]),
             mock.patch("pygame.mouse.get_pos", return_value=level8_rect.center),

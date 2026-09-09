@@ -45,14 +45,46 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         with mock.patch("pygame.event.get", return_value=[]):
             return page.handle_input()
 
+    def test_first_template_button_hitbox_matches_art_in_both_modes(self):
+        for test_mode in (False, True):
+            page = self.make_page(test_mode=test_mode)
+            position = page.test_card_positions[0] if test_mode else page.card_position
+            hitbox = page.test_card_rects[0] if test_mode else page.arrow_rect
+            self.assertEqual(hitbox, page.level_styles[1].button_rect(position, page.startarrow_image.get_size()))
+            self.assertTrue(pygame.Rect(position, page.levelcard_image.get_size()).contains(hitbox))
+
+    def test_first_six_levels_use_individual_templates(self):
+        page = self.make_page()
+        page._draw_standard_card_content = mock.Mock()
+        for level in range(1, 7):
+            page.level_styles[level] = mock.Mock(wraps=page.level_styles[level])
+            page._draw_level_card(page.normal_card_positions[level - 1], level,
+                                  page.level_pictures[level - 1], show_start_arrow=False)
+            page.level_styles[level].draw.assert_called_once()
+        page._draw_standard_card_content.assert_not_called()
+        page._draw_level_card(page.card_position, 7, None, show_start_arrow=False)
+        page._draw_standard_card_content.assert_called_once()
+
+    def test_rotated_button_hits_follow_both_tilts_and_scroll(self):
+        page = self.make_page(test_mode=True)
+        for level in (1, 2, 7):
+            rect = page.test_card_rects[level - 1]
+            page.scroll_y = page.test_card_positions[level - 1][1] - 75
+            for angle in (-10, -5, 5, 10):
+                page._card_angles[level] = angle
+                visible = page._card_point_to_content(rect.move(0, -page.scroll_y).center, level)
+                self.assertTrue(page._level_button_hit(rect, visible, level))
+                outside = page._card_point_to_content((rect.right + 8, rect.centery - page.scroll_y), level)
+                self.assertFalse(page._level_button_hit(rect, outside, level))
+
     def test_level_waits_for_pressed_pose_and_ignores_second_click(self):
         page = self.make_page(progress_flags={"level_1_boss_defeated": True})
         page.button_sound = mock.Mock()
-        self.assertIsNone(self.click(page, page.arrow2_rect.center))
+        self.assertIsNone(self.click(page, page._card_point_to_content(page.arrow2_rect.center, 2)))
         started = page._level_press_started_at
         with mock.patch("pygame.time.get_ticks", return_value=started + LEVEL_BUTTON_PRESS_MS - 1):
             page.draw()
-            self.assertIsNone(self.click(page, page.arrow2_rect.center))
+            self.assertIsNone(self.click(page, page._card_point_to_content(page.arrow2_rect.center, 2)))
         self.assertEqual(page._level_press_started_at, started)
         page.button_sound.play.assert_called_once_with()
         # Even a slow frame must display the final position before routing.
@@ -95,7 +127,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         for size in ((1280, 720), (1920, 1080), (3440, 1440)):
             with self.subTest(size=size):
                 page.screen = pygame.Surface(size)
-                self.assertIsNone(self.click(page, self.viewport_point(page, page.arrow_rect.center)))
+                self.assertIsNone(self.click(page, self.viewport_point(page, page._card_point_to_content(page.arrow_rect.center, 1))))
                 self.assertEqual(self.finish_level_press(page), "level_1")
                 self.assertEqual(page.normal_card_positions, original_positions)
                 self.assertIsNone(self.click(page, (0, 0)))
@@ -109,7 +141,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page._update_page_animation(started + 3 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(page.level_page_index, 1)
         page._update_page_animation(started + 4 * PAGE_ARROW_FRAME_MS)
-        self.assertIsNone(self.click(page, self.viewport_point(page, page.normal_arrow_rects[1].center)))
+        self.assertIsNone(self.click(page, self.viewport_point(page, page._card_point_to_content(page.normal_arrow_rects[1].center, 8))))
         self.assertEqual(self.finish_level_press(page), "level_8")
         self.assertIsNone(self.click(page, self.viewport_point(page, page.previous_page_rect.center)))
         self.assertEqual(page.level_page_index, 1)
@@ -164,7 +196,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page.button_sound = None
         page.scroll_y = page.test_card_positions[6][1] - 75
         arrow = page.test_card_rects[6].move(0, -page.scroll_y)
-        self.assertIsNone(self.click(page, self.viewport_point(page, arrow.center)))
+        self.assertIsNone(self.click(page, self.viewport_point(page, page._card_point_to_content(arrow.center, 7))))
         self.assertEqual(self.finish_level_press(page), "level_7")
         target = page.screen
         page.draw()
