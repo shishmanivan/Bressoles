@@ -8,6 +8,8 @@ from asset_loaders import load_scaled_image
 from adaptive_ui import cover_geometry
 from level_screen_helpers import (
     LEVEL_CONTENT_SIZE,
+    LEVEL_BUTTON_ANCHOR_WIDTH,
+    compute_arrow_position,
     level_content_rect,
     build_normal_mode_layout,
     build_test_mode_layout,
@@ -17,7 +19,7 @@ from level_screen_helpers import (
 )
 from level_routes import get_test_content_level
 from shared_utils import wrap_text
-from sound_assets import load_button_sound, load_sound
+from sound_assets import load_sound
 
 
 SCREEN_WIDTH, SCREEN_HEIGHT = LEVEL_CONTENT_SIZE
@@ -25,6 +27,8 @@ MASTER_BACKGROUND_PATH = os.path.join("UI", "Master Background 2.png")
 FPS = 60
 PAGE_ARROW_FRAME_MS = 80
 PAGE_ARROW_SIZE = (150, 100)
+LEVEL_BUTTON_PRESS_MS = 1000
+LEVEL_BUTTON_PRESSED_SCALE = 0.88
 
 BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
@@ -37,7 +41,7 @@ class GameScreen:
         self.test_mode = test_mode
         self.lang = lang_dict or {}
         self.progress_flags = progress_flags or {}
-        self.button_sound = load_button_sound()
+        self.button_sound = load_sound(os.path.join("Sounds", "Level Button.wav"))
         self.page_arrow_sound = load_sound(os.path.join("Sounds", "Skrip.wav"))
 
         # Keep the master at its native aspect ratio; cover is applied to the
@@ -81,12 +85,21 @@ class GameScreen:
         self._text_surface_cache = {}
         self._wrapped_text_cache = {}
 
-        startarrow_path = os.path.join("LevelPage", "StartArrow.jpg")
+        startarrow_path = os.path.join("LevelPage", "Level Button.png")
         self.startarrow_image = load_scaled_image(
             startarrow_path,
-            scale_factor=0.5,
-            warning_message="WARNING: StartArrow.jpg not found:",
+            warning_message="WARNING: Level Button.png not found:",
         )
+        if self.startarrow_image is not None:
+            # Trim the transparent canvas so the visible frame fits the small
+            # gap after the card's bottom rule. Preserve the artwork's ratio.
+            artwork = self.startarrow_image.subsurface(self.startarrow_image.get_bounding_rect())
+            width = round(LEVEL_BUTTON_ANCHOR_WIDTH * 1.05)
+            height = round(width * artwork.get_height() / artwork.get_width())
+            self.startarrow_image = pygame.transform.smoothscale(artwork, (width, height))
+        self._pending_level = None
+        self._level_press_started_at = None
+        self._level_press_drawn = False
 
         if self.levelcard_image and self.startarrow_image:
             card_width = self.levelcard_image.get_width()
@@ -94,9 +107,9 @@ class GameScreen:
             arrow_width = self.startarrow_image.get_width()
             arrow_height = self.startarrow_image.get_height()
             arrow_padding = 15
-            self.arrow_position = (
-                self.card_position[0] + card_width - arrow_width - arrow_padding,
-                self.card_position[1] + card_height - arrow_height - arrow_padding,
+            self.arrow_position = compute_arrow_position(
+                self.card_position, (card_width, card_height),
+                (arrow_width, arrow_height), padding=arrow_padding,
             )
             self.arrow_rect = pygame.Rect(self.arrow_position[0], self.arrow_position[1], arrow_width, arrow_height)
         else:
@@ -246,10 +259,15 @@ class GameScreen:
         return any(self._is_level_unlocked(level_num) for level_num in range(7, 13))
 
     def _start_level(self, level_num):
+        if getattr(self, "_pending_level", None) is not None:
+            return None
         sound = getattr(self, "button_sound", None)
         if sound:
             sound.play()
-        return f"level_{level_num}"
+        self._pending_level = level_num
+        self._level_press_started_at = pygame.time.get_ticks()
+        self._level_press_drawn = False
+        return None
 
     def _render_text_cached(self, font, text, color):
         cache_key = (id(font), str(text), tuple(color))
@@ -310,6 +328,13 @@ class GameScreen:
                 display_surface = pygame.display.get_surface()
                 if display_surface is not None:
                     self.screen = display_surface
+                continue
+
+            if getattr(self, "_pending_level", None) is not None:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    self._pending_level = None
+                    self._level_press_drawn = False
+                    return "back"
                 continue
 
             if event.type == pygame.KEYDOWN:
@@ -374,6 +399,11 @@ class GameScreen:
                             if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and arrow_hit(rect):
                                 return self._start_level(level_num)
 
+        if getattr(self, "_level_press_drawn", False):
+            level_num = self._pending_level
+            self._pending_level = None
+            self._level_press_drawn = False
+            return f"level_{level_num}"
         return None
 
     def _draw_level_card(self, card_position, level_num, level_picture, show_start_arrow=True):
@@ -435,9 +465,26 @@ class GameScreen:
         self._draw_completed_stamp(card_position, level_num)
 
         if show_start_arrow and self.startarrow_image:
-            arrow_x = card_position[0] + card_width - self.startarrow_image.get_width() - 15
-            arrow_y = card_position[1] + card_height - self.startarrow_image.get_height() - 15
-            self.screen.blit(self.startarrow_image, (arrow_x, arrow_y))
+            arrow_x, arrow_y = compute_arrow_position(
+                card_position, (card_width, card_height), self.startarrow_image.get_size()
+            )
+            button_image = self.startarrow_image
+            button_rect = button_image.get_rect(topleft=(arrow_x, arrow_y))
+            if getattr(self, "_pending_level", None) == level_num:
+                progress = min(1.0, max(0.0, (pygame.time.get_ticks() - self._level_press_started_at) / LEVEL_BUTTON_PRESS_MS))
+                eased = progress * progress * (3 - 2 * progress)
+                # Recede into the card around a fixed center, rather than
+                # moving down its surface. Shading reinforces the depth.
+                scale = 1.0 - (1.0 - LEVEL_BUTTON_PRESSED_SCALE) * eased
+                pressed_size = tuple(max(1, round(size * scale)) for size in button_image.get_size())
+                button_image = pygame.transform.smoothscale(button_image, pressed_size)
+                shade = round(255 * (1.0 - 0.2 * eased))
+                button_image.fill((shade, shade, shade, 255), special_flags=pygame.BLEND_RGBA_MULT)
+                button_rect = button_image.get_rect(center=button_rect.center)
+                # Return the route on the next input pass, after the final
+                # pressed pose has actually been presented by draw().
+                self._level_press_drawn = progress >= 1.0
+            self.screen.blit(button_image, button_rect)
 
     def _draw_cards(self):
         """Draw only the UI layer in the original card coordinate system."""

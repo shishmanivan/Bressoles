@@ -14,6 +14,7 @@ from gameplay_card_rendering import (
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
+from shop_purchases import buy_card_or_license
 from silver_black_page import ReplicationGoldPage, ReplicationSilverPage
 
 
@@ -74,7 +75,7 @@ SPECIAL_DESCRIPTIONS = {
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
     "derivative": "Увеличивает руку на одну карту до конца забега.",
     "junk_bond": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
-    "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт. Максимум 5 слотов.",
+    "issuer": "Открывает новый слот для чёрных, серебряных и золотых карт.",
     "bank": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
     "multibagger": "Добавляет случайную золотую карту в текущем забеге.",
     "variance": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
@@ -121,7 +122,7 @@ CARD_DESCRIPTIONS = {
     404: "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
     405: "Insider: первые два хода акции C гарантированно растут.",
     406: "Gambling: усиливает карты Upside и Downside.",
-    409: "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз. Изменения цен от карт не учитываются.",
+    409: "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз.",
 }
 
 CARD_NAMES = {
@@ -199,9 +200,10 @@ CARD_DESCRIPTIONS.update(
         428: "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
         429: "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
         430: "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
-        431: "Каждый начатый раунд H добавляет 10 процентных пунктов к итоговому эффекту Rebate.",
-        432: "Гарантирует падение одной случайно выбранной акции каждый ход. Остальные акции получают обычный рыночный бросок.",
+        431: "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
+        432: "Каждый ход гарантирует падение случайной акции без Blue Chips. Остальные акции получают обычный рыночный бросок. Если Blue Chips защищает все акции, карта не срабатывает.",
         433: "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
+        434: "В конце раунда даёт 1 наполеондор за каждого Shareholder в колоде.",
     }
 )
 CARD_NAMES.update(
@@ -233,6 +235,7 @@ CARD_NAMES.update(
         431: "Risk Premium",
         432: "Selling Pressure",
         433: "Downside Risk",
+        434: "Shareholder Base",
     }
 )
 
@@ -298,6 +301,7 @@ class ShopPage:
         stats_enabled=False,
         defeated_count=0,
         bosses_required=None,
+        rounds_remaining=None,
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
@@ -307,6 +311,9 @@ class ShopPage:
         self.bosses_required = (
             max(1, int(bosses_required)) if bosses_required is not None else None
         )
+        self.rounds_remaining = (
+            max(0, int(rounds_remaining)) if rounds_remaining is not None else None
+        )
         self.lang_dict = lang_dict or {}
         self.napoleondors = float(napoleondors or 0)
         self.discount_percent = max(0, min(100, int(discount_percent or 0)))
@@ -315,6 +322,7 @@ class ShopPage:
             discount_percent=self.discount_percent,
             defeated_count=self.defeated_count,
             bosses_required=self.bosses_required,
+            rounds_remaining=self.rounds_remaining,
         )
         if stats_enabled:
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
@@ -608,41 +616,28 @@ class ShopPage:
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
+        if offer.get("kind") in ("card", "license"):
+            purchase = buy_card_or_license(self.level_number, offer)
+            if purchase.purchased:
+                self._sync_balance()
+            if purchase.offer_exhausted:
+                self.sold_offer_indexes.add(index)
+            if purchase.status == "insufficient_funds":
+                self.message = "Недостаточно монет"
+            elif purchase.status == "no_space":
+                self.message = "Нет места для карты"
+            elif offer["kind"] == "card":
+                self.message = "Карта куплена" if purchase.purchased else "Карта уже куплена"
+            elif purchase.purchased:
+                card_id = purchase.card_id
+                self.message = f"Лицензия куплена: {CARD_NAMES.get(card_id, f'Карта {card_id}')}"
+            else:
+                self.message = "Лицензия уже куплена"
+            return
+
         cost = float(offer.get("cost", 0) or 0)
         if game_state.napoleondors < cost:
             self.message = "Недостаточно монет"
-            return
-
-        if offer.get("kind") == "card":
-            card_id = int(offer.get("card_id", 0) or 0)
-            if game_state.is_shop_card_already_bought(card_id):
-                self.message = "Карта уже куплена"
-                self.sold_offer_indexes.add(index)
-                return
-            added = game_state.add_shop_card_to_level(self.level_number, card_id)
-            if added is None:
-                self.message = "Нет места для карты"
-                return
-            game_state.spend_napoleondors(cost)
-            self._sync_balance()
-            self.sold_offer_indexes.add(index)
-            self.message = "Карта куплена"
-            return
-
-        if offer.get("kind") == "license":
-            card_id = int(offer.get("card_id", 0) or 0)
-            if game_state.is_card_licensed(card_id):
-                self.message = "Лицензия уже куплена"
-                self.sold_offer_indexes.add(index)
-                return
-            if not game_state.unlock_card_license(card_id):
-                self.message = "Лицензия уже куплена"
-                self.sold_offer_indexes.add(index)
-                return
-            game_state.spend_napoleondors(cost)
-            self._sync_balance()
-            self.sold_offer_indexes.add(index)
-            self.message = f"Лицензия куплена: {CARD_NAMES.get(card_id, f'Карта {card_id}')}"
             return
 
         if offer.get("kind") == "investment":
@@ -715,11 +710,16 @@ class ShopPage:
             return
 
         if special_id == "long":
-            if not game_state.is_long_offer_available():
-                self.message = "Уже активны два Long"
+            rounds_remaining = getattr(self, "rounds_remaining", None)
+            if not game_state.is_long_offer_available(rounds_remaining):
+                self.message = (
+                    "До конца забега осталось слишком мало раундов"
+                    if rounds_remaining is not None and rounds_remaining <= 2
+                    else "Уже активны два Long"
+                )
                 self.sold_offer_indexes.add(index)
                 return
-            if not game_state.buy_long_investment():
+            if not game_state.buy_long_investment(rounds_remaining=rounds_remaining):
                 self.message = "Уже активны два Long"
                 self.sold_offer_indexes.add(index)
                 return
@@ -933,6 +933,7 @@ class ShopPage:
                 offer_count=5,
                 defeated_count=getattr(self, "defeated_count", 0),
                 bosses_required=getattr(self, "bosses_required", None),
+                rounds_remaining=getattr(self, "rounds_remaining", None),
             )
             if len(choices) < 5:
                 self.sold_offer_indexes.add(index)

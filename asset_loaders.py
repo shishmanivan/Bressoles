@@ -56,6 +56,28 @@ def load_scaled_image(image_path, scale_factor=None, target_size=None, warning_m
     return image
 
 
+def load_scaled_image_variants(image_path, target_sizes, warning_message=None):
+    """Prepare multiple sizes from one decoded source, sharing the scaled cache."""
+    sizes = [tuple(size) for size in target_sizes]
+    if not os.path.exists(image_path):
+        if warning_message:
+            print(warning_message, image_path)
+        return dict.fromkeys(sizes)
+
+    variants = {}
+    source = None
+    for size in sizes:
+        cache_key = (image_path, None, size)
+        image = _scaled_image_cache.get(cache_key)
+        if image is None:
+            if source is None:
+                source = pygame.image.load(image_path).convert_alpha()
+            image = pygame.transform.smoothscale(source, size).convert_alpha()
+            _scaled_image_cache[cache_key] = image
+        variants[size] = image
+    return variants
+
+
 def load_fitted_image(candidate_paths, box_size=262, padding_scale=0.9, warning_message=None):
     """Load an alpha image and fit it proportionally inside a square box."""
     image_path = find_first_existing_path(candidate_paths)

@@ -266,6 +266,56 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertFalse(page._apply_parity_effect_if_needed())
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (3, 9, 30))
 
+    def test_bid_and_parity_animate_even_when_prices_do_not_change(self):
+        for card_id, method in ((118, "_apply_bid_effect_if_needed"), (123, "_apply_parity_effect_if_needed")):
+            with self.subTest(card_id=card_id):
+                page = self._page()
+                page.side_cards_top[0] = card_id
+                page.Aprice = page.BPrice = page.CPrice = 10
+                page._start_card_jump_animation = mock.Mock()
+                self.assertTrue(getattr(page, method)())
+                self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+                page._start_card_jump_animation.assert_called_once_with(page.side_card_jump_animations, 0)
+
+    def test_bid_and_parity_stop_before_animation_and_next_slot_on_victory(self):
+        for card_id, method, expected in (
+            (118, "_apply_bid_effect_if_needed", (10, 10, 10)),
+            (123, "_apply_parity_effect_if_needed", (20, 20, 20)),
+        ):
+            with self.subTest(card_id=card_id):
+                page = self._page()
+                page.side_cards_top[:2] = [card_id, card_id]
+                page.Aprice, page.BPrice, page.CPrice = 30, 10, 20
+                events = []
+
+                def capture(name, result=False):
+                    def callback(*args):
+                        events.append((name, (page.Aprice, page.BPrice, page.CPrice)))
+                        return result
+                    return callback
+
+                page._record_rebate_a_fall = mock.Mock(side_effect=capture("rebate"))
+                page._record_c_price_fall = mock.Mock(side_effect=capture("c_fall"))
+                page._record_short_seller_falls = mock.Mock(side_effect=capture("short_seller", True))
+                page._start_card_jump_animation = mock.Mock()
+                self.assertTrue(getattr(page, method)())
+                self.assertEqual(events, [(name, expected) for name in ("rebate", "c_fall", "short_seller")])
+                page._record_short_seller_falls.assert_called_once()
+                self.assertEqual(page._record_short_seller_falls.call_args.args[0], (30, 10, 20))
+                page._start_card_jump_animation.assert_not_called()
+
+    def test_mixed_bid_parity_order_uses_protected_prices_from_previous_card(self):
+        for cards, expected in (((118, 123), (17, 17, 30)), ((123, 118), (10, 10, 30))):
+            with self.subTest(cards=cards):
+                page = self._page()
+                page.side_cards_top[:2] = cards
+                page.market_cards[2][0] = 22
+                page.Aprice, page.BPrice, page.CPrice = 3, 9, 30
+                page._start_card_jump_animation = mock.Mock()
+                self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+                self.assertEqual((page.Aprice, page.BPrice, page.CPrice), expected)
+                self.assertEqual([call.args[1] for call in page._start_card_jump_animation.call_args_list], [0, 1])
+
     def test_accumulation_waits_and_doubles_the_next_gain_drop_instance(self):
         page = self._page()
         page.side_cards_top[2] = 124

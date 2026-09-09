@@ -8,7 +8,13 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import game_state
 import profile_manager
 from round_page import RoundPage
-from shop_page import CARD_DESCRIPTIONS, CARD_NAMES, LICENSE_EFFECT_DESCRIPTIONS, ShopPage
+from shop_page import (
+    CARD_DESCRIPTIONS,
+    CARD_NAMES,
+    LICENSE_EFFECT_DESCRIPTIONS,
+    SPECIAL_DESCRIPTIONS,
+    ShopPage,
+)
 
 
 SHOP_STATE_FIELDS = (
@@ -137,6 +143,43 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_card_and_license_results_keep_messages_and_sold_markers(self):
+        game_state.napoleondors = 20
+        for kind, card_id, success, duplicate in (
+            ("card", 117, "Карта куплена", "Карта уже куплена"),
+            ("license", 121, f"Лицензия куплена: {CARD_NAMES[121]}", "Лицензия уже куплена"),
+        ):
+            with self.subTest(kind=kind):
+                offer = {"kind": kind, "card_id": card_id, "cost": 3}
+                page = self._shop(offer)
+                before = game_state.napoleondors
+                page._buy_offer(0)
+                self.assertEqual(page.message, success)
+                self.assertEqual(page.napoleondors, before - 3)
+                self.assertEqual(page.sold_offer_indexes, {0})
+                page._buy_offer(0)
+                self.assertEqual(game_state.napoleondors, before - 3)
+                repeated = self._shop(offer)
+                repeated._buy_offer(0)
+                self.assertEqual(repeated.message, duplicate)
+                self.assertEqual(repeated.sold_offer_indexes, {0})
+                self.assertEqual(game_state.napoleondors, before - 3)
+
+    def test_full_inventory_keeps_offer_available_for_retry(self):
+        game_state.napoleondors = 10
+        game_state.gold_cards = [401] * game_state.MAX_GOLD_CARDS
+        page = self._shop({"kind": "card", "card_id": 402, "cost": 8})
+        page._buy_offer(0)
+        self.assertEqual(page.message, "Нет места для карты")
+        self.assertEqual(page.sold_offer_indexes, set())
+        self.assertEqual(page.napoleondors, 10)
+        self.assertEqual(game_state.napoleondors, 10)
+        game_state.gold_cards.pop()
+        page._buy_offer(0)
+        self.assertEqual(page.message, "Карта куплена")
+        self.assertEqual(page.sold_offer_indexes, {0})
+        self.assertEqual(page.napoleondors, 2)
+
     def test_active_shop_offer_effects_include_timers_and_persistent_upgrades(self):
         game_state.bailout_rounds_remaining = 3
         game_state.disclosure_rounds_remaining = 2
@@ -199,6 +242,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_issuer_first_slot_costs_eight_and_second_still_costs_fifteen(self):
         self.assertEqual(game_state.get_shop_special_cost("issuer", 3), 8)
+        self.assertNotIn("Максимум", SPECIAL_DESCRIPTIONS["issuer"])
 
         game_state.issuer_bought_count = 1
         self.assertEqual(game_state.get_shop_special_cost("issuer", 3), 15)
@@ -1719,6 +1763,10 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_risk_premium_costs_five_and_has_twenty_percent_pool_chance(self):
         self.assertEqual(game_state.SHOP_CARD_COSTS[431], 5)
         self.assertEqual(CARD_NAMES[431], "Risk Premium")
+        self.assertEqual(
+            CARD_DESCRIPTIONS[431],
+            "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
+        )
         self.assertNotIn("попад", CARD_DESCRIPTIONS[431].lower())
 
         game_state.risk_premium_h_rounds = 2
@@ -1772,6 +1820,24 @@ class ShopTransactionTests(ShopEconomyTestCase):
         with mock.patch.object(game_state, "load_cards_config", return_value=cards):
             self.assertNotIn(433, game_state.build_all_available_shop_cards(2))
             self.assertIn(433, game_state.build_all_available_shop_cards(3))
+
+    def test_shareholder_base_costs_four_and_unlocks_from_level_three(self):
+        self.assertEqual(game_state.SHOP_CARD_COSTS[434], 4)
+        self.assertEqual(CARD_NAMES[434], "Shareholder Base")
+        self.assertNotIn("25%", CARD_DESCRIPTIONS[434])
+
+        cards = {434: {"Type": 5, "Open": 1, "Variable": 25}}
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            with mock.patch.object(game_state.random, "randint", return_value=25) as roll:
+                self.assertEqual(game_state.build_gold_cards_pool(2), [])
+                roll.assert_not_called()
+                self.assertEqual(game_state.build_gold_cards_pool(3), [434])
+            with mock.patch.object(game_state.random, "randint", return_value=26):
+                self.assertEqual(game_state.build_gold_cards_pool(3), [])
+
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            self.assertNotIn(434, game_state.build_all_available_shop_cards(2))
+            self.assertIn(434, game_state.build_all_available_shop_cards(3))
 
     def test_gold_card_level_gates_match_the_current_progression(self):
         level_four_cards = {401, 402, 403, 407, 418, 420, 422}
@@ -2030,6 +2096,58 @@ class TimedShopEffectTests(ShopEconomyTestCase):
         self.assertEqual(game_state.advance_long_investments(5), 12)
         self.assertEqual(game_state.napoleondors, 16)
         self.assertEqual(game_state.get_active_long_investments(), [])
+
+    def test_long_is_unavailable_with_only_two_rounds_left(self):
+        self.assertTrue(game_state.is_long_offer_available(rounds_remaining=3))
+        self.assertFalse(game_state.is_long_offer_available(rounds_remaining=2))
+        self.assertFalse(game_state.buy_long_investment(rounds_remaining=1))
+        self.assertEqual(game_state.get_active_long_investments(), [])
+
+        with mock.patch.object(game_state.random, "randint", return_value=1):
+            offers = game_state.build_shop_special_offer_pool(
+                5,
+                max_offers=30,
+                rounds_remaining=2,
+            )
+        self.assertNotIn("long", offers)
+        self.assertNotIn(
+            "long",
+            game_state._available_screening_offer_ids(5, rounds_remaining=2),
+        )
+
+    def test_stale_long_offer_cannot_be_bought_near_run_end(self):
+        game_state.napoleondors = 8
+        page = self._shop({"kind": "special", "special_id": "long", "cost": 2})
+        page.rounds_remaining = 2
+
+        page._buy_offer(0)
+
+        self.assertEqual(game_state.napoleondors, 8)
+        self.assertEqual(game_state.get_active_long_investments(), [])
+        self.assertEqual(page.message, "До конца забега осталось слишком мало раундов")
+
+    def test_remaining_run_rounds_include_current_boss_and_its_modified_round_count(self):
+        game_state.boss_progress[5] = {
+            **game_state.new_boss_progress_state(),
+            "defeated": 3,
+            "current_boss": {
+                "defeated_count": 3,
+                "boss_index": 2,
+                "boss_filename": "3_Fulton.png",
+            },
+            "round_progress": {
+                "3:2:3_Fulton.png": {
+                    "rounds_required": 4,
+                    "completed_rounds": [1, 2],
+                }
+            },
+        }
+
+        self.assertEqual(game_state.get_remaining_run_rounds(5, 4, 3), 3)
+        game_state.boss_progress[5]["round_progress"]["3:2:3_Fulton.png"][
+            "completed_rounds"
+        ].append(3)
+        self.assertEqual(game_state.get_remaining_run_rounds(5, 4, 3), 2)
 
     def test_bank_uses_current_pre_victory_balance_at_round_end(self):
         game_state.napoleondors = 10

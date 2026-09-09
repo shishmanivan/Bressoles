@@ -215,6 +215,25 @@ class MarketRulesTests(unittest.TestCase):
 
 
 class DeckRulesTests(unittest.TestCase):
+    def test_delisting_removes_shareholder_before_shareholder_base_count(self):
+        deck = build_initial_deck(
+            level_number=3,
+            earned_reward_cards={},
+            removed_cards_by_level={3: [100]},
+        )
+
+        self.assertEqual(deck.count(100), 0)
+
+    def test_delisting_removes_only_one_shareholder_before_shareholder_base_count(self):
+        deck = build_initial_deck(
+            level_number=3,
+            earned_reward_cards={3: [100]},
+            shop_deck_cards=[100],
+            removed_cards_by_level={3: [100]},
+        )
+
+        self.assertEqual(deck.count(100), 2)
+
     def test_investment_marks_only_the_permanent_card_instance(self):
         deck = build_initial_deck(
             level_number=5,

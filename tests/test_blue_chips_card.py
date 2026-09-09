@@ -53,6 +53,19 @@ class BlueChipsCardTests(unittest.TestCase):
 
         self.assertNotEqual(queue[2]["type"], "fall")
 
+    def test_blue_chips_overrides_forced_falls_in_normal_and_flat_turns(self):
+        for force_flat in (False, True):
+            with self.subTest(force_flat=force_flat):
+                with mock.patch("gameplay_price_helpers.random.random", return_value=0.0):
+                    queue = build_stock_price_animation_queue(
+                        2, 3, 4,
+                        forced_fall_markets={0, 1, 2},
+                        prevent_fall_markets={1, 2},
+                        force_flat=force_flat,
+                    )
+                self.assertEqual(queue[0]["type"], "fall")
+                self.assertTrue(all(entry["price_change"] >= 0 for entry in queue[1:]))
+
     def test_market_and_gain_drop_falls_are_blocked_but_growth_is_allowed(self):
         page = self._page()
         page.Aprice, page.BPrice, page.CPrice = 10, 20, 30

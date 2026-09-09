@@ -558,6 +558,137 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertIsNone(profile_manager.get_active_game(1))
         self.assertEqual(len(round_page_instances), 1)
 
+    def _check_regular_round_victory(self, level, resumed=False, test_mode=False):
+        profile_manager.apply_profile_to_game_state(profile_manager._default_profile(1))
+        context = {
+            "level_number": level, "difficulty": "h", "round_num": 1,
+            "boss_index": 0, "boss_filename": "1_Watt.png", "defeated_count": 0,
+        }
+        progress_key = "0:0:1_Watt.png"
+        game_state.ensure_napoleondor_level(level)
+        game_state.boss_progress[level] = game_state.new_boss_progress_state()
+        game_state.boss_progress[level]["run_stats_started"] = True
+        game_state.boss_progress[level]["round_progress"][progress_key] = {
+            "completed_rounds": [], "round_selections": {1: {"key": "h"}},
+            "saved_lines": [[1, 2, 3, 4]],
+        }
+        game_state.boss_progress[level]["current_boss"] = {
+            "defeated_count": 0, "boss_index": 0, "boss_filename": "1_Watt.png",
+        }
+        profile_manager.save_progress_from_game_state(1)
+        if resumed:
+            profile_manager.save_active_game(1, context, {"Day": 2})
+        profile_before = profile_manager.load_profile(1)
+        events = []
+        recording = False
+        round_results = deque(["quit"] if resumed else ["button_h", "quit"])
+        test = self
+
+        class FakeRoundPage:
+            Goal = 10
+            rounds_required = 2
+            last_selected_round = 1
+
+            def __init__(self, *args, **kwargs):
+                self.progress = copy.deepcopy(kwargs.get("round_progress") or {
+                    "completed_rounds": [], "round_selections": {1: {"key": "h"}},
+                    "saved_lines": [[1, 2, 3, 4]],
+                })
+
+            def run(self):
+                nonlocal recording
+                result = round_results.popleft()
+                if result == "quit":
+                    events.append("round_page")
+                    recording = False
+                    test.assertEqual(self.progress["completed_rounds"], [1])
+                return result
+
+            def get_current_active_round(self):
+                return 1
+
+            def mark_round_completed(self, round_num):
+                self.progress["completed_rounds"].append(round_num)
+
+            def export_round_progress(self):
+                return copy.deepcopy(self.progress)
+
+        class FakeGameplayPage:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def run(self):
+                nonlocal recording
+                if not resumed and not test_mode:
+                    profile_manager.save_active_game(1, context, {"Day": 2})
+                game_state.profit_reward_bonus = 2
+                game_state.set_pending_shop_discount(25)
+                recording = True
+                return "round_select"
+
+        class FakeShopPage:
+            def __init__(self, *args, **kwargs):
+                test.assertEqual(kwargs["discount_percent"], 25)
+                test.assertEqual(kwargs["stats_enabled"], not test_mode)
+                if not test_mode:
+                    saved = profile_manager.load_profile(1)
+                    test.assertIsNone(saved["active_game"])
+                    test.assertEqual(saved["progress"]["napoleondors"], game_state.napoleondors)
+
+            def run(self):
+                events.append("shop")
+
+        def trace(name, operation):
+            def wrapped(*args, **kwargs):
+                if recording:
+                    events.append(name)
+                return operation(*args, **kwargs)
+            return wrapped
+
+        with (
+            patch.object(Main, "StartPage", self._sequenced_page(["test_mode" if test_mode else "start"])),
+            patch.object(Main, "GameScreen", self._sequenced_page([f"level_{level}"])),
+            patch.object(Main, "RoundPage", FakeRoundPage),
+            patch.object(Main, "GameplayPage", FakeGameplayPage),
+            patch.object(Main, "ShopPage", FakeShopPage),
+            patch.object(profile_manager, "save_progress_from_game_state", side_effect=trace("save", profile_manager.save_progress_from_game_state)),
+            patch.object(profile_manager, "clear_active_game", side_effect=trace("clear", profile_manager.clear_active_game)),
+            patch.object(game_state, "add_napoleondors", side_effect=trace("reward", game_state.add_napoleondors)) as reward,
+            patch.object(game_state, "update_bank_interest_base", side_effect=trace("interest", game_state.update_bank_interest_base)),
+        ):
+            Main.main()
+
+        reward.assert_called_once_with(level, 5 if level == 2 else 0)
+        expected = ["save"] if not resumed and not test_mode else []
+        expected += ["reward"] + ([] if test_mode else ["clear"])
+        if level == 2:
+            expected += ([] if test_mode else ["save", "save"]) + ["shop", "interest"]
+            expected += [] if test_mode else ["save"]
+        if resumed:
+            # Existing resume flow clears again, then saves on reentering the level.
+            expected += ["clear", "save"]
+        self.assertEqual(events, expected + ["round_page"])
+        self.assertEqual(game_state.pending_shop_discount_percent, 0)
+        saved = profile_manager.load_profile(1)
+        if test_mode:
+            self.assertEqual(saved, profile_before)
+        else:
+            self.assertIsNone(saved["active_game"])
+            progress = game_state.boss_progress[level]["round_progress"][progress_key]
+            self.assertEqual(progress["completed_rounds"], [1])
+            self.assertEqual(progress["round_selections"], {1: {"key": "h"}})
+            if not resumed:
+                self.assertEqual([list(line) for line in progress["saved_lines"]], [[1, 2, 3, 4]])
+
+    def test_regular_round_victory_preserves_reward_and_save_order(self):
+        for level in (1, 2):
+            for resumed in (False, True):
+                with self.subTest(level=level, resumed=resumed):
+                    self._check_regular_round_victory(level, resumed=resumed)
+
+    def test_test_mode_regular_victory_does_not_write_profile(self):
+        self._check_regular_round_victory(2, test_mode=True)
+
     def test_resumed_loss_is_reset_once_by_the_main_flow(self):
         level = 2
         game_state.earned_reward_cards[level] = [112]

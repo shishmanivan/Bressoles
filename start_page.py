@@ -16,6 +16,11 @@ PAPER_COLOR = (83, 76, 70)
 MASTER_BACKGROUND_PATH = os.path.join("UI", "Master Background.png")
 TITLE_PATH = os.path.join("UI", "Bressoles Title.png")
 MENU_FRAME_PATH = os.path.join("UI", "Menu2.png")
+RIBBON_PATH = os.path.join("UI", "Ribbon.png")
+MAIN_BACK_PATH = os.path.join("UI", "MainBack2.png")
+# The supplied asset is intentionally referenced with its on-disk spelling.
+BOTTOM_PATH = os.path.join("UI", "Botton.png")
+TOP_PATH = os.path.join("UI", "Top.png")
 
 
 @dataclass(frozen=True)
@@ -25,11 +30,23 @@ class StartPageLayout:
     viewport_size: tuple
     title_rect: pygame.Rect
     menu_rect: pygame.Rect
+    top_rect: pygame.Rect
+    bottom_rect: pygame.Rect
+    main_back_rect: pygame.Rect
+    ribbon_rect: pygame.Rect
     row_centers: tuple
     font_size: int
 
 
-def build_start_page_layout(viewport_size, title_source_size, menu_source_size):
+def build_start_page_layout(
+    viewport_size,
+    title_source_size,
+    menu_source_size,
+    ribbon_source_size=(3, 1),
+    main_back_source_size=(1021, 843),
+    bottom_source_size=(2159, 253),
+    top_source_size=(1238, 425),
+):
     """Build the viewport-anchored equivalent of CSS clamp-based layout rules."""
     viewport_width, viewport_height = viewport_size
 
@@ -51,6 +68,63 @@ def build_start_page_layout(viewport_size, title_source_size, menu_source_size):
         "right", "center", x_margin=horizontal_margin
     ).rect(menu_size, viewport_size)
 
+    # The masthead belongs to the menu, not to the master background. Keep its
+    # centre locked to the frame and overlap their decorative edges slightly.
+    top_width = round(menu_rect.width * 1.42 * 0.85)
+    top_size = proportional_size(top_source_size, width=top_width)
+    top_rect = pygame.Rect((0, 0), top_size)
+    top_rect.centerx = menu_rect.centerx
+    top_rect.bottom = menu_rect.top + round(menu_rect.height * 0.04)
+
+    bottom_width = min(round(clamp(640, viewport_width, 2159)), viewport_width)
+    bottom_size = proportional_size(bottom_source_size, width=bottom_width)
+    bottom_rect = AnchoredElement("center", "bottom").rect(
+        bottom_size, viewport_size
+    )
+
+    # MainBack2 is the complete left-hand illustration from the old composed
+    # page. Keep it close to full viewport height and let the ribbon conceal
+    # its extracted lower edge.
+    main_back_height = min(
+        round(clamp(560, viewport_height * 0.95, 1200)), viewport_height
+    )
+    main_back_size = proportional_size(
+        main_back_source_size, height=main_back_height
+    )
+    main_back_gap = round(clamp(12, viewport_width * 0.012, 28))
+    max_main_back_width = max(1, menu_rect.left - main_back_gap)
+    if main_back_size[0] > max_main_back_width:
+        main_back_size = proportional_size(
+            main_back_source_size, width=max_main_back_width
+        )
+    main_back_rect = AnchoredElement(
+        "left",
+        "top",
+        y_margin=round(clamp(12, viewport_height * 0.02, 30)),
+    ).rect(main_back_size, viewport_size)
+
+    # In the original 16:9 composition the ribbon spans most of the lower
+    # width and continues beyond the edge of the page. Anchor it to the
+    # viewport rather than to the cover-scaled master background: widening the
+    # window then reveals more scenery instead of moving or stretching it.
+    ribbon_width = round(clamp(520, viewport_width * 0.60, 1300))
+    ribbon_width = min(ribbon_width, viewport_width)
+    ribbon_size = proportional_size(ribbon_source_size, width=ribbon_width)
+    ribbon_x_offset = -round(clamp(36, viewport_width * 0.07, 180))
+    ribbon_rect = AnchoredElement(
+        "center",
+        "bottom",
+        x_margin=ribbon_x_offset,
+        y_margin=-round(ribbon_size[1] * 0.18),
+    ).rect(ribbon_size, viewport_size)
+
+    # A width-constrained MainBack2 becomes shorter on narrower screens.
+    # Lower it only when necessary so its cut edge always remains safely
+    # behind the solid central bend of the ribbon.
+    required_main_back_bottom = ribbon_rect.top + round(ribbon_rect.height * 0.55)
+    if main_back_rect.bottom < required_main_back_bottom:
+        main_back_rect.bottom = required_main_back_bottom
+
     # Menu2.png contains five visual rows. These ratios are relative to the frame,
     # never to the 3440x1440 master background.
     row_ratios = (0.145, 0.333, 0.516, 0.696, 0.877)
@@ -65,6 +139,10 @@ def build_start_page_layout(viewport_size, title_source_size, menu_source_size):
         viewport_size=tuple(viewport_size),
         title_rect=title_rect,
         menu_rect=menu_rect,
+        top_rect=top_rect,
+        bottom_rect=bottom_rect,
+        main_back_rect=main_back_rect,
+        ribbon_rect=ribbon_rect,
         row_centers=row_centers,
         font_size=font_size,
     )
@@ -83,6 +161,10 @@ class StartPage:
         )
         self.title_image = self._load_image(TITLE_PATH, alpha=True)
         self.menu_frame_image = self._load_image(MENU_FRAME_PATH, alpha=True)
+        self.ribbon_image = self._load_image(RIBBON_PATH, alpha=True)
+        self.main_back_image = self._load_image(MAIN_BACK_PATH, alpha=True)
+        self.bottom_image = self._load_image(BOTTOM_PATH, alpha=True)
+        self.top_image = self._load_image(TOP_PATH, alpha=True)
         self.button_sound = load_button_sound()
 
         self._scaled_image_cache = {}
@@ -112,7 +194,19 @@ class StartPage:
         if self._layout is None or self._layout.viewport_size != viewport_size:
             title_size = self.title_image.get_size() if self.title_image else (3, 1)
             menu_size = self.menu_frame_image.get_size() if self.menu_frame_image else (3, 4)
-            self._layout = build_start_page_layout(viewport_size, title_size, menu_size)
+            ribbon_size = self.ribbon_image.get_size() if self.ribbon_image else (3, 1)
+            main_back_size = self.main_back_image.get_size() if self.main_back_image else (1021, 843)
+            bottom_size = self.bottom_image.get_size() if self.bottom_image else (2159, 253)
+            top_size = self.top_image.get_size() if self.top_image else (1238, 425)
+            self._layout = build_start_page_layout(
+                viewport_size,
+                title_size,
+                menu_size,
+                ribbon_size,
+                main_back_size,
+                bottom_size,
+                top_size,
+            )
         return self._layout
 
     def _get_font(self, size):
@@ -138,6 +232,11 @@ class StartPage:
         scaled = self._scaled_image_cache.get(key)
         if scaled is None:
             scaled = pygame.transform.smoothscale(image, target_size)
+            # Resizing needs only the latest size of each source image. Keeping
+            # every intermediate window size retains large background surfaces.
+            for old_key in tuple(self._scaled_image_cache):
+                if old_key[0] == key[0]:
+                    del self._scaled_image_cache[old_key]
             self._scaled_image_cache[key] = scaled
         return scaled
 
@@ -231,6 +330,20 @@ class StartPage:
         layout = self._get_layout()
         self._draw_cover_background()
 
+        main_back = self._scaled(self.main_back_image, layout.main_back_rect.size)
+        if main_back is not None:
+            self.screen.blit(main_back, layout.main_back_rect)
+
+        bottom = self._scaled(self.bottom_image, layout.bottom_rect.size)
+        if bottom is not None:
+            self.screen.blit(bottom, layout.bottom_rect)
+
+        # Draw after the left illustration so the ribbon naturally masks its
+        # lower edge instead of requiring a resolution-specific crop.
+        ribbon = self._scaled(self.ribbon_image, layout.ribbon_rect.size)
+        if ribbon is not None:
+            self.screen.blit(ribbon, layout.ribbon_rect)
+
         title = self._scaled(self.title_image, layout.title_rect.size)
         if title is not None:
             self.screen.blit(title, layout.title_rect)
@@ -238,6 +351,10 @@ class StartPage:
         menu_frame = self._scaled(self.menu_frame_image, layout.menu_rect.size)
         if menu_frame is not None:
             self.screen.blit(menu_frame, layout.menu_rect)
+
+        top = self._scaled(self.top_image, layout.top_rect.size)
+        if top is not None:
+            self.screen.blit(top, layout.top_rect)
 
         font = self._get_font(layout.font_size)
         profile_label = self._get_profile_label()

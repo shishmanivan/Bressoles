@@ -5,7 +5,7 @@ import os
 
 import game_state
 import profile_manager
-from asset_loaders import load_scaled_image
+from asset_loaders import load_scaled_image, load_scaled_image_variants
 from boss_logic import (
     apply_boss_functionality,
     apply_boss_reward,
@@ -28,6 +28,7 @@ from card_catalog import (
     GOLD_FULL_DEPLOYMENT_REWARD,
     GOLD_UPTREND_PERCENT_PER_NAPOLEONDOR,
     GOLD_SELLING_PRESSURE_CARD_ID,
+    GOLD_SHAREHOLDER_BASE_CARD_ID,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -37,6 +38,7 @@ from card_catalog import (
 )
 from game_data import (
     REWARD_TOKEN_RANDOM_RED,
+    REWARD_TOKEN_RANDOM_SILVER,
     load_boss_rewards,
     load_cards_config,
     load_rewards_config,
@@ -94,16 +96,18 @@ from gameplay_price_helpers import (
     apply_market_price_change,
     build_market_probabilities,
     build_stock_price_animation_queue,
+    calculate_price_setting_card_prices,
     compute_slide_position,
     get_card_type_from_config,
+    protect_market_prices,
     update_arrow_animation_entries,
 )
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
-from gameplay_trade_actions import apply_arrow_trade
+from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent
 from gameplay_turn import (
     advance_price_animation_frame,
-    apply_price_card_action,
     build_price_cards_processing_queue,
+    calculate_price_card_prices,
     get_price_animation_frames,
     lock_market_cards,
     lock_side_cards,
@@ -523,18 +527,15 @@ class GameplayPage:
             self.card_size_side = (int(self.card_size_market[0] * 0.85), int(self.card_size_market[1] * 0.85))
 
         negative_path = os.path.join("Cards", "Arts", "Negative.png")
-        self.negative_card_overlays = {
-            tuple(card_size): load_scaled_image(
-                negative_path,
-                target_size=card_size,
-                warning_message="WARNING: Negative card overlay not found:",
-            )
-            for card_size in (
+        self.negative_card_overlays = load_scaled_image_variants(
+            negative_path,
+            (
                 self.card_size_bottom,
                 self.card_size_market,
                 self.card_size_side,
-            )
-        }
+            ),
+            warning_message="WARNING: Negative card overlay not found:",
+        )
 
         # Right-side placeholder areas (top: 6 slots, bottom: 3 slots)
         # These are populated in draw() for hit-testing / future drag&drop.
@@ -546,6 +547,11 @@ class GameplayPage:
             self.card_size_bottom,
             self.card_size_market,
             self.card_size_side,
+            # Only the silver-deck preview scales directly from full-size originals.
+            original_card_ids={
+                REWARD_TOKEN_RANDOM_SILVER,
+                *(card_id for card_id, card_type in self.card_types.items() if card_type == 3),
+            },
         )
         self.card_images_original = card_assets["card_images_original"]
         self.card_images_bottom = card_assets["card_images_bottom"]
@@ -2932,6 +2938,7 @@ class GameplayPage:
             )
             commission_amount = self._apply_commission_win_bonus()
             obligation_amount = self._apply_obligation_win_bonus()
+            shareholder_base_amount = self._apply_shareholder_base_win_bonus()
             self._record_bear_victory_progress()
             self._record_windfall_boss_victory_progress()
             self.long_payout_amount = self._apply_long_investment_payout()
@@ -2951,6 +2958,10 @@ class GameplayPage:
                 commission_amount=commission_amount,
                 obligation_amount=obligation_amount,
                 long_amount=self.long_payout_amount,
+                shareholder_base_amount=shareholder_base_amount,
+                shareholder_base_active=(
+                    self._count_active_card_safely(GOLD_SHAREHOLDER_BASE_CARD_ID) > 0
+                ),
             )
             finance_entries_before_nabob = self._build_finance_report_entries(
                 **finance_report_args
@@ -3107,10 +3118,10 @@ class GameplayPage:
 
     def _protect_blue_chip_prices(self, previous_prices, proposed_prices):
         """Keep protected markets unchanged when an effect proposes a lower price."""
-        protected = self._get_blue_chip_markets()
-        return tuple(
-            previous if market in protected and proposed < previous else proposed
-            for market, (previous, proposed) in enumerate(zip(previous_prices, proposed_prices))
+        return protect_market_prices(
+            previous_prices,
+            proposed_prices,
+            self._get_blue_chip_markets(),
         )
 
     def _record_rebate_a_fall(self, previous_price, current_price, source):
@@ -3512,31 +3523,21 @@ class GameplayPage:
         full_price = self._has_active_silver_card(201)
         gold_rebate_count = self._count_active_card_safely(407)
         discounted = self._has_played_side_card(110)
-        if gold_rebate_count > 0:
-            sale_percent = (
-                100
-                + 30 * gold_rebate_count
-                + self._get_percentage_amplifier_bonus()
-                + int(self.rebate_a_fall_bonus_percent or 0)
-            )
-            if discounted:
-                sale_percent += 10
-            if full_price:
-                sale_percent += 10
-        elif full_price and discounted:
-            sale_percent = 120
-        elif full_price:
-            sale_percent = 100
-        elif discounted:
-            sale_percent = 90
-        else:
+        # Keep bonus getters inactive when no base card enables auto-liquidation.
+        if gold_rebate_count <= 0 and not full_price and not discounted:
             return None
-        return (
-            sale_percent
-            + self._get_uptrend_rebate_bonus_percent()
-            + self._get_stewardship_rebate_bonus_percent()
-            + self._get_windfall_rebate_bonus_percent()
-            + self._get_risk_premium_rebate_bonus_percent()
+        return calculate_rebate_sale_percent(
+            full_price=full_price,
+            discounted=discounted,
+            gold_rebate_count=gold_rebate_count,
+            amplifier_bonus=self._get_percentage_amplifier_bonus() if gold_rebate_count > 0 else 0,
+            fall_bonus=self.rebate_a_fall_bonus_percent if gold_rebate_count > 0 else 0,
+            additional_bonus_percent=(
+                self._get_uptrend_rebate_bonus_percent()
+                + self._get_stewardship_rebate_bonus_percent()
+                + self._get_windfall_rebate_bonus_percent()
+                + self._get_risk_premium_rebate_bonus_percent()
+            ),
         )
 
     def _start_final_auto_liquidation_animation(self, liquidation):
@@ -3703,6 +3704,26 @@ class GameplayPage:
             profile_manager.save_progress_from_game_state(self.profile_slot)
         return earned
 
+    def _apply_shareholder_base_win_bonus(self):
+        card_count = self._count_active_card_safely(GOLD_SHAREHOLDER_BASE_CARD_ID)
+        if card_count <= 0:
+            return 0
+        shareholder_count = max(
+            0,
+            int(getattr(self, "shareholder_effect_count", 0) or 0),
+        )
+        earned = card_count * shareholder_count
+        if earned > 0:
+            game_state.add_napoleondors(self.level_number, earned)
+        print(
+            "Active Shareholder Base card(s) awarded "
+            f"{earned} napoleondor(s): cards={card_count}, "
+            f"shareholders={shareholder_count}."
+        )
+        if earned > 0 and self.profile_slot and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        return earned
+
     def _build_finance_report_entries(
         self,
         pending_entries,
@@ -3712,6 +3733,8 @@ class GameplayPage:
         commission_amount=0,
         obligation_amount=0,
         long_amount=0,
+        shareholder_base_amount=0,
+        shareholder_base_active=False,
         nabob_amount=0,
     ):
         labels = {
@@ -3790,6 +3813,12 @@ class GameplayPage:
         add("commission", self._get_text("FinanceCommission", "Комиссия"), commission_amount)
         add("obligation", self._get_text("FinanceObligation", "Облигации"), obligation_amount)
         add("long_profit", self._get_text("FinanceLongProfit", "Long дал прибыль"), long_amount)
+        add(
+            "shareholder_base",
+            self._get_text("FinanceShareholderBase", "Бонус Shareholder Base"),
+            shareholder_base_amount,
+            allow_zero=shareholder_base_active,
+        )
         add("nabob", self._get_text("FinanceNabob", "Бонус Набоба"), nabob_amount)
         entries = [accumulated[source] for source in order]
         if entries:
@@ -3987,8 +4016,12 @@ class GameplayPage:
             return None
         return self._get_text(f"Boss{boss_number}Reward", f"Boss {boss_number} reward")
 
-    def _draw_card_report_boss_text(self, report_rect, description_top, text_x):
-        title_font = pygame.font.Font(self.font_path, 25)
+    @staticmethod
+    def _get_card_report_footer_ratio(row_count):
+        return min(0.80, 0.68 + max(0, int(row_count or 0)) * 0.04)
+
+    def _draw_card_report_boss_text(self, report_rect, description_top, text_x, row_count):
+        title_font = pygame.font.Font(self.font_path, 29)
         if getattr(self, "is_final_boss", False):
             title = self._get_text(
                 "CardReportLevelCompleteTitle",
@@ -4010,22 +4043,24 @@ class GameplayPage:
             "CardReportTemporaryReset",
             "Временные карты обнулились",
         )
-        footer_font = pygame.font.Font(self.font_path, 22)
+        footer_font = pygame.font.Font(self.font_path, 26)
         footer_surface = footer_font.render(footer, True, PAPER_COLOR)
         footer_rect = footer_surface.get_rect(
             left=text_x,
-            top=report_rect.top + int(report_rect.height * 0.805),
+            top=report_rect.top + int(
+                report_rect.height * self._get_card_report_footer_ratio(row_count)
+            ),
         )
 
         description = self._get_card_report_boss_description()
         if description:
             text_width = report_rect.right - text_x - int(report_rect.width * 0.10)
             available_height = max(0, footer_rect.top - description_top - 12)
-            for font_size in range(21, 14, -1):
+            for font_size in range(27, 16, -1):
                 description_font = pygame.font.Font(self.font_path, font_size)
                 lines = wrap_text(str(description), description_font, text_width)
                 line_height = description_font.get_height() + 3
-                if len(lines) * line_height <= available_height or font_size == 15:
+                if len(lines) * line_height <= available_height or font_size == 17:
                     break
             for line_index, line in enumerate(lines):
                 surface = description_font.render(line, True, PAPER_COLOR)
@@ -4069,9 +4104,9 @@ class GameplayPage:
         card_x = report_rect.left + int(report_rect.width * 0.14)
         text_x = report_rect.left + int(report_rect.width * 0.29)
         text_width = report_rect.right - text_x - int(report_rect.width * 0.10)
-        font = pygame.font.Font(self.font_path, 24 if len(rows) <= 3 else 20)
+        font = pygame.font.Font(self.font_path, 27 if len(rows) <= 3 else 22)
         if not is_boss_report:
-            title_font = pygame.font.Font(self.font_path, 25)
+            title_font = pygame.font.Font(self.font_path, 29)
             title = self._get_text(
                 "CardReportNewCardsTitle",
                 "Вы получили новые карты:",
@@ -4085,7 +4120,7 @@ class GameplayPage:
                 ),
             )
         if notice:
-            notice_font = pygame.font.Font(self.font_path, 25)
+            notice_font = pygame.font.Font(self.font_path, 27)
             notice_surface = notice_font.render(notice, True, PAPER_COLOR)
             notice_rect = notice_surface.get_rect(
                 left=text_x,
@@ -4117,6 +4152,7 @@ class GameplayPage:
                 report_rect,
                 content_bottom + int(report_rect.height * 0.018),
                 text_x,
+                len(rows),
             )
         if hovered_card:
             hover_width = self._get_card_report_hover_width(card_width)
@@ -4466,6 +4502,10 @@ class GameplayPage:
         return animation_queue
 
     def _roll_selling_pressure_markets(self):
+        blue_chip_markets = self._get_blue_chip_markets()
+        eligible_markets = [market for market in (0, 1, 2) if market not in blue_chip_markets]
+        if not eligible_markets:
+            return []
         entries = []
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
@@ -4474,7 +4514,7 @@ class GameplayPage:
                 is_selling_pressure = False
             if not is_selling_pressure:
                 continue
-            market = random.randint(1, 3) - 1
+            market = eligible_markets[random.randint(1, len(eligible_markets)) - 1]
             entries.append({"market": market, "card_slot": slot})
         if entries:
             print(
@@ -5375,8 +5415,6 @@ class GameplayPage:
             turns_remaining = self.market_card_turns[market].get(slot)
             if turns_remaining is not None and turns_remaining > 0:
                 if card_id in PRICE_CARD_IDS:
-                    # Gain/Drop effects happen after the random market roll, so
-                    # Regulation never suppresses their explicit price change.
                     card_action = self.market_card_actions[market].get(
                         slot,
                         self.card_actions.get(card_id, 0),
@@ -5384,16 +5422,12 @@ class GameplayPage:
                     previous_prices = (self.Aprice, self.BPrice, self.CPrice)
                     previous_a_price = previous_prices[0]
                     previous_c_price = previous_prices[2]
-                    prices = apply_price_card_action(
-                        {"Aprice": self.Aprice, "BPrice": self.BPrice, "CPrice": self.CPrice},
+                    self.Aprice, self.BPrice, self.CPrice = calculate_price_card_prices(
+                        previous_prices,
                         market,
                         card_id,
                         card_action,
-                    )
-                    proposed_prices = (prices["Aprice"], prices["BPrice"], prices["CPrice"])
-                    self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
-                        previous_prices,
-                        proposed_prices,
+                        protected_markets=self._get_blue_chip_markets(),
                     )
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                     self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
@@ -5840,9 +5874,10 @@ class GameplayPage:
             previous_prices = (self.Aprice, self.BPrice, self.CPrice)
             previous_a_price = previous_prices[0]
             previous_c_price = previous_prices[2]
-            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+            self.Aprice, self.BPrice, self.CPrice = calculate_price_setting_card_prices(
                 previous_prices,
-                (bid_value, bid_value, bid_value),
+                card_id,
+                protected_markets=self._get_blue_chip_markets(),
             )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
             self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
@@ -5877,12 +5912,10 @@ class GameplayPage:
             previous_prices = (self.Aprice, self.BPrice, self.CPrice)
             previous_a_price = previous_prices[0]
             previous_c_price = previous_prices[2]
-            # Prices are integers and division is by three, so adding one gives
-            # unambiguous nearest-integer rounding without fractional state.
-            average_price = (self.Aprice + self.BPrice + self.CPrice + 1) // 3
-            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+            self.Aprice, self.BPrice, self.CPrice = calculate_price_setting_card_prices(
                 previous_prices,
-                (average_price, average_price, average_price),
+                card_id,
+                protected_markets=self._get_blue_chip_markets(),
             )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Parity")
             self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")

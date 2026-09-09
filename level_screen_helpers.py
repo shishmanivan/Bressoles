@@ -6,6 +6,7 @@ from asset_loaders import load_fitted_image
 
 
 LEVEL_CONTENT_SIZE = (1680, 1050)
+LEVEL_BUTTON_ANCHOR_WIDTH = 40
 
 
 def level_content_rect(viewport_size):
@@ -19,12 +20,12 @@ def level_content_rect(viewport_size):
 
 
 def compute_arrow_position(card_position, card_size, arrow_size, padding=15):
-    """Compute the bottom-right arrow position for a card."""
+    """Anchor the button's left edge at the original 40px button position."""
     card_x, card_y = card_position
     card_width, card_height = card_size
     arrow_width, arrow_height = arrow_size
     return (
-        card_x + card_width - arrow_width - padding,
+        card_x + card_width - LEVEL_BUTTON_ANCHOR_WIDTH - padding,
         card_y + card_height - arrow_height - padding,
     )
 

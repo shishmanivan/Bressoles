@@ -41,6 +41,13 @@ STATE_FIELDS = (
     "golden_stocks_trigger_count",
     "derivative_bought",
     "issuer_bought_count",
+    "boss_lifecycle_slot_bonus",
+    "boss_shop_offer_bonus",
+    "multibagger_bought",
+    "diversification_bought",
+    "expansion_bought",
+    "bill_of_exchange_offer_bought",
+    "compounding_bought",
     "bank_bought",
     "bank_interest_base",
     "licensed_card_ids",
@@ -81,6 +88,60 @@ class GameStateTestCase(unittest.TestCase):
 
 
 class RunResetRulesTests(GameStateTestCase):
+    def test_bonus_slots_reset_before_retained_gold_loadout_is_trimmed(self):
+        for finish_run in (game_state.reset_level_attempt, game_state.complete_level_run):
+            with self.subTest(outcome=finish_run.__name__):
+                game_state.level_3_boss_defeated = True
+                game_state.level_5_boss_defeated = False
+                game_state.issuer_bought_count = 2
+                game_state.boss_lifecycle_slot_bonus = 2
+                game_state.black_cards = [301]
+                game_state.active_black_cards = [301]
+                game_state.silver_cards = [201]
+                game_state.licensed_card_ids = {110, 121}
+                game_state.gold_cards = [401, 402, 403, 404, 405]
+                game_state.active_gold_cards = list(game_state.gold_cards)
+                game_state.active_lifecycle_card_order = []
+                game_state.capital_preservation_bought = True
+
+                finish_run(5)
+
+                self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 3)
+                if finish_run is game_state.reset_level_attempt:
+                    self.assertEqual(game_state.gold_cards, [401, 402, 403, 404, 405])
+                    self.assertEqual(game_state.active_gold_cards, [401, 402])
+                else:
+                    self.assertEqual(game_state.gold_cards, [])
+                    self.assertEqual(game_state.active_gold_cards, [])
+                self.assertFalse(game_state.capital_preservation_bought)
+                self.assertTrue(game_state.level_3_boss_defeated)
+                self.assertEqual(game_state.licensed_card_ids, {110, 121})
+                self.assertEqual(game_state.silver_cards, [201])
+                self.assertEqual(game_state.black_cards, [301])
+                self.assertEqual(game_state.active_black_cards, [301])
+
+    def test_completion_keeps_route_history_while_restart_creates_a_new_attempt(self):
+        for finish_run in (game_state.reset_level_attempt, game_state.complete_level_run):
+            with self.subTest(outcome=finish_run.__name__):
+                previous = game_state.new_boss_progress_state()
+                previous["defeated"] = 3
+                previous["run_stats_finished"] = True
+                game_state.boss_progress[4] = previous
+                game_state.global_dobor = 3
+                game_state.global_start_money_bonus = 8
+
+                finish_run(4)
+
+                self.assertEqual(game_state.global_dobor, 1)
+                self.assertEqual(game_state.global_start_money_bonus, 0)
+                if finish_run is game_state.reset_level_attempt:
+                    self.assertIsNot(game_state.boss_progress[4], previous)
+                    self.assertEqual(game_state.boss_progress[4], game_state.new_boss_progress_state())
+                else:
+                    self.assertIs(game_state.boss_progress[4], previous)
+                    self.assertEqual(previous["defeated"], 3)
+                    self.assertTrue(previous["run_stats_finished"])
+
     def test_golden_stocks_can_trigger_once_in_each_consecutive_run(self):
         game_state.golden_stocks_chance_percent = game_state.GOLDEN_STOCKS_BASE_CHANCE
         game_state.golden_stocks_triggered = False

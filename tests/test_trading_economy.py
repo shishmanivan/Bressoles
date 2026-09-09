@@ -512,6 +512,50 @@ class RebateLiquidationTests(unittest.TestCase):
         self.assertEqual(liquidation["proceeds"], 40)
         self.assertEqual(liquidation["target_money"], 47)
 
+    def test_no_base_rebate_skips_bonus_calculation(self):
+        page = self._page()
+        page._has_active_silver_card = mock.Mock(return_value=False)
+        page._has_played_side_card = mock.Mock(return_value=False)
+        page._count_active_card_safely = mock.Mock(return_value=0)
+        for method in (
+            "_get_percentage_amplifier_bonus", "_get_uptrend_rebate_bonus_percent",
+            "_get_stewardship_rebate_bonus_percent", "_get_windfall_rebate_bonus_percent",
+            "_get_risk_premium_rebate_bonus_percent",
+        ):
+            setattr(page, method, mock.Mock(side_effect=AssertionError("No base Rebate")))
+        self.assertIsNone(page._get_current_rebate_sale_percent())
+
+    def test_combined_rebate_keeps_rounding_and_defers_result_check_until_animation_ends(self):
+        page = self._page()
+        page._has_active_silver_card = mock.Mock(return_value=True)
+        page._has_played_side_card = mock.Mock(return_value=True)
+        page._count_active_card_safely = mock.Mock(return_value=2)
+        page._get_percentage_amplifier_bonus = mock.Mock(return_value=25)
+        page.rebate_a_fall_bonus_percent = 4
+        for name, bonus in (("uptrend", 10), ("stewardship", 20), ("windfall", 50), ("risk_premium", 40)):
+            setattr(page, f"_get_{name}_rebate_bonus_percent", mock.Mock(return_value=bonus))
+        page.BPrice = 21  # Gross 41 at 329% gives 134.89, paid as 134.
+        page._check_win_lose = mock.Mock()
+        page._finish_deferred_turn_resolution_after_final_liquidation = mock.Mock()
+        self.assertTrue(page._apply_final_auto_liquidation_if_needed())
+        liquidation = page._start_final_auto_liquidation_animation.call_args.args[0]
+        self.assertEqual(liquidation["gross_value"], 41)
+        self.assertEqual(liquidation["proceeds"], 134)
+        self.assertEqual(liquidation["target_money"], 141)
+        self.assertEqual((page.Money, page.Aquantity, page.Bquantity), (7, 2, 1))
+        page.final_auto_liquidation_animation = {**liquidation, "start_time": 100, "duration_ms": 1000}
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=600):
+            page.update_final_auto_liquidation_animation()
+        page._check_win_lose.assert_not_called()
+        self.assertFalse(page.final_auto_liquidation_applied)
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1100):
+            page.update_final_auto_liquidation_animation()
+            page.update_final_auto_liquidation_animation()
+        self.assertEqual((page.Money, page.Aquantity, page.Bquantity, page.Cquantity), (141, 0, 0, 0))
+        self.assertTrue(page.final_auto_liquidation_applied)
+        page._check_win_lose.assert_called_once_with()
+        page._finish_deferred_turn_resolution_after_final_liquidation.assert_called_once_with()
+
     def test_matching_red_and_silver_rebates_keep_the_hidden_synergy(self):
         page = self._page()
         page._has_active_silver_card = mock.Mock(

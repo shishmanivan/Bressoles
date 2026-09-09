@@ -212,14 +212,18 @@ def load_gameplay_placeholders():
     return dict(_gameplay_placeholders_cache)
 
 
-def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, card_size_side):
-    """Load all gameplay card image sets and card effect metadata."""
+def load_gameplay_card_assets(
+    card_types, card_size_bottom, card_size_market, card_size_side, *, original_card_ids=None,
+):
+    """Load card images, retaining only requested originals (None retains all)."""
     card_types_key = tuple(sorted((int(cid), int(card_type)) for cid, card_type in (card_types or {}).items()))
+    original_ids = None if original_card_ids is None else frozenset(original_card_ids)
     cache_key = (
         card_types_key,
         tuple(card_size_bottom),
         tuple(card_size_market),
         tuple(card_size_side),
+        original_ids,
     )
     cached = _gameplay_card_assets_cache.get(cache_key)
     if cached is not None:
@@ -268,17 +272,19 @@ def load_gameplay_card_assets(card_types, card_size_bottom, card_size_market, ca
                 bottom_key = (base_id, "bottom", card_size_bottom)
                 market_key = (base_id, "market", card_size_market)
                 side_key = (base_id, "side", card_size_side)
-                original_img = card_img
-                if is_bid_card(card_id):
-                    original_img = card_img.copy()
-                    draw_bid_modifier_text(
-                        original_img,
-                        card_id,
-                        0,
-                        0,
-                        (original_img.get_width(), original_img.get_height()),
-                        None,
-                    )
+                original_img = None
+                if original_ids is None or card_id in original_ids:
+                    original_img = card_img
+                    if is_bid_card(card_id):
+                        original_img = card_img.copy()
+                        draw_bid_modifier_text(
+                            original_img,
+                            card_id,
+                            0,
+                            0,
+                            (original_img.get_width(), original_img.get_height()),
+                            None,
+                        )
                 card_images_original[card_id] = original_img
                 if bottom_key not in scaled_image_cache:
                     scaled_image_cache[bottom_key] = pygame.transform.smoothscale(card_img, card_size_bottom).convert_alpha()

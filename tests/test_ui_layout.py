@@ -159,6 +159,11 @@ class UiLayoutTests(unittest.TestCase):
             mock.patch("pygame.event.get", return_value=[level8_event]),
             mock.patch("pygame.mouse.get_pos", return_value=level8_rect.center),
         ):
+            self.assertIsNone(page.handle_input())
+        from game_screen import LEVEL_BUTTON_PRESS_MS
+        with mock.patch("pygame.time.get_ticks", return_value=page._level_press_started_at + LEVEL_BUTTON_PRESS_MS):
+            page.draw()
+        with mock.patch("pygame.event.get", return_value=[]):
             self.assertEqual(page.handle_input(), "level_8")
         page.button_sound.play.assert_called_once_with()
 
@@ -491,6 +496,16 @@ class UiLayoutTests(unittest.TestCase):
             "Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.",
         )
         self.assertNotIn("необязательно", page.lang_dict["Boss5Reward"])
+
+    def test_temporary_cards_reset_line_moves_up_when_the_report_has_fewer_cards(self):
+        no_cards = GameplayPage._get_card_report_footer_ratio(0)
+        one_card = GameplayPage._get_card_report_footer_ratio(1)
+        three_cards = GameplayPage._get_card_report_footer_ratio(3)
+
+        self.assertLess(no_cards, one_card)
+        self.assertLess(one_card, three_cards)
+        self.assertEqual(no_cards, 0.68)
+        self.assertEqual(three_cards, 0.80)
 
     def test_card_report_keeps_the_golden_stocks_trigger_notice(self):
         page = GameplayPage.__new__(GameplayPage)

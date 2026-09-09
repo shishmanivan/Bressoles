@@ -161,6 +161,7 @@ GOLD_CARD_MIN_LEVELS = {
     RISK_PREMIUM_CARD_ID: 5,
     432: 3,
     433: 3,
+    434: 3,
 }
 SILVER_CARD_MIN_LEVELS = {213: 5}
 
@@ -204,6 +205,7 @@ SHOP_CARD_COSTS = {
     431: 5,
     432: 4,
     433: 4,
+    434: 4,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -1433,13 +1435,20 @@ def get_active_long_investments():
     return active[:LONG_MAX_ACTIVE]
 
 
-def is_long_offer_available():
-    return len(get_active_long_investments()) < LONG_MAX_ACTIVE
+def is_long_offer_available(rounds_remaining=None):
+    if len(get_active_long_investments()) >= LONG_MAX_ACTIVE:
+        return False
+    if rounds_remaining is None:
+        return True
+    try:
+        return int(rounds_remaining) > 2
+    except (TypeError, ValueError):
+        return True
 
 
-def buy_long_investment(rounds=LONG_ROUNDS_TO_PAYOUT):
+def buy_long_investment(rounds=LONG_ROUNDS_TO_PAYOUT, rounds_remaining=None):
     active_long_investments[:] = get_active_long_investments()
-    if len(active_long_investments) >= LONG_MAX_ACTIVE:
+    if not is_long_offer_available(rounds_remaining):
         return False
     try:
         duration = max(1, int(rounds or 0))
@@ -1770,13 +1779,14 @@ def new_boss_progress_state():
     }
 
 
-def reset_level_attempt(level_number):
-    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
-    global profit_reward_bonus, updown_probability_bonus, variance_offer_bought_count, derivative_bought, issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus, boss_rare_card_pool_bonus_percent, deal_flow_bonus_percent, multibagger_bought, diversification_bought, expansion_bought, bill_of_exchange_offer_bought, compounding_bought, capital_preservation_bought
-    try:
-        level = int(level_number or 0)
-    except (TypeError, ValueError):
-        level = 0
+def _reset_run_bonuses():
+    """Reset shared temporary bonuses before outcome-specific run cleanup."""
+    global global_dobor, global_start_money_bonus, global_last_turn_bonus
+    global global_hand_bonus, global_start_c_shares_bonus, profit_reward_bonus
+    global updown_probability_bonus, variance_offer_bought_count, derivative_bought
+    global issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus
+    global boss_rare_card_pool_bonus_percent, deal_flow_bonus_percent, multibagger_bought
+    global diversification_bought, expansion_bought, bill_of_exchange_offer_bought, compounding_bought
     global_dobor = 1
     global_start_money_bonus = 0
     global_last_turn_bonus = 0
@@ -1796,6 +1806,14 @@ def reset_level_attempt(level_number):
     expansion_bought = False
     bill_of_exchange_offer_bought = False
     compounding_bought = False
+
+
+def reset_level_attempt(level_number):
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        level = 0
+    _reset_run_bonuses()
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
     clear_removed_deck_cards(level_number)
@@ -1833,32 +1851,13 @@ def reset_level_attempt(level_number):
 
 def complete_level_run(level_number):
     """Clear temporary run state after defeating the last boss of a level."""
-    global global_dobor, global_start_money_bonus, global_last_turn_bonus, global_hand_bonus, global_start_c_shares_bonus
-    global profit_reward_bonus, updown_probability_bonus, variance_offer_bought_count, derivative_bought, issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus, boss_rare_card_pool_bonus_percent, deal_flow_bonus_percent, multibagger_bought, diversification_bought, expansion_bought, bill_of_exchange_offer_bought, compounding_bought, capital_preservation_bought
+    global capital_preservation_bought
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
 
-    global_dobor = 1
-    global_start_money_bonus = 0
-    global_last_turn_bonus = 0
-    global_hand_bonus = 0
-    global_start_c_shares_bonus = 0
-    profit_reward_bonus = 0
-    updown_probability_bonus = 0
-    variance_offer_bought_count = 0
-    derivative_bought = False
-    issuer_bought_count = 0
-    boss_lifecycle_slot_bonus = 0
-    boss_shop_offer_bonus = 0
-    boss_rare_card_pool_bonus_percent = 0
-    deal_flow_bonus_percent = 0
-    multibagger_bought = False
-    diversification_bought = False
-    expansion_bought = False
-    bill_of_exchange_offer_bought = False
-    compounding_bought = False
+    _reset_run_bonuses()
     capital_preservation_bought = False
 
     if level in earned_reward_cards:
@@ -2816,10 +2815,52 @@ def is_deal_flow_offer_available(level_number):
     return level >= 4
 
 
+def get_remaining_run_rounds(level_number, bosses_required, rounds_per_boss):
+    """Estimate remaining regular rounds and boss fights in the current level run."""
+    try:
+        level = int(level_number or 0)
+        required_bosses = max(0, int(bosses_required or 0))
+        default_rounds = max(0, int(rounds_per_boss or 0))
+    except (TypeError, ValueError):
+        return None
+
+    state = boss_progress.get(level) or {}
+    defeated = max(0, int(state.get("defeated", 0) or 0))
+    bosses_remaining = max(0, required_bosses - defeated)
+    if bosses_remaining <= 0:
+        return 0
+
+    current_boss = state.get("current_boss")
+    if not isinstance(current_boss, dict) or int(
+        current_boss.get("defeated_count", -1) or 0
+    ) != defeated:
+        return bosses_remaining * (default_rounds + 1)
+
+    progress_key = (
+        f"{defeated}:"
+        f"{current_boss.get('boss_index') if current_boss.get('boss_index') is not None else ''}:"
+        f"{current_boss.get('boss_filename') or ''}"
+    )
+    progress = (state.get("round_progress") or {}).get(progress_key) or {}
+    try:
+        current_rounds = max(0, int(progress.get("rounds_required", default_rounds)))
+    except (TypeError, ValueError):
+        current_rounds = default_rounds
+    completed_rounds = {
+        int(value)
+        for value in (progress.get("completed_rounds") or [])
+        if str(value).isdigit() and 1 <= int(value) <= current_rounds
+    }
+    current_boss_remaining = max(0, current_rounds - len(completed_rounds)) + 1
+    future_bosses_remaining = max(0, bosses_remaining - 1) * (default_rounds + 1)
+    return current_boss_remaining + future_bosses_remaining
+
+
 def _available_screening_offer_ids(
     level_number,
     defeated_count=None,
     bosses_required=None,
+    rounds_remaining=None,
 ):
     """Return currently usable special offers, excluding Screening itself."""
     try:
@@ -2833,7 +2874,7 @@ def _available_screening_offer_ids(
         "profit": True,
         "underwriter": is_underwriter_offer_available(level),
         "bailout": not is_bailout_active(),
-        "long": is_long_offer_available(),
+        "long": is_long_offer_available(rounds_remaining),
         "junk_bond": True,
         "issuer": is_issuer_offer_available(),
         "bank": is_bank_offer_available(),
@@ -2881,13 +2922,19 @@ def is_screening_offer_available(
     level_number,
     defeated_count=None,
     bosses_required=None,
+    rounds_remaining=None,
 ):
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
     return level >= 4 and len(
-        _available_screening_offer_ids(level, defeated_count, bosses_required)
+        _available_screening_offer_ids(
+            level,
+            defeated_count,
+            bosses_required,
+            rounds_remaining,
+        )
     ) >= 5
 
 
@@ -2896,6 +2943,7 @@ def build_shop_special_offer_pool(
     max_offers=2,
     defeated_count=None,
     bosses_required=None,
+    rounds_remaining=None,
 ):
     try:
         level = int(level_number or 0)
@@ -2935,7 +2983,7 @@ def build_shop_special_offer_pool(
         and random.randint(1, 100) <= get_shop_special_offer_chance(50)
     )
     long_hit = (
-        is_long_offer_available()
+        is_long_offer_available(rounds_remaining)
         and random.randint(1, 100) <= get_shop_special_offer_chance(50)
     )
     junk_bond_hit = random.randint(1, 100) <= get_shop_special_offer_chance(40)
@@ -2995,7 +3043,12 @@ def build_shop_special_offer_pool(
         and random.randint(1, 100) <= get_shop_special_offer_chance(2)
     )
     screening_hit = (
-        is_screening_offer_available(level, defeated_count, bosses_required)
+        is_screening_offer_available(
+            level,
+            defeated_count,
+            bosses_required,
+            rounds_remaining,
+        )
         and random.randint(1, 100) <= get_shop_special_offer_chance(10)
     )
     capital_preservation_hit = (
@@ -3099,6 +3152,7 @@ def build_screening_offer_pool(
     offer_count=5,
     defeated_count=None,
     bosses_required=None,
+    rounds_remaining=None,
 ):
     """Build a unique set of free choices using the regular special-offer rolls."""
     try:
@@ -3111,6 +3165,7 @@ def build_screening_offer_pool(
             level_number,
             defeated_count,
             bosses_required,
+            rounds_remaining,
         )
         if offer_id != "screening"
     ]
@@ -3125,6 +3180,7 @@ def build_screening_offer_pool(
             max_offers=len(SHOP_SPECIAL_COSTS),
             defeated_count=defeated_count,
             bosses_required=bosses_required,
+            rounds_remaining=rounds_remaining,
         )
         for offer_id in rolled:
             if offer_id in available_set and offer_id not in choices:
@@ -3146,6 +3202,7 @@ def generate_shop_offers(
     discount_percent=0,
     defeated_count=None,
     bosses_required=None,
+    rounds_remaining=None,
 ):
     global correction_shop_cooldown
     try:
@@ -3172,6 +3229,8 @@ def generate_shop_offers(
         special_pool_kwargs["defeated_count"] = defeated_count
     if bosses_required is not None:
         special_pool_kwargs["bosses_required"] = bosses_required
+    if rounds_remaining is not None:
+        special_pool_kwargs["rounds_remaining"] = rounds_remaining
     special_pool = build_shop_special_offer_pool(level, **special_pool_kwargs)
     if "correction" in special_pool:
         correction_shop_cooldown = CORRECTION_SHOP_COOLDOWN

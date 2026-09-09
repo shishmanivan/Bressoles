@@ -1,5 +1,7 @@
 import random
 
+from card_catalog import BID_CARD_VALUES
+
 
 BASE_MARKET_PROBABILITIES = {
     0: {"fall": 0.0, "flat": 15.0, "rise": 85.0},
@@ -197,6 +199,8 @@ def build_stock_price_animation_queue(
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
     forced_fall_markets = _normalize_market_set(forced_fall_markets)
+    prevent_fall_markets = _normalize_market_set(prevent_fall_markets)
+    forced_fall_markets -= prevent_fall_markets
     if force_flat:
         steps = {0: step_a, 1: step_b, 2: step_c}
         return [
@@ -225,6 +229,32 @@ def build_stock_price_animation_queue(
         _roll_market_animation(1, step_b, probabilities, forced_rise_markets, forced_fall_markets),
         _roll_market_animation(2, step_c, probabilities, forced_rise_markets, forced_fall_markets),
     ]
+
+
+def protect_market_prices(previous_prices, proposed_prices, protected_markets):
+    """Keep protected markets unchanged when an effect proposes a lower price."""
+    return tuple(
+        previous if market in protected_markets and proposed < previous else proposed
+        for market, (previous, proposed) in enumerate(zip(previous_prices, proposed_prices))
+    )
+
+
+def calculate_price_setting_card_prices(previous_prices, card_id, protected_markets=()):
+    """Return A/B/C prices for one Bid or Parity card without mutating inputs."""
+    card_id = int(card_id)
+    if card_id == 123:
+        # Integer prices divided by three: nearest-integer rounding stays exact.
+        target_price = (sum(previous_prices) + 1) // 3
+    elif card_id in BID_CARD_VALUES:
+        target_price = BID_CARD_VALUES[card_id]
+    else:
+        raise ValueError(f"Not a Bid or Parity card: {card_id}")
+    # Protected prices participate in Parity's mean before falls are blocked.
+    return protect_market_prices(
+        previous_prices,
+        (target_price, target_price, target_price),
+        protected_markets,
+    )
 
 
 def apply_market_price_change(prices, market, price_change, minimum_price=2):

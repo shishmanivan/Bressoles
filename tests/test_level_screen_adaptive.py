@@ -9,7 +9,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 
 from asset_loaders import find_font_path_or_exit
-from game_screen import GameScreen, PAGE_ARROW_FRAME_MS
+from game_screen import GameScreen, PAGE_ARROW_FRAME_MS, LEVEL_BUTTON_PRESS_MS
 from level_screen_helpers import LEVEL_CONTENT_SIZE, level_content_rect
 
 
@@ -38,6 +38,30 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=position)
         with mock.patch("pygame.event.get", return_value=[event]):
             return page.handle_input()
+
+    def finish_level_press(self, page):
+        with mock.patch("pygame.time.get_ticks", return_value=page._level_press_started_at + LEVEL_BUTTON_PRESS_MS):
+            page.draw()
+        with mock.patch("pygame.event.get", return_value=[]):
+            return page.handle_input()
+
+    def test_level_waits_for_pressed_pose_and_ignores_second_click(self):
+        page = self.make_page(progress_flags={"level_1_boss_defeated": True})
+        page.button_sound = mock.Mock()
+        self.assertIsNone(self.click(page, page.arrow2_rect.center))
+        started = page._level_press_started_at
+        with mock.patch("pygame.time.get_ticks", return_value=started + LEVEL_BUTTON_PRESS_MS - 1):
+            page.draw()
+            self.assertIsNone(self.click(page, page.arrow2_rect.center))
+        self.assertEqual(page._level_press_started_at, started)
+        page.button_sound.play.assert_called_once_with()
+        # Even a slow frame must display the final position before routing.
+        with mock.patch("pygame.time.get_ticks", return_value=started + 1000):
+            with mock.patch("pygame.event.get", return_value=[]):
+                self.assertIsNone(page.handle_input())
+            page.draw()
+            with mock.patch("pygame.event.get", return_value=[]):
+                self.assertEqual(page.handle_input(), "level_2")
 
     def test_grid_keeps_its_proportions_and_reference_size(self):
         self.assertEqual(level_content_rect(LEVEL_CONTENT_SIZE), pygame.Rect(0, 0, 1680, 1050))
@@ -71,7 +95,8 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         for size in ((1280, 720), (1920, 1080), (3440, 1440)):
             with self.subTest(size=size):
                 page.screen = pygame.Surface(size)
-                self.assertEqual(self.click(page, self.viewport_point(page, page.arrow_rect.center)), "level_1")
+                self.assertIsNone(self.click(page, self.viewport_point(page, page.arrow_rect.center)))
+                self.assertEqual(self.finish_level_press(page), "level_1")
                 self.assertEqual(page.normal_card_positions, original_positions)
                 self.assertIsNone(self.click(page, (0, 0)))
 
@@ -84,7 +109,8 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page._update_page_animation(started + 3 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(page.level_page_index, 1)
         page._update_page_animation(started + 4 * PAGE_ARROW_FRAME_MS)
-        self.assertEqual(self.click(page, self.viewport_point(page, page.normal_arrow_rects[1].center)), "level_8")
+        self.assertIsNone(self.click(page, self.viewport_point(page, page.normal_arrow_rects[1].center)))
+        self.assertEqual(self.finish_level_press(page), "level_8")
         self.assertIsNone(self.click(page, self.viewport_point(page, page.previous_page_rect.center)))
         self.assertEqual(page.level_page_index, 1)
         page._update_page_animation(page._page_animation_started_at + 3 * PAGE_ARROW_FRAME_MS)
@@ -138,7 +164,8 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page.button_sound = None
         page.scroll_y = page.test_card_positions[6][1] - 75
         arrow = page.test_card_rects[6].move(0, -page.scroll_y)
-        self.assertEqual(self.click(page, self.viewport_point(page, arrow.center)), "level_7")
+        self.assertIsNone(self.click(page, self.viewport_point(page, arrow.center)))
+        self.assertEqual(self.finish_level_press(page), "level_7")
         target = page.screen
         page.draw()
         self.assertIs(page.screen, target)

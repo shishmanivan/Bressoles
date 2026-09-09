@@ -1,4 +1,5 @@
 from card_catalog import MARKET_DURATION_CARD_IDS, PRICE_CARD_IDS, get_price_card_spec
+from gameplay_price_helpers import protect_market_prices
 
 
 def lock_market_cards(market_cards, market_cards_locked):
@@ -87,3 +88,23 @@ def apply_price_card_action(prices, market, card_id, card_action, minimum_price=
     else:
         updated[price_key] = max(minimum_price, updated[price_key] + card_action)
     return updated
+
+
+def calculate_price_card_prices(previous_prices, market, card_id, card_action, protected_markets=()):
+    """Return A/B/C prices for a Gain/Drop effect, including Blue Chips protection.
+
+    card_action is the effective value after per-card modifiers. Regulation affects
+    the random market roll, so it does not suppress this explicit card effect.
+    Inputs are not mutated; reactions, durations and animations belong to the caller.
+    """
+    prices = apply_price_card_action(
+        dict(zip(("Aprice", "BPrice", "CPrice"), previous_prices)),
+        market,
+        card_id,
+        card_action,
+    )
+    return protect_market_prices(
+        previous_prices,
+        (prices["Aprice"], prices["BPrice"], prices["CPrice"]),
+        protected_markets,
+    )

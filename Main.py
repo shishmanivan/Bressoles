@@ -20,6 +20,7 @@ from content_validation import assert_valid_game_content
 from display_runtime import LOGICAL_SCREEN_SIZE, create_game_display
 from game_data import (
     REWARD_TOKEN_RANDOM_RED,
+    get_level_rounds_required,
     load_boss_rewards,
     load_language,
     load_levels_config,
@@ -147,7 +148,14 @@ def main():
         level = int(level_number or 1)
         level_boss_state = game_state.boss_progress.get(level) or {}
         defeated_count = max(0, int(level_boss_state.get("defeated", 0) or 0))
-        bosses_required = get_bosses_required(level, load_rounds_config())
+        rounds_config = load_rounds_config()
+        levels_config = load_levels_config()
+        bosses_required = get_bosses_required(level, rounds_config)
+        rounds_remaining = game_state.get_remaining_run_rounds(
+            level,
+            bosses_required,
+            get_level_rounds_required(level, rounds_config, levels_config),
+        )
         save_progress_if_needed(test_mode)
         shop_page = ShopPage(
             screen,
@@ -159,6 +167,7 @@ def main():
             stats_enabled=bool(selected_slot and not test_mode),
             defeated_count=defeated_count,
             bosses_required=bosses_required,
+            rounds_remaining=rounds_remaining,
         )
         shop_page.run()
         game_state.update_bank_interest_base()
@@ -358,8 +367,39 @@ def main():
         completed = set(int(value) for value in progress.get("completed_rounds", []) if str(value).isdigit())
         completed.add(round_num)
         progress["completed_rounds"] = sorted(completed)
+        if context.get("rounds_required") is not None:
+            progress["rounds_required"] = max(0, int(context["rounds_required"]))
         progress.setdefault("round_selections", {})[round_num] = {"key": difficulty}
         set_current_boss(bp_state, defeated_count, boss_index, boss_filename)
+
+    def complete_regular_round(level_number, bp_state, context, round_page=None, test_mode=False):
+        """Commit a regular-round win from either a live page or saved context."""
+        if round_page is None:
+            mark_context_round_completed(bp_state, context)
+        else:
+            if round_page.last_selected_round is not None:
+                round_page.mark_round_completed(round_page.last_selected_round)
+            save_round_page_progress(
+                bp_state,
+                round_page,
+                bp_state["defeated"],
+                context.get("boss_index"),
+                context.get("boss_filename"),
+            )
+            if selected_slot and not test_mode:
+                # Preserve the live page's save before awarding the payout.
+                profile_manager.save_progress_from_game_state(selected_slot)
+        award_napoleondors_and_open_shop(
+            level_number,
+            get_round_victory_napoleondor_amount(
+                level_number,
+                context.get("difficulty", "e"),
+                context.get("boss_filename"),
+            ),
+            test_mode=test_mode,
+            show_shop=should_open_shop_after_regular_round(level_number),
+            clear_active_game=True,
+        )
 
     def choose_active_lifecycle_cards(level_number, is_boss_fight=False, round_number=None):
         if int(level_number or 0) == 6:
@@ -655,17 +695,7 @@ def main():
                         elif resume_result == "round_select":
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
-                            mark_context_round_completed(bp_state, active_context)
-                            award_napoleondors_and_open_shop(
-                                level,
-                                get_round_victory_napoleondor_amount(
-                                    level,
-                                    active_context.get("difficulty", "e"),
-                                    active_context.get("boss_filename"),
-                                ),
-                                show_shop=should_open_shop_after_regular_round(level),
-                                clear_active_game=True,
-                            )
+                            complete_regular_round(level, bp_state, active_context)
                             continue_resumed_level = True
                         elif resume_result == "level_select":
                             level = int(active_context.get("level_number", 1) or 1)
@@ -1032,27 +1062,16 @@ def main():
                                 game_state.add_insurance_goal_debt(insurance_goal_debt)
                             round_result = round_page.run()
                         elif gameplay_result == "round_select":
-                            if round_page.last_selected_round is not None:
-                                round_page.mark_round_completed(round_page.last_selected_round)
-                            if selected_slot and not test_mode:
-                                save_round_page_progress(
-                                    bp_state,
-                                    round_page,
-                                    bp_state["defeated"],
-                                    boss_index,
-                                    boss_filename,
-                                )
-                                profile_manager.save_progress_from_game_state(selected_slot)
-                            award_napoleondors_and_open_shop(
+                            complete_regular_round(
                                 boss_level,
-                                get_round_victory_napoleondor_amount(
-                                    boss_level,
-                                    difficulty,
-                                    boss_filename,
-                                ),
+                                bp_state,
+                                {
+                                    "difficulty": difficulty,
+                                    "boss_index": boss_index,
+                                    "boss_filename": boss_filename,
+                                },
+                                round_page=round_page,
                                 test_mode=test_mode,
-                                show_shop=should_open_shop_after_regular_round(boss_level),
-                                clear_active_game=True,
                             )
                             round_result = round_page.run()
                         elif gameplay_result == "level_select":

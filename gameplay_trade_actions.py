@@ -5,6 +5,28 @@ MARKET_KEYS = {
 }
 
 
+def calculate_rebate_sale_percent(
+    *, full_price, discounted, gold_rebate_count,
+    amplifier_bonus=0, fall_bonus=0, additional_bonus_percent=0,
+):
+    """Return the Rebate payout percentage, or None when no base card enables it."""
+    if gold_rebate_count > 0:
+        sale_percent = 100 + 30 * gold_rebate_count + amplifier_bonus + int(fall_bonus or 0)
+        if discounted:
+            sale_percent += 10
+        if full_price:
+            sale_percent += 10
+    elif full_price and discounted:
+        sale_percent = 120
+    elif full_price:
+        sale_percent = 100
+    elif discounted:
+        sale_percent = 90
+    else:
+        return None
+    return sale_percent + additional_bonus_percent
+
+
 def apply_arrow_trade(money, quantities, prices, frame_idx, arrow_type, blocked_buy_prices=None):
     """Apply a buy/sell arrow action and return updated trade state."""
     if frame_idx not in MARKET_KEYS:

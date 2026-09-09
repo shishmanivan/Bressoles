@@ -158,6 +158,72 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(report[-2]["amount"], 9)
         self.assertEqual(report[-1]["amount"], 19)
 
+    def test_shareholder_base_pays_each_copy_for_every_shareholder(self):
+        page = self._page(gold=[434, 434])
+        page.shareholder_effect_count = 3
+        game_state.napoleondor_level = 1
+
+        earned = page._apply_shareholder_base_win_bonus()
+
+        self.assertEqual(earned, 6)
+        self.assertEqual(game_state.napoleondors, 6)
+
+    def test_shareholder_base_has_its_own_finance_row_and_is_doubled_by_nabob(self):
+        page = self._page(silver=[216], gold=[434])
+        page.is_boss_fight = False
+        page.difficulty = "e"
+        page.boss_filename = None
+        page.lang_dict = {}
+        game_state.napoleondor_level = 1
+
+        with (
+            mock.patch.object(game_state, "get_round_victory_napoleondor_reward", return_value=0),
+            mock.patch.object(game_state, "profit_reward_bonus", 0),
+        ):
+            entries = page._build_finance_report_entries(
+                [],
+                opening_balance=0,
+                shareholder_base_amount=3,
+                shareholder_base_active=True,
+            )
+            nabob_amount = page._apply_nabob_win_bonus(entries)
+            report = page._build_finance_report_entries(
+                [],
+                opening_balance=0,
+                shareholder_base_amount=3,
+                shareholder_base_active=True,
+                nabob_amount=nabob_amount,
+            )
+
+        self.assertEqual(nabob_amount, 3)
+        shareholder_row = next(
+            entry for entry in report if entry["source"] == "shareholder_base"
+        )
+        self.assertEqual(shareholder_row["label"], "Бонус Shareholder Base")
+        self.assertEqual(shareholder_row["amount"], 3)
+
+    def test_shareholder_base_finance_row_is_visible_with_zero_shareholders(self):
+        page = self._page(gold=[434])
+        page.is_boss_fight = False
+        page.difficulty = "e"
+        page.boss_filename = None
+        page.lang_dict = {}
+
+        with mock.patch.object(
+            game_state,
+            "get_round_victory_napoleondor_reward",
+            return_value=0,
+        ):
+            report = page._build_finance_report_entries(
+                [],
+                shareholder_base_active=True,
+            )
+
+        shareholder_row = next(
+            entry for entry in report if entry["source"] == "shareholder_base"
+        )
+        self.assertEqual(shareholder_row["amount"], 0)
+
     def test_contango_and_rollover_stack_with_multiple_copies(self):
         page = self._page(silver=[204, 204, 208, 208])
         page.card_actions = {11: 2, 15: -2}
@@ -1018,6 +1084,48 @@ class LifecycleEffectTests(unittest.TestCase):
             [(entry["type"], entry["price_change"], entry.get("card_slot")) for entry in a_falls],
             [("fall", -2, 0), ("fall", -2, 1)],
         )
+
+    def test_selling_pressure_excludes_blue_chips_for_every_protection_combination(self):
+        for mask in range(8):
+            protected = {market for market in range(3) if mask & (1 << market)}
+            eligible = [market for market in range(3) if market not in protected]
+            for force_flat in (False, True):
+                for copies in (1, 2):
+                    for choice in range(1, len(eligible) + 1) if eligible else (None,):
+                        with self.subTest(protected=protected, flat=force_flat, copies=copies, choice=choice):
+                            page = self._page(gold=([404] if force_flat else []) + [432] * copies)
+                            page.Day = 1
+                            page.Aquantity = page.Bquantity = page.Cquantity = 0
+                            page.StepA, page.StepB, page.StepC = 2, 4, 6
+                            page.market_cards = {
+                                market: {0: 22} if market in protected else {}
+                                for market in range(3)
+                            }
+                            page.insider_c_growth_turns_remaining = 0
+                            page.lifecycle_card_jump_animations = {}
+                            page._start_card_jump_animation = mock.Mock()
+                            with mock.patch.object(gameplay_page.random, "randint", return_value=choice) as roll:
+                                with mock.patch("gameplay_price_helpers.random.random", return_value=0.99):
+                                    movements = page.update_stock_prices()
+
+                            falls = [entry for entry in movements if entry["type"] == "fall"]
+                            if eligible:
+                                target = eligible[choice - 1]
+                                self.assertEqual([entry["market"] for entry in falls], [target] * copies)
+                                self.assertEqual(
+                                    [entry["price_change"] for entry in falls],
+                                    [-(2, 4, 6)[target]] * copies,
+                                )
+                                self.assertEqual([entry["source"] for entry in falls], ["selling_pressure"] * copies)
+                                self.assertEqual(
+                                    [entry["card_slot"] for entry in falls],
+                                    list(range(int(force_flat), int(force_flat) + copies)),
+                                )
+                                self.assertEqual(roll.call_args_list, [mock.call(1, len(eligible))] * copies)
+                            else:
+                                self.assertEqual(falls, [])
+                                roll.assert_not_called()
+                                self.assertFalse(any(entry.get("source") == "selling_pressure" for entry in movements))
 
     def test_selling_pressure_and_insider_both_resolve_on_market_c(self):
         page = self._page(gold=[404, 405, 432])

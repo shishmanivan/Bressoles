@@ -120,6 +120,7 @@ FinanceCardSales;Продажа карт;Card sales
 FinanceJunkBond;Junk Bond дал прибыль;Junk Bond made a profit
 FinanceJunkBondRefund;Возврат Junk Bond;Junk Bond refund
 FinanceOtherIncome;Прочий доход;Other income
+FinanceShareholderBase;Бонус Shareholder Base;Shareholder Base bonus
 FinanceTotal;Всего;Total
 CardReportTemporary;Временная карта. Пропадёт после победы над боссом.;Temporary card. Disappears after defeating the boss.
 CardReportNewCardsTitle;Вы получили новые карты:;You received new cards:

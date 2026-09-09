@@ -252,6 +252,7 @@ class RoundPage:
 
     def export_round_progress(self):
         return {
+            "rounds_required": max(0, int(self.rounds_required or 0)),
             "completed_rounds": sorted(int(round_num) for round_num in self.completed_rounds),
             "round_selections": {
                 str(round_num): {"key": selection.get("key")}
