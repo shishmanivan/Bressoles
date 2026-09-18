@@ -218,6 +218,7 @@ def _empty_progress():
         "level_4_boss_defeated": False,
         "level_5_boss_defeated": False,
         "level_6_boss_defeated": False,
+        "level_8_boss_defeated": False,
         "boss_progress": {},
         "global_dobor": 1,
         "global_start_money_bonus": 0,
@@ -441,6 +442,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.level_4_boss_defeated = bool(progress.get("level_4_boss_defeated", False))
     game_state.level_5_boss_defeated = bool(progress.get("level_5_boss_defeated", False))
     game_state.level_6_boss_defeated = bool(progress.get("level_6_boss_defeated", False))
+    game_state.level_8_boss_defeated = bool(progress.get("level_8_boss_defeated", False))
     game_state.boss_progress = _restore_boss_progress(progress.get("boss_progress") or {})
     game_state.global_dobor = int(progress.get("global_dobor", 1) or 1)
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
@@ -713,6 +715,7 @@ def _capture_progress():
         "level_4_boss_defeated": bool(game_state.level_4_boss_defeated),
         "level_5_boss_defeated": bool(game_state.level_5_boss_defeated),
         "level_6_boss_defeated": bool(game_state.level_6_boss_defeated),
+        "level_8_boss_defeated": bool(game_state.level_8_boss_defeated),
         "boss_progress": _serialize_boss_progress(game_state.boss_progress),
         "global_dobor": int(game_state.global_dobor),
         "global_start_money_bonus": int(game_state.global_start_money_bonus),

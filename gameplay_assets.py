@@ -2,6 +2,8 @@ import os
 
 import pygame
 
+from adaptive_ui import cover_geometry
+from asset_loaders import load_scaled_image
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, PRICE_CARD_IDS
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
@@ -18,6 +20,100 @@ _card_placing_sound_cache = None
 _card_placing_sound_loaded = False
 
 
+def load_gameplay_background(viewport_size):
+    """Fill the viewport with a centered, proportionally scaled master image."""
+    master = load_scaled_image(
+        os.path.join("GameplayPage", "Master Background.png"),
+        warning_message="WARNING: GameplayPage Master Background.png not found:",
+    )
+    if master is None:
+        return None
+
+    scaled_size, position = cover_geometry(master.get_size(), viewport_size)
+    background = pygame.Surface(viewport_size).convert()
+    background.blit(pygame.transform.smoothscale(master, scaled_size), position)
+    return background
+
+
+def build_hand_frame(market_frame, target_size):
+    """Reuse market-frame artwork, stretching only the undecorated edge spans.
+
+    Five bands per axis keep both the corners and middle ornaments at their
+    original on-screen scale. The cuts follow GameplayPage/Frame.png artwork.
+    """
+    def bands(source_length, target_length, fractions):
+        source = [round(source_length * fraction) for fraction in fractions]
+        middle_width = source[3] - source[2]
+        middle_start = (target_length - middle_width) // 2
+        target = [
+            0, source[1], middle_start, middle_start + middle_width,
+            target_length - (source_length - source[4]), target_length,
+        ]
+        if any(right <= left for left, right in zip(target, target[1:])):
+            raise ValueError("Hand frame is too small to preserve its ornaments")
+        return source, target
+
+    source_x, target_x = bands(
+        market_frame.get_width(), target_size[0], (0, .12, .38, .58, .88, 1),
+    )
+    source_y, target_y = bands(
+        market_frame.get_height(), target_size[1], (0, .08, .42, .55, .92, 1),
+    )
+    frame = pygame.Surface(target_size, pygame.SRCALPHA)
+    for row in range(5):
+        for column in range(5):
+            if row not in (0, 4) and column not in (0, 4):
+                continue  # Keep the card area transparent.
+            source_rect = pygame.Rect(
+                source_x[column], source_y[row],
+                source_x[column + 1] - source_x[column],
+                source_y[row + 1] - source_y[row],
+            )
+            target_rect = pygame.Rect(
+                target_x[column], target_y[row],
+                target_x[column + 1] - target_x[column],
+                target_y[row + 1] - target_y[row],
+            )
+            tile = market_frame.subsurface(source_rect)
+            if tile.get_size() != target_rect.size:
+                tile = pygame.transform.smoothscale(tile, target_rect.size)
+            frame.blit(tile, target_rect)
+    return frame
+
+
+def load_trade_arrows():
+    """Load supplied ordinary and buy/sell-all poses, rotating down variants."""
+    all_frames, all_up = _load_arrow_sequence(
+        os.path.join("GameplayPage", "ArrowAll", "ArrowAll.png"),
+        [
+            os.path.join("GameplayPage", "ArrowAll", "ArrowAll-1.png"),
+            os.path.join("GameplayPage", "ArrowAll", "ArrowAll-2.png"),
+        ],
+        "WARNING: Buy/sell-all arrow image not found:",
+    )
+    all_down_frames = [pygame.transform.rotate(frame, 180) for frame in all_frames]
+    assets = {
+        "arrow_up": all_up,
+        "arrow_anim_frames": all_frames,
+        "arrow_down": all_down_frames[0] if all_down_frames else None,
+        "arrow_down_frames": all_down_frames,
+    }
+    single_frames, single_up = _load_arrow_sequence(
+        os.path.join("GameplayPage", "Arrow1.png"),
+        [
+            os.path.join("GameplayPage", "NewArrow", "Arrow-1.png"),
+            os.path.join("GameplayPage", "NewArrow", "Arrow-2.png"),
+        ],
+        "WARNING: Ordinary arrow image not found:",
+    )
+    down_frames = [pygame.transform.rotate(frame, 180) for frame in single_frames]
+    assets["arrow_mid_up"] = single_up
+    assets["arrow_mid_up_frames"] = single_frames
+    assets["arrow_mid_down"] = down_frames[0] if down_frames else None
+    assets["arrow_mid_down_frames"] = down_frames
+    return assets
+
+
 def load_gameplay_core_assets(screen_width, screen_height):
     """Load core static assets used by GameplayPage."""
     cache_key = (screen_width, screen_height)
@@ -27,13 +123,7 @@ def load_gameplay_core_assets(screen_width, screen_height):
 
     assets = {}
 
-    bg_path = os.path.join("GameplayPage", "Background.png")
-    if os.path.exists(bg_path):
-        bg_image = pygame.image.load(bg_path).convert()
-        assets["background"] = pygame.transform.smoothscale(bg_image, (screen_width, screen_height)).convert()
-    else:
-        print("WARNING: GameplayPage background not found:", bg_path)
-        assets["background"] = None
+    assets["background"] = load_gameplay_background((screen_width, screen_height))
 
     frame_path = os.path.join("GameplayPage", "Frame.png")
     if os.path.exists(frame_path):
@@ -46,61 +136,29 @@ def load_gameplay_core_assets(screen_width, screen_height):
         print("WARNING: Frame.png not found:", frame_path)
         assets["frame"] = None
 
-    assets["arrow_anim_frames"], assets["arrow_up"] = _load_arrow_sequence(
-        os.path.join("GameplayPage", "ArrowAll", "ArrowAll.png"),
-        [
-            os.path.join("GameplayPage", "ArrowAll", "ArrowAll1.png"),
-            os.path.join("GameplayPage", "ArrowAll", "ArrowAll2.png"),
-        ],
-        "WARNING: Arrow image not found:",
-    )
-    assets["arrow_down_frames"], assets["arrow_down"] = _load_arrow_sequence(
-        os.path.join("GameplayPage", "ArrowAllDown", "ArrowAll.png"),
-        [
-            os.path.join("GameplayPage", "ArrowAllDown", "ArrowAll1.png"),
-            os.path.join("GameplayPage", "ArrowAllDown", "ArrowAll2.png"),
-        ],
-        "WARNING: Arrow image not found:",
-    )
-    assets["arrow_mid_up_frames"], assets["arrow_mid_up"] = _load_arrow_sequence(
-        os.path.join("GameplayPage", "ArrowMiddle", "Arrow1.png"),
-        [
-            os.path.join("GameplayPage", "ArrowMiddle", "Arrow2.png"),
-            os.path.join("GameplayPage", "ArrowMiddle", "Arrow3.png"),
-        ],
-        "WARNING: Middle Arrow image not found:",
-    )
-    assets["arrow_mid_down_frames"], assets["arrow_mid_down"] = _load_arrow_sequence(
-        os.path.join("GameplayPage", "ArrowMiddleDown", "ArrowDown1.png"),
-        [
-            os.path.join("GameplayPage", "ArrowMiddleDown", "ArrowDown2.png"),
-            os.path.join("GameplayPage", "ArrowMiddleDown", "ArrowDown3.png"),
-        ],
-        "WARNING: Middle Down Arrow image not found:",
-    )
+    assets.update(load_trade_arrows())
 
-    bottom_frame_path = os.path.join("GameplayPage", "Bottom Frame.png")
-    if os.path.exists(bottom_frame_path):
-        bottom_original = pygame.image.load(bottom_frame_path).convert_alpha()
+    if assets["frame"] is not None:
         market_spacing = 10
-        target_width = (
-            assets["frame"].get_width() * 3 + market_spacing * 2
-            if assets["frame"]
-            else int(screen_width * 0.8064)
+        target_width = assets["frame"].get_width() * 3 + market_spacing * 2
+        # Preserve the existing hand geometry (the old frame was 507 x 131).
+        target_height = int(131 * (target_width / 507))
+        assets["bottom_frame"] = build_hand_frame(
+            assets["frame"], (target_width, target_height),
         )
-        target_height = int(bottom_original.get_height() * (target_width / bottom_original.get_width()))
-        assets["bottom_frame"] = pygame.transform.smoothscale(bottom_original, (target_width, target_height)).convert_alpha()
     else:
-        print("WARNING: Bottom Frame.png not found:", bottom_frame_path)
         assets["bottom_frame"] = None
 
-    assets["arrow_sound"] = _load_sound(os.path.join("Sounds", "WoodTap.wav"), "WARNING: WoodTap.wav not found at")
+    assets["arrow_sound"] = _load_sound(os.path.join("Sounds", "Cliack3.wav"), "WARNING: Cliack3.wav not found at")
+    assets["end_turn_sound"] = _load_sound(os.path.join("Sounds", "Click2.wav"), "WARNING: Click2.wav not found at")
+    assets["menu_sound"] = _load_sound(os.path.join("Sounds", "Click2.wav"), "WARNING: Click2.wav not found at")
     assets["typewriter_sound"] = _load_sound(os.path.join("Sounds", "Typewriter.wav"), "WARNING: Typewriter.wav not found at")
     assets["cash_register_sound"] = _load_sound(
         os.path.join("Sounds", "cash-register.mp3"),
         "WARNING: cash-register.mp3 not found at",
     )
     assets["card_placing_sound"] = load_card_placing_sound()
+    assets["card_hover_sound"] = _load_sound(os.path.join("Sounds", "Card.wav"), "WARNING: Card.wav not found at")
     assets["card_taking_sound"] = load_card_taking_sound()
 
     assets["animation_width"] = 118
@@ -164,12 +222,13 @@ def load_end_turn_button(screen_width, screen_height):
         button, rect = cached
         return button, rect.copy() if rect else None
 
-    end_button_path = os.path.join("GameplayPage", "EndButton.png")
+    end_button_path = os.path.join("GameplayPage", "End Turn.png")
     if os.path.exists(end_button_path):
         end_button_original = pygame.image.load(end_button_path).convert_alpha()
-        button_scale = 0.3
+        end_button_original = end_button_original.subsurface(end_button_original.get_bounding_rect()).copy()
         w, h = end_button_original.get_width(), end_button_original.get_height()
-        new_size = (int(w * button_scale), int(h * button_scale))
+        button_width = round(250 / 1.5)
+        new_size = (button_width, max(1, round(h * button_width / w)))
         end_button = pygame.transform.smoothscale(end_button_original, new_size).convert_alpha()
         button_margin_right = 50
         button_margin_bottom = 50
@@ -179,7 +238,7 @@ def load_end_turn_button(screen_width, screen_height):
         _end_turn_button_cache[cache_key] = (end_button, rect)
         return end_button, rect.copy()
 
-    print("WARNING: EndButton.png not found:", end_button_path)
+    print("WARNING: End Turn.png not found:", end_button_path)
     _end_turn_button_cache[cache_key] = (None, None)
     return None, None
 
@@ -406,7 +465,7 @@ def load_winlose_assets(screen_width, screen_height):
 
 
 def load_deck_view_assets(screen_width, screen_height):
-    """Load temporary deck-view background and the small toggle card."""
+    """Load the collection-panel background and footer navigation icons."""
     cache_key = (screen_width, screen_height)
     cached = _deck_view_assets_cache.get(cache_key)
     if cached is not None:
@@ -420,17 +479,15 @@ def load_deck_view_assets(screen_width, screen_height):
     else:
         print("WARNING: Deck view background not found:", background_path)
 
-    toggle_card = None
-    toggle_path = os.path.join("GameplayPage", "CardNewShablon.png")
-    if os.path.exists(toggle_path):
-        original = pygame.image.load(toggle_path).convert_alpha()
-        toggle_card = pygame.transform.smoothscale(original, (64, 104)).convert_alpha()
-    else:
-        print("WARNING: Deck toggle card not found:", toggle_path)
+    icons = {
+        mode: load_scaled_image(os.path.join("GameplayPage", filename), target_size=(96, 96))
+        for mode, filename in (("deck", "Deck.png"), ("offers", "Offers.png"), ("bosses", "Bosses.png"))
+    }
 
     assets = {
         "deck_view_background": background,
-        "deck_toggle_card": toggle_card,
+        "deck_toggle_card": icons["deck"],
+        "collection_icons": icons,
     }
     _deck_view_assets_cache[cache_key] = assets
     return dict(assets)
@@ -512,8 +569,8 @@ def load_card_placing_sound():
     global _card_placing_sound_cache, _card_placing_sound_loaded
     if not _card_placing_sound_loaded:
         _card_placing_sound_cache = _load_sound(
-            os.path.join("Sounds", "Placing-playing-card.wav"),
-            "WARNING: Placing-playing-card.wav not found at",
+            os.path.join("Sounds", "Placing Card.wav"),
+            "WARNING: Placing Card.wav not found at",
         )
         _card_placing_sound_loaded = True
     return _card_placing_sound_cache

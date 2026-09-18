@@ -40,10 +40,11 @@ from game_stats import (
 )
 from menu_music import KOLBE_BOSS_MUSIC_PATH, MenuMusic
 from shop_card_stats import set_shop_card_stats_file
+from card_acquisition_stats import configure_card_acquisition_stats
 from boss_page import BossPage
 from game_screen import GameScreen
 from gameplay_page import GameplayPage
-from level_routes import get_test_content_level
+from level_routes import get_campaign_content_level, get_test_content_level
 from profile_page import ProfilePage
 from round_page import RoundPage
 from settings_page import SettingsPage
@@ -52,7 +53,7 @@ from silver_black_page import (
     SilverBlackPage,
     get_positioning_selection_limit,
 )
-from shop_page import RetentionDeckPage, ShopPage
+from shop_page import CARD_NAMES, RetentionDeckPage, ShopPage
 from start_page import StartPage
 
 # Initialize Pygame
@@ -98,6 +99,7 @@ def main():
     if selected_profile:
         profile_manager.apply_profile_to_game_state(selected_profile)
         set_stats_file(profile_manager.get_stats_file(selected_slot))
+        configure_card_acquisition_stats(selected_slot, CARD_NAMES)
         set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
         set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
 
@@ -110,6 +112,7 @@ def main():
             selected_profile = profile_manager.load_profile(selected_slot)
             profile_manager.apply_profile_to_game_state(selected_profile)
             set_stats_file(profile_manager.get_stats_file(selected_slot))
+            configure_card_acquisition_stats(selected_slot, CARD_NAMES)
             set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
             set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
             return True
@@ -584,6 +587,7 @@ def main():
                     continue
                 profile_manager.apply_profile_to_game_state(selected_profile)
                 set_stats_file(profile_manager.get_stats_file(selected_slot))
+                configure_card_acquisition_stats(selected_slot, CARD_NAMES)
                 set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
 
             if result == "start" and selected_slot:
@@ -679,6 +683,8 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                 elif level == 5:
                                     game_state.level_5_boss_defeated = True
+                                elif level == 8:
+                                    game_state.level_8_boss_defeated = True
                                 save_progress_if_needed()
                             else:
                                 award_napoleondors_and_open_shop(
@@ -740,6 +746,7 @@ def main():
 
             rounds_config = load_rounds_config()
             test_mode = (result == "test_mode")
+            configure_card_acquisition_stats(selected_slot, CARD_NAMES, enabled=not test_mode)
             queued_level_number = pending_level_number
             pending_level_number = None
 
@@ -772,8 +779,11 @@ def main():
                     level_num = int(level_result.split("_")[1])
                 except (AttributeError, IndexError, TypeError, ValueError):
                     continue
-                if test_mode and not queued_content_level:
-                    level_num = get_test_content_level(level_num)
+                if not queued_content_level:
+                    level_num = (
+                        get_test_content_level(level_num)
+                        if test_mode else get_campaign_content_level(level_num)
+                    )
 
                 bosses_required = get_bosses_required(level_num, rounds_config)
                 if not test_mode and game_state.is_level_completed(level_num):
@@ -1199,6 +1209,8 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                 elif boss_level == 5:
                                     game_state.level_5_boss_defeated = True
+                                elif boss_level == 8:
+                                    game_state.level_8_boss_defeated = True
                                 save_progress_if_needed(test_mode)
                                 if selected_slot and not test_mode:
                                     profile_manager.clear_active_game(selected_slot)

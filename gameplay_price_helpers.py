@@ -166,6 +166,7 @@ def _roll_market_animation(
     probabilities,
     forced_rise_markets,
     forced_fall_markets,
+    random_rolls=None,
 ):
     if market in forced_fall_markets:
         return {"market": market, "type": "fall", "price_change": -step}
@@ -175,10 +176,21 @@ def _roll_market_animation(
     rand_value = random.random() * 100
     probs = probabilities[market]
     if probs["fall"] > 0.0 and rand_value <= probs["fall"]:
-        return {"market": market, "type": "fall", "price_change": -step}
-    if rand_value <= probs["fall"] + probs["flat"]:
-        return {"market": market, "type": "unchanged", "price_change": 0}
-    return {"market": market, "type": "rise", "price_change": step}
+        outcome, change = "fall", -step
+    elif rand_value <= probs["fall"] + probs["flat"]:
+        outcome, change = "flat", 0
+    else:
+        outcome, change = "rise", step
+    # Audit the sampled direction, before price floors or card reactions. Do not
+    # include guaranteed distributions even if the legacy roll consumes RNG.
+    if random_rolls is not None and sum(value > 0 for value in probs.values()) > 1:
+        random_rolls.append({
+            "market": market,
+            "outcome": outcome,
+            "probabilities": dict(probs),
+            "random_value": rand_value,
+        })
+    return {"market": market, "type": "unchanged" if outcome == "flat" else outcome, "price_change": change}
 
 
 def build_stock_price_animation_queue(
@@ -195,6 +207,7 @@ def build_stock_price_animation_queue(
     double_fall_markets=None,
     double_fall_bonus=0,
     double_fall_count=1,
+    random_rolls=None,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -224,10 +237,13 @@ def build_stock_price_animation_queue(
         double_fall_count=double_fall_count,
     )
 
+    forced_flat = _normalize_market_set(force_flat_markets)
     return [
-        _roll_market_animation(0, step_a, probabilities, forced_rise_markets, forced_fall_markets),
-        _roll_market_animation(1, step_b, probabilities, forced_rise_markets, forced_fall_markets),
-        _roll_market_animation(2, step_c, probabilities, forced_rise_markets, forced_fall_markets),
+        _roll_market_animation(
+            market, step, probabilities, forced_rise_markets, forced_fall_markets,
+            random_rolls=None if market in forced_flat else random_rolls,
+        )
+        for market, step in enumerate((step_a, step_b, step_c))
     ]
 
 

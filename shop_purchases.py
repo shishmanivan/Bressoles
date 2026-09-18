@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import game_state
+from card_acquisition_stats import record_card_acquisitions
 
 
 @dataclass(frozen=True)
@@ -43,4 +44,6 @@ def buy_card_or_license(level_number, offer):
 
     # A zero-cost offer still succeeds; spending zero is a no-op in game_state.
     game_state.spend_napoleondors(cost)
+    if kind == "card":
+        record_card_acquisitions("purchased", [card_id])
     return PurchaseResult("purchased", card_id)

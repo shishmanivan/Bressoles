@@ -47,7 +47,7 @@ class LevelCardStyle:
         self.pin = pygame.transform.smoothscale(
             pin.subsurface(pin.get_bounding_rect(min_alpha=32)), (28, 28)
         )
-        self.year_font = pygame.font.Font(os.path.join("Fonts", "BodoniModa-ExtraBold.ttf"), 44)
+        self.year_font = pygame.font.Font(os.path.join("Fonts", "Prata-Regular.ttf"), 44)
         self.body_fonts = {
             size: pygame.font.Font(os.path.join("Fonts", "OldStandard-Regular.ttf"), size)
             for size in range(18, 27)

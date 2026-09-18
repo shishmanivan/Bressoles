@@ -3,9 +3,12 @@ import sys
 import pygame
 
 import game_state
+from sound_assets import play_action_click
 from boss_effects import parse_boss_functionality_spec
 from boss_logic import resolve_boss_number
 from round_page_assets import (
+    GRAPH_INK_COLOR,
+    ROUND_GRAPH_ORIGIN,
     build_round_button_base_rects,
     load_boss_icon_assets,
     load_round_page_static_assets,
@@ -212,7 +215,7 @@ class RoundPage:
 
         self.pen_sound = round_page_assets["pen_sound"]
 
-        self.line_color = (100, 82, 64)
+        self.line_color = GRAPH_INK_COLOR
         self.line_width = 10
         self.current_line = None
         self.boss_current_line = None
@@ -226,10 +229,13 @@ class RoundPage:
             self.round_selections,
             self.button_base_rects,
             self._get_round_offset,
-            origin=(235, SCREEN_HEIGHT - 218),
+            origin=ROUND_GRAPH_ORIGIN,
         )
         if len(self.saved_lines) < len(rebuilt_lines):
             self.saved_lines = rebuilt_lines
+        if self.saved_lines:
+            # Saved pixel geometry may predate the current coordinate artwork.
+            self.saved_lines[0] = (*ROUND_GRAPH_ORIGIN, *self.saved_lines[0][2:])
         self.last_hovered_button = None
         self.round_button_hover_scale = 0.96
         self._round_button_hover_images = {}
@@ -587,8 +593,7 @@ class RoundPage:
                     line_start_x = prev_rect.centerx
                     line_start_y = prev_rect.centery
                 else:
-                    line_start_x = 235
-                    line_start_y = SCREEN_HEIGHT - 218
+                    line_start_x, line_start_y = ROUND_GRAPH_ORIGIN
                 line_end_x = button_rect.centerx
                 line_end_y = button_rect.centery
                 self.current_line = (line_start_x, line_start_y, line_end_x, line_end_y)
@@ -624,6 +629,7 @@ class RoundPage:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round
                         self.round_selections[current_active_round] = {"key": "e"}
+                        play_action_click()
                         return "button_e"
                     if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
                         if self.current_line:
@@ -636,6 +642,7 @@ class RoundPage:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round
                         self.round_selections[current_active_round] = {"key": "m"}
+                        play_action_click()
                         return "button_m"
                     if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
                         if self.current_line:
@@ -648,6 +655,7 @@ class RoundPage:
                                 self.Goal = goal_value
                         self.last_selected_round = current_active_round
                         self.round_selections[current_active_round] = {"key": "h"}
+                        play_action_click()
                         return "button_h"
                     current_active_round = self.get_current_active_round()
                     all_rounds_completed = current_active_round is None
@@ -673,6 +681,7 @@ class RoundPage:
                                 self.level_number,
                                 self.defeated_count,
                             )
+                        play_action_click()
                         return "boss_clicked"
         return None
 

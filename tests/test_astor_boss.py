@@ -44,7 +44,71 @@ class AstorBossTests(unittest.TestCase):
 
         self.assertTrue(page.boss_burns_cash_end_turn)
         self.assertEqual(page._burn_cash_for_astor_if_needed(), 17)
+        self.assertEqual(page.Money, 17)
+        start = page.astor_cash_burn_animation["start_time"]
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=start + 750):
+            page.update_astor_cash_burn_animation()
+        self.assertGreater(page.Money, 0)
+        self.assertLess(page.Money, 17)
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=start + 1500):
+            page.update_astor_cash_burn_animation()
         self.assertEqual(page.Money, 0)
+        self.assertFalse(page._is_astor_cash_burn_animating())
+
+    def test_pulse_repeats_while_cash_drains_and_finishes_once(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.boss_burns_cash_end_turn = True
+        page.win_lose_state = None
+        page.Money = 100
+        page.turn_resolution_active = True
+        page._finish_turn_after_astor_cash_burn = mock.Mock()
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=0):
+            page._burn_cash_for_astor_if_needed()
+        balances = []
+        for tick, scale in ((0, 1), (250, 1.25), (500, 1), (750, 1.25), (1000, 1), (1250, 1.25)):
+            with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=tick):
+                page.update_astor_cash_burn_animation()
+                self.assertAlmostEqual(page._get_astor_pulse_scale(), scale)
+                balances.append(page.Money)
+            page._finish_turn_after_astor_cash_burn.assert_not_called()
+        self.assertEqual(balances, sorted(balances, reverse=True))
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1500):
+            page.update_astor_cash_burn_animation()
+            page.update_astor_cash_burn_animation()
+        self.assertEqual(page.Money, 0)
+        self.assertEqual(page._get_astor_pulse_scale(), 1)
+        page._finish_turn_after_astor_cash_burn.assert_called_once_with()
+
+    def test_turn_waits_for_drain_without_repeating_boss_actions(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.turn_resolution_active = True
+        page.boss_burns_cash_end_turn = True
+        page.win_lose_state = None
+        page.Money = 30
+        page._apply_boss_share_theft_if_needed = mock.Mock()
+        page._is_level6_alternating_battle = mock.Mock(return_value=False)
+        page._run_stock_bot_turn = mock.Mock()
+        page._finish_turn_after_astor_cash_burn = mock.Mock()
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=0):
+            page._finalize_turn_resolution()
+            page._finalize_turn_resolution()
+            # The result check must not inspect the intermediate balance.
+            page._check_win_lose()
+        page._finish_turn_after_astor_cash_burn.assert_not_called()
+        page._apply_boss_share_theft_if_needed.assert_called_once_with()
+        page._run_stock_bot_turn.assert_called_once_with()
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1500):
+            page.update_astor_cash_burn_animation()
+        page._finish_turn_after_astor_cash_burn.assert_called_once_with()
+        self.assertEqual(page.Money, 0)
+
+    def test_zero_cash_does_not_start_effect(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.boss_burns_cash_end_turn = True
+        page.win_lose_state = None
+        page.Money = 0
+        self.assertEqual(page._burn_cash_for_astor_if_needed(), 0)
+        self.assertFalse(page._is_astor_cash_burn_animating())
 
     def test_astor_reward_adds_ten_points_and_rebuilds_current_silver_pool(self):
         gameplay = mock.Mock(level_number=5)

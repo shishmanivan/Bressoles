@@ -14,6 +14,7 @@ from gameplay_card_rendering import (
 )
 from gameplay_deck import get_card_investment_bonus
 from gameplay_assets import load_card_placing_sound
+from sound_assets import load_sound
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 
@@ -277,7 +278,7 @@ CARD_TOOLTIPS.update(
         ),
         432: (
             "Selling Pressure",
-            "Каждый ход гарантирует падение случайной акции без Blue Chips. Остальные акции получают обычный рыночный бросок. Если Blue Chips защищает все акции, карта не срабатывает.",
+            "Гарантирует, что за ход упадёт хотя бы одна акция.",
         ),
         433: (
             "Downside Risk",
@@ -348,14 +349,20 @@ class SilverBlackPage:
             kind: surface.get_rect(midright=(rects[0].left - 24, rects[0].centery))
             for kind, surface, rects in (
                 ("active", self.row_label_surfaces["active"], self.active_rects),
-                ("silver", self.row_label_surfaces["silver"], self.silver_rects),
-                ("black", self.row_label_surfaces["black"], self.black_rects),
-                ("gold", self.row_label_surfaces["gold"], self.gold_rects),
             )
             if rects
         }
         self.continue_button_rect = pygame.Rect(0, 0, 260, 54)
-        self.continue_button_rect.midright = (self.panel_rect.right - 40, self.active_rects[0].centery)
+        start_image = pygame.image.load(os.path.join("GameplayPage", "Start.png")).convert_alpha()
+        start_image = start_image.subsurface(start_image.get_bounding_rect()).copy()
+        start_size = (130, max(1, round(start_image.get_height() * 130 / start_image.get_width())))
+        self.continue_button_image = pygame.transform.smoothscale(start_image, start_size)
+        self.continue_button_pressed_image = pygame.transform.smoothscale(
+            self.continue_button_image, tuple(max(1, int(size * 0.96)) for size in start_size),
+        )
+        self.start_press_until = 0
+        self.continue_button_rect.size = start_size
+        self.continue_button_rect.midleft = (self.active_rects[-1].right + 40, self.active_rects[0].centery)
         self.selected_entries = self._build_initial_selected_entries(
             active_black_cards,
             active_gold_cards,
@@ -368,6 +375,7 @@ class SilverBlackPage:
         self.drag_offset = (0, 0)
         self.drag_pos = (0, 0)
         self.card_placing_sound = load_card_placing_sound()
+        self.start_game_sound = load_sound(os.path.join("Sounds", "Click2.wav"))
 
     def _get_text(self, key, default):
         return self.lang.get(key, default)
@@ -375,9 +383,6 @@ class SilverBlackPage:
     def _build_row_label_surfaces(self):
         labels = {
             "active": self._get_text("LifecycleSelected", "Выбрано"),
-            "silver": self._get_text("LifecycleSilver", "Серебряные карты"),
-            "black": self._get_text("LifecycleBlack", "Чёрные карты"),
-            "gold": self._get_text("LifecycleGold", "Золотые карты"),
         }
         return {
             kind: self.row_label_font.render(label, True, PAPER_COLOR)
@@ -459,7 +464,8 @@ class SilverBlackPage:
                 if entry is None or entry in entries:
                     continue
                 entries.append(entry)
-        return entries
+        # Each index is a fixed board slot; empty slots must not compact the row.
+        return entries + [None] * (self.active_slot_count - len(entries))
 
     def _get_card_image(self, card_id):
         if card_id in self.card_images:
@@ -500,7 +506,8 @@ class SilverBlackPage:
             self._card_id_for_entry(entry)
             for entry in self.selected_entries
             if (
-                entry[0] == kind
+                entry is not None
+                and entry[0] == kind
                 and self._card_id_for_entry(entry) is not None
                 and not self._is_card_disabled(self._card_id_for_entry(entry))
             )
@@ -549,7 +556,7 @@ class SilverBlackPage:
         active_slot = self._active_slot_at(pos)
         if active_slot is not None and active_slot < len(self.selected_entries):
             entry = self.selected_entries[active_slot]
-            if self._is_card_disabled(self._card_id_for_entry(entry)):
+            if entry is None or self._is_card_disabled(self._card_id_for_entry(entry)):
                 return
             rect = self.active_rects[active_slot]
             self.drag_source = "active"
@@ -591,23 +598,24 @@ class SilverBlackPage:
                 target_slot is not None
                 and self.drag_entry is not None
                 and self.drag_entry not in self.selected_entries
-                and len(self.selected_entries) < len(self.active_rects)
+                and self.selected_entries[target_slot] is None
             ):
-                target_slot = min(target_slot, len(self.selected_entries))
-                self.selected_entries.insert(target_slot, self.drag_entry)
+                self.selected_entries[target_slot] = self.drag_entry
                 placed = True
             elif self._inventory_entry_at(pos) == self.drag_entry:
                 # The card was deliberately put back onto its source placeholder.
                 placed = True
         elif self.drag_source == "active":
             if self.drag_active_slot is not None and 0 <= self.drag_active_slot < len(self.selected_entries):
-                moving_entry = self.selected_entries.pop(self.drag_active_slot)
+                moving_entry = self.selected_entries[self.drag_active_slot]
                 if target_slot is not None:
-                    target_slot = min(target_slot, len(self.selected_entries))
-                    self.selected_entries.insert(target_slot, moving_entry)
+                    self.selected_entries[self.drag_active_slot] = self.selected_entries[target_slot]
+                    self.selected_entries[target_slot] = moving_entry
                     placed = True
-                elif self._inventory_entry_at(pos) == moving_entry:
-                    placed = True
+                else:
+                    self.selected_entries[self.drag_active_slot] = None
+                    if self._inventory_entry_at(pos) == moving_entry:
+                        placed = True
 
         if placed and self.card_placing_sound:
             self.card_placing_sound.play()
@@ -709,7 +717,8 @@ class SilverBlackPage:
         for slot, rect in enumerate(self.active_rects):
             if slot < len(self.selected_entries) and rect.collidepoint(pos):
                 entry = self.selected_entries[slot]
-                return self._card_id_for_entry(entry), entry[0]
+                if entry is not None:
+                    return self._card_id_for_entry(entry), entry[0]
 
         for kind, rects in (
             ("silver", self.silver_rects),
@@ -832,12 +841,11 @@ class SilverBlackPage:
                 self.screen.blit(surface, rect)
 
         mouse_pos = pygame.mouse.get_pos()
-        button_color = BUTTON_HOVER_COLOR if self.continue_button_rect.collidepoint(mouse_pos) else BUTTON_COLOR
-        pygame.draw.rect(self.screen, button_color, self.continue_button_rect, border_radius=4)
-        pygame.draw.rect(self.screen, PAPER_COLOR, self.continue_button_rect, 3, border_radius=4)
-        continue_label = self._get_text("LifecycleContinue", "Продолжить")
-        continue_surface = self.continue_button_font.render(continue_label, True, PAPER_COLOR)
-        self.screen.blit(continue_surface, continue_surface.get_rect(center=self.continue_button_rect.center))
+        if pygame.time.get_ticks() < self.start_press_until:
+            image = self.continue_button_pressed_image
+            self.screen.blit(image, image.get_rect(center=self.continue_button_rect.center))
+        else:
+            self.screen.blit(self.continue_button_image, self.continue_button_rect)
 
         if self.drag_card_id is not None:
             draw_x = self.drag_pos[0] - self.drag_offset[0]
@@ -848,26 +856,37 @@ class SilverBlackPage:
         pygame.display.flip()
 
     def run(self):
+        pending_start = None
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if pending_start is not None:
+                    continue
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return "back"
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-                        return self._selected_payload()
+                        if self.start_game_sound:
+                            self.start_game_sound.play()
+                        pending_start = self._selected_payload()
+                        self.start_press_until = pygame.time.get_ticks() + 110
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     result = self._handle_mouse_down(event.pos)
                     if result is not None:
-                        return result
+                        if self.start_game_sound:
+                            self.start_game_sound.play()
+                        pending_start = result
+                        self.start_press_until = pygame.time.get_ticks() + 110
                 if event.type == pygame.MOUSEMOTION:
                     self._move_drag(event.pos)
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     self._finish_drag(event.pos)
 
             self.draw()
+            if pending_start is not None and pygame.time.get_ticks() >= self.start_press_until:
+                return pending_start
             self.clock.tick(FPS)
 
 
@@ -965,6 +984,23 @@ class PositioningPage(SilverBlackPage):
             )
             entries.append((deck_index, self.deck_cards[deck_index], rect))
         return entries
+
+    def _hovered_card(self, pos):
+        for _deck_index, card_id, rect in self._visible_positioning_entries():
+            if rect.collidepoint(pos):
+                return card_id, "card"
+        return None, None
+
+    def _tooltip_content(self, card_id, kind):
+        from gameplay_page import FIELD_CARD_TOOLTIPS
+
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            normalized = card_id
+        if normalized in FIELD_CARD_TOOLTIPS:
+            return FIELD_CARD_TOOLTIPS[normalized]
+        return super()._tooltip_content(card_id, kind)
 
     def _toggle_positioning_card(self, deck_index):
         if not 0 <= deck_index < len(self.deck_cards):
@@ -1103,6 +1139,7 @@ class PositioningPage(SilverBlackPage):
                 page_text,
                 page_text.get_rect(center=(self.panel_rect.centerx, self.positioning_prev_button_rect.centery)),
             )
+        self._draw_card_tooltip()
         pygame.display.flip()
 
     def _handle_positioning_mouse_down(self, position):

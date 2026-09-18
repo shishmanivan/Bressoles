@@ -138,6 +138,8 @@ class UiLayoutTests(unittest.TestCase):
             lang_dict=load_language("RU"),
             progress_flags={"level_8_unlocked": True},
         )
+        # Keep navigation coverage for future second-page content.
+        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 8)
         next_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.next_page_rect.center)
         with (
             mock.patch("pygame.event.get", return_value=[next_event]),
@@ -319,6 +321,22 @@ class UiLayoutTests(unittest.TestCase):
         )
         self.assertEqual(entries[0]["label"], "Остаток на счету")
         self.assertEqual(entries[-1]["amount"], 12)
+
+    def test_card_report_shows_the_actual_frugality_turn_bonus(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.frugality_bonus_turns = 3
+
+        self.assertEqual(
+            page._get_card_report_frugality_bonus(),
+            "Бонус Frugality. В следующем раунде на 3 хода больше.",
+        )
+        page.frugality_bonus_turns = 1
+        self.assertIn("на 1 ход больше", page._get_card_report_frugality_bonus())
+        page.frugality_bonus_turns = 5
+        self.assertIn("на 5 ходов больше", page._get_card_report_frugality_bonus())
+        page.frugality_bonus_turns = 0
+        self.assertIsNone(page._get_card_report_frugality_bonus())
 
     def test_zero_starting_bonus_and_shop_income_are_not_reported(self):
         page = GameplayPage.__new__(GameplayPage)
@@ -507,6 +525,18 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(no_cards, 0.68)
         self.assertEqual(three_cards, 0.80)
 
+    def test_boss_bonus_description_is_split_into_starred_sentence_items(self):
+        self.assertEqual(
+            GameplayPage._split_card_report_bonus_items(
+                "Первый бонус. Второй бонус! Третий бонус?"
+            ),
+            ["Первый бонус.", "Второй бонус!", "Третий бонус?"],
+        )
+        self.assertEqual(
+            GameplayPage._split_card_report_bonus_items("Единственный бонус."),
+            ["Единственный бонус."],
+        )
+
     def test_card_report_keeps_the_golden_stocks_trigger_notice(self):
         page = GameplayPage.__new__(GameplayPage)
         page.lang_dict = load_language("RU")
@@ -593,9 +623,10 @@ class UiLayoutTests(unittest.TestCase):
             "black": page.black_rects,
             "gold": page.gold_rects,
         }
-        for kind, rects in rows.items():
+        self.assertEqual(set(page.row_label_surfaces), {"active"})
+        for kind, label_rect in page.row_label_rects.items():
             with self.subTest(kind=kind):
-                label_rect = page.row_label_rects[kind]
+                rects = rows[kind]
                 self.assertGreaterEqual(label_rect.left, page.panel_rect.left)
                 self.assertLessEqual(label_rect.right, rects[0].left - 24)
                 self.assertFalse(any(label_rect.colliderect(card_rect) for card_rect in rects))
@@ -638,7 +669,70 @@ class UiLayoutTests(unittest.TestCase):
         page._finish_drag(page.silver_rects[0].center)
 
         self.assertEqual(page.card_placing_sound.play.call_count, 3)
-        self.assertEqual(page.selected_entries, [])
+        self.assertEqual(page.selected_entries, [None] * page.active_slot_count)
+
+    def test_lifecycle_removal_keeps_other_slots_and_allows_refilling_the_gap(self):
+        page = SilverBlackPage(
+            self.screen, self.font_path, [201, 202, 203], [301], [401],
+        )
+        page.card_placing_sound = mock.Mock()
+        for index in range(3):
+            page._begin_drag(page.silver_rects[index].center)
+            page._finish_drag(page.active_rects[index].center)
+
+        page._begin_drag(page.active_rects[1].center)
+        page._finish_drag(page.silver_rects[1].center)
+
+        self.assertEqual(page.selected_entries[:3], [("silver", 0), None, ("silver", 2)])
+        self.assertEqual(page._hovered_card(page.active_rects[1].center), (None, None))
+        self.assertEqual(page._hovered_card(page.active_rects[2].center), (203, "silver"))
+        page._begin_drag(page.active_rects[1].center)
+        self.assertIsNone(page.drag_source)
+        self.assertEqual(page._selected_payload()["active_silver_cards"], [201, 203])
+        page.draw()
+
+        page._begin_drag(page.gold_rects[0].center)
+        page._finish_drag(page.active_rects[1].center)
+        self.assertEqual(page.selected_entries[:3], [("silver", 0), ("gold", 0), ("silver", 2)])
+        self.assertEqual(page._selected_payload()["active_lifecycle_card_order"], [
+            {"kind": "silver", "card_id": 201},
+            {"kind": "gold", "card_id": 401},
+            {"kind": "silver", "card_id": 203},
+        ])
+
+        page._begin_drag(page.active_rects[0].center)
+        page._finish_drag((0, 0))
+        self.assertEqual(page.selected_entries[:3], [None, ("gold", 0), ("silver", 2)])
+
+    def test_lifecycle_placement_uses_exact_slot_and_preserves_occupied_slots(self):
+        page = SilverBlackPage(self.screen, self.font_path, [201, 202], [], [])
+        page.card_placing_sound = mock.Mock()
+        page._begin_drag(page.silver_rects[0].center)
+        page._finish_drag(page.active_rects[-1].center)
+        self.assertEqual(page.selected_entries, [None] * (page.active_slot_count - 1) + [("silver", 0)])
+
+        page._begin_drag(page.silver_rects[1].center)
+        page._finish_drag(page.active_rects[-1].center)
+        self.assertEqual(page._selected_payload()["active_silver_cards"], [201])
+        page.card_placing_sound.play.assert_called_once_with()
+
+        page._begin_drag(page.active_rects[-1].center)
+        page._finish_drag(page.active_rects[1].center)
+        self.assertIsNone(page.selected_entries[-1])
+        self.assertEqual(page.selected_entries[1], ("silver", 0))
+        self.assertIsNone(page.selected_entries[0])
+
+    def test_lifecycle_drag_between_occupied_slots_swaps_only_those_cards(self):
+        page = SilverBlackPage(self.screen, self.font_path, [201, 201, 203], [], [])
+        for index in range(3):
+            page._begin_drag(page.silver_rects[index].center)
+            page._finish_drag(page.active_rects[index].center)
+
+        page._begin_drag(page.active_rects[0].center)
+        page._finish_drag(page.active_rects[2].center)
+
+        self.assertEqual(page.selected_entries[:3], [("silver", 2), ("silver", 1), ("silver", 0)])
+        self.assertEqual(page._selected_payload()["active_silver_cards"], [203, 201, 201])
 
     def test_short_seller_and_insurance_are_disabled_before_boss_rounds(self):
         page = SilverBlackPage(
@@ -802,6 +896,26 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(draw_action.call_args.args[2], {11: 2})
         self.assertEqual(draw_turns.call_args.args[2][11], 1)
         draw_bid.assert_called_once()
+
+    def test_positioning_tooltip_uses_visible_card_descriptions(self):
+        page = PositioningPage(
+            self.screen,
+            self.font_path,
+            [11] + [100] * 23 + [125],
+            selection_limit=2,
+            lang_dict=load_language("RU"),
+        )
+        first_rect = page._visible_positioning_entries()[0][2]
+        self.assertEqual(page._hovered_card(first_rect.center), (11, "card"))
+        self.assertIn("Увеличивает цену", page._tooltip_content(11, "card")[1])
+
+        page._toggle_positioning_card(0)
+        self.assertEqual(page._hovered_card(first_rect.center), (11, "card"))
+
+        page.positioning_page_index = 1
+        second_page_rect = page._visible_positioning_entries()[0][2]
+        self.assertEqual(page._hovered_card(second_page_rect.center), (125, "card"))
+        self.assertIn("последнем игровом ходу", page._tooltip_content(125, "card")[1])
 
     def test_completed_round_lines_can_be_rebuilt_from_saved_choices(self):
         base_rects = {

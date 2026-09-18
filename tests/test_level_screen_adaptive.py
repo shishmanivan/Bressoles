@@ -11,6 +11,8 @@ import pygame
 from asset_loaders import find_font_path_or_exit
 from game_screen import GameScreen, PAGE_ARROW_FRAME_MS, LEVEL_BUTTON_PRESS_MS
 from level_screen_helpers import LEVEL_CONTENT_SIZE, level_content_rect
+from game_data import load_language, load_levels_config, get_level8_goal
+from level_routes import get_campaign_content_level, get_test_content_level
 
 
 class AdaptiveLevelScreenTests(unittest.TestCase):
@@ -44,6 +46,34 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
             page.draw()
         with mock.patch("pygame.event.get", return_value=[]):
             return page.handle_input()
+
+    def test_hover_follows_rotated_scaled_scrolled_button_and_clears(self):
+        page = self.make_page((1280, 720), test_mode=True)
+        page.scroll_y = page.test_card_positions[6][1] - 75
+        rect = page.test_card_rects[6].move(0, -page.scroll_y)
+        point = self.viewport_point(page, page._card_point_to_content(rect.center, 7))
+        page._update_level_hover(point)
+        self.assertEqual(page._hovered_level, 7)
+        page._update_level_hover((0, 0))
+        self.assertIsNone(page._hovered_level)
+        page._start_level(7)
+        page._update_level_hover(point)
+        self.assertIsNone(page._hovered_level)
+
+    def test_hover_grows_about_center_and_restores_original_size(self):
+        page = self.make_page()
+        page.screen = mock.Mock()
+        def button_pose():
+            page._draw_level_card_flat(page.card_position, 1, page.level1_picture)
+            image, rect = page.screen.blit.call_args.args
+            return image.get_size(), rect.center
+        original_size, center = button_pose()
+        page._hovered_level = 1
+        hovered_size, hovered_center = button_pose()
+        self.assertEqual(hovered_size, tuple(round(size * 1.05) for size in original_size))
+        self.assertEqual(hovered_center, center)
+        page._hovered_level = None
+        self.assertEqual(button_pose(), (original_size, center))
 
     def test_first_template_button_hitbox_matches_art_in_both_modes(self):
         for test_mode in (False, True):
@@ -134,6 +164,8 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
 
     def test_navigation_and_level_eight_use_same_transform(self):
         page = self.make_page((1280, 720), progress_flags={"level_8_unlocked": True})
+        # Exercise future-page navigation independently of campaign unlocks.
+        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 8)
         page.button_sound = None
         self.assertIsNone(self.click(page, self.viewport_point(page, page.next_page_rect.center)))
         self.assertEqual(page.level_page_index, 0)
@@ -150,6 +182,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
 
     def test_page_changes_only_on_fourth_frame_and_ignores_repeated_clicks(self):
         page = self.make_page(progress_flags={"level_8_unlocked": True})
+        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 8)
         page.page_arrow_sound = mock.Mock()
         self.click(page, page.next_page_rect.center)
         page.page_arrow_sound.play.assert_called_once_with()
@@ -178,6 +211,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
 
     def test_slow_frame_still_shows_fourth_frame_and_arrows_are_mirrored(self):
         page = self.make_page(progress_flags={"level_8_unlocked": True})
+        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 8)
         for right, left in zip(page.page_arrow_frames, page.page_arrow_back_frames):
             self.assertEqual(right.get_size(), (150, 100))
             self.assertEqual(pygame.image.tobytes(left, "RGBA"),
@@ -201,6 +235,35 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         target = page.screen
         page.draw()
         self.assertIs(page.screen, target)
+
+    def test_1850_card_starts_marathon_and_uses_its_completion(self):
+        page = self.make_page((1280, 720), lang_dict=load_language("RU"))
+        self.assertFalse(page._is_level_unlocked(6))
+        page.progress_flags = {"level_5_boss_defeated": True, "level_6_boss_defeated": True,
+                               "level_8_unlocked": True}
+        self.assertTrue(page._is_level_unlocked(6))
+        self.assertFalse(page._is_completed(6))  # Bot3 completion is separate.
+        self.assertFalse(page._is_level_unlocked(8))
+        self.assertFalse(page._can_open_next_page())
+        self.assertIsNotNone(page.level_pictures[5])
+        page.level_styles[6] = mock.Mock(wraps=page.level_styles[6])
+        point = self.viewport_point(page, page._card_point_to_content(page.arrow6_rect.center, 6))
+        self.assertIsNone(self.click(page, point))
+        self.assertEqual(self.finish_level_press(page), "level_6")
+        args = page.level_styles[6].draw.call_args.args
+        self.assertIs(args[2], page.level6_picture)
+        self.assertEqual(args[3], "1850")
+        self.assertEqual(args[4], page.lang["Level6Cond"])
+
+        content = get_campaign_content_level(6)
+        self.assertEqual(content, get_test_content_level(6))
+        self.assertEqual(load_levels_config()[content], {"Rounds": 3, "Bosses": 4})
+        self.assertEqual(get_level8_goal(1, "E", 0), 100)
+        self.assertEqual(get_test_content_level(13), 6)
+        page.progress_flags["level_8_boss_defeated"] = True
+        self.assertTrue(page._is_completed(6))
+        self.assertIsNone(self.click(page, point))
+        self.assertIsNone(page._pending_level)
 
 
 if __name__ == "__main__":

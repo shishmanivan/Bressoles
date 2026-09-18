@@ -3,7 +3,9 @@ import sys
 
 import pygame
 
-from asset_loaders import load_scaled_background, load_scaled_image
+from asset_loaders import load_scaled_image
+from sound_assets import play_action_click
+from round_page_assets import GRAPH_INK_COLOR, ROUND_GRAPH_ORIGIN, load_round_page_static_assets
 from shared_utils import _clamp_dt_seconds, clamp_popup_y, move_towards, wrap_text
 
 
@@ -98,7 +100,7 @@ def rebuild_boss_route_layout(
     choice_spacing,
     screen_height,
     stage_rise=None,
-    origin=(235, 832),
+    origin=ROUND_GRAPH_ORIGIN,
     first_center=(400, 700),
 ):
     """Rebuild saved route geometry using the current spacing rules."""
@@ -290,20 +292,9 @@ class BossPage:
         self._get_bosses_required = get_bosses_required
         self._get_boss_number_from_filename = get_boss_number_from_filename
 
-        back3_path = os.path.join("UI", "Back3.png")
-        self.background = load_scaled_background(
-            back3_path,
-            (SCREEN_WIDTH, SCREEN_HEIGHT),
-            fallback_surface=None,
-            warning_message="WARNING: Back3.png not found:",
-        )
-
-        koordinates_path = os.path.join("RoundPage", "Koordinates.png")
-        self.koordinates = load_scaled_image(
-            koordinates_path,
-            target_size=(SCREEN_WIDTH, SCREEN_HEIGHT),
-            warning_message="WARNING: Koordinates.png not found:",
-        )
+        route_assets = load_round_page_static_assets()
+        self.background = route_assets["background"]
+        self.koordinates = route_assets["koordinates"]
 
         round_index = self.defeated_count if self.defeated_count >= 0 else 0
         bosses_for_round = self.level_boss_rounds.get(self.level_number, [[]])
@@ -394,7 +385,7 @@ class BossPage:
             print(f"WARNING: Pen.mp3 not found at {pen_sound_path}")
             self.pen_sound = None
 
-        self.line_color = (110, 90, 70)
+        self.line_color = GRAPH_INK_COLOR
         self.line_width = 10
         self.current_line = None
         self.last_hovered_boss = None
@@ -437,8 +428,7 @@ class BossPage:
                 self.fixed_line_start_x = self.last_defeated_rect.centerx
                 self.fixed_line_start_y = self.last_defeated_rect.centery
             else:
-                self.fixed_line_start_x = 350 + 50 - 165
-                self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132
+                self.fixed_line_start_x, self.fixed_line_start_y = ROUND_GRAPH_ORIGIN
         elif self.defeated_count > 0 and self.last_defeated_rect:
             anchor_cx, anchor_cy = self.last_defeated_rect.centerx, self.last_defeated_rect.centery
             positions = build_next_boss_positions(
@@ -460,13 +450,10 @@ class BossPage:
                 boss_y = start_y - (i * self.boss_vertical_spacing)
                 self.boss_rects.append(pygame.Rect(boss_x, boss_y, 100, 100))
 
-            if len(self.boss_rects) > 0:
-                first_boss_rect = self.boss_rects[0]
-                self.fixed_line_start_x = first_boss_rect.centerx - 165
-                self.fixed_line_start_y = first_boss_rect.centery + 132
-            else:
-                self.fixed_line_start_x = 350 + 50 - 165
-                self.fixed_line_start_y = SCREEN_HEIGHT - 400 + 50 + 132
+            self.fixed_line_start_x, self.fixed_line_start_y = ROUND_GRAPH_ORIGIN
+
+        if self.saved_lines and isinstance(self.saved_lines[0], (list, tuple)) and len(self.saved_lines[0]) == 4:
+            self.saved_lines[0] = (*ROUND_GRAPH_ORIGIN, *self.saved_lines[0][2:])
 
     def _get_text(self, key, default=None):
         if default is None:
@@ -532,6 +519,7 @@ class BossPage:
                         self.clicked_boss_rect = boss_rect.copy()
                         if i < len(self.current_boss_filenames):
                             self.clicked_boss_filename = self.current_boss_filenames[i]
+                        play_action_click()
                         return f"boss_{self.level_number}_{i}"
 
         return None

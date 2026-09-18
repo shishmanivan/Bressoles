@@ -267,6 +267,7 @@ class KnownRegressionTests(unittest.TestCase):
         page.dragged_card_market = None
         page.dragged_card_market_slot = None
         page.hand_cards = [117]
+        page.card_size_bottom = (24, 24)
         page.bottom_placeholders = [{"slot": 0, "rect": pygame.Rect(0, 0, 20, 20)}]
         page.side_cards_top = [110]
         page.side_placeholders_top = [{"slot": 0, "rect": pygame.Rect(30, 0, 20, 20)}]

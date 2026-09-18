@@ -483,6 +483,24 @@ class LifecycleEffectTests(unittest.TestCase):
         stewardship_page.hand_cards = [100]
         self.assertEqual(stewardship_page._get_current_rebate_sale_percent(), 170)
 
+    def test_rebate_modifiers_do_not_jump_during_rebate_sale(self):
+        page = self._page(silver=[201], gold=[407, 410, 423])
+        page.side_cards_top = [110]
+        page.side_card_jump_animations = {}
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        page._start_rebate_card_jump_animations()
+
+        self.assertEqual(
+            page._start_card_jump_animation.call_args_list,
+            [
+                mock.call(page.side_card_jump_animations, 0, delay_ms=500),
+                mock.call(page.lifecycle_card_jump_animations, 0, delay_ms=500),
+                mock.call(page.lifecycle_card_jump_animations, 1, delay_ms=500),
+            ],
+        )
+
     def test_windfall_adds_fifty_points_per_boss_victory_after_rebate_synergies(self):
         page = self._page(silver=[201], gold=[407, 407, 426])
         page.is_boss_fight = True
@@ -525,7 +543,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertFalse(resumed._apply_risk_premium_round_start_bonus())
         self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 10)
 
-    def test_risk_premium_ignores_non_h_rounds_and_requires_an_active_copy(self):
+    def test_risk_premium_ignores_non_h_rounds_but_records_h_without_an_active_copy(self):
         page = self._page(gold=[431])
         page.difficulty = "m"
         page._initial_saved_state = None
@@ -533,8 +551,12 @@ class LifecycleEffectTests(unittest.TestCase):
 
         page.active_gold_cards = []
         page.difficulty = "h"
-        self.assertFalse(page._apply_risk_premium_round_start_bonus())
-        self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 0)
+        for _ in range(3):
+            self.assertTrue(page._apply_risk_premium_round_start_bonus())
+        self.assertEqual(game_state.get_risk_premium_card_bonus_percent(), 30)
+
+        page.active_gold_cards = [431]
+        self.assertEqual(page._get_risk_premium_rebate_bonus_percent(), 30)
 
     def test_risk_premium_adds_ten_per_h_round_for_each_active_copy(self):
         game_state.risk_premium_h_rounds = 2
@@ -893,7 +915,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page._start_card_jump_animation = mock.Mock()
 
         self.assertEqual(page._get_spoofing_forced_rise_markets(), {0, 2})
-        page._start_card_jump_animation.assert_called_once()
+        page._start_card_jump_animation.assert_not_called()
 
         page.Day = 3
         self.assertEqual(page._get_spoofing_forced_rise_markets(), set())
@@ -930,20 +952,35 @@ class LifecycleEffectTests(unittest.TestCase):
         page.Day = 3
         self.assertEqual(page._start_lifecycle_turn_reminder(now=400), [])
 
-    def test_spoofing_reminder_shakes_without_using_effect_jump_animation(self):
-        page = self._page(gold=[411])
+    def test_spoofing_jumps_only_when_each_held_market_growth_starts(self):
+        page = self._page(gold=[404, 411])
         page.Day = 4
-        page.lifecycle_card_shake_animations = {}
-        page.lifecycle_reminder_days_started = set()
+        page.Aquantity = 0
+        page.Bquantity = 2
+        page.Cquantity = 1
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
         page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page._apply_price_change = mock.Mock(return_value=False)
+        page.typewriter_sound = None
 
-        page._start_lifecycle_turn_reminder(now=100)
+        page.price_animation_queue = page.update_stock_prices()
+        page._start_card_jump_animation.assert_not_called()
 
-        self.assertEqual(page._get_lifecycle_card_shake_offset(0, now=100), (-6, 0))
-        self.assertEqual(page.lifecycle_card_jump_animations, {})
-        self.assertEqual(page.update_lifecycle_card_shake_animations(now=2299), [])
-        self.assertEqual(page.update_lifecycle_card_shake_animations(now=2300), [0])
-        self.assertEqual(page.lifecycle_card_shake_animations, {})
+        self.assertTrue(page._start_next_price_animation(now=100))
+        page._start_card_jump_animation.assert_not_called()
+
+        self.assertTrue(page._start_next_price_animation(now=200))
+        page._start_card_jump_animation.assert_called_once_with(
+            page.lifecycle_card_jump_animations,
+            1,
+        )
+
+        self.assertTrue(page._start_next_price_animation(now=300))
+        self.assertEqual(page._start_card_jump_animation.call_count, 2)
+        self.assertEqual(page._start_card_jump_animation.call_args, mock.call(page.lifecycle_card_jump_animations, 1))
 
     def test_spoofing_overrides_flat_for_held_stocks_only(self):
         page = self._page(gold=[404, 411])
@@ -983,7 +1020,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page.LastTurn = 7
         page.Day = 7
         self.assertEqual(page._get_spoofing_forced_rise_markets(), set())
-        self.assertEqual(page._start_card_jump_animation.call_count, 2)
+        page._start_card_jump_animation.assert_not_called()
 
     def test_momentum_repeats_spoofing_guaranteed_growth(self):
         page = self._page(gold=[404, 409, 412])
@@ -1007,10 +1044,10 @@ class LifecycleEffectTests(unittest.TestCase):
                 for entry in movements
             ],
             [
-                (0, "rise", 2, None),
+                (0, "rise", 2, "spoofing"),
                 (0, "rise", 2, "momentum"),
                 (1, "unchanged", 0, None),
-                (2, "rise", 4, None),
+                (2, "rise", 4, "spoofing"),
                 (2, "rise", 4, "momentum"),
             ],
         )
@@ -1029,7 +1066,7 @@ class LifecycleEffectTests(unittest.TestCase):
         a_rises = [entry for entry in movements if entry["market"] == 0]
 
         self.assertEqual(len(a_rises), 4)
-        self.assertEqual([entry.get("source") for entry in a_rises], [None, "momentum", "spoofing", "momentum"])
+        self.assertEqual([entry.get("source") for entry in a_rises], ["spoofing", "momentum", "spoofing", "momentum"])
 
     def test_selling_pressure_forces_one_market_fall_and_jumps_with_that_graph(self):
         page = self._page(gold=[404, 432])
@@ -1156,6 +1193,22 @@ class LifecycleEffectTests(unittest.TestCase):
 
         page.active_gold_cards = []
         self.assertEqual(page._get_shakeout_markets(), set())
+
+    def test_shakeout_does_not_jump_during_market_roll(self):
+        page = self._page(gold=[404, 413])
+        page.Day = 1
+        page.Aquantity = 2
+        page.Bquantity = 0
+        page.Cquantity = 0
+        page.StepA, page.StepB, page.StepC = 2, 4, 6
+        page.market_cards = {0: {}, 1: {}, 2: {}}
+        page.insider_c_growth_turns_remaining = 0
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+
+        page.update_stock_prices()
+
+        page._start_card_jump_animation.assert_not_called()
 
     def test_surge_triples_a_after_any_four_consecutive_turns_without_trades(self):
         page = self._page(gold=[404, 415])

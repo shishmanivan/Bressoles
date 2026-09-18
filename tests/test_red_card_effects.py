@@ -388,6 +388,7 @@ class RedCardEffectTests(unittest.TestCase):
 
         roll.assert_called_once_with(1, 100)
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (20, 20, 60))
+        page._start_card_jump_animation.assert_called_once_with(page.side_card_jump_animations, 0)
 
     def test_breakout_misses_above_catalyst_adjusted_chance(self):
         page = self._page()
@@ -402,6 +403,20 @@ class RedCardEffectTests(unittest.TestCase):
             self.assertFalse(page._apply_breakout_effect_if_needed())
 
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 20, 30))
+        page._start_card_jump_animation.assert_not_called()
+
+    def test_breakout_does_not_jump_without_owned_shares(self):
+        page = self._page()
+        page.side_cards_top[0] = 125
+        page.side_cards_locked_top[0] = False
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
+        page._start_card_jump_animation = mock.Mock()
+
+        with mock.patch("gameplay_page.random.randint") as roll:
+            self.assertFalse(page._apply_breakout_effect_if_needed())
+
+        roll.assert_not_called()
+        page._start_card_jump_animation.assert_not_called()
 
     def test_c_fall_flag_survives_a_later_recovery_in_the_same_turn(self):
         page = self._page()

@@ -24,7 +24,13 @@ def load_sound(path, warning_label=None):
 
 
 def load_button_sound():
-    return load_sound(os.path.join("Sounds", "Button.wav"), "Button.wav")
+    return load_sound(os.path.join("Sounds", "Click2.wav"), "Click2.wav")
+
+
+def play_action_click():
+    sound = load_sound(os.path.join("Sounds", "Cliack3.wav"))
+    if sound is not None:
+        sound.play()
 
 
 def load_card_taking_sound():

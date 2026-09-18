@@ -1789,6 +1789,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(game_state.SHOP_CARD_COSTS[432], 4)
         self.assertEqual(CARD_NAMES[432], "Selling Pressure")
         self.assertNotIn("30%", CARD_DESCRIPTIONS[432])
+        self.assertNotIn("Blue Chips", CARD_DESCRIPTIONS[432])
 
         cards = {432: {"Type": 5, "Open": 1, "Variable": 30}}
         with mock.patch.object(game_state, "load_cards_config", return_value=cards):

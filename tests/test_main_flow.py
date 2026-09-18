@@ -41,6 +41,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
             patch.object(Main.sys, "exit"),
             patch.object(Main, "set_stats_file"),
             patch.object(Main, "set_shop_card_stats_file"),
+            patch.object(Main, "configure_card_acquisition_stats"),
             patch.object(Main, "update_level_run_started"),
             patch.object(Main, "update_level_run_result"),
             patch.object(Main, "update_level_run_loss_stage_stats"),

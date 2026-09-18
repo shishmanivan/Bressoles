@@ -13,6 +13,27 @@ import game_state
 
 
 class ProfileContractTests(unittest.TestCase):
+    def test_marathon_completion_survives_reload_separately_from_bot3(self):
+        original = profile_manager._capture_progress()
+        try:
+            game_state.level_8_boss_defeated = True
+            game_state.level_6_boss_defeated = False
+            profile = profile_manager._default_profile(1)
+            profile["progress"] = profile_manager._capture_progress()
+            game_state.level_8_boss_defeated = False
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertTrue(game_state.is_level_completed(8))
+            self.assertFalse(game_state.is_level_completed(6))
+            self.assertTrue(game_state.get_progress_flags()["level_8_boss_defeated"])
+            # Older profiles can load without the new completion flag.
+            profile["progress"].pop("level_8_boss_defeated")
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertFalse(game_state.is_level_completed(8))
+        finally:
+            profile = profile_manager._default_profile(1)
+            profile["progress"] = original
+            profile_manager.apply_profile_to_game_state(profile)
+
     def test_risk_premium_progress_is_stored_and_restored(self):
         original = game_state.risk_premium_h_rounds
         try:

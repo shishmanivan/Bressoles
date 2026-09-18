@@ -3,10 +3,38 @@ import os
 import pygame
 
 from asset_loaders import load_scaled_background, load_scaled_image
+from adaptive_ui import cover_geometry, proportional_size
 
 
 SCREEN_WIDTH = 1680
 SCREEN_HEIGHT = 1050
+
+# Center of the two ink strokes in the 1938 x 811 transparent PNG.
+COORDINATES_SOURCE_ORIGIN = (159, 676)
+ROUND_GRAPH_ORIGIN = (235, SCREEN_HEIGHT - 218)
+# Muted warm brown ink, shared by the axes and routes on both selection pages.
+GRAPH_INK_COLOR = (105, 92, 78)
+
+
+def build_round_coordinates_layer(source, screen_size=(SCREEN_WIDTH, SCREEN_HEIGHT)):
+    """Keep the axes proportional and align their intersection with the route."""
+    source = source.copy()
+    # Use the same ink as the routes; retain the soft outline of the artwork.
+    source.fill((0, 0, 0, 255), special_flags=pygame.BLEND_RGBA_MULT)
+    source.fill((*GRAPH_INK_COLOR, 0), special_flags=pygame.BLEND_RGBA_ADD)
+    core = pygame.mask.from_surface(source, 199).to_surface(
+        setcolor=(*GRAPH_INK_COLOR, 255), unsetcolor=(0, 0, 0, 0)
+    )
+    source.blit(core, (0, 0))
+    size = proportional_size(source.get_size(), width=1500)
+    origin = (
+        round(COORDINATES_SOURCE_ORIGIN[0] * size[0] / source.get_width()),
+        round(COORDINATES_SOURCE_ORIGIN[1] * size[1] / source.get_height()),
+    )
+    position = tuple(target - local for target, local in zip(ROUND_GRAPH_ORIGIN, origin))
+    layer = pygame.Surface(screen_size, pygame.SRCALPHA)
+    layer.blit(pygame.transform.smoothscale(source, size), position)
+    return layer
 
 
 _round_page_static_assets_cache = None
@@ -19,18 +47,23 @@ def load_round_page_static_assets():
     if _round_page_static_assets_cache is not None:
         return dict(_round_page_static_assets_cache)
 
-    background = load_scaled_background(
-        os.path.join("UI", "Back3.png"),
-        (SCREEN_WIDTH, SCREEN_HEIGHT),
-        fallback_surface=None,
-        warning_message="WARNING: Back3.png not found:",
+    background_path = os.path.join("RoundPage", "Master background.png")
+    master = load_scaled_image(
+        background_path,
+        warning_message="WARNING: RoundPage Master background.png not found:",
     )
+    background = None
+    if master is not None:
+        size, position = cover_geometry(master.get_size(), (SCREEN_WIDTH, SCREEN_HEIGHT))
+        background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+        background.blit(load_scaled_background(background_path, size), position)
 
     koordinates = load_scaled_image(
         os.path.join("RoundPage", "Koordinates.png"),
-        target_size=(SCREEN_WIDTH, SCREEN_HEIGHT),
         warning_message="WARNING: Koordinates.png not found:",
     )
+    if koordinates is not None:
+        koordinates = build_round_coordinates_layer(koordinates)
 
     button_e = _load_scaled_button(os.path.join("RoundPage", "LevelButtonE.png"), "WARNING: LevelButtonE not found:")
     button_m = _load_scaled_button(os.path.join("RoundPage", "LevelButtonM.png"), "WARNING: LevelButtonM not found:")

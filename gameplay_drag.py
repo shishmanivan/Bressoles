@@ -1,16 +1,22 @@
 import pygame
 
+from gameplay_hand_hover import hand_card_rect
 
-def find_hand_drag_start(mouse_pos, hand_layout, hand_cards, card_size_bottom):
+
+def find_hand_drag_start(mouse_pos, hand_layout, hand_cards, card_size_bottom, hover=None):
     """Return drag state for a hand card click, or None."""
     if not hand_layout:
         return None
 
-    for index in reversed(range(len(hand_layout["slot_positions"]))):
+    order = hover.order if hover is not None else range(len(hand_layout["slot_positions"]))
+    for index in reversed(order):
         slot_x, slot_y = hand_layout["slot_positions"][index]
         if index >= len(hand_cards) or hand_cards[index] is None:
             continue
-        card_rect = pygame.Rect(slot_x - 2, slot_y - 2, card_size_bottom[0], card_size_bottom[1])
+        card_rect = hand_card_rect(
+            (slot_x, slot_y), card_size_bottom,
+            hover is not None and index == hover.hovered_slot,
+        )
         if card_rect.collidepoint(mouse_pos):
             return {
                 "dragged_card_index": index,

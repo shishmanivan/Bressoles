@@ -18,7 +18,7 @@ from level_screen_helpers import (
     load_test_level_pictures,
 )
 from level_card_style import LevelCardStyle
-from level_routes import get_test_content_level
+from level_routes import get_campaign_content_level, get_test_content_level
 from shared_utils import wrap_text
 from sound_assets import load_sound
 
@@ -30,6 +30,7 @@ PAGE_ARROW_FRAME_MS = 80
 PAGE_ARROW_SIZE = (150, 100)
 LEVEL_BUTTON_PRESS_MS = 500
 LEVEL_BUTTON_PRESSED_SCALE = 0.88
+LEVEL_BUTTON_HOVER_SCALE = 1.05
 
 BLACK = (0, 0, 0)
 PAPER_COLOR = (32, 26, 20)
@@ -106,6 +107,7 @@ class GameScreen:
             height = round(width * artwork.get_height() / artwork.get_width())
             self.startarrow_image = pygame.transform.smoothscale(artwork, (width, height))
         self._pending_level = None
+        self._hovered_level = None
         self._level_press_started_at = None
         self._level_press_drawn = False
 
@@ -264,7 +266,12 @@ class GameScreen:
         return bool(self.progress_flags.get(level_key))
 
     def _is_completed(self, level_num):
-        return self._is_unlocked(f"level_{level_num}_boss_defeated")
+        content_level = (
+            get_test_content_level(level_num)
+            if getattr(self, "test_mode", False)
+            else get_campaign_content_level(level_num)
+        )
+        return self._is_unlocked(f"level_{content_level}_boss_defeated")
 
     def _is_level_unlocked(self, level_num):
         if self.test_mode:
@@ -275,7 +282,7 @@ class GameScreen:
             3: self._is_unlocked("level_2_boss_defeated"),
             4: self._is_unlocked("level_3_boss_defeated"),
             5: self._is_unlocked("level_3_boss_defeated"),
-            8: self._is_unlocked("level_8_unlocked"),
+            6: self._is_unlocked("level_6_unlocked") or self._is_unlocked("level_5_boss_defeated"),
         }.get(int(level_num or 0), False)
 
     def _can_open_next_page(self):
@@ -365,6 +372,28 @@ class GameScreen:
             center = self._card_center(level_num)
             point = center + (pygame.Vector2(point) - center).rotate(angle)
         return rect.move(0, -self.scroll_y).collidepoint(point)
+
+    def _update_level_hover(self, position=None):
+        self._hovered_level = None
+        if self._pending_level is not None or self._page_animation_started_at is not None:
+            return
+        if position is None:
+            if not pygame.mouse.get_focused():
+                return
+            position = pygame.mouse.get_pos()
+        point = self._viewport_to_content(position)
+        if point is None:
+            return
+        if self.test_mode:
+            buttons = enumerate(self.test_card_rects, start=1)
+        else:
+            buttons = enumerate(self.normal_arrow_rects, start=1 + 6 * self.level_page_index)
+        for level_num, rect in buttons:
+            if not self.test_mode and (not self._is_level_unlocked(level_num) or self._is_completed(level_num)):
+                continue
+            if self._level_button_hit(rect, point, level_num):
+                self._hovered_level = level_num
+                break
 
     def handle_input(self):
 
@@ -506,6 +535,10 @@ class GameScreen:
                 # Return the route on the next input pass, after the final
                 # pressed pose has actually been presented by draw().
                 self._level_press_drawn = progress >= 1.0
+            elif getattr(self, "_pending_level", None) is None and getattr(self, "_hovered_level", None) == level_num:
+                hover_size = tuple(round(size * LEVEL_BUTTON_HOVER_SCALE) for size in button_image.get_size())
+                button_image = pygame.transform.smoothscale(button_image, hover_size)
+                button_rect = button_image.get_rect(center=button_rect.center)
             self.screen.blit(button_image, button_rect)
 
     def _draw_standard_card_content(self, card_position, level_num, level_picture, show_start_arrow):
@@ -608,6 +641,7 @@ class GameScreen:
 
     def draw(self):
         self._update_page_animation()
+        self._update_level_hover()
         viewport = self.screen
         viewport_size = viewport.get_size()
         if self.background is not None:

@@ -14,6 +14,7 @@ from gameplay_card_rendering import (
 from round_page_assets import load_round_page_static_assets
 from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
+from card_acquisition_stats import record_card_offers
 from shop_purchases import buy_card_or_license
 from silver_black_page import ReplicationGoldPage, ReplicationSilverPage
 
@@ -109,7 +110,7 @@ CARD_DESCRIPTIONS = {
     122: "Устанавливает цены всех акций на 100.",
     123: "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
     124: "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
-    125: "Breakout: на последнем игровом ходу даёт 50% шанс удвоить цены акций, которыми владеет игрок.",
+    125: "Breakout: можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
     17: "Умножает цену выбранной акции на 2 на один ход.",
     18: "Умножает цену выбранной акции на 2 на два хода.",
     20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
@@ -201,7 +202,7 @@ CARD_DESCRIPTIONS.update(
         429: "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
         430: "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
         431: "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
-        432: "Каждый ход гарантирует падение случайной акции без Blue Chips. Остальные акции получают обычный рыночный бросок. Если Blue Chips защищает все акции, карта не срабатывает.",
+        432: "Гарантирует, что за ход упадёт хотя бы одна акция.",
         433: "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
         434: "В конце раунда даёт 1 наполеондор за каждого Shareholder в колоде.",
     }
@@ -325,6 +326,7 @@ class ShopPage:
             rounds_remaining=self.rounds_remaining,
         )
         if stats_enabled:
+            record_card_offers(self.offers)
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
         self.sold_offer_indexes = set()
         self.message = ""

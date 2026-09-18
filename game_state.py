@@ -1,5 +1,6 @@
 import random
 from pathlib import Path
+from card_acquisition_stats import record_card_acquisitions
 
 from card_catalog import PRICE_CARD_IDS, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
@@ -12,6 +13,7 @@ level_3_boss_defeated = False
 level_4_boss_defeated = False
 level_5_boss_defeated = False
 level_6_boss_defeated = False
+level_8_boss_defeated = False
 
 # Boss defeat tracking per level:
 # {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
@@ -550,12 +552,15 @@ def add_black_card(card_id):
     return _add_card_to_inventory(black_cards, MAX_BLACK_CARDS, card_id, "Black", allow_duplicates=False)
 
 
-def add_gold_card(card_id):
-    """Add a gold card for the current run. Intended to be called by the shop."""
+def add_gold_card(card_id, *, source="bonus"):
+    """Add a gold card; count actual bonus grants separately from direct purchases."""
     normalized = _normalize_card_id(card_id)
     if normalized is None or is_shop_card_already_bought(normalized):
         return None
-    return _add_card_to_inventory(gold_cards, MAX_GOLD_CARDS, normalized, "Gold")
+    awarded = _add_card_to_inventory(gold_cards, MAX_GOLD_CARDS, normalized, "Gold")
+    if awarded is not None and source == "bonus":
+        record_card_acquisitions("bonus", [awarded])
+    return awarded
 
 
 def add_random_gold_card(level_number=None):
@@ -833,6 +838,8 @@ def is_level_completed(level_number):
         return bool(level_5_boss_defeated)
     if level == 6:
         return bool(level_6_boss_defeated)
+    if level == 8:
+        return bool(level_8_boss_defeated)
     return False
 
 
@@ -845,7 +852,7 @@ def add_shop_card_to_level(level_number, card_id):
         print(f"WARNING: Shop card {normalized} was already bought this run; duplicate skipped.")
         return None
     if is_gold_card(normalized):
-        return add_gold_card(normalized)
+        return add_gold_card(normalized, source="shop")
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
@@ -1140,12 +1147,9 @@ def get_risk_premium_rebate_bonus_percent(active_cards=None):
     return _count_card_instances(cards, RISK_PREMIUM_CARD_ID) * get_risk_premium_card_bonus_percent()
 
 
-def record_risk_premium_h_round(active_cards=None, difficulty=None):
+def record_risk_premium_h_round(difficulty=None):
     global risk_premium_h_rounds
-    cards = active_gold_cards if active_cards is None else active_cards
     if str(difficulty or "").strip().lower() != "h":
-        return False
-    if _count_card_instances(cards, RISK_PREMIUM_CARD_ID) <= 0:
         return False
     risk_premium_h_rounds = get_risk_premium_h_rounds() + 1
     print(
@@ -1909,6 +1913,7 @@ def get_progress_flags():
         "level_4_boss_defeated": level_4_boss_defeated,
         "level_5_boss_defeated": level_5_boss_defeated,
         "level_6_boss_defeated": level_6_boss_defeated,
+        "level_8_boss_defeated": level_8_boss_defeated,
         "level_6_unlocked": bool(level_5_boss_defeated),
         "level_7_unlocked": bool(level_5_boss_defeated),
         "level_8_unlocked": bool(level_5_boss_defeated),

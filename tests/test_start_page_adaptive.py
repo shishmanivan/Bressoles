@@ -10,12 +10,36 @@ import pygame
 
 from adaptive_ui import AnchoredElement, cover_geometry
 from start_page import (
+    MENU_FONT_PATH,
+    PAPER_COLOR,
     StartPage,
     build_start_page_layout,
 )
 
 
 class AdaptiveStartPageTests(unittest.TestCase):
+    def test_press_feedback_defers_action_and_plays_sound_once(self):
+        pygame.init()
+        try:
+            page = StartPage.__new__(StartPage)
+            page._pending_action = None
+            page._pressed_target = None
+            page.button_sound = mock.Mock()
+            with mock.patch("pygame.time.get_ticks", return_value=100):
+                page._begin_press(0, "start")
+                page._begin_press(1, "options")
+            self.assertEqual(page._pressed_target, 0)
+            page.button_sound.play.assert_called_once_with()
+            with mock.patch("pygame.event.get", return_value=[]):
+                with mock.patch("pygame.time.get_ticks", return_value=150):
+                    self.assertIsNone(page.handle_input())
+                with mock.patch("pygame.time.get_ticks", return_value=190):
+                    self.assertEqual(page.handle_input(), "start")
+                self.assertIsNone(page.handle_input())
+            self.assertIsNone(page._pressed_target)
+        finally:
+            pygame.quit()
+
     def test_resize_replaces_old_scaled_sizes_and_reuses_current_ones(self):
         page = StartPage.__new__(StartPage)
         page._scaled_image_cache = {}
@@ -45,21 +69,27 @@ class AdaptiveStartPageTests(unittest.TestCase):
         pygame.init()
         try:
             pygame.display.set_mode((320, 240))
-            sources = [pygame.Surface(size, pygame.SRCALPHA) for size in ((344, 144), (217, 72), (83, 79), (217, 72), (93, 79), (216, 25), (124, 43))]
+            sources = [
+                pygame.Surface(size, pygame.SRCALPHA)
+                for size in ((344, 144), (217, 72), (168, 94))
+            ]
             for index, image in enumerate(sources):
                 image.fill((40 + 35 * index, 90, 130, 255))
                 pygame.draw.rect(image, (240, 210, 90, 255), (5, 5, 20, 20))
             original_pixels = [pygame.image.tostring(image, "RGBA") for image in sources]
             with (
                 mock.patch.object(StartPage, "_load_image", side_effect=sources),
-                mock.patch("start_page.load_button_sound"),
+                mock.patch("start_page.load_sound"),
             ):
                 page = StartPage(pygame.Surface((1680, 1050)), None, None, profile_name="Benchmark")
+            self.assertEqual(page.font_path, MENU_FONT_PATH)
+            self.assertFalse(page._get_font(40).get_bold())
+            self.assertEqual(PAPER_COLOR, (77, 63, 50))
             for size in ((1680, 1050), (1280, 720), (1920, 1080), (1680, 1050)):
                 page.screen = pygame.Surface(size)
                 page.draw()
                 pixels = pygame.image.tostring(page.screen, "RGB")
-                self.assertEqual(len(page._scaled_image_cache), 7)
+                self.assertEqual(len(page._scaled_image_cache), 3)
                 # A fresh scaling pass is the reference for both old and new caches.
                 page._scaled_image_cache.clear()
                 page.draw()
@@ -87,57 +117,30 @@ class AdaptiveStartPageTests(unittest.TestCase):
         self.assertEqual(position, (0, 0))
 
     def test_layout_uses_viewport_anchors_and_frame_relative_rows(self):
-        layout = build_start_page_layout((1920, 1080), (2172, 724), (834, 794), (2172, 724))
+        layout = build_start_page_layout((1920, 1080), (2172, 724), (1678, 937))
         self.assertEqual(layout.title_rect.left, 77)
-        self.assertEqual(layout.title_rect.top, 54)
-        self.assertEqual(layout.menu_rect.right, 1920 - 77)
-        self.assertEqual(layout.menu_rect.centery, 540)
-        self.assertEqual(layout.menu_rect.height, 505)
-        self.assertAlmostEqual(layout.menu_rect.width / layout.menu_rect.height, 834 / 794, places=2)
-        self.assertEqual(layout.ribbon_rect.width, 1152)
-        self.assertAlmostEqual(layout.ribbon_rect.width / layout.ribbon_rect.height, 2172 / 724, places=2)
-        self.assertEqual(layout.ribbon_rect.centerx, 826)
-        self.assertGreater(layout.ribbon_rect.bottom, 1080)
-        self.assertEqual(layout.main_back_rect.height, 1026)
-        self.assertEqual(layout.main_back_rect.left, 0)
-        self.assertEqual(layout.main_back_rect.top, 22)
-        self.assertTrue(layout.main_back_rect.colliderect(layout.ribbon_rect))
-        self.assertLess(layout.main_back_rect.right, layout.menu_rect.left)
-        self.assertEqual(layout.bottom_rect, pygame.Rect(0, 855, 1920, 225))
-        self.assertEqual(layout.top_rect.centerx, layout.menu_rect.centerx)
-        self.assertEqual(layout.top_rect.width, round(layout.menu_rect.width * 1.42 * 0.85))
-        self.assertGreater(layout.top_rect.bottom, layout.menu_rect.top)
+        self.assertEqual(layout.title_rect.top, 76)
+        self.assertEqual(layout.menu_image_rect.width, 1920)
+        self.assertEqual(layout.menu_image_rect.center, (960, 540))
+        self.assertAlmostEqual(
+            layout.menu_image_rect.width / layout.menu_image_rect.height,
+            1678 / 937,
+            places=2,
+        )
+        self.assertTrue(layout.menu_image_rect.contains(layout.menu_rect))
         self.assertTrue(all(layout.menu_rect.collidepoint(point) for point in layout.row_centers))
         self.assertEqual(len(layout.row_centers), 5)
 
-    def test_ultrawide_does_not_push_edge_anchored_ui_beyond_max_margin(self):
-        layout = build_start_page_layout((3440, 1440), (2172, 724), (834, 794), (2172, 724))
+    def test_ultrawide_reveals_master_background_beside_menu3(self):
+        layout = build_start_page_layout((3440, 1440), (2172, 724), (1678, 937))
         self.assertEqual(layout.title_rect.left, 90)
-        self.assertEqual(layout.menu_rect.right, 3440 - 90)
         self.assertEqual(layout.title_rect.width, 760)
-        self.assertEqual(layout.menu_rect.height, 544)
-        self.assertEqual(layout.ribbon_rect.width, 1300)
-        self.assertEqual(layout.ribbon_rect.centerx, 1540)
-        self.assertEqual(layout.main_back_rect.height, 1200)
-        self.assertEqual(layout.main_back_rect.left, 0)
-        self.assertLess(layout.main_back_rect.right, layout.menu_rect.left)
-        self.assertEqual(layout.bottom_rect.width, 2159)
-        self.assertEqual(layout.bottom_rect.bottom, 1440)
-        self.assertEqual(layout.top_rect.centerx, layout.menu_rect.centerx)
+        self.assertEqual(layout.menu_image_rect.height, 1440)
+        self.assertEqual(layout.menu_image_rect.centery, 720)
+        self.assertGreater(layout.menu_image_rect.left, 0)
+        self.assertLess(layout.menu_image_rect.right, 3440)
 
-    def test_ribbon_scales_down_for_small_viewports_without_losing_its_ratio(self):
-        layout = build_start_page_layout((800, 600), (2172, 724), (834, 794), (2172, 724))
-        self.assertEqual(layout.ribbon_rect.width, 520)
-        self.assertAlmostEqual(layout.ribbon_rect.width / layout.ribbon_rect.height, 3.0, places=1)
-        self.assertEqual(layout.ribbon_rect.centerx, 344)
-        self.assertLess(layout.ribbon_rect.top, 600)
-        self.assertGreater(layout.ribbon_rect.bottom, 600)
-        self.assertGreaterEqual(
-            layout.main_back_rect.bottom,
-            layout.ribbon_rect.top + round(layout.ribbon_rect.height * 0.55),
-        )
-
-    def test_left_illustration_stays_clear_of_menu_and_behind_ribbon(self):
+    def test_menu3_and_embedded_frame_stay_proportional_at_common_sizes(self):
         for viewport in (
             (800, 600),
             (1280, 720),
@@ -149,17 +152,16 @@ class AdaptiveStartPageTests(unittest.TestCase):
         ):
             with self.subTest(viewport=viewport):
                 layout = build_start_page_layout(
-                    viewport,
-                    (2172, 724),
-                    (834, 794),
-                    (2172, 724),
-                    (1021, 843),
+                    viewport, (2172, 724), (1678, 937)
                 )
-                self.assertLess(layout.main_back_rect.right, layout.menu_rect.left)
-                self.assertGreaterEqual(
-                    layout.main_back_rect.bottom,
-                    layout.ribbon_rect.top + round(layout.ribbon_rect.height * 0.55),
+                self.assertTrue(pygame.Rect((0, 0), viewport).contains(layout.menu_image_rect))
+                self.assertAlmostEqual(
+                    layout.menu_image_rect.width / layout.menu_image_rect.height,
+                    1678 / 937,
+                    places=2,
                 )
+                self.assertTrue(layout.menu_image_rect.contains(layout.menu_rect))
+                self.assertTrue(all(layout.menu_rect.collidepoint(point) for point in layout.row_centers))
 
     def test_generic_anchor_supports_all_viewport_edges_and_center(self):
         self.assertEqual(

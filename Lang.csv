@@ -1,4 +1,17 @@
 Key;RU;ENG
+CollectionDeck;Колода;Deck
+CollectionOffers;Офферы;Offers
+CollectionBosses;Боссы;Bosses
+CollectionEmpty;Пока пусто;Nothing here yet
+DeckEmpty;В колоде нет карт;No cards in the deck
+BossRewardsEmpty;Пока нет побеждённых боссов;No defeated bosses yet
+OffersPermanent;До конца забега;Until the end of the run
+OffersTemporary;Временные эффекты;Temporary effects
+OffersPending;Ожидают срабатывания;Pending effects
+OfferAfterBoss;После победы над боссом;After defeating the boss
+OfferUntilBoss;До победы над боссом;Until the boss is defeated
+OfferTriggersIn;До срабатывания: {count} раунд.;Activates in {count} rounds
+OfferRoundsLeft;Осталось: {count} раунд.;{count} rounds remaining
 Profile;Профиль;Profile
 ProfileUnavailable;Недоступен;Unavailable
 ProfileUnavailableMessage;Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.;Profile {slots} is unavailable. Recovery failed. Original files are preserved. Choose another profile.
@@ -131,6 +144,9 @@ CardReportBossReward;Бонус за победу над боссом. Проп�
 CardReportBossTitle;Бонус за победу над боссом:;Boss victory bonus:
 CardReportLevelCompleteTitle;Вы разблокировали новый уровень!;You unlocked a new level!
 CardReportTemporaryReset;Временные карты обнулились;Temporary cards were reset.
+CardReportFrugalityBonusOne;Бонус Frugality. В следующем раунде на {turns} ход больше.;Frugality bonus. The next round has {turns} more turn.
+CardReportFrugalityBonusFew;Бонус Frugality. В следующем раунде на {turns} хода больше.;Frugality bonus. The next round has {turns} more turns.
+CardReportFrugalityBonusMany;Бонус Frugality. В следующем раунде на {turns} ходов больше.;Frugality bonus. The next round has {turns} more turns.
 CardReportGoldenStocksTriggered;Golden Stocks сработал!;Golden Stocks triggered!
 RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
 RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
@@ -143,3 +159,9 @@ LoseWindowText;Вы проиграли!;You lost!
 Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.
 LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.
 LastBossRewardLevel5;Завершает забег пятого уровня.;Completes the level five run.
+DeckPermanentCards;Карты постоянной колоды;Permanent deck cards
+DeckTemporaryCards;Временные карты (пропадут после победы над боссом);Temporary cards (disappear after defeating a boss)
+DeckPurchasedCards;Купленные карты (пропадут после поражения);Purchased cards (disappear after defeat)
+
+DeckRemaining;Оставшаяся колода;Remaining deck
+DeckFull;Полная колода;Full deck

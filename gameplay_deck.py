@@ -11,9 +11,10 @@ CONCENTRATION_REMOVED_CARD_IDS = frozenset({1, 2, 3, 4})
 class InvestedCard(int):
     """A single deck card carrying an instance-specific Investment bonus."""
 
-    def __new__(cls, card_id, investment_bonus=0):
+    def __new__(cls, card_id, investment_bonus=0, deck_origin=None):
         instance = int.__new__(cls, int(card_id))
         instance.investment_bonus = max(0, int(investment_bonus or 0))
+        instance.deck_origin = deck_origin or getattr(card_id, "deck_origin", None)
         return instance
 
 
@@ -28,12 +29,16 @@ def serialize_card_instance(card_id):
     if card_id is None:
         return None
     bonus = get_card_investment_bonus(card_id)
-    if bonus <= 0:
+    origin = getattr(card_id, "deck_origin", None)
+    if bonus <= 0 and not origin:
         return int(card_id)
-    return {
+    result = {
         "card_id": int(card_id),
         "investment_bonus": bonus,
     }
+    if origin:
+        result["deck_origin"] = origin
+    return result
 
 
 def restore_card_instance(value):
@@ -43,7 +48,10 @@ def restore_card_instance(value):
             bonus = max(0, int(value.get("investment_bonus", 0) or 0))
         except (TypeError, ValueError):
             return None
-        return InvestedCard(card_id, bonus) if bonus > 0 else normalize_card_id(card_id)
+        origin = value.get("deck_origin")
+        if origin not in ("permanent", "temporary", "purchased"):
+            origin = None
+        return InvestedCard(normalize_card_id(card_id), bonus, origin) if bonus > 0 or origin else normalize_card_id(card_id)
     if value is None:
         return None
     try:
@@ -55,6 +63,34 @@ def restore_card_instance(value):
 def normalize_card_id(card_id):
     """Map legacy card 0 references to card 100."""
     return 100 if card_id == 0 else card_id
+
+
+def restore_legacy_deck_origins(zones, template):
+    """Assign old saves' untagged instances from the available source pool.
+
+    Old saves did not distinguish equal copies; consume each source at most once.
+    New saves preserve the exact origin and require no inference.
+    """
+    pool = list(template)
+    for zone in zones:
+        for card in zone.values() if isinstance(zone, dict) else zone:
+            if card is None or not getattr(card, "deck_origin", None):
+                continue
+            for index, source in enumerate(pool):
+                if source == card and source.deck_origin == card.deck_origin:
+                    pool.pop(index)
+                    break
+    for zone in zones:
+        for key in list(zone) if isinstance(zone, dict) else range(len(zone)):
+            card = zone[key]
+            if card is None or getattr(card, "deck_origin", None):
+                continue
+            origin = "permanent"
+            for index, source in enumerate(pool):
+                if source == card:
+                    origin = pool.pop(index).deck_origin
+                    break
+            zone[key] = InvestedCard(card, get_card_investment_bonus(card), origin)
 
 
 def is_red_card(card_id):
@@ -110,27 +146,30 @@ def build_initial_deck(
     concentration_removes_starting_shareholder=True,
 ):
     """Build initial deck composition for a given level."""
-    base_deck = list(BASE_STARTING_DECK)
+    def tagged(cards, origin):
+        return [InvestedCard(card, get_card_investment_bonus(card), origin) for card in cards]
+
+    base_deck = tagged(BASE_STARTING_DECK, "permanent")
     if concentration_active and concentration_removes_starting_shareholder:
         base_deck.remove(100)
 
     completion_cards = dedupe_red_cards(level_completion_reward_cards or [])
     if completion_cards:
-        base_deck.extend(completion_cards)
+        base_deck.extend(tagged(completion_cards, "permanent"))
         print(f"Added {len(completion_cards)} completed-level reward card(s) to starting deck: {completion_cards}")
 
     earned_cards = dedupe_red_cards(
         card_id for card_id in earned_reward_cards.get(level_number, []) if not is_silver_reward_card(card_id)
     )
     if earned_cards:
-        base_deck.extend(earned_cards)
+        base_deck.extend(tagged(earned_cards, "purchased"))
         print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
 
     bought_cards = dedupe_red_cards(
         card_id for card_id in (shop_deck_cards or []) if not is_silver_reward_card(card_id)
     )
     if bought_cards:
-        base_deck.extend(bought_cards)
+        base_deck.extend(tagged(bought_cards, "purchased"))
         print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
 
     # Delisting and Investment operate only on permanent cards. Apply both
@@ -159,7 +198,7 @@ def build_initial_deck(
         card_id for card_id in (temporary_reward_cards or []) if not is_silver_reward_card(card_id)
     )
     if temporary_cards:
-        deck.extend(temporary_cards)
+        deck.extend(tagged(temporary_cards, "temporary"))
         deck = dedupe_red_cards(deck)
         print(f"Added {len(temporary_cards)} temporary reward card(s) to level {level_number} deck: {temporary_cards}")
 
@@ -171,7 +210,7 @@ def build_initial_deck(
     ]
     mirrored_instances = [card_id for card_id in mirrored_instances if card_id is not None]
     if mirrored_instances:
-        deck.extend(mirrored_instances)
+        deck.extend(tagged(mirrored_instances, "purchased"))
         print(f"Added {len(mirrored_instances)} mirrored card(s) to the run deck: {mirrored_instances}")
 
     if concentration_active:
@@ -204,8 +243,7 @@ def deal_starting_hand(deck, hand_size, guaranteed_cards):
     # Guaranteed cards that do not fit remain in the shuffled deck.
     for card_id in guaranteed_cards[:hand_size]:
         try:
-            deck.remove(card_id)
-            available_guaranteed_cards.append(card_id)
+            available_guaranteed_cards.append(deck.pop(deck.index(card_id)))
         except ValueError:
             pass
 

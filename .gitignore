@@ -12,6 +12,9 @@ Thumbs.db
 Profiles/
 GameStats.csv
 GoldenStockChecks.log
+MarketRolls.csv
+MarketRollSummary.csv
+CardAcquisitionStats.csv
 
 # Codex local attachments
 .codex-remote-attachments/
