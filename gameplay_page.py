@@ -1,3 +1,4 @@
+from localization import translate as _tr
 import pygame
 import random
 import math
@@ -363,6 +364,7 @@ class GameplayPage:
         self.menu_sound = gameplay_assets["menu_sound"]
         self.typewriter_sound = gameplay_assets["typewriter_sound"]
         self.cash_register_sound = gameplay_assets.get("cash_register_sound")
+        self.alarm_sound = gameplay_assets.get("alarm_sound")
         self.card_placing_sound = gameplay_assets.get("card_placing_sound")
         self.card_hover_sound = gameplay_assets.get("card_hover_sound")
         self.card_taking_sound = gameplay_assets.get("card_taking_sound")
@@ -680,6 +682,7 @@ class GameplayPage:
         self.final_auto_liquidation_applied = False
         self.final_auto_liquidation_animation = None
         self.astor_cash_burn_animation = None
+        self.arkwright_share_theft_animation = None
         self.ok_button_rect = None  # Will be calculated in draw method
         winlose_assets = load_winlose_assets(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.win_lose_image = winlose_assets["win_lose_image"]
@@ -728,15 +731,15 @@ class GameplayPage:
         self.reward_final_boss_text = self._get_text("RewardFinalBoss", "RewardWindowText")
         self.reward_level1_final_boss_text = self._get_text(
             "RewardLevel1FinalBoss",
-            "Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.",
+            "Вы открыли второй уровень и магазин. Теперь за победы начисляются наполеондоры, а в игре появляются красные карты.",
         )
         self.reward_level2_final_boss_text = self._get_text(
             "RewardLevel2FinalBoss",
-            "Теперь в игре будут попадаться серебряные карты.",
+            "Вы открыли третий уровень, золотые и серебряные карты. В магазине доступны покупка карт и лицензий. Стартовый запас следующих уровней увеличен на 2 наполеондора.",
         )
         self.reward_level3_final_boss_text = self._get_text(
             "RewardLevel3FinalBoss",
-            "Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.",
+            "Вы открыли четвёртый и пятый уровни и получили первую чёрную карту. Стартовый запас следующих уровней увеличен ещё на 3 наполеондора.",
         )
         self.reward_level4_final_boss_text = self._get_text(
             "RewardLevel4FinalBoss",
@@ -1043,22 +1046,22 @@ class GameplayPage:
         hedger_count = self._count_active_silver_card(408)
         hedger_used = int(getattr(self, "hedger_used_this_round", 0) or 0)
         if hedger_used >= hedger_count:
-            text = self.font_small.render("Hedger использован", True, PAPER_COLOR)
+            text = self.font_small.render(_tr("Hedger использован"), True, PAPER_COLOR)
             self.screen.blit(text, text.get_rect(center=(panel.centerx, y)))
             return
 
         if self.hedger_message and pygame.time.get_ticks() < self.hedger_message_until:
-            text = self.font_small.render(self.hedger_message, True, PAPER_COLOR)
+            text = self.font_small.render(_tr(self.hedger_message), True, PAPER_COLOR)
             self.screen.blit(text, text.get_rect(center=(panel.centerx, y - 48)))
 
         if self.hedger_selected_card_id is None:
-            prompt = self.font_small.render("Выберите карту из колоды", True, PAPER_COLOR)
+            prompt = self.font_small.render(_tr("Выберите карту из колоды"), True, PAPER_COLOR)
             self.screen.blit(prompt, prompt.get_rect(center=(panel.centerx, y)))
             return
 
         if self.hedger_confirm_active:
             prompt = self.font_small.render(
-                f"Добавить карту {self.hedger_selected_card_id} в руку?",
+                _tr(f"Добавить карту {self.hedger_selected_card_id} в руку?"),
                 True,
                 PAPER_COLOR,
             )
@@ -1077,7 +1080,7 @@ class GameplayPage:
         color = (248, 239, 216) if rect.collidepoint(mouse_pos) else (238, 228, 205)
         pygame.draw.rect(self.screen, color, rect, border_radius=7)
         pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2, border_radius=7)
-        label = self.font_small.render(text, True, PAPER_COLOR)
+        label = self.font_small.render(_tr(text), True, PAPER_COLOR)
         self.screen.blit(label, label.get_rect(center=rect.center))
 
     def _get_deck_view_silver_card_image(self, card_id, size):
@@ -1151,7 +1154,7 @@ class GameplayPage:
 
             remaining = entry.get("remaining")
             if remaining is not None:
-                counter = self.font_small.render(str(remaining), True, PAPER_COLOR)
+                counter = self.font_small.render(_tr(str(remaining)), True, PAPER_COLOR)
                 self.screen.blit(counter, counter.get_rect(center=(rect.centerx, rect.top - 18)))
 
             drawn_entry = {**entry, "rect": rect}
@@ -1265,7 +1268,7 @@ class GameplayPage:
         pygame.draw.rect(self.screen, (238, 228, 205), tooltip_rect)
         pygame.draw.rect(self.screen, PAPER_COLOR, tooltip_rect, 2)
         for index, line in enumerate(lines):
-            surface = self.font_small.render(line, True, PAPER_COLOR)
+            surface = self.font_small.render(_tr(line), True, PAPER_COLOR)
             self.screen.blit(surface, (tooltip_rect.x + 14, tooltip_rect.y + 12 + index * line_height))
 
     def _draw_current_boss_marker(self):
@@ -1276,7 +1279,7 @@ class GameplayPage:
         rect = pygame.Rect(SCREEN_WIDTH - 130, 38, 74, 74)
         icon = self._load_current_boss_icon(entry.get("filename"))
         if icon:
-            scale = self._get_astor_pulse_scale()
+            scale = self._get_boss_effect_pulse_scale()
             if scale != 1.0:
                 size = max(1, round(rect.width * scale))
                 icon = pygame.transform.smoothscale(icon, (size, size))
@@ -1299,7 +1302,7 @@ class GameplayPage:
                 current_round = 1
             round_label = f"Раунд {current_round} из {self.rounds_required}"
 
-        label_surface = self.boss_round_label_font.render(round_label, True, PAPER_COLOR)
+        label_surface = self.boss_round_label_font.render(_tr(round_label), True, PAPER_COLOR)
         padding_x = 12
         padding_y = 7
         label_rect = label_surface.get_rect()
@@ -1384,7 +1387,7 @@ class GameplayPage:
                     points = [(arrow_cx, arrow_cy + 7), (arrow_cx - 7, arrow_cy - 6), (arrow_cx + 7, arrow_cy - 6)]
                 pygame.draw.polygon(self.screen, PAPER_COLOR, points)
                 text_x += 24
-            surface = self.font_small.render(str(row.get("text", "")), True, PAPER_COLOR)
+            surface = self.font_small.render(_tr(str(row.get("text", ""))), True, PAPER_COLOR)
             self.screen.blit(surface, (text_x, cursor_y))
             cursor_y += line_height
 
@@ -2090,6 +2093,7 @@ class GameplayPage:
         self.lifecycle_reminder_days_started = set()
         self.final_auto_liquidation_animation = None
         self.astor_cash_burn_animation = None
+        self.arkwright_share_theft_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
         self.hand_negative_overlay_hold = {"red": False, "market": False}
@@ -2656,7 +2660,7 @@ class GameplayPage:
                         self.pause_menu_requested = not self.pause_menu_requested
                     continue
 
-            if self._is_final_auto_liquidation_animating() or self._is_astor_cash_burn_animating():
+            if self._is_final_auto_liquidation_animating() or self._is_boss_penalty_animating():
                 continue
 
             if self._is_hand_transition_active():
@@ -2929,7 +2933,7 @@ class GameplayPage:
     
     def _check_win_lose(self):
         """Check win/lose conditions and trigger WinLose screen if needed"""
-        if self._is_astor_cash_burn_animating():
+        if self._is_boss_penalty_animating():
             return
         if self._is_final_auto_liquidation_animating():
             return
@@ -3933,7 +3937,7 @@ class GameplayPage:
     def _draw_win_napoleondor_reward(self, amount, font, center_x, center_y):
         amount_value = float(amount or 0)
         amount_text = str(int(amount_value)) if amount_value.is_integer() else f"{amount_value:g}"
-        text_surface = font.render(amount_text, True, PAPER_COLOR)
+        text_surface = font.render(_tr(amount_text), True, PAPER_COLOR)
         icon = self.napoleondor_image
         icon_width = icon.get_width() if icon else 0
         spacing = 10 if icon else 0
@@ -3987,9 +3991,9 @@ class GameplayPage:
                     (amount_right, y - 5),
                     2,
                 )
-            label_surface = font.render(str(entry.get("label") or ""), True, PAPER_COLOR)
+            label_surface = font.render(_tr(str(entry.get("label") or "")), True, PAPER_COLOR)
             amount_surface = font.render(
-                self._format_finance_amount(entry.get("amount")),
+                _tr(self._format_finance_amount(entry.get("amount"))),
                 True,
                 PAPER_COLOR,
             )
@@ -4056,7 +4060,7 @@ class GameplayPage:
         if not getattr(self, "is_boss_fight", False):
             return None
         if getattr(self, "is_final_boss", False):
-            return getattr(self, "reward_window_text", None) or self._get_final_boss_reward_text()
+            return self._get_final_boss_reward_text()
         random_reward = getattr(self, "random_boss_reward_text", None)
         if random_reward:
             return random_reward
@@ -4141,11 +4145,11 @@ class GameplayPage:
             if total_height <= available_height or font_size == 17:
                 break
         cursor_y = description_top
-        bullet_surface = description_font.render("*", True, PAPER_COLOR)
+        bullet_surface = description_font.render(_tr("*"), True, PAPER_COLOR)
         for item_index, lines in enumerate(wrapped_items):
             self.screen.blit(bullet_surface, (text_x, cursor_y))
             for line_index, line in enumerate(lines):
-                surface = description_font.render(line, True, PAPER_COLOR)
+                surface = description_font.render(_tr(line), True, PAPER_COLOR)
                 self.screen.blit(
                     surface,
                     (text_x + bullet_indent, cursor_y + line_index * line_height),
@@ -4170,7 +4174,7 @@ class GameplayPage:
                 "CardReportBossTitle",
                 "Бонус за победу над боссом:",
             )
-        title_surface = title_font.render(title, True, PAPER_COLOR)
+        title_surface = title_font.render(_tr(title), True, PAPER_COLOR)
         title_rect = title_surface.get_rect(
             left=text_x,
             top=report_rect.top + int(report_rect.height * 0.275),
@@ -4182,11 +4186,14 @@ class GameplayPage:
             "Временные карты обнулились",
         )
         footer_font = pygame.font.Font(self.font_path, 26)
-        footer_surface = footer_font.render(footer, True, PAPER_COLOR)
+        footer_surface = footer_font.render(_tr(footer), True, PAPER_COLOR)
         footer_rect = footer_surface.get_rect(
             left=text_x,
             top=report_rect.top + int(
-                report_rect.height * self._get_card_report_footer_ratio(row_count)
+                report_rect.height * (
+                    0.86 if getattr(self, "is_final_boss", False)
+                    else self._get_card_report_footer_ratio(row_count)
+                )
             ),
         )
 
@@ -4200,7 +4207,8 @@ class GameplayPage:
             report_rect,
             items,
             description_top,
-            text_x,
+            report_rect.left + int(report_rect.width * 0.14)
+            if getattr(self, "is_final_boss", False) else text_x,
             footer_rect.top - 12,
         )
         self.screen.blit(footer_surface, footer_rect.topleft)
@@ -4248,7 +4256,7 @@ class GameplayPage:
                 "CardReportNewCardsTitle",
                 "Вы получили новые карты:",
             )
-            title_surface = title_font.render(title, True, PAPER_COLOR)
+            title_surface = title_font.render(_tr(title), True, PAPER_COLOR)
             self.screen.blit(
                 title_surface,
                 (
@@ -4258,7 +4266,7 @@ class GameplayPage:
             )
         if notice:
             notice_font = pygame.font.Font(self.font_path, 27)
-            notice_surface = notice_font.render(notice, True, PAPER_COLOR)
+            notice_surface = notice_font.render(_tr(notice), True, PAPER_COLOR)
             notice_rect = notice_surface.get_rect(
                 left=text_x,
                 bottom=content_top - 10,
@@ -4282,7 +4290,7 @@ class GameplayPage:
             line_height = font.get_height() + 4
             text_y = slot_top + max(0, (slot_height - len(lines) * line_height) // 2)
             for line_index, line in enumerate(lines):
-                surface = font.render(line, True, PAPER_COLOR)
+                surface = font.render(_tr(line), True, PAPER_COLOR)
                 self.screen.blit(surface, (text_x, text_y + line_index * line_height))
         if is_boss_report:
             self._draw_card_report_boss_text(
@@ -5365,13 +5373,18 @@ class GameplayPage:
 
     def _finalize_turn_resolution(self):
         """Advance/check the day and only then draw replacement cards."""
-        if self._is_astor_cash_burn_animating():
+        if self._is_boss_penalty_animating():
             return
         if not self.turn_resolution_active:
             return
 
         self.effect_finalize_pending = False
         self._apply_boss_share_theft_if_needed()
+        if self._is_arkwright_share_theft_animating():
+            return
+        self._finish_turn_after_arkwright_share_theft()
+
+    def _finish_turn_after_arkwright_share_theft(self):
         if not self._is_level6_alternating_battle():
             self._run_stock_bot_turn()
         elif not self.stock_bot_acted_this_resolution:
@@ -5425,8 +5438,23 @@ class GameplayPage:
     def _is_astor_cash_burn_animating(self):
         return getattr(self, "astor_cash_burn_animation", None) is not None
 
+    def _is_arkwright_share_theft_animating(self):
+        return getattr(self, "arkwright_share_theft_animation", None) is not None
+
+    def _play_boss_alarm_sound(self):
+        sound = getattr(self, "alarm_sound", None)
+        if sound:
+            sound.play()
+
+    def _is_boss_penalty_animating(self):
+        return self._is_astor_cash_burn_animating() or self._is_arkwright_share_theft_animating()
+
     def _get_astor_pulse_scale(self):
-        anim = getattr(self, "astor_cash_burn_animation", None)
+        return self._get_boss_effect_pulse_scale()
+
+    def _get_boss_effect_pulse_scale(self):
+        anim = (getattr(self, "astor_cash_burn_animation", None)
+                or getattr(self, "arkwright_share_theft_animation", None))
         if not anim:
             return 1.0
         progress = min(1.0, max(0.0, (pygame.time.get_ticks() - anim["start_time"]) / anim["duration_ms"]))
@@ -5447,6 +5475,7 @@ class GameplayPage:
                 "start_time": pygame.time.get_ticks(),
                 "duration_ms": 1500,
             }
+            self._play_boss_alarm_sound()
         else:
             self.Money = 0
         return burned
@@ -5471,7 +5500,14 @@ class GameplayPage:
         if not getattr(self, "boss_steals_shares", False) or self.win_lose_state is not None:
             return False
 
-        total_shares = int(self.Aquantity or 0) + int(self.Bquantity or 0) + int(self.Cquantity or 0)
+        if self._is_arkwright_share_theft_animating():
+            return False
+        start_quantities = {
+            key: int(getattr(self, key) or 0)
+            for key in ("Aquantity", "Bquantity", "Cquantity")
+        }
+        remaining_quantities = dict(start_quantities)
+        total_shares = sum(start_quantities.values())
         if total_shares <= 10:
             self._record_arkwright_stat("none")
             return False
@@ -5494,11 +5530,7 @@ class GameplayPage:
         stolen = {"Aquantity": 0, "Bquantity": 0, "Cquantity": 0}
 
         for _ in range(shares_to_steal):
-            available = [
-                ("Aquantity", int(self.Aquantity or 0)),
-                ("Bquantity", int(self.Bquantity or 0)),
-                ("Cquantity", int(self.Cquantity or 0)),
-            ]
+            available = list(remaining_quantities.items())
             available = [(key, quantity) for key, quantity in available if quantity > 0]
             if not available:
                 break
@@ -5508,7 +5540,7 @@ class GameplayPage:
             for key, quantity in available:
                 cursor += quantity
                 if pick <= cursor:
-                    setattr(self, key, getattr(self, key) - 1)
+                    remaining_quantities[key] -= 1
                     stolen[key] += 1
                     break
 
@@ -5517,6 +5549,13 @@ class GameplayPage:
             self._record_arkwright_stat("none")
             return False
 
+        self.arkwright_share_theft_animation = {
+            "start_quantities": start_quantities,
+            "target_quantities": remaining_quantities,
+            "start_time": pygame.time.get_ticks(),
+            "duration_ms": 1500,
+        }
+        self._play_boss_alarm_sound()
         self._record_arkwright_stat(outcome)
         print(
             "Arkwright stole shares: "
@@ -5524,6 +5563,23 @@ class GameplayPage:
             f"({int(percent * 100)}%, total={stolen_total})"
         )
         return True
+
+    def update_arkwright_share_theft_animation(self):
+        anim = getattr(self, "arkwright_share_theft_animation", None)
+        if not anim:
+            return
+        progress = min(1.0, max(0.0, (pygame.time.get_ticks() - anim["start_time"]) / anim["duration_ms"]))
+        for key, start in anim["start_quantities"].items():
+            target = anim["target_quantities"][key]
+            remaining = (start - target) * (1.0 - progress) ** 2
+            # Keep the final stolen share until the last pulse finishes.
+            value = target + max(1, int(round(remaining))) if progress < 1.0 and start > target else target
+            setattr(self, key, value)
+        if progress < 1.0:
+            return
+        self.arkwright_share_theft_animation = None
+        if getattr(self, "turn_resolution_active", False):
+            self._finish_turn_after_arkwright_share_theft()
 
     def _record_arkwright_stat(self, outcome):
         if self.test_mode:
@@ -6781,11 +6837,11 @@ class GameplayPage:
         tooltip = pygame.Surface((width, height), pygame.SRCALPHA)
         pygame.draw.rect(tooltip, (244, 235, 211, 248), tooltip.get_rect(), border_radius=8)
         pygame.draw.rect(tooltip, PAPER_COLOR, tooltip.get_rect(), 3, border_radius=8)
-        title_surface = self.disclosure_tooltip_title_font.render(title, True, PAPER_COLOR)
+        title_surface = self.disclosure_tooltip_title_font.render(_tr(title), True, PAPER_COLOR)
         tooltip.blit(title_surface, (padding, padding))
         text_y = padding + title_height + 10
         for line in lines:
-            line_surface = self.disclosure_tooltip_text_font.render(line, True, PAPER_COLOR)
+            line_surface = self.disclosure_tooltip_text_font.render(_tr(line), True, PAPER_COLOR)
             tooltip.blit(line_surface, (padding, text_y))
             text_y += line_height
         self.screen.blit(tooltip, (x, y))
@@ -6819,7 +6875,7 @@ class GameplayPage:
         pygame.draw.rect(surface, PAPER_COLOR, surface.get_rect(), 3, border_radius=7)
 
         title = self.disclosure_tooltip_title_font.render(
-            "Waterloo: прогноз рыночного броска",
+            _tr("Waterloo: прогноз рыночного броска"),
             True,
             PAPER_COLOR,
         )
@@ -6836,10 +6892,10 @@ class GameplayPage:
                 result_text = "Падение"
                 color = (148, 58, 48)
             else:
-                result_text = "Flat"
+                result_text = "Без изменений"
                 color = PAPER_COLOR
             text = self.disclosure_tooltip_text_font.render(
-                f"{labels[market]}   {result_text} до {forecast_price}",
+                _tr(f"{labels[market]}   {result_text} до {forecast_price}"),
                 True,
                 color,
             )
@@ -6876,7 +6932,7 @@ class GameplayPage:
         )
         line_height = self.font_small.get_height() + 2
         for index, line in enumerate(lines):
-            text_surface = self.font_small.render(line, True, PAPER_COLOR)
+            text_surface = self.font_small.render(_tr(line), True, PAPER_COLOR)
             self.screen.blit(text_surface, (x, y + index * line_height))
 
     def _draw_market_clear_animations(self):
@@ -6913,7 +6969,7 @@ class GameplayPage:
             if market != 1:
                 return
             text = self._get_text("Level6BotThinking", "Бот3 думает...")
-            surface = self.font_small.render(text, True, PAPER_COLOR)
+            surface = self.font_small.render(_tr(text), True, PAPER_COLOR)
             self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
             return
 
@@ -6933,7 +6989,7 @@ class GameplayPage:
                 "Level6BotSelling" if phase == "selling" else "Level6BotBuying",
                 "Продаёт" if phase == "selling" else "Покупает",
             )
-            action_surface = self.pause_small_font.render(action_text, True, PAPER_COLOR)
+            action_surface = self.pause_small_font.render(_tr(action_text), True, PAPER_COLOR)
             action_rect = action_surface.get_rect(
                 centerx=frame_rect.centerx,
                 bottom=frame_rect.centery - 28,
@@ -6951,7 +7007,7 @@ class GameplayPage:
                 count_x = arrow_rect.right + 8
             else:
                 count_x = frame_rect.centerx - 12
-            count_surface = self.font_large.render(str(count), True, PAPER_COLOR)
+            count_surface = self.font_large.render(_tr(str(count)), True, PAPER_COLOR)
             count_rect = count_surface.get_rect(
                 left=count_x,
                 centery=frame_rect.centery + 32,
@@ -6975,7 +7031,7 @@ class GameplayPage:
         else:
             hold_text = self._get_text("Level6BotHolding", "Держит")
             text = f"{hold_text}: {count}"
-        surface = self.font_small.render(text, True, PAPER_COLOR)
+        surface = self.font_small.render(_tr(text), True, PAPER_COLOR)
         self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
     
     def draw(self):
@@ -7039,9 +7095,9 @@ class GameplayPage:
             else:
                 goal_label_text = "Goal:"
                 goal_value_text = str(self.Goal)
-            goal_label = self.font_medium.render(goal_label_text, True, PAPER_COLOR)
+            goal_label = self.font_medium.render(_tr(goal_label_text), True, PAPER_COLOR)
             goal_value_font = self.font_small if capital_race else self.font_medium
-            goal_value = goal_value_font.render(goal_value_text, True, PAPER_COLOR)
+            goal_value = goal_value_font.render(_tr(goal_value_text), True, PAPER_COLOR)
             goal_label_x = label_start_x
             goal_label_y = margin_top
             if capital_race:
@@ -7057,8 +7113,8 @@ class GameplayPage:
             self.screen.blit(goal_value, (goal_value_x, goal_value_y))
             
             # Draw Money label and value (below Goal)
-            money_label = self.font_medium.render("Money:", True, PAPER_COLOR)
-            money_value = self.font_medium.render(str(self.Money), True, PAPER_COLOR)
+            money_label = self.font_medium.render(_tr("Money:"), True, PAPER_COLOR)
+            money_value = self.font_medium.render(_tr(str(self.Money)), True, PAPER_COLOR)
             money_label_x = label_start_x
             goal_block_bottom = max(
                 goal_label_y + goal_label.get_height(),
@@ -7073,7 +7129,7 @@ class GameplayPage:
 
             bot_status_text = self._stock_bot_status_text()
             bot_status_font = self.pause_small_font if capital_race else self.font_small
-            bot_status = bot_status_font.render(bot_status_text, True, PAPER_COLOR) if bot_status_text else None
+            bot_status = bot_status_font.render(_tr(bot_status_text), True, PAPER_COLOR) if bot_status_text else None
             bot_status_x = label_start_x
             bot_status_y = money_label_y + money_label.get_height() + 8
             if bot_status and bot_status_x + bot_status.get_width() > SCREEN_WIDTH - min_right_margin:
@@ -7181,7 +7237,7 @@ class GameplayPage:
                         
                         if quantity is not None:
                             # Position text to the right of the bundle image, vertically centered
-                            quantity_text = self.font_small.render(str(quantity), True, PAPER_COLOR)
+                            quantity_text = self.font_small.render(_tr(str(quantity)), True, PAPER_COLOR)
                             # Center text vertically with bundle image
                             text_y = bundle_y + (self.bundle_image.get_height() - quantity_text.get_height()) // 2
                             self.screen.blit(quantity_text, (text_x, text_y))
@@ -7202,7 +7258,7 @@ class GameplayPage:
                                 price = self.CPrice
                             
                             if price is not None:
-                                price_text = self.font_small.render(str(price), True, PAPER_COLOR)
+                                price_text = self.font_small.render(_tr(str(price)), True, PAPER_COLOR)
                                 price_text_x = text_x  # Same x position as quantity field
                                 # Center text vertically with Dollar image
                                 price_text_y = dollar_y + (self.dollar_image.get_height() - price_text.get_height()) // 2
@@ -7696,7 +7752,7 @@ class GameplayPage:
             self.screen.blit(end_button_image, end_button_draw_rect)
             
             # Draw Day counter to the left of the button
-            day_text = self.font_medium.render(f"Day: {self.Day} /{self.LastTurn}", True, PAPER_COLOR)
+            day_text = self.font_medium.render(_tr(f"Day: {self.Day} /{self.LastTurn}"), True, PAPER_COLOR)
             day_text_x = self.end_button_rect.x - day_text.get_width() - 20  # 20px spacing from button
             day_text_y = self.end_button_rect.y + (self.end_button_rect.height - day_text.get_height()) // 2  # Vertically centered with button
             self.screen.blit(day_text, (day_text_x, day_text_y))
@@ -7717,7 +7773,7 @@ class GameplayPage:
                 }
                 if self.level6_turn_owner == "bot":
                     turn_label = bot_phase_labels.get(self.level6_bot_turn_phase, turn_label)
-                turn_surface = self.font_small.render(turn_label, True, PAPER_COLOR)
+                turn_surface = self.font_small.render(_tr(turn_label), True, PAPER_COLOR)
                 turn_rect = turn_surface.get_rect(
                     centerx=self.end_button_rect.centerx,
                     bottom=self.end_button_rect.y - 8,
@@ -7726,7 +7782,7 @@ class GameplayPage:
 
             if int(getattr(self, "boss_turn_time_limit_seconds", 0) or 0) > 0:
                 timer_text = self.font_medium.render(
-                    str(self._get_boss_turn_timer_seconds()),
+                    _tr(str(self._get_boss_turn_timer_seconds())),
                     True,
                     PAPER_COLOR,
                 )
@@ -7775,7 +7831,7 @@ class GameplayPage:
             
             # Draw lose text
             text_y = win_lose_y_draw + 85  # Top padding (50 + 35)
-            text_surface = self.font_small.render(self.lose_window_text, True, PAPER_COLOR)
+            text_surface = self.font_small.render(_tr(self.lose_window_text), True, PAPER_COLOR)
             text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2  # Center horizontally
             self.screen.blit(text_surface, (text_x, text_y))
             
@@ -7839,6 +7895,7 @@ class GameplayPage:
             self.update_market_clear_animations()
             self.update_final_auto_liquidation_animation()
             self.update_astor_cash_burn_animation()
+            self.update_arkwright_share_theft_animation()
             
             # Update sequential processing of persistent price-effect cards.
             self.update_price_card_processing()

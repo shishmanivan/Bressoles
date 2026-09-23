@@ -1,3 +1,4 @@
+from localization import get_language, translate as _tr
 import os
 import random
 import sys
@@ -300,15 +301,15 @@ class GameScreen:
         return None
 
     def _render_text_cached(self, font, text, color):
-        cache_key = (id(font), str(text), tuple(color))
+        cache_key = (get_language(), id(font), str(text), tuple(color))
         surface = self._text_surface_cache.get(cache_key)
         if surface is None:
-            surface = font.render(str(text), True, color)
+            surface = font.render(_tr(str(text)), True, color)
             self._text_surface_cache[cache_key] = surface
         return surface
 
     def _wrap_text_cached(self, text, font, max_width):
-        cache_key = (id(font), text, max_width)
+        cache_key = (get_language(), id(font), text, max_width)
         lines = self._wrapped_text_cache.get(cache_key)
         if lines is None:
             lines = wrap_text(text, font, max_width)

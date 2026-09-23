@@ -118,7 +118,7 @@ class StartPage:
             self.lang.get("MenuStart", "Start Game"),
             self.lang.get("MenuOption", "Options"),
             self.lang.get("MenuQuit", "Quit"),
-            self.lang.get("MenuTestMode", "Test Mode"),
+            self.lang.get("MenuLanguages", "Языки"),
         ]
         self.selected_index = 0
         self.profile_rect = None
@@ -249,7 +249,7 @@ class StartPage:
 
     def _activate_menu_item(self, index):
         self._play_button_sound()
-        return ("start", "options", "quit", "test_mode")[index]
+        return ("start", "options", "quit", "languages")[index]
 
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -278,7 +278,7 @@ class StartPage:
                     self.selected_index = (self.selected_index + 1) % len(self.menu_items)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._keyboard_focus = True
-                    self._begin_press(self.selected_index, ("start", "options", "quit", "test_mode")[self.selected_index])
+                    self._begin_press(self.selected_index, ("start", "options", "quit", "languages")[self.selected_index])
 
             if event.type == pygame.MOUSEMOTION:
                 self._keyboard_focus = False
@@ -296,7 +296,7 @@ class StartPage:
                     self._begin_press("profile", "profile")
                 for index in range(len(self.menu_items)):
                     if self._get_menu_rect(index).collidepoint(mouse_pos):
-                        self._begin_press(index, ("start", "options", "quit", "test_mode")[index])
+                        self._begin_press(index, ("start", "options", "quit", "languages")[index])
 
         if self._pending_action is not None and pygame.time.get_ticks() >= self._press_until:
             action = self._pending_action
@@ -357,7 +357,7 @@ class StartPage:
     def run(self):
         while True:
             result = self.handle_input()
-            if result in {"quit", "start", "profile", "options", "test_mode"}:
+            if result in {"quit", "start", "profile", "options", "languages"}:
                 return result
             self.draw()
             self.clock.tick(FPS)

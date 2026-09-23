@@ -1,3 +1,4 @@
+from localization import translate as _tr
 import sys
 
 import pygame
@@ -473,7 +474,7 @@ class RoundPage:
             coin_rect = self.napoleondor_image.get_rect(midleft=(x, y + self.popup_font.get_height() // 2))
             self.screen.blit(self.napoleondor_image, coin_rect.topleft)
             coin_x = coin_rect.right + 8
-        amount_surface = self.popup_font.render(amount_text, True, PAPER_COLOR)
+        amount_surface = self.popup_font.render(_tr(amount_text), True, PAPER_COLOR)
         self.screen.blit(amount_surface, (coin_x, y))
 
     def _load_boss_icon_if_needed(self):
@@ -799,12 +800,12 @@ class RoundPage:
                 line_height = self.popup_font.get_height() + 5
 
                 for i, line in enumerate(lines):
-                    text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                    text_surface = self.popup_font.render(_tr(line), True, PAPER_COLOR)
                     self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
 
                 if self.popup_button == "boss":
                     reward_text_y = text_start_y + len(lines) * line_height
-                    reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
+                    reward_text_surface = self.popup_font.render(_tr(self.popup_reward_text), True, PAPER_COLOR)
                     self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
                     napoleondor_reward = self._get_popup_napoleondor_reward()
                     if napoleondor_reward > 0:
@@ -817,7 +818,7 @@ class RoundPage:
                         boss_reward_lines = wrap_text(self.boss_text, self.popup_font, popup_text_width)
                         reward_text_y += line_height
                         for i, line in enumerate(boss_reward_lines):
-                            reward_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                            reward_surface = self.popup_font.render(_tr(line), True, PAPER_COLOR)
                             self.screen.blit(reward_surface, (text_start_x, reward_text_y + i * line_height))
 
                 if self.popup_button != "boss" and self.popup_button in ["e", "m", "h"]:
@@ -836,7 +837,7 @@ class RoundPage:
                     reward_data = self.rewards.get(reward_key)
 
                     reward_text_y = text_start_y + len(lines) * line_height
-                    reward_text_surface = self.popup_font.render(self.popup_reward_text, True, PAPER_COLOR)
+                    reward_text_surface = self.popup_font.render(_tr(self.popup_reward_text), True, PAPER_COLOR)
                     self.screen.blit(reward_text_surface, (text_start_x, reward_text_y))
 
                     napoleondor_reward = self._get_popup_napoleondor_reward()
@@ -855,7 +856,7 @@ class RoundPage:
                             additional_text_lines = wrap_text(additional_text_value, self.popup_font, popup_text_width)
                             reward_text_y += line_height
                             for i, line in enumerate(additional_text_lines):
-                                additional_text_surface = self.popup_font.render(line, True, PAPER_COLOR)
+                                additional_text_surface = self.popup_font.render(_tr(line), True, PAPER_COLOR)
                                 self.screen.blit(additional_text_surface, (text_start_x, reward_text_y + i * line_height))
 
                 if self.popup_button != "boss" and self.popup_button in ["e", "m", "h"]:

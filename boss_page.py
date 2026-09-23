@@ -1,3 +1,4 @@
+from localization import translate as _tr
 import os
 import sys
 
@@ -25,7 +26,7 @@ ANIMATION_SCALE_OVERRIDES = {
 }
 _boss_animation_frames_cache = {}
 POPUP_FONT_MAX_SIZE = 24
-POPUP_FONT_MIN_SIZE = 18
+POPUP_FONT_MIN_SIZE = 14
 POPUP_TEXT_TOP = 120
 POPUP_TEXT_BOTTOM_PADDING = 14
 POPUP_TEXT_WIDTH = 200
@@ -599,18 +600,18 @@ class BossPage:
                 line_height = layout["line_height"] if layout else font.get_height() + 4
 
                 for i, line in enumerate(lines):
-                    text_surface = font.render(line, True, PAPER_COLOR)
+                    text_surface = font.render(_tr(line), True, PAPER_COLOR)
                     self.screen.blit(text_surface, (text_start_x, text_start_y + i * line_height))
 
                 if self.popup_boss_index in self.boss_rewards:
                     reward_header_y = popup_y_draw + layout["header_y"]
-                    header_surface = font.render(self.popup_reward_header, True, PAPER_COLOR)
+                    header_surface = font.render(_tr(self.popup_reward_header), True, PAPER_COLOR)
                     self.screen.blit(header_surface, (text_start_x, reward_header_y))
                     reward_lines = layout["reward_lines"]
                     reward_start_y = popup_y_draw + layout["reward_y"]
 
                     for i, line in enumerate(reward_lines):
-                        reward_surface = font.render(line, True, PAPER_COLOR)
+                        reward_surface = font.render(_tr(line), True, PAPER_COLOR)
                         self.screen.blit(reward_surface, (text_start_x, reward_start_y + i * line_height))
         else:
             if self.popup_boss_index is not None:

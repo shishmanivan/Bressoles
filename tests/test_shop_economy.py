@@ -8,6 +8,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import game_state
 import profile_manager
 from round_page import RoundPage
+from level_routes import get_campaign_content_level
 from shop_page import (
     CARD_DESCRIPTIONS,
     CARD_NAMES,
@@ -650,6 +651,53 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertGreaterEqual(min(rect.left for rect in rects), page.panel_rect.left)
         self.assertLessEqual(max(rect.right for rect in rects), page.panel_rect.right)
         self.assertEqual(page.offer_image_box, (136, 296))
+
+        page.offers.insert(2, {"kind": "card", "card_id": 403})
+        rects = page._build_offer_rects()
+        self.assertEqual(len(rects), 9)
+        self.assertGreaterEqual(min(rect.left for rect in rects), page.panel_rect.left + 20)
+        self.assertLessEqual(max(rect.right for rect in rects), page.panel_rect.right - 20)
+        for left, right in zip(rects, rects[1:]):
+            self.assertLess(left.right, right.left)
+        self.assertLessEqual(page.offer_image_box[0], min(rect.width for rect in rects))
+        self.assertLessEqual(page.card_offer_size[0], min(rect.width for rect in rects))
+
+    def test_marathon_starts_with_two_cards_and_diversification_adds_third(self):
+        level = get_campaign_content_level(6)
+        game_state.napoleondors = 10
+        page = self._shop({"kind": "special", "special_id": "diversification", "cost": 5})
+        page.level_number = level
+
+        def card_offers():
+            return [offer for offer in game_state.generate_shop_offers(
+                level, special_slots=0, license_slots=0
+            ) if offer["kind"] == "card"]
+
+        with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[401, 402, 403]):
+            self.assertEqual(len(card_offers()), 2)
+            self.assertTrue(game_state.is_diversification_offer_available())
+            page._buy_offer(0)
+            self.assertEqual(len(card_offers()), 3)
+            self.assertEqual(game_state.napoleondors, 5)
+            self.assertEqual(page.message, "В магазине теперь предлагаются три карты")
+            self.assertFalse(game_state.buy_diversification())
+            self.assertEqual(len(card_offers()), 3)
+            game_state.reset_level_attempt(level)
+            self.assertEqual(len(card_offers()), 2)
+            self.assertTrue(game_state.is_diversification_offer_available())
+
+    def test_marathon_fills_card_slots_when_probability_pool_is_small(self):
+        level = get_campaign_content_level(6)
+        with (
+            mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[401]),
+            mock.patch.object(game_state, "build_all_available_shop_cards", return_value=[401, 402, 403]),
+        ):
+            for upgraded, expected in ((False, 2), (True, 3)):
+                game_state.diversification_bought = upgraded
+                offers = game_state.generate_shop_offers(level, special_slots=0, license_slots=0)
+                cards = [offer["card_id"] for offer in offers if offer["kind"] == "card"]
+                self.assertEqual(len(set(cards)), expected)
+                self.assertIn(401, cards)
 
     def test_diversification_has_thirty_percent_pool_roll_and_then_disappears(self):
         with (

@@ -1,3 +1,4 @@
+from localization import translate as _tr
 """Separate deck, offer, and defeated-boss views for the gameplay footer."""
 
 import math
@@ -71,7 +72,7 @@ def draw_navigation(page):
                 icon = pygame.transform.smoothscale(icon, (106, 106))
             page.screen.blit(icon, icon.get_rect(center=(rect.centerx, rect.y + 48)))
         key, fallback = VIEW_LABELS[mode]
-        label = page.deck_toggle_font.render(page._get_text(key, fallback), True, INK)
+        label = page.deck_toggle_font.render(_tr(page._get_text(key, fallback)), True, INK)
         page.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 106)))
         if page.deck_view_active and page.collection_view == mode:
             pygame.draw.line(page.screen, ACCENT, (rect.x + 10, rect.bottom),
@@ -102,7 +103,7 @@ def draw_scrollbar(page, panel):
 
 
 def draw_empty(page, rect, key="CollectionEmpty", fallback="Пока пусто"):
-    text = page.collection_font.render(page._get_text(key, fallback), True, INK)
+    text = page.collection_font.render(_tr(page._get_text(key, fallback)), True, INK)
     page.screen.blit(text, text.get_rect(midtop=(rect.centerx, rect.top + 24)))
 
 
@@ -132,7 +133,7 @@ def draw_deck(page, content, panel):
         positioned_cards = []
         for group, key, fallback, top in sections:
             y = content.y + top - offset
-            label = page.collection_font.render(page._get_text(key, fallback), True, INK)
+            label = page.collection_font.render(_tr(page._get_text(key, fallback)), True, INK)
             page.screen.blit(label, (start_x, y))
             positioned_cards.extend((index, card, y + 36) for index, card in enumerate(groups[group]))
         for index, card_id, y in positioned_cards:
@@ -187,7 +188,7 @@ def draw_offers(page, content, panel):
     try:
         for group, key, fallback, top in sections:
             heading_y = content.y + top - offset
-            header = page.collection_font.render(page._get_text(key, fallback), True, INK)
+            header = page.collection_font.render(_tr(page._get_text(key, fallback)), True, INK)
             page.screen.blit(header, (start_x, heading_y))
             for index, entry in enumerate(groups[group]):
                 center_x = start_x + index % columns * step_x + card_w // 2
@@ -205,13 +206,13 @@ def draw_offers(page, content, panel):
                         hovered = drawn
                 name = SPECIAL_ASSETS.get(entry.get("special_id"), (str(entry.get("special_id")), None))[0]
                 for line_index, line in enumerate(wrap_text(name, page.deck_toggle_font, step_x - 12)):
-                    text = page.deck_toggle_font.render(line, True, INK)
+                    text = page.deck_toggle_font.render(_tr(line), True, INK)
                     page.screen.blit(text, text.get_rect(midtop=(center_x, y + 143 + line_index * 21)))
                 if entry.get("remaining") is None:
                     continue
                 status = offer_status(page, entry, group == "pending")
                 for line_index, line in enumerate(wrap_text(status, page.deck_toggle_font, step_x - 12)):
-                    text = page.deck_toggle_font.render(line, True, INK)
+                    text = page.deck_toggle_font.render(_tr(line), True, INK)
                     page.screen.blit(text, text.get_rect(midtop=(center_x, y + 186 + line_index * 20)))
     finally:
         page.screen.set_clip(old_clip)
@@ -239,7 +240,7 @@ def draw_bosses(page, content, panel):
             if icon:
                 page.screen.blit(icon, rect)
             for index, line in enumerate(lines):
-                text = page.collection_font.render(line, True, INK)
+                text = page.collection_font.render(_tr(line), True, INK)
                 page.screen.blit(text, (content.x + 132, y + 12 + index * 27))
             y += height
     finally:
@@ -268,12 +269,12 @@ def draw_collection_view(page):
             page.deck_scope_rects[scope] = rect
             if rect.collidepoint(pygame.mouse.get_pos()):
                 pygame.draw.rect(page.screen, (226, 214, 190), rect, border_radius=4)
-            label = page.collection_font.render(page._get_text(label_key, label_fallback), True, INK)
+            label = page.collection_font.render(_tr(page._get_text(label_key, label_fallback)), True, INK)
             page.screen.blit(label, label.get_rect(center=rect.center))
             if getattr(page, "deck_view_scope", "remaining") == scope:
                 pygame.draw.line(page.screen, ACCENT, (rect.left + 12, rect.bottom), (rect.right - 12, rect.bottom), 2)
     else:
-        title = page.font_small.render(page._get_text(key, fallback), True, INK)
+        title = page.font_small.render(_tr(page._get_text(key, fallback)), True, INK)
         page.screen.blit(title, title.get_rect(midtop=(panel.centerx, panel.top + 38)))
     page.collection_close_rect = pygame.Rect(panel.right - 64, panel.top + 34, 40, 40)
     close = page.collection_close_rect

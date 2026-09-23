@@ -30,7 +30,7 @@ from level_screen_helpers import build_normal_mode_layout, load_primary_level_as
 from gameplay_winlose import build_win_result_layout
 from round_page import RoundPage
 from round_page_helpers import build_completed_round_lines
-from shop_page import RetentionDeckPage, ScreeningOfferPage
+from shop_page import CorrectionDeckPage, RetentionDeckPage, ScreeningOfferPage
 from silver_black_page import PositioningPage, ReplicationGoldPage, ReplicationSilverPage, SilverBlackPage
 
 
@@ -830,6 +830,24 @@ class UiLayoutTests(unittest.TestCase):
             all(left.right < right.left for left, right in zip(rects, rects[1:]))
         )
         self.assertLess(rects[-1].bottom, panel.bottom - 280)
+
+    def test_correction_cards_show_effect_tooltip_on_hover(self):
+        with (
+            mock.patch.object(game_state, "silver_cards", [201]),
+            mock.patch.object(game_state, "gold_cards", []),
+        ):
+            page = CorrectionDeckPage(self.screen, self.font_path, 4)
+
+        card_rect = page.card_rects[0]
+        self.assertEqual(page._card_at(card_rect.center), 0)
+        title, description = page._card_tooltip_content(page.deck[0])
+        self.assertEqual(title, "Rebate")
+        self.assertTrue(description)
+
+        page.screen = mock.Mock()
+        with mock.patch("pygame.mouse.get_pos", return_value=card_rect.center):
+            page._draw_card_tooltip()
+        page.screen.blit.assert_called_once()
 
     def test_positioning_requires_exact_selection_and_supports_pages(self):
         page = PositioningPage(

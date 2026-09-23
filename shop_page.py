@@ -1,3 +1,4 @@
+from localization import get_language, translate as _tr
 import os
 import sys
 
@@ -16,7 +17,7 @@ from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
 from card_acquisition_stats import record_card_offers
 from shop_purchases import buy_card_or_license
-from silver_black_page import ReplicationGoldPage, ReplicationSilverPage
+from silver_black_page import CARD_TOOLTIPS, ReplicationGoldPage, ReplicationSilverPage
 
 
 SCREEN_WIDTH = 1680
@@ -82,7 +83,7 @@ SPECIAL_DESCRIPTIONS = {
     "variance": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
     "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
-    "diversification": "Увеличивает количество карт, предлагаемых в каждом следующем магазине, с одной до двух.",
+    "diversification": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
     "expansion": "Добавляет ещё одно предложение в каждый следующий магазин.",
     "bill_of_exchange": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
@@ -364,7 +365,7 @@ class ShopPage:
         return image
 
     def _draw_centered_text(self, text, font, center, color=PAPER_COLOR):
-        surface = font.render(str(text), True, color)
+        surface = font.render(_tr(str(text)), True, color)
         rect = surface.get_rect(center=center)
         self.screen.blit(surface, rect)
 
@@ -396,6 +397,14 @@ class ShopPage:
             group_gap = 80
         total_width = sum(len(offers) * width + max(0, len(offers) - 1) * slot_gap for _kind, offers in groups)
         total_width += max(0, len(groups) - 1) * group_gap
+        available_width = self.panel_rect.right - self.panel_rect.left - 40
+        if offer_count and total_width > available_width:
+            spacing_width = total_width - offer_count * width
+            width = max(1, (available_width - spacing_width) // offer_count)
+            total_width = offer_count * width + spacing_width
+            self.offer_image_box = (min(self.offer_image_box[0], width - 6), 296)
+            card_width = min(GAMEPLAY_CARD_SIZE[0], width)
+            self.card_offer_size = (card_width, round(card_width * GAMEPLAY_CARD_SIZE[1] / GAMEPLAY_CARD_SIZE[0]))
         x = self.panel_rect.centerx - total_width // 2
         rects = []
         self.category_rects = []
@@ -409,13 +418,13 @@ class ShopPage:
         return rects
 
     def _offer_label_surface(self, text, max_width):
-        cache_key = (str(text), int(max_width))
+        cache_key = (get_language(), str(text), int(max_width))
         cached = self._offer_label_surface_cache.get(cache_key)
         if cached is not None:
             return cached
         for size in range(30, 17, -2):
             font = self.small_font if size == 30 else pygame.font.Font(self.font_path, size)
-            surface = font.render(str(text), True, PAPER_COLOR)
+            surface = font.render(_tr(str(text)), True, PAPER_COLOR)
             if surface.get_width() <= max_width or size == 18:
                 self._offer_label_surface_cache[cache_key] = surface
                 return surface
@@ -546,7 +555,7 @@ class ShopPage:
         text_key = (id(font), amount_text)
         text = self._coin_text_cache.get(text_key)
         if text is None:
-            text = font.render(amount_text, True, PAPER_COLOR)
+            text = font.render(_tr(amount_text), True, PAPER_COLOR)
             self._coin_text_cache[text_key] = text
         coin_width = 0
         if self.coin_image:
@@ -579,7 +588,7 @@ class ShopPage:
             overlay = pygame.Surface(image_rect.size, pygame.SRCALPHA)
             overlay.fill((238, 228, 205, 190))
             self.screen.blit(overlay, image_rect.topleft)
-            sold = self.small_font.render("Куплено", True, SOLD_COLOR)
+            sold = self.small_font.render(_tr("Куплено"), True, SOLD_COLOR)
             self.screen.blit(sold, sold.get_rect(center=image_rect.center))
 
     def _offer_at(self, pos):
@@ -799,7 +808,9 @@ class ShopPage:
             game_state.spend_napoleondors(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
-            self.message = "В магазине теперь предлагаются две карты"
+            card_count = game_state.get_shop_card_offer_slots(self.level_number)
+            count_text = "три" if card_count == 3 else "две"
+            self.message = f"В магазине теперь предлагаются {count_text} карты"
             return
 
         if special_id == "expansion":
@@ -1306,7 +1317,7 @@ class DeckCardPage:
         return rects
 
     def _draw_centered_text(self, text, font, center, color=PAPER_COLOR):
-        surface = font.render(str(text), True, color)
+        surface = font.render(_tr(str(text)), True, color)
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, text):
@@ -1366,6 +1377,55 @@ class DeckCardPage:
                 return index
         return None
 
+    @staticmethod
+    def _tooltip_card_id(card_entry):
+        if isinstance(card_entry, (tuple, list)) and len(card_entry) >= 2:
+            return card_entry[1]
+        return card_entry
+
+    def _card_tooltip_content(self, card_entry):
+        card_id = self._tooltip_card_id(card_entry)
+        try:
+            normalized = int(card_id)
+        except (TypeError, ValueError):
+            normalized = card_id
+        if normalized in CARD_TOOLTIPS:
+            return CARD_TOOLTIPS[normalized]
+        return (
+            CARD_NAMES.get(normalized, f"Карта {normalized}"),
+            CARD_DESCRIPTIONS.get(normalized, "Описание эффекта этой карты пока не задано."),
+        )
+
+    def _draw_card_tooltip(self):
+        card_index = self._card_at(pygame.mouse.get_pos())
+        if card_index is None:
+            return
+
+        title, description = self._card_tooltip_content(self.deck[card_index])
+        width = 460
+        padding = 16
+        text_width = width - padding * 2
+        lines = wrap_text(description, self.small_font, text_width, color=PAPER_COLOR)
+        title_height = self.button_font.get_height()
+        line_height = self.small_font.get_height() + 4
+        height = padding * 2 + title_height + 8 + len(lines) * line_height
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        x = max(8, min(mouse_x + 20, SCREEN_WIDTH - width - 8))
+        y = mouse_y + 20
+        if y + height > SCREEN_HEIGHT - 8:
+            y = mouse_y - height - 20
+        y = max(8, min(y, SCREEN_HEIGHT - height - 8))
+
+        tooltip = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.rect(tooltip, (244, 235, 211, 248), tooltip.get_rect(), border_radius=8)
+        pygame.draw.rect(tooltip, PAPER_COLOR, tooltip.get_rect(), 3, border_radius=8)
+        tooltip.blit(self.button_font.render(_tr(str(title)), True, PAPER_COLOR), (padding, padding))
+        text_y = padding + title_height + 8
+        for line in lines:
+            tooltip.blit(self.small_font.render(_tr(line), True, PAPER_COLOR), (padding, text_y))
+            text_y += line_height
+        self.screen.blit(tooltip, (x, y))
+
     def _draw_background(self):
         if self.round_background:
             self.screen.blit(self.round_background, (0, 0))
@@ -1409,6 +1469,7 @@ class DeckCardPage:
         elif self.allow_back:
             self._draw_button(self.cancel_rect, self.back_text)
 
+        self._draw_card_tooltip()
         pygame.display.flip()
 
     def confirm_message(self, card_id):
@@ -1507,7 +1568,7 @@ class InvestmentDeckPage(DeckCardPage):
             if bonus <= 0 or index >= len(self.card_rects):
                 continue
             rect = self.card_rects[index]
-            bonus_surface = self.button_font.render(f"+{bonus}", True, (184, 134, 11))
+            bonus_surface = self.button_font.render(_tr(f"+{bonus}"), True, (184, 134, 11))
             self.screen.blit(bonus_surface, bonus_surface.get_rect(center=(rect.right - 22, rect.y + 24)))
         pygame.display.flip()
 
@@ -1558,10 +1619,10 @@ class TraderDeckPage(DeckCardPage):
                 overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
                 overlay.fill(DISABLED_OVERLAY)
                 self.screen.blit(overlay, rect.topleft)
-                locked = self.small_font.render("Нельзя", True, PAPER_COLOR)
+                locked = self.small_font.render(_tr("Нельзя"), True, PAPER_COLOR)
                 self.screen.blit(locked, locked.get_rect(center=rect.center))
             else:
-                price = self.small_font.render(format_napoleondors(sale_value), True, PAPER_COLOR)
+                price = self.small_font.render(_tr(format_napoleondors(sale_value)), True, PAPER_COLOR)
                 label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
                 pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
                 self.screen.blit(price, price.get_rect(center=label_rect.center))
@@ -1582,6 +1643,7 @@ class TraderDeckPage(DeckCardPage):
         else:
             self._draw_button(self.cancel_rect, self.back_text)
 
+        self._draw_card_tooltip()
         pygame.display.flip()
 
     def run(self):
@@ -1657,7 +1719,7 @@ class CorrectionDeckPage(TraderDeckPage):
                 pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
 
             sale_value = self._sale_value(entry)
-            price = self.small_font.render(format_napoleondors(sale_value), True, PAPER_COLOR)
+            price = self.small_font.render(_tr(format_napoleondors(sale_value)), True, PAPER_COLOR)
             label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
             pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
             self.screen.blit(price, price.get_rect(center=label_rect.center))
@@ -1679,6 +1741,7 @@ class CorrectionDeckPage(TraderDeckPage):
         else:
             self._draw_button(self.cancel_rect, self.back_text)
 
+        self._draw_card_tooltip()
         pygame.display.flip()
 
     def run(self):

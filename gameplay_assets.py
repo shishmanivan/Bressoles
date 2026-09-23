@@ -8,6 +8,7 @@ from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTI
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import draw_bid_modifier_text, is_bid_card
 from sound_assets import load_card_taking_sound
+from localization import get_language
 
 
 _gameplay_core_assets_cache = {}
@@ -157,6 +158,7 @@ def load_gameplay_core_assets(screen_width, screen_height):
         os.path.join("Sounds", "cash-register.mp3"),
         "WARNING: cash-register.mp3 not found at",
     )
+    assets["alarm_sound"] = _load_sound(os.path.join("Sounds", "Alarm.wav"), "WARNING: Alarm.wav not found at")
     assets["card_placing_sound"] = load_card_placing_sound()
     assets["card_hover_sound"] = _load_sound(os.path.join("Sounds", "Card.wav"), "WARNING: Card.wav not found at")
     assets["card_taking_sound"] = load_card_taking_sound()
@@ -215,14 +217,15 @@ def load_gameplay_core_assets(screen_width, screen_height):
 
 
 def load_end_turn_button(screen_width, screen_height):
-    """Load End Turn button and its clickable rect."""
-    cache_key = (screen_width, screen_height)
+    """Load the localized End Turn button and its clickable rect."""
+    language = get_language()
+    cache_key = (screen_width, screen_height, language)
     cached = _end_turn_button_cache.get(cache_key)
     if cached is not None:
         button, rect = cached
         return button, rect.copy() if rect else None
 
-    end_button_path = os.path.join("GameplayPage", "End Turn.png")
+    end_button_path = os.path.join("GameplayPage", {"RU": "End Turn RU.png", "DE": "End Turn DE.png", "ENG": "End Turn.png", "HU": "End Turn HU.png"}[language])
     if os.path.exists(end_button_path):
         end_button_original = pygame.image.load(end_button_path).convert_alpha()
         end_button_original = end_button_original.subsurface(end_button_original.get_bounding_rect()).copy()
@@ -452,8 +455,8 @@ def load_winlose_assets(screen_width, screen_height):
         assets[key] = pygame.transform.smoothscale(original, size).convert_alpha()
 
     assets["stamp_sound"] = _load_sound(
-        os.path.join("Sounds", "Stamp.mp3"),
-        "WARNING: Stamp.mp3 not found at",
+        os.path.join("Sounds", "Stamp.wav"),
+        "WARNING: Stamp.wav not found at",
     )
     assets["report_rustle_sound"] = _load_sound(
         os.path.join("Sounds", "Pen.mp3"),

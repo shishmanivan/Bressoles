@@ -1,3 +1,4 @@
+from localization import SUPPORTED_LANGUAGES
 import csv
 import os
 
@@ -161,9 +162,9 @@ def _validate_source_csvs(csv_dir, cards, language_keys, errors):
         errors,
     )
     _read_csv_rows(csv_dir, "BossRewards.csv", ("Boss", "Reward", "Functionalities"), ("Boss",), errors)
-    language_rows = _read_csv_rows(csv_dir, "Lang.csv", ("Key", "RU", "ENG"), ("Key",), errors)
+    language_rows = _read_csv_rows(csv_dir, "Lang.csv", ("Key", *SUPPORTED_LANGUAGES), ("Key",), errors)
     for row_number, row in enumerate(language_rows, start=2):
-        for column in ("Key", "RU", "ENG"):
+        for column in ("Key", *SUPPORTED_LANGUAGES):
             raw_value = str(row.get(column) or "")
             if not raw_value.strip():
                 errors.append(f"Lang.csv:{row_number}: {column} is empty")
@@ -215,8 +216,7 @@ def validate_game_content(
     rewards = rewards if rewards is not None else load_rewards_config()
     boss_rewards = boss_rewards if boss_rewards is not None else load_boss_rewards()
     languages = languages if languages is not None else {
-        "RU": load_language("RU"),
-        "ENG": load_language("ENG"),
+        code: load_language(code) for code in SUPPORTED_LANGUAGES
     }
     errors = []
 
@@ -225,7 +225,7 @@ def validate_game_content(
         _validate_source_csvs(csv_dir, cards, language_keys, errors)
 
     for key in sorted(REQUIRED_LANGUAGE_KEYS):
-        for language in ("RU", "ENG"):
+        for language in languages:
             if not (languages.get(language, {}).get(key) or "").strip():
                 errors.append(f"Lang.csv: {key} is missing for {language}")
 
@@ -400,7 +400,7 @@ def validate_game_content(
     for boss_number in sorted(active_boss_numbers):
         for suffix in ("Text", "Reward"):
             key = f"Boss{boss_number}{suffix}"
-            for language in ("RU", "ENG"):
+            for language in languages:
                 if not (languages.get(language, {}).get(key) or "").strip():
                     errors.append(f"Lang.csv: {key} is missing for {language}")
 

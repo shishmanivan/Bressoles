@@ -27,7 +27,7 @@ def build_win_result_layout(
     ok_button_rect,
     card_count,
     max_font_size=36,
-    min_font_size=22,
+    min_font_size=16,
     extra_text_lines=0,
 ):
     """Fit result text and reward cards inside the newspaper window."""

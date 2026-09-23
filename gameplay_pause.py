@@ -1,3 +1,4 @@
+from localization import translate as _tr
 import pygame
 
 
@@ -46,7 +47,7 @@ def get_pause_menu_action(layout, position):
 
 
 def _draw_centered_text(surface, font, text, color, center_x, y):
-    rendered = font.render(str(text), True, color)
+    rendered = font.render(_tr(str(text)), True, color)
     surface.blit(rendered, (center_x - rendered.get_width() // 2, y))
 
 
@@ -93,6 +94,6 @@ def draw_pause_menu(surface, layout, texts, title_font, button_font, small_font,
         border = DANGER if action in ("restart", "restart_confirm") else INK
         pygame.draw.rect(surface, fill, rect, border_radius=2)
         pygame.draw.rect(surface, border, rect, 3, border_radius=2)
-        label = button_font.render(labels[action], True, INK)
+        label = button_font.render(_tr(labels[action]), True, INK)
         label_rect = label.get_rect(center=rect.center)
         surface.blit(label, label_rect)

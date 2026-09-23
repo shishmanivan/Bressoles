@@ -1,3 +1,4 @@
+from localization import translate as _tr
 import os
 import sys
 
@@ -385,7 +386,7 @@ class SilverBlackPage:
             "active": self._get_text("LifecycleSelected", "Выбрано"),
         }
         return {
-            kind: self.row_label_font.render(label, True, PAPER_COLOR)
+            kind: self.row_label_font.render(_tr(label), True, PAPER_COLOR)
             for kind, label in labels.items()
         }
 
@@ -680,7 +681,7 @@ class SilverBlackPage:
 
     def _draw_disabled_card(self, rect):
         self._draw_tint(rect, (45, 38, 35, 165))
-        label = self.tooltip_text_font.render("Нельзя", True, (244, 235, 211))
+        label = self.tooltip_text_font.render(_tr("Нельзя"), True, (244, 235, 211))
         label_rect = label.get_rect(center=rect.center)
         padding = 7
         background = label_rect.inflate(padding * 2, padding)
@@ -797,11 +798,11 @@ class SilverBlackPage:
         pygame.draw.rect(tooltip, (244, 235, 211, 248), tooltip.get_rect(), border_radius=10)
         pygame.draw.rect(tooltip, PAPER_COLOR, tooltip.get_rect(), 3, border_radius=10)
 
-        title_surface = self.tooltip_title_font.render(str(title), True, PAPER_COLOR)
+        title_surface = self.tooltip_title_font.render(_tr(str(title)), True, PAPER_COLOR)
         tooltip.blit(title_surface, (padding, padding))
         text_y = padding + title_height + 10
         for line in description_lines:
-            line_surface = self.tooltip_text_font.render(line, True, PAPER_COLOR)
+            line_surface = self.tooltip_text_font.render(_tr(line), True, PAPER_COLOR)
             tooltip.blit(line_surface, (padding, text_y))
             text_y += line_height
 
@@ -1027,7 +1028,7 @@ class PositioningPage(SilverBlackPage):
         pygame.draw.rect(self.screen, color, rect, border_radius=4)
         pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
         text_color = PAPER_COLOR if enabled else (145, 138, 130)
-        surface = self.continue_button_font.render(label, True, text_color)
+        surface = self.continue_button_font.render(_tr(label), True, text_color)
         self.screen.blit(surface, surface.get_rect(center=rect.center))
 
     def _draw_positioning_background(self):
@@ -1091,7 +1092,7 @@ class PositioningPage(SilverBlackPage):
 
     def draw(self):
         self._draw_positioning_background()
-        title = self.title_font.render("Positioning", True, PAPER_COLOR)
+        title = self.title_font.render(_tr("Positioning"), True, PAPER_COLOR)
         self.screen.blit(
             title,
             title.get_rect(center=(self.panel_rect.centerx, self.panel_rect.y + 72)),
@@ -1100,7 +1101,7 @@ class PositioningPage(SilverBlackPage):
             f"Выберите карты для стартовой руки: "
             f"{len(self.selected_card_indices)} / {self.selection_target}"
         )
-        prompt_surface = self.prompt_font.render(prompt, True, PAPER_COLOR)
+        prompt_surface = self.prompt_font.render(_tr(prompt), True, PAPER_COLOR)
         self.screen.blit(
             prompt_surface,
             prompt_surface.get_rect(center=(self.panel_rect.centerx, self.panel_rect.y + 142)),
@@ -1116,7 +1117,7 @@ class PositioningPage(SilverBlackPage):
             selection_number = self.selected_card_indices.index(deck_index) + 1
             badge_center = (rect.right - 5, rect.top + 5)
             pygame.draw.circle(self.screen, GOLD, badge_center, 18)
-            badge = self.selection_badge_font.render(str(selection_number), True, (255, 250, 230))
+            badge = self.selection_badge_font.render(_tr(str(selection_number)), True, (255, 250, 230))
             self.screen.blit(badge, badge.get_rect(center=badge_center))
 
         self._draw_positioning_button(self.positioning_back_button_rect, "Назад")
@@ -1131,7 +1132,7 @@ class PositioningPage(SilverBlackPage):
             self._draw_positioning_button(self.positioning_prev_button_rect, "Пред.", has_previous)
             self._draw_positioning_button(self.positioning_next_button_rect, "След.", has_next)
             page_text = self.prompt_font.render(
-                f"{self.positioning_page_index + 1} / {self.positioning_page_count}",
+                _tr(f"{self.positioning_page_index + 1} / {self.positioning_page_count}"),
                 True,
                 PAPER_COLOR,
             )
@@ -1222,9 +1223,9 @@ class ReplicationSilverPage(SilverBlackPage):
             gap=INVENTORY_ROW_GAP,
         )
         self.silver_label_surface = self.row_label_font.render(
-            self._get_text("LifecycleGold", "Золотые карты")
+            _tr(self._get_text("LifecycleGold", "Золотые карты")
             if self.replication_kind == "gold"
-            else self._get_text("LifecycleSilver", "Серебряные карты"),
+            else self._get_text("LifecycleSilver", "Серебряные карты")),
             True,
             PAPER_COLOR,
         )
@@ -1280,7 +1281,7 @@ class ReplicationSilverPage(SilverBlackPage):
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
     def _draw_centered_text(self, text, font, center, color=PAPER_COLOR):
-        surface = font.render(text, True, color)
+        surface = font.render(_tr(text), True, color)
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, label, enabled=True):

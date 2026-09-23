@@ -36,7 +36,8 @@ class SettingsPage:
 
         self.slider_rect = pygame.Rect(1030, 465, 420, 12)
         self.slider_hit_rect = self.slider_rect.inflate(20, 44)
-        self.back_rect = pygame.Rect(1110, 610, 260, 70)
+        self.test_mode_rect = pygame.Rect(1030, 610, 420, 70)
+        self.back_rect = pygame.Rect(1110, 710, 260, 70)
 
     @staticmethod
     def _clamp_volume(value):
@@ -75,6 +76,8 @@ class SettingsPage:
                 if self.slider_hit_rect.collidepoint(mouse_pos):
                     self.dragging_volume = True
                     self._set_volume_from_x(mouse_pos[0])
+                elif self.test_mode_rect.collidepoint(event.pos):
+                    return "test_mode"
                 elif self.back_rect.collidepoint(mouse_pos):
                     return "back"
             if event.type == pygame.MOUSEMOTION and self.dragging_volume:
@@ -108,6 +111,12 @@ class SettingsPage:
         value_text = self.value_font.render(f"{round(self.music_volume * 100)}%", True, PAPER_COLOR)
         self.screen.blit(value_text, value_text.get_rect(center=(center_x, 535)))
 
+        test_hovered = self.test_mode_rect.collidepoint(pygame.mouse.get_pos())
+        pygame.draw.rect(self.screen, (225, 204, 165), self.test_mode_rect, border_radius=8)
+        pygame.draw.rect(self.screen, GOLD if test_hovered else PAPER_COLOR, self.test_mode_rect, 3, border_radius=8)
+        test_text = self.value_font.render(self.lang.get("MenuTestMode", "Тестовый режим"), True, PAPER_COLOR)
+        self.screen.blit(test_text, test_text.get_rect(center=self.test_mode_rect.center))
+
         hovered = self.back_rect.collidepoint(pygame.mouse.get_pos())
         pygame.draw.rect(self.screen, (225, 204, 165), self.back_rect, border_radius=8)
         pygame.draw.rect(self.screen, GOLD if hovered else PAPER_COLOR, self.back_rect, 3, border_radius=8)
@@ -118,7 +127,7 @@ class SettingsPage:
     def run(self):
         while True:
             result = self.handle_input()
-            if result in ("back", "quit"):
+            if result in ("back", "quit", "test_mode"):
                 return result, self.music_volume
             self.draw()
             self.clock.tick(FPS)

@@ -1,167 +1,179 @@
-Key;RU;ENG
-CollectionDeck;Колода;Deck
-CollectionOffers;Офферы;Offers
-CollectionBosses;Боссы;Bosses
-CollectionEmpty;Пока пусто;Nothing here yet
-DeckEmpty;В колоде нет карт;No cards in the deck
-BossRewardsEmpty;Пока нет побеждённых боссов;No defeated bosses yet
-OffersPermanent;До конца забега;Until the end of the run
-OffersTemporary;Временные эффекты;Temporary effects
-OffersPending;Ожидают срабатывания;Pending effects
-OfferAfterBoss;После победы над боссом;After defeating the boss
-OfferUntilBoss;До победы над боссом;Until the boss is defeated
-OfferTriggersIn;До срабатывания: {count} раунд.;Activates in {count} rounds
-OfferRoundsLeft;Осталось: {count} раунд.;{count} rounds remaining
-Profile;Профиль;Profile
-ProfileUnavailable;Недоступен;Unavailable
-ProfileUnavailableMessage;Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.;Profile {slots} is unavailable. Recovery failed. Original files are preserved. Choose another profile.
-ProfileRecoveredMessage;Профиль {slots} восстановлен из резервной копии. Последнее сохранение могло быть потеряно.;Profile {slots} was restored from a backup. The most recent save may have been lost.
-ProfileSaveFailed;Не удалось сохранить профиль. Проверьте доступ к папке Profiles и свободное место.;Could not save the profile. Check access to the Profiles folder and free disk space.
-MenuStart;Начать игру;Start
-MenuOption;Настройки;Options
-SettingsTitle;Настройки;Options
-MusicVolume;Громкость музыки;Music volume
-CapitalRaceLabel;Победа:;Victory:
-CapitalRaceCondition;капитал больше Бота3;capital above Bot3
-Level6PlayerTurn;Ход игрока;Player turn
-Level6BotTurn;Ход Бота3;Bot3 turn
-Level6BotThinking;Бот3 думает...;Bot3 is thinking...
-Level6BotSelling;Продаёт;Selling
-Level6BotBuying;Покупает;Buying
-Level6BotHolding;Держит;Holding
-Level6BotNoTrades;Без сделок;No trades
-Level6BotEnding;Бот3 завершает ход;Bot3 ends turn
-Level6MarketTurn;Изменение рынка;Market movement
-SettingsBack;Назад;Back
-MenuTestMode;Тестовый режим;Test Mode
-MenuQuit;Выход;Quit
-MainQuit;Выход;Quit
-PauseTitle;Пауза;Pause
-PauseContinue;Продолжить;Continue
-PauseSaveExit;Сохранить и выйти;Save and exit
-PauseRestartLevel;Начать заново;Start over
-PauseRestartConfirm;Начать уровень заново?;Start this level over?
-PauseRestartWarning;Прогресс текущей попытки будет потерян.;Current run progress will be lost.
-PauseCancel;Отмена;Cancel
-LifecycleSelected;Выбрано;Selected
-LifecycleSilver;Серебряные карты;Silver cards
-LifecycleBlack;Чёрные карты;Black cards
-LifecycleGold;Золотые карты;Gold cards
-LifecycleContinue;Продолжить;Continue
-Level1Year;1815;1815
-Level2Year;1825;1825
-Level3Year;1830;1830
-Level4Year;1845;1845
-Level5Year;1847;1847
-Level6Year;1850;1850
-Level6Cond;Стабилизация рынка. Биржа становится обычным финансовым институтом.;Market stabilization. The stock exchange becomes a conventional financial institution.
-Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.
-Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.
-Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.
-Level5Cond;Пик железнодорожной мании. Победите четырёх боссов.;The peak of railway mania. Defeat four bosses.
-Boss1Text;Джеймс Уатт - самый простой босс. Особых условий нет: просто победите его.;James Watt is the easiest boss. There are no special conditions: just beat him.
-Boss1Reward;Персональной награды нет.;No personal reward.
-Boss2Text;Адам Смит. В каждом раунде на один ход меньше.;Adam Smith. Each round is one turn shorter.
-Boss2Reward;После хода вы добираете две карты. Случайная красная карта добавляется в колоду и раздаётся по общим правилам.;After each turn, you draw two cards. A random red card is added to your deck and dealt normally.
-Boss3Text;Роберт Фултон. Придётся сыграть на один обычный раунд больше.;Robert Fulton. You must play one additional regular round.
-Boss3Reward;Следующие раунды начинаются с 2$. Случайная Gain/Drop-карта добавляется в колоду.;Following rounds start with $2. A random Gain/Drop card is added to your deck.
-Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.
-Boss4Reward;В стартовой руке будут до двух случайно выбранных красных карт, уже находящихся в колоде.;Your starting hand contains up to two randomly selected red cards already present in your deck.
-Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.
-Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.;The game lasts two turns longer. A random silver card enters your separate inventory.
-CardReportBoss5Reward;Игра длится на два хода дольше.;The game lasts two turns longer.
-Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.
-Boss6Reward;Вы получаете 3 серебряные карты (должно быть место).;You receive 3 silver cards (storage space required).
-Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.
-Boss7Reward;20 Наполеондоров;20 Napoleondors
-Boss8Text;Фридрих Лист. Торгует против игрока и начинает с 12 акциями B, втрое больше обычного. На последнем ходу продаёт весь портфель.;Friedrich List. Trades against the player and starts with 12 B shares, three times the usual amount. Sells his entire portfolio on the final turn.
-Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.
-Boss9Text;Жак Лаффит. Торгует против игрока и начинает с 4 акциями B. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. Trades against the player and starts with 4 B shares. Stocks priced at 2 dollars cannot be bought.
-Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.
-Boss10Text;Роберт Стефенсон. За ход можно сыграть не более одной Gain/Drop/Regulation-карты и одной красной или синей карты.;Robert Stephenson. Per turn, you may play at most one Gain/Drop/Regulation card and one red or blue card.
-Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.
-Boss11Text;Томас Мальтус. Торгует против игрока и начинает с 4 акциями B. Игру нельзя продлить никакими картами. Бонусы ходов от ранее побеждённых боссов продолжают действовать.;Thomas Malthus. Trades against the player and starts with 4 B shares. The game cannot be extended by any cards. Turn bonuses from previously defeated bosses still apply.
-Boss11Reward;До конца забега доступно одно дополнительное общее место для чёрных, серебряных и золотых карт. После поражения бонус исчезает.;Until the end of the run, gain one additional shared slot for black, silver, and gold cards. The bonus is lost on defeat.
-Boss12Text;Давид Рикардо. Торгует против игрока и начинает с 4 акциями B. На каждом рынке доступно только два места для карт вместо трёх.;David Ricardo. Trades against the player and starts with 4 B shares. Each market has only two card slots instead of three.
-Boss12Reward;Случайная золотая карта. Сначала каждая доступная золотая карта с указанной для неё вероятностью попадает в пул, затем из пула случайно выбирается одна карта.;A random gold card. First, every available gold card enters the pool according to its own probability, then one card is selected randomly from that pool.
-Boss13Text;Жан-Батист Сей. Торгует против игрока и начинает с 4 акциями B. На каждый ход даётся 7 секунд. Когда таймер достигает нуля, ход завершается автоматически.;Jean-Baptiste Say. Trades against the player and starts with 4 B shares. Each turn lasts 7 seconds. When the timer reaches zero, the turn ends automatically.
-Boss13Reward;Случайная награда;Random reward
-Boss13PrizeNapoleondors5;Случайная награда: 5 наполеондоров.;Random reward: 5 Napoleondors.
-Boss13PrizeNapoleondors7;Случайная награда: 7 наполеондоров.;Random reward: 7 Napoleondors.
-Boss13PrizeNapoleondors10;Случайная награда: 10 наполеондоров.;Random reward: 10 Napoleondors.
-Boss13PrizeGoldCard;Случайная награда: золотая карта.;Random reward: a gold card.
-Boss13PrizeGoldCardEmpty;Пул золотых карт оказался пуст.;The gold-card pool was empty.
-Boss13PrizeRareSilver;Случайная награда: две редкие серебряные карты.;Random reward: two rare silver cards.
-Boss13PrizeRareSilverEmpty;Не удалось выдать две редкие серебряные карты.;Two rare silver cards could not be awarded.
-Boss13PrizeHandSlot;Случайная награда: +1 место в руке до конца забега.;Random reward: +1 hand slot until the end of the run.
-Boss13PrizeLifecycleSlot;Случайная награда: +1 общее место для чёрных, серебряных и золотых карт до конца забега.;Random reward: +1 shared black, silver, and gold card slot until the end of the run.
-Boss14Text;Джордж Пибоди. Торгует против игрока и начинает с 4 акциями B. Базовая награда уровня в наполеондорах за победу в обычном раунде уменьшается вдвое.;George Peabody. Trades against the player and starts with 4 B shares. The level's base Napoleondor reward for winning a regular round is halved.
-Boss14Reward;После победы магазины предлагают три специальных предложения вместо двух до конца забега.;After victory, shops offer three special offers instead of two until the end of the run.
-Boss15Text;Джон Джейкоб Астор. В конце хода вся оставшаяся наличность сгорает. Деньги можно сохранять только в акциях.;John Jacob Astor. At the end of each turn, all remaining cash is lost. Money can only be preserved in stocks.
-Boss15Reward;Вероятность появления редких карт увеличивается.;Rare cards are more likely to appear.
-PopUpRound;Заработайте;Earn
-PopUpReward;Награда за победу:;Reward:
-PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop-карта и одна карта Shareholder;Random Gain/Drop card and one Shareholder
-PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop-карта и две карты Shareholder;Random Gain/Drop card and two Shareholders
-PopUpRewardRandomGain+RedCard;Случайная Gain/Drop карта и красная карта;Random Gain/Drop card and red card
-PopUpRedCard+Shareholder;Красная карта и одна карта Shareholder;Red card and one Shareholder
-PopUpRedCard+Shareholder+Shareholder;Красная карта и две карты Shareholder;Red card and two Shareholders
-PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и две карты Shareholder;Silver card and two Shareholders
-PopUpReward2RandomGain;Две случайные Gain/Drop-карты;Two random Gain/Drop cards
-PopUpReward2RandomGain+Shareholder;Две случайные Gain/Drop-карты и одна карта Shareholder;Two random Gain/Drop cards and one Shareholder
-PopUpReward2RandomGain+RedCard;Две случайные Gain/Drop-карты и красная карта;Two random Gain/Drop cards and one red card
-PopUpRedCard+RandomGain+Shareholder;Красная карта, случайная Gain/Drop-карта и одна карта Shareholder;Red card, one random Gain/Drop card and one Shareholder
-PopUp2RedCards+RandomGain;Две красные карты и случайная Gain/Drop-карта;Two red cards and one random Gain/Drop card
-PopUpSilverCard+RedCard+Shareholder;Серебряная карта, красная карта и одна карта Shareholder;Silver card, one red card and one Shareholder
-PopUp2RedCards+SilverCard;Две красные карты и серебряная карта;Two red cards and silver card
-PopUp2RedCards;Две красные карты;Two red cards
-RewardWindowText;Вы получили награду за победу!;You received a victory reward!
-FinanceStartingBonus;Стартовый бонус;Starting bonus
-FinanceAccountBalance;Остаток на счету;Account balance
-FinanceVictoryReward;Награда за победу;Victory reward
-FinanceProfitBonus;Бонус Profit;Profit bonus
-FinanceInterest;Проценты;Interest
-FinanceLoanProfit;Loan дал прибыль;Loan made a profit
-FinanceBossReward;Награда босса;Boss reward
-FinanceCommission;Комиссия;Commission
-FinanceNabob;Бонус Набоба;Nabob bonus
-FinanceObligation;Облигации;Obligations
-FinanceLongProfit;Long дал прибыль;Long made a profit
-FinanceSideway;Бонус Sideway;Sideway bonus
-FinanceFullDeployment;Бонус Full Deployment;Full Deployment bonus
-FinanceCardSales;Продажа карт;Card sales
-FinanceJunkBond;Junk Bond дал прибыль;Junk Bond made a profit
-FinanceJunkBondRefund;Возврат Junk Bond;Junk Bond refund
-FinanceOtherIncome;Прочий доход;Other income
-FinanceShareholderBase;Бонус Shareholder Base;Shareholder Base bonus
-FinanceTotal;Всего;Total
-CardReportTemporary;Временная карта. Пропадёт после победы над боссом.;Temporary card. Disappears after defeating the boss.
-CardReportNewCardsTitle;Вы получили новые карты:;You received new cards:
-CardReportSilver;Серебряная карта. Пропадёт только тогда, когда вы её используете.;Silver card. Disappears only when you use it.
-CardReportGold;Золотая карта. Пропадёт после поражения.;Gold card. Disappears after defeat.
-CardReportPermanent;Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде;You received a permanent card. It will now always be in your starting deck.
-CardReportBossReward;Бонус за победу над боссом. Пропадёт после поражения.;Boss victory bonus. Disappears after defeat.
-CardReportBossTitle;Бонус за победу над боссом:;Boss victory bonus:
-CardReportLevelCompleteTitle;Вы разблокировали новый уровень!;You unlocked a new level!
-CardReportTemporaryReset;Временные карты обнулились;Temporary cards were reset.
-CardReportFrugalityBonusOne;Бонус Frugality. В следующем раунде на {turns} ход больше.;Frugality bonus. The next round has {turns} more turn.
-CardReportFrugalityBonusFew;Бонус Frugality. В следующем раунде на {turns} хода больше.;Frugality bonus. The next round has {turns} more turns.
-CardReportFrugalityBonusMany;Бонус Frugality. В следующем раунде на {turns} ходов больше.;Frugality bonus. The next round has {turns} more turns.
-CardReportGoldenStocksTriggered;Golden Stocks сработал!;Golden Stocks triggered!
-RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!
-RewardLevel1FinalBoss;Вы разблокировали магазин. Теперь в игре будут попадаться красные карты.;You unlocked the shop. Red cards will now appear in the game.
-RewardLevel2FinalBoss;Вы разблокировали золотые и серебряные карты;You unlocked gold and silver cards.
-RewardLevel3FinalBoss;Вы разблокировали четвёртый и пятый уровни. Вы получили свою первую чёрную карту.;You unlocked levels four and five. You received your first black card.
-RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Вы получили чёрную карту Golden Stocks и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You received the Golden Stocks black card and now start subsequent levels with 2 additional Napoleondors.
-RewardLevel5FinalBoss;Вы завершили пятый уровень! Открыты шестой, седьмой и восьмой уровни. Вы получили чёрную карту «Комиссия», теперь начинаете следующие уровни ещё с 2 Наполеонами и можете одновременно использовать 4 серебряные, чёрные или золотые карты вместо 3.;You completed level five! Levels six, seven, and eight are now unlocked. You received the Commission black card, now start subsequent levels with 2 additional Napoleondors, and can use 4 silver, black, or gold cards at once instead of 3.
-BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.
-LoseWindowText;Вы проиграли!;You lost!
-Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.
-LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.
-LastBossRewardLevel5;Завершает забег пятого уровня.;Completes the level five run.
-DeckPermanentCards;Карты постоянной колоды;Permanent deck cards
-DeckTemporaryCards;Временные карты (пропадут после победы над боссом);Temporary cards (disappear after defeating a boss)
-DeckPurchasedCards;Купленные карты (пропадут после поражения);Purchased cards (disappear after defeat)
-
-DeckRemaining;Оставшаяся колода;Remaining deck
-DeckFull;Полная колода;Full deck
+Key;RU;ENG;DE;HU
+CollectionDeck;Колода;Deck;Deck;Pakli
+CollectionOffers;Офферы;Offers;Angebote;Ajánlatok
+CollectionBosses;Боссы;Bosses;Bosse;Főellenfelek
+CollectionEmpty;Пока пусто;Nothing here yet;Noch nichts vorhanden;Még nincs itt semmi
+DeckEmpty;В колоде нет карт;No cards in the deck;Das Deck ist leer;Nincs kártya a pakliban
+BossRewardsEmpty;Пока нет побеждённых боссов;No defeated bosses yet;Noch keine Bosse besiegt;Még nem győztél le főellenfelet
+OffersPermanent;До конца забега;Until the end of the run;Bis zum Ende des Durchlaufs;A menet végéig
+OffersTemporary;Временные эффекты;Temporary effects;Vorübergehende Effekte;Ideiglenes hatások
+OffersPending;Ожидают срабатывания;Pending effects;Ausstehende Effekte;Aktiválásra váró hatások
+OfferAfterBoss;После победы над боссом;After defeating the boss;Nach dem Sieg über den Boss;A főellenfél legyőzése után
+OfferUntilBoss;До победы над боссом;Until the boss is defeated;Bis zum Sieg über den Boss;A főellenfél legyőzéséig
+OfferTriggersIn;До срабатывания: {count} раунд.;Activates in {count} rounds;Wird in {count} Runden aktiviert;{count} forduló múlva aktiválódik
+OfferRoundsLeft;Осталось: {count} раунд.;{count} rounds remaining;Noch {count} Runden;Még {count} fordulóig tart
+Profile;Профиль;Profile;Profil;Profil
+ProfileUnavailable;Недоступен;Unavailable;Nicht verfügbar;Nem elérhető
+ProfileUnavailableMessage;Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.;Profile {slots} is unavailable. Recovery failed. Original files are preserved. Choose another profile.;Profil {slots} ist nicht verfügbar. Die Wiederherstellung ist fehlgeschlagen. Die Originaldateien wurden aufbewahrt. Wähle ein anderes Profil.;A(z) {slots}. profil nem érhető el. A helyreállítás sikertelen volt. Az eredeti fájlok megmaradtak. Válassz másik profilt.
+ProfileRecoveredMessage;Профиль {slots} восстановлен из резервной копии. Последнее сохранение могло быть потеряно.;Profile {slots} was restored from a backup. The most recent save may have been lost.;Profil {slots} wurde aus einer Sicherung wiederhergestellt. Der letzte Spielstand ist möglicherweise verloren gegangen.;A(z) {slots}. profilt biztonsági mentésből állítottuk helyre. A legutóbbi mentés elveszhetett.
+ProfileSaveFailed;Не удалось сохранить профиль. Проверьте доступ к папке Profiles и свободное место.;Could not save the profile. Check access to the Profiles folder and free disk space.;Das Profil konnte nicht gespeichert werden. Prüfe die Zugriffsrechte für den Ordner Profiles und den freien Speicherplatz.;Nem sikerült menteni a profilt. Ellenőrizd a Profiles mappa hozzáférési jogosultságait és a szabad lemezterületet.
+MenuStart;Начать игру;Start;Spielen;Játék indítása
+MenuOption;Настройки;Options;Einstellungen;Beállítások
+SettingsTitle;Настройки;Options;Einstellungen;Beállítások
+MusicVolume;Громкость музыки;Music volume;Musiklautstärke;Zene hangereje
+CapitalRaceLabel;Победа:;Victory:;Sieg:;Győzelem:
+CapitalRaceCondition;капитал больше Бота3;capital above Bot3;mehr Kapital als Bot3;több tőke, mint Bot3-nál
+Level6PlayerTurn;Ход игрока;Player turn;Du bist am Zug;Te következel
+Level6BotTurn;Ход Бота3;Bot3 turn;Bot3 ist am Zug;Bot3 következik
+Level6BotThinking;Бот3 думает...;Bot3 is thinking...;Bot3 überlegt …;Bot3 gondolkodik…
+Level6BotSelling;Продаёт;Selling;Verkauft;Eladás
+Level6BotBuying;Покупает;Buying;Kauft;Vásárlás
+Level6BotHolding;Держит;Holding;Hält die Position;Tartás
+Level6BotNoTrades;Без сделок;No trades;Keine Geschäfte;Nincs ügylet
+Level6BotEnding;Бот3 завершает ход;Bot3 ends turn;Bot3 beendet den Zug;Bot3 befejezi a körét
+Level6MarketTurn;Изменение рынка;Market movement;Marktbewegung;Piaci mozgás
+SettingsBack;Назад;Back;Zurück;Vissza
+MenuTestMode;Тестовый режим;Test Mode;Testmodus;Tesztmód
+MenuQuit;Выход;Quit;Beenden;Kilépés
+MainQuit;Выход;Quit;Beenden;Kilépés
+PauseTitle;Пауза;Pause;Pause;Szünet
+PauseContinue;Продолжить;Continue;Fortsetzen;Folytatás
+PauseSaveExit;Сохранить и выйти;Save and exit;Speichern und beenden;Mentés és kilépés
+PauseRestartLevel;Начать заново;Start over;Neu beginnen;Újrakezdés
+PauseRestartConfirm;Начать уровень заново?;Start this level over?;Dieses Level neu beginnen?;Újrakezded ezt a szintet?
+PauseRestartWarning;Прогресс текущей попытки будет потерян.;Current run progress will be lost.;Der Fortschritt dieses Durchlaufs geht verloren.;A jelenlegi menetben elért haladás elvész.
+PauseCancel;Отмена;Cancel;Abbrechen;Mégse
+LifecycleSelected;Выбрано;Selected;Ausgewählt;Kiválasztva
+LifecycleSilver;Серебряные карты;Silver cards;Silberkarten;Ezüstkártyák
+LifecycleBlack;Чёрные карты;Black cards;Schwarze Karten;Fekete kártyák
+LifecycleGold;Золотые карты;Gold cards;Goldkarten;Aranykártyák
+LifecycleContinue;Продолжить;Continue;Weiter;Folytatás
+Level1Year;1815;1815;1815;1815
+Level2Year;1825;1825;1825;1825
+Level3Year;1830;1830;1830;1830
+Level4Year;1845;1845;1845;1845
+Level5Year;1847;1847;1847;1847
+Level6Year;1850;1850;1850;1850
+Level6Cond;Стабилизация рынка. Биржа становится обычным финансовым институтом.;Market stabilization. The stock exchange becomes a conventional financial institution.;Die Märkte stabilisieren sich. Die Börse etabliert sich als Finanzinstitution.;A piac stabilizálódik. A tőzsde megszokott pénzügyi intézménnyé válik.
+Level1Cond;В 1815 году началась эпоха биржевой игры. Победите одного босса, чтобы понять, как всё работает.;You start the game in 1815. Beat one boss to learn how everything works.;1815 beginnt dein Abenteuer an der Börse. Besiege einen Boss, um das Spiel kennenzulernen.;A játék 1815-ben kezdődik. Győzz le egy főellenfelet, hogy megismerd a játék működését.
+Level3Cond;В 1830 году открылась линия Ливерпуль-Манчестер. Акции начали покупать обычные люди. Победите трёх боссов.;The Liverpool-Manchester line opened in 1830. Ordinary people began buying shares. Beat three bosses.;1830 wird die Bahnstrecke Liverpool–Manchester eröffnet. Auch einfache Bürger beginnen, Aktien zu kaufen. Besiege drei Bosse.;1830-ban megnyílt a Liverpool–Manchester vasútvonal. A hétköznapi emberek is részvényeket kezdtek vásárolni. Győzz le három főellenfelet.
+Level4Cond;Как и на третьем уровне, победите трёх боссов. В начале каждого хода Shareholder'ы могут отключить один рынок.;As on level three, beat three bosses. At the start of each turn, Shareholders may disable one market.;Besiege wie im dritten Level drei Bosse. Zu Beginn jedes Zuges können Shareholder einen Markt für den Handel sperren.;A harmadik szinthez hasonlóan győzz le három főellenfelet. Minden kör elején a Shareholder kártyák letilthatják az egyik piacot.
+Level5Cond;Пик железнодорожной мании. Победите четырёх боссов.;The peak of railway mania. Defeat four bosses.;Die Eisenbahnspekulation erreicht ihren Höhepunkt. Besiege vier Bosse.;A vasútmánia tetőpontja. Győzz le négy főellenfelet.
+Boss1Text;Джеймс Уатт - самый простой босс. Особых условий нет: просто победите его.;James Watt is the easiest boss. There are no special conditions: just beat him.;James Watt ist der einfachste Boss. Es gibt keine besonderen Bedingungen. Besiege ihn einfach.;James Watt a legkönnyebb főellenfél. Nincsenek különleges feltételek: egyszerűen győzd le.
+Boss1Reward;Персональной награды нет.;No personal reward.;Keine persönliche Belohnung.;Nincs egyéni jutalom.
+Boss2Text;Адам Смит. В каждом раунде на один ход меньше.;Adam Smith. Each round is one turn shorter.;Adam Smith. Jede Runde ist einen Zug kürzer.;Adam Smith. Minden forduló egy körrel rövidebb.
+Boss2Reward;После хода вы добираете две карты. Случайная красная карта добавляется в колоду и раздаётся по общим правилам.;After each turn, you draw two cards. A random red card is added to your deck and dealt normally.;Nach jedem Zug ziehst du zwei Karten nach. Eine zufällige rote Karte wird deinem Deck hinzugefügt und nach den üblichen Regeln ausgeteilt.;Minden kör után két lapot húzol. Egy véletlenszerű piros kártya kerül a paklidba, amelyet a szokásos módon húzhatsz fel.
+Boss3Text;Роберт Фултон. Придётся сыграть на один обычный раунд больше.;Robert Fulton. You must play one additional regular round.;Robert Fulton. Du musst eine zusätzliche reguläre Runde spielen.;Robert Fulton. Egy további rendes fordulót kell játszanod.
+Boss3Reward;Следующие раунды начинаются с 2$. Случайная Gain/Drop-карта добавляется в колоду.;Following rounds start with $2. A random Gain/Drop card is added to your deck.;Die folgenden Runden beginnen mit 2 $. Eine zufällige Gain/Drop-Karte wird deinem Deck hinzugefügt.;A következő fordulókban 2 dollárral indulsz. Egy véletlenszerű Gain/Drop kártya kerül a paklidba.
+Boss4Text;Николя Аппер. Цели повышены.;Nicolas Apper. Goals are increased.;Nicolas Appert. Die Zielbeträge sind höher.;Nicolas Apper. Magasabb célösszegeket kell elérned.
+Boss4Reward;В стартовой руке будут до двух случайно выбранных красных карт, уже находящихся в колоде.;Your starting hand contains up to two randomly selected red cards already present in your deck.;Deine Starthand enthält bis zu zwei zufällig ausgewählte rote Karten aus deinem Deck.;A kezdő kezedbe legfeljebb két véletlenszerű piros kártya kerül a paklidban már meglévők közül.
+Boss5Text;Сэмюэль Слейтер. Рука на одну карту меньше.;Samuel Slater. Your hand is one card smaller.;Samuel Slater. Du hast einen Handkartenplatz weniger.;Samuel Slater. Eggyel kevesebb lap lehet a kezedben.
+Boss5Reward;Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.;The game lasts two turns longer. A random silver card enters your separate inventory.;Die Runde dauert zwei Züge länger. Eine zufällige Silberkarte kommt in dein separates Inventar.;A játék két körrel tovább tart. Egy véletlenszerű ezüstkártya kerül a külön készletedbe.
+CardReportBoss5Reward;Игра длится на два хода дольше.;The game lasts two turns longer.;Die Runde dauert zwei Züge länger.;A játék két körrel tovább tart.
+Boss6Text;Ричард Аркрайт. В конце каждого хода он может украсть часть ваших акций.;Richard Arkwright may steal some of your shares at the end of each turn.;Richard Arkwright kann dir am Ende jedes Zuges einen Teil deiner Aktien stehlen.;Richard Arkwright minden kör végén ellophatja a részvényeid egy részét.
+Boss6Reward;Вы получаете 3 серебряные карты (должно быть место).;You receive 3 silver cards (storage space required).;Du erhältst 3 Silberkarten, sofern genügend Platz im Inventar vorhanden ist.;3 ezüstkártyát kapsz, ha van hely a készletedben.
+Boss7Text;Адольф Кольбе. Торговать можно только на нечётных ходах. На чётных ходах стрелки покупки и продажи не работают.;Adolph Kolbe. You can trade only on odd turns. On even turns, buy and sell arrows do not work.;Adolph Kolbe. Du kannst nur in ungeraden Zügen handeln. In geraden Zügen sind die Kauf- und Verkaufspfeile gesperrt.;Adolph Kolbe. Csak páratlan körökben kereskedhetsz. Páros körökben a vételi és eladási nyilak nem működnek.
+Boss7Reward;20 Наполеондоров;20 Napoleondors;20 Napoleondor;20 napóleonarany
+Boss8Text;Фридрих Лист. Торгует против игрока и начинает с 12 акциями B, втрое больше обычного. На последнем ходу продаёт весь портфель.;Friedrich List. Trades against the player and starts with 12 B shares, three times the usual amount. Sells his entire portfolio on the final turn.;Friedrich List handelt gegen dich und beginnt mit 12 B-Aktien, dreimal so vielen wie üblich. Im letzten Zug verkauft er sein gesamtes Portfolio.;Friedrich List ellened kereskedik, és a szokásos mennyiség háromszorosával, 12 B-részvénnyel indul. Az utolsó körben eladja a teljes portfólióját.
+Boss8Reward;Следующий магазин будет бесплатным.;The next shop is free.;Im nächsten Laden ist alles kostenlos.;A következő boltban minden ingyenes.
+Boss9Text;Жак Лаффит. Торгует против игрока и начинает с 4 акциями B. Нельзя покупать акции, которые стоят 2 доллара.;Jacques Laffitte. Trades against the player and starts with 4 B shares. Stocks priced at 2 dollars cannot be bought.;Jacques Laffitte handelt gegen dich und beginnt mit 4 B-Aktien. Aktien zum Kurs von 2 $ können nicht gekauft werden.;Jacques Laffitte ellened kereskedik, és 4 B-részvénnyel indul. A 2 dolláros részvényeket nem lehet megvenni.
+Boss9Reward;Карты Upside и Downside усиливаются на 4 процентных пункта каждая.;Upside and Downside cards become 4 percentage points stronger each.;Die Effekte von Upside- und Downside-Karten werden jeweils um 4 Prozentpunkte verstärkt.;Az Upside és Downside kártyák hatása egyenként 4 százalékponttal erősödik.
+Boss10Text;Роберт Стефенсон. За ход можно сыграть не более одной Gain/Drop/Regulation-карты и одной красной или синей карты.;Robert Stephenson. Per turn, you may play at most one Gain/Drop/Regulation card and one red or blue card.;Robert Stephenson. Pro Zug darfst du höchstens eine Gain/Drop/Regulation-Karte und eine rote oder blaue Karte spielen.;Robert Stephenson. Körönként legfeljebb egy Gain/Drop/Regulation és egy piros vagy kék kártyát játszhatsz ki.
+Boss10Reward;На старте следующих раундов уровня вы получаете дополнительные 2 акции C.;You start the following rounds of the level with 2 additional C shares.;Du beginnst die folgenden Runden dieses Levels mit 2 zusätzlichen C-Aktien.;A szint következő fordulóit 2 további C-részvénnyel kezded.
+Boss11Text;Томас Мальтус. Торгует против игрока и начинает с 4 акциями B. Игру нельзя продлить никакими картами. Бонусы ходов от ранее побеждённых боссов продолжают действовать.;Thomas Malthus. Trades against the player and starts with 4 B shares. The game cannot be extended by any cards. Turn bonuses from previously defeated bosses still apply.;Thomas Malthus handelt gegen dich und beginnt mit 4 B-Aktien. Karten können die Runde nicht verlängern. Zusätzliche Züge durch bereits besiegte Bosse bleiben erhalten.;Thomas Malthus ellened kereskedik, és 4 B-részvénnyel indul. Kártyákkal nem hosszabbítható meg a játék. A korábban legyőzött főellenfelektől kapott plusz körök megmaradnak.
+Boss11Reward;До конца забега доступно одно дополнительное общее место для чёрных, серебряных и золотых карт. После поражения бонус исчезает.;Until the end of the run, gain one additional shared slot for black, silver, and gold cards. The bonus is lost on defeat.;Bis zum Ende des Durchlaufs erhältst du einen zusätzlichen gemeinsamen Platz für schwarze Karten, Silber- und Goldkarten. Bei einer Niederlage geht dieser Bonus verloren.;A menet végéig egy további közös helyet kapsz a fekete, ezüst- és aranykártyáknak. Vereség esetén ez a bónusz elvész.
+Boss12Text;Давид Рикардо. Торгует против игрока и начинает с 4 акциями B. На каждом рынке доступно только два места для карт вместо трёх.;David Ricardo. Trades against the player and starts with 4 B shares. Each market has only two card slots instead of three.;David Ricardo handelt gegen dich und beginnt mit 4 B-Aktien. Jeder Markt hat nur zwei Kartenplätze statt drei.;David Ricardo ellened kereskedik, és 4 B-részvénnyel indul. Minden piacon három helyett csak két kártyahely van.
+Boss12Reward;Случайная золотая карта. Сначала каждая доступная золотая карта с указанной для неё вероятностью попадает в пул, затем из пула случайно выбирается одна карта.;A random gold card. First, every available gold card enters the pool according to its own probability, then one card is selected randomly from that pool.;Eine zufällige Goldkarte. Zunächst wird für jede verfügbare Goldkarte anhand ihrer eigenen Wahrscheinlichkeit bestimmt, ob sie in den Auswahlpool gelangt. Daraus wird anschließend eine Karte zufällig gezogen.;Egy véletlenszerű aranykártya. Először minden elérhető aranykártya a saját valószínűségével kerül be a választékba, majd abból véletlenszerűen sorsolunk egyet.
+Boss13Text;Жан-Батист Сей. Торгует против игрока и начинает с 4 акциями B. На каждый ход даётся 7 секунд. Когда таймер достигает нуля, ход завершается автоматически.;Jean-Baptiste Say. Trades against the player and starts with 4 B shares. Each turn lasts 7 seconds. When the timer reaches zero, the turn ends automatically.;Jean-Baptiste Say handelt gegen dich und beginnt mit 4 B-Aktien. Du hast 7 Sekunden pro Zug. Sobald die Zeit abläuft, endet dein Zug automatisch.;Jean-Baptiste Say ellened kereskedik, és 4 B-részvénnyel indul. Egy kör 7 másodpercig tart. Az idő lejártakor a kör automatikusan véget ér.
+Boss13Reward;Случайная награда;Random reward;Zufällige Belohnung;Véletlenszerű jutalom
+Boss13PrizeNapoleondors5;Случайная награда: 5 наполеондоров.;Random reward: 5 Napoleondors.;Zufällige Belohnung: 5 Napoleondor.;Véletlenszerű jutalom: 5 napóleonarany.
+Boss13PrizeNapoleondors7;Случайная награда: 7 наполеондоров.;Random reward: 7 Napoleondors.;Zufällige Belohnung: 7 Napoleondor.;Véletlenszerű jutalom: 7 napóleonarany.
+Boss13PrizeNapoleondors10;Случайная награда: 10 наполеондоров.;Random reward: 10 Napoleondors.;Zufällige Belohnung: 10 Napoleondor.;Véletlenszerű jutalom: 10 napóleonarany.
+Boss13PrizeGoldCard;Случайная награда: золотая карта.;Random reward: a gold card.;Zufällige Belohnung: eine Goldkarte.;Véletlenszerű jutalom: egy aranykártya.
+Boss13PrizeGoldCardEmpty;Пул золотых карт оказался пуст.;The gold-card pool was empty.;Der Auswahlpool für Goldkarten war leer.;Nem volt aranykártya a választékban.
+Boss13PrizeRareSilver;Случайная награда: две редкие серебряные карты.;Random reward: two rare silver cards.;Zufällige Belohnung: zwei seltene Silberkarten.;Véletlenszerű jutalom: két ritka ezüstkártya.
+Boss13PrizeRareSilverEmpty;Не удалось выдать две редкие серебряные карты.;Two rare silver cards could not be awarded.;Es konnten keine zwei seltenen Silberkarten vergeben werden.;Nem sikerült kiosztani a két ritka ezüstkártyát.
+Boss13PrizeHandSlot;Случайная награда: +1 место в руке до конца забега.;Random reward: +1 hand slot until the end of the run.;Zufällige Belohnung: ein zusätzlicher Handkartenplatz bis zum Ende des Durchlaufs.;Véletlenszerű jutalom: +1 kézben tartható lap a menet végéig.
+Boss13PrizeLifecycleSlot;Случайная награда: +1 общее место для чёрных, серебряных и золотых карт до конца забега.;Random reward: +1 shared black, silver, and gold card slot until the end of the run.;Zufällige Belohnung: ein zusätzlicher gemeinsamer Platz für schwarze Karten, Silber- und Goldkarten bis zum Ende des Durchlaufs.;Véletlenszerű jutalom: +1 közös hely a fekete, ezüst- és aranykártyáknak a menet végéig.
+Boss14Text;Джордж Пибоди. Торгует против игрока и начинает с 4 акциями B. Базовая награда уровня в наполеондорах за победу в обычном раунде уменьшается вдвое.;George Peabody. Trades against the player and starts with 4 B shares. The level's base Napoleondor reward for winning a regular round is halved.;George Peabody handelt gegen dich und beginnt mit 4 B-Aktien. Die Grundbelohnung dieses Levels in Napoleondor für Siege in regulären Runden wird halbiert.;George Peabody ellened kereskedik, és 4 B-részvénnyel indul. A rendes fordulók megnyeréséért járó alap napóleonarany-jutalom a felére csökken.
+Boss14Reward;После победы магазины предлагают три специальных предложения вместо двух до конца забега.;After victory, shops offer three special offers instead of two until the end of the run.;Nach dem Sieg bieten die Läden bis zum Ende des Durchlaufs drei Sonderangebote statt zwei an.;Győzelem után a menet végéig kettő helyett három különleges ajánlat jelenik meg a boltokban.
+Boss15Text;Джон Джейкоб Астор. В конце хода вся оставшаяся наличность сгорает. Деньги можно сохранять только в акциях.;John Jacob Astor. At the end of each turn, all remaining cash is lost. Money can only be preserved in stocks.;John Jacob Astor. Am Ende jedes Zuges verfällt dein gesamtes übriges Bargeld. Du kannst dein Geld nur in Aktien bewahren.;John Jacob Astor. Minden kör végén elveszik az összes megmaradt készpénzed. Pénzedet csak részvényekben őrizheted meg.
+Boss15Reward;Вероятность появления редких карт увеличивается.;Rare cards are more likely to appear.;Seltene Karten erscheinen häufiger.;A ritka kártyák gyakrabban jelennek meg.
+PopUpRound;Заработайте;Earn;Erreiche;Szerezz
+PopUpReward;Награда за победу:;Reward:;Belohnung:;Jutalom:
+PopUpRewardRandomGain+Shareholder;Случайная Gain/Drop-карта и одна карта Shareholder;Random Gain/Drop card and one Shareholder;Eine zufällige Gain/Drop-Karte und ein Shareholder;Véletlenszerű Gain/Drop kártya és egy Shareholder
+PopUpRewardRandomGain+Shareholder+Shareholder;Случайная Gain/Drop-карта и две карты Shareholder;Random Gain/Drop card and two Shareholders;Eine zufällige Gain/Drop-Karte und zwei Shareholder;Véletlenszerű Gain/Drop kártya és két Shareholder
+PopUpRewardRandomGain+RedCard;Случайная Gain/Drop карта и красная карта;Random Gain/Drop card and red card;Eine zufällige Gain/Drop-Karte und eine rote Karte;Véletlenszerű Gain/Drop kártya és egy piros kártya
+PopUpRedCard+Shareholder;Красная карта и одна карта Shareholder;Red card and one Shareholder;Eine rote Karte und ein Shareholder;Egy piros kártya és egy Shareholder
+PopUpRedCard+Shareholder+Shareholder;Красная карта и две карты Shareholder;Red card and two Shareholders;Eine rote Karte und zwei Shareholder;Egy piros kártya és két Shareholder
+PopUpSilverCard+Shareholder+Shareholder;Серебряная карта и две карты Shareholder;Silver card and two Shareholders;Eine Silberkarte und zwei Shareholder;Egy ezüstkártya és két Shareholder
+PopUpReward2RandomGain;Две случайные Gain/Drop-карты;Two random Gain/Drop cards;Zwei zufällige Gain/Drop-Karten;Két véletlenszerű Gain/Drop kártya
+PopUpReward2RandomGain+Shareholder;Две случайные Gain/Drop-карты и одна карта Shareholder;Two random Gain/Drop cards and one Shareholder;Zwei zufällige Gain/Drop-Karten und ein Shareholder;Két véletlenszerű Gain/Drop kártya és egy Shareholder
+PopUpReward2RandomGain+RedCard;Две случайные Gain/Drop-карты и красная карта;Two random Gain/Drop cards and one red card;Zwei zufällige Gain/Drop-Karten und eine rote Karte;Két véletlenszerű Gain/Drop kártya és egy piros kártya
+PopUpRedCard+RandomGain+Shareholder;Красная карта, случайная Gain/Drop-карта и одна карта Shareholder;Red card, one random Gain/Drop card and one Shareholder;Eine rote Karte, eine zufällige Gain/Drop-Karte und ein Shareholder;Egy piros kártya, egy véletlenszerű Gain/Drop és egy Shareholder
+PopUp2RedCards+RandomGain;Две красные карты и случайная Gain/Drop-карта;Two red cards and one random Gain/Drop card;Zwei rote Karten und eine zufällige Gain/Drop-Karte;Két piros kártya és egy véletlenszerű Gain/Drop
+PopUpSilverCard+RedCard+Shareholder;Серебряная карта, красная карта и одна карта Shareholder;Silver card, one red card and one Shareholder;Eine Silberkarte, eine rote Karte und ein Shareholder;Egy ezüstkártya, egy piros kártya és egy Shareholder
+PopUp2RedCards+SilverCard;Две красные карты и серебряная карта;Two red cards and silver card;Zwei rote Karten und eine Silberkarte;Két piros kártya és egy ezüstkártya
+PopUp2RedCards;Две красные карты;Two red cards;Zwei rote Karten;Két piros kártya
+RewardWindowText;Вы получили награду за победу!;You received a victory reward!;Du erhältst eine Belohnung für deinen Sieg!;Megkaptad a győzelmi jutalmat!
+FinanceStartingBonus;Стартовый бонус;Starting bonus;Startbonus;Kezdő bónusz
+FinanceAccountBalance;Остаток на счету;Account balance;Kontostand;Egyenleg
+FinanceVictoryReward;Награда за победу;Victory reward;Siegesbelohnung;Győzelmi jutalom
+FinanceProfitBonus;Бонус Profit;Profit bonus;Profit-Bonus;Nyereségbónusz
+FinanceInterest;Проценты;Interest;Zinsen;Kamat
+FinanceLoanProfit;Loan дал прибыль;Loan made a profit;Ertrag aus Loan;A Loan nyereséget hozott
+FinanceBossReward;Награда босса;Boss reward;Bossbelohnung;Főellenfél jutalma
+FinanceCommission;Комиссия;Commission;Provision;Jutalék
+FinanceNabob;Бонус Набоба;Nabob bonus;Nabob-Bonus;Nabob-bónusz
+FinanceObligation;Облигации;Obligations;Anleihen;Obligation kártyák
+FinanceLongProfit;Long дал прибыль;Long made a profit;Ertrag aus Long;A Long nyereséget hozott
+FinanceSideway;Бонус Sideway;Sideway bonus;Sideway-Bonus;Sideway-bónusz
+FinanceFullDeployment;Бонус Full Deployment;Full Deployment bonus;Full-Deployment-Bonus;Full Deployment-bónusz
+FinanceCardSales;Продажа карт;Card sales;Kartenverkäufe;Kártyaeladások
+FinanceJunkBond;Junk Bond дал прибыль;Junk Bond made a profit;Ertrag aus Junk Bond;A Junk Bond nyereséget hozott
+FinanceJunkBondRefund;Возврат Junk Bond;Junk Bond refund;Rückzahlung aus Junk Bond;Junk Bond-visszatérítés
+FinanceOtherIncome;Прочий доход;Other income;Sonstige Einnahmen;Egyéb bevétel
+FinanceShareholderBase;Бонус Shareholder Base;Shareholder Base bonus;Shareholder-Base-Bonus;Shareholder Base-bónusz
+FinanceTotal;Всего;Total;Gesamt;Összesen
+CardReportTemporary;Временная карта. Пропадёт после победы над боссом.;Temporary card. Disappears after defeating the boss.;Vorübergehende Karte. Sie verschwindet nach dem Sieg über den Boss.;Ideiglenes kártya. A főellenfél legyőzése után eltűnik.
+CardReportNewCardsTitle;Вы получили новые карты:;You received new cards:;Du erhältst neue Karten:;Új kártyákat kaptál:
+CardReportSilver;Серебряная карта. Пропадёт только тогда, когда вы её используете.;Silver card. Disappears only when you use it.;Silberkarte. Sie verschwindet erst, wenn du sie einsetzt.;Ezüstkártya. Csak használat után tűnik el.
+CardReportGold;Золотая карта. Пропадёт после поражения.;Gold card. Disappears after defeat.;Goldkarte. Sie geht bei einer Niederlage verloren.;Aranykártya. Vereség után eltűnik.
+CardReportPermanent;Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде;You received a permanent card. It will now always be in your starting deck.;Du erhältst eine dauerhafte Karte. Sie gehört von nun an immer zu deinem Startdeck.;Állandó kártyát kaptál. Mostantól mindig a kezdő paklid része lesz.
+CardReportBossReward;Бонус за победу над боссом. Пропадёт после поражения.;Boss victory bonus. Disappears after defeat.;Bonus für einen Sieg über einen Boss. Er geht bei einer Niederlage verloren.;Főellenfél legyőzéséért kapott bónusz. Vereség után eltűnik.
+CardReportBossTitle;Бонус за победу над боссом:;Boss victory bonus:;Bonus für den Sieg über den Boss:;Főellenfél legyőzéséért kapott bónusz:
+CardReportLevelCompleteTitle;Вы разблокировали новый уровень!;You unlocked a new level!;Du hast ein neues Level freigeschaltet!;Új szintet oldottál fel!
+CardReportTemporaryReset;Временные карты обнулились;Temporary cards were reset.;Vorübergehende Karten wurden entfernt.;Az ideiglenes kártyák törlődtek.
+CardReportFrugalityBonusOne;Бонус Frugality. В следующем раунде на {turns} ход больше.;Frugality bonus. The next round has {turns} more turn.;Frugality-Bonus. Die nächste Runde dauert {turns} Zug länger.;Frugality-bónusz. A következő forduló {turns} körrel hosszabb.
+CardReportFrugalityBonusFew;Бонус Frugality. В следующем раунде на {turns} хода больше.;Frugality bonus. The next round has {turns} more turns.;Frugality-Bonus. Die nächste Runde dauert {turns} Züge länger.;Frugality-bónusz. A következő forduló {turns} körrel hosszabb.
+CardReportFrugalityBonusMany;Бонус Frugality. В следующем раунде на {turns} ходов больше.;Frugality bonus. The next round has {turns} more turns.;Frugality-Bonus. Die nächste Runde dauert {turns} Züge länger.;Frugality-bónusz. A következő forduló {turns} körrel hosszabb.
+CardReportGoldenStocksTriggered;Golden Stocks сработал!;Golden Stocks triggered!;Golden Stocks wurde ausgelöst!;A Golden Stocks aktiválódott!
+RewardFinalBoss;Поздравляем! Вы разблокировали следующий уровень!;Congratulations! You unlocked the next level!;Glückwunsch! Du hast das nächste Level freigeschaltet!;Gratulálunk! Feloldottad a következő szintet!
+RewardLevel1FinalBoss;Вы открыли второй уровень и магазин. Теперь за победы начисляются наполеондоры, а в игре появляются красные карты.;You unlocked level two and the shop. Victories now award Napoleondors, and red cards appear in the game.;Du hast Level zwei und den Laden freigeschaltet. Siege bringen jetzt Napoleondor, und rote Karten erscheinen im Spiel.;Feloldottad a második szintet és a boltot. A győzelmekért mostantól napóleonarany jár, és piros kártyák jelennek meg a játékban.
+RewardLevel2FinalBoss;Вы открыли третий уровень, золотые и серебряные карты. В магазине доступны покупка карт и лицензий. Стартовый запас следующих уровней увеличен на 2 наполеондора.;You unlocked level three, gold cards, and silver cards. The shop now sells cards and licenses. Later levels start with 2 additional Napoleondors.;Du hast Level drei sowie Gold- und Silberkarten freigeschaltet. Im Laden kannst du jetzt Karten und Lizenzen kaufen. Spätere Level beginnen mit 2 zusätzlichen Napoleondor.;Feloldottad a harmadik szintet, valamint az arany- és ezüstkártyákat. A boltban már kártyákat és licenceket is vásárolhatsz. A későbbi szinteket 2 további napóleonarannyal kezded.
+RewardLevel3FinalBoss;Вы открыли четвёртый и пятый уровни и получили первую чёрную карту. Стартовый запас следующих уровней увеличен ещё на 3 наполеондора.;You unlocked levels four and five and received your first black card. Later levels start with 3 additional Napoleondors.;Du hast die Level vier und fünf freigeschaltet und erhältst deine erste schwarze Karte. Spätere Level beginnen mit 3 weiteren Napoleondor.;Feloldottad a negyedik és ötödik szintet, és megkaptad az első fekete kártyádat. A későbbi szinteket 3 további napóleonarannyal kezded.
+RewardLevel4FinalBoss;Вы завершили четвёртый уровень! Открыт раздел «Инвестиции». Вы получили чёрную карту Golden Stocks и теперь начинаете следующие уровни ещё с 2 Наполеонами.;You completed level four! The Investments section is now open. You received the Golden Stocks black card and now start subsequent levels with 2 additional Napoleondors.;Level vier geschafft! Der Bereich Investitionen ist jetzt verfügbar. Du erhältst die schwarze Karte Golden Stocks und beginnst spätere Level mit 2 zusätzlichen Napoleondor.;Teljesítetted a negyedik szintet! Megnyílt a Befektetések részleg. Megkaptad a Golden Stocks fekete kártyát, és a következő szinteket 2 további napóleonarannyal kezded.
+RewardLevel5FinalBoss;Пятый уровень пройден! Открыты уровни 6–8. Награды: чёрная карта «Комиссия», ещё 2 Наполеона на старте следующих уровней, 4 места для серебряных, чёрных и золотых карт вместо 3. На шестом уровне магазин с самого начала предлагает две карты на продажу.;Level five complete! Levels six, seven, and eight unlocked. Rewards: Commission black card, 2 extra Napoleondors at the start of later levels, and room for 4 silver, black, or gold cards instead of 3. On level six, shops offer two cards for sale from the start.;Level fünf geschafft! Die Level sechs bis acht sind freigeschaltet. Du erhältst die schwarze Karte Provision, 2 zusätzliche Napoleondor zu Beginn späterer Level und Platz für 4 schwarze Karten, Silber- oder Goldkarten statt 3. In Level sechs bieten die Läden von Anfang an zwei Karten zum Kauf an.;Az ötödik szint teljesítve! Feloldottad a hatodik, hetedik és nyolcadik szintet. Jutalmak: Commission fekete kártya, 2 további napóleonarany a későbbi szintek kezdetén, valamint 3 helyett 4 hely az ezüst-, fekete és aranykártyáknak. A hatodik szinten a boltok már kezdettől két kártyát kínálnak.
+BossVictoryDeckReset;Временные награды обычных раундов сброшены.;Temporary regular-round rewards have been cleared.;Vorübergehende Belohnungen aus regulären Runden wurden entfernt.;A rendes fordulók ideiglenes jutalmai törlődtek.
+LoseWindowText;Вы проиграли!;You lost!;Du hast verloren!;Vesztettél!
+Level2Cond;В 1825 году произошёл первый биржевой кризис. Победите двух боссов.;The first stock market crash occurred in 1825. Beat two bosses.;1825 kommt es zum ersten Börsenkrach. Besiege zwei Bosse.;Az első tőzsdekrach 1825-ben történt. Győzz le két főellenfelet.
+LastBossReward;Вы разблокируете следующий уровень.;You unlock the next level.;Du schaltest das nächste Level frei.;Feloldod a következő szintet.
+LastBossRewardLevel5;Завершает забег пятого уровня.;Completes the level five run.;Schließt den Durchlauf von Level fünf ab.;Lezárja az ötödik szint menetét.
+DeckPermanentCards;Карты постоянной колоды;Permanent deck cards;Dauerhafte Karten;Állandó paklikártyák
+DeckTemporaryCards;Временные карты (пропадут после победы над боссом);Temporary cards (disappear after defeating a boss);Vorübergehende Karten (verschwinden nach einem Sieg über einen Boss);Ideiglenes kártyák (a főellenfél legyőzése után eltűnnek)
+DeckPurchasedCards;Купленные карты (пропадут после поражения);Purchased cards (disappear after defeat);Gekaufte Karten (gehen bei einer Niederlage verloren);Vásárolt kártyák (vereség után eltűnnek)
+DeckRemaining;Оставшаяся колода;Remaining deck;Verbleibende Karten;A pakli megmaradt lapjai
+DeckFull;Полная колода;Full deck;Gesamtes Deck;Teljes pakli
+MenuLanguages;Языки;Languages;Sprachen;Nyelvek
+LanguagesTitle;Языки империй;Languages of the empires;Sprachen der Reiche;A birodalmak nyelvei
+RussianEmpire;Российская империя;Russian Empire;Russisches Kaiserreich;Orosz Birodalom
+BritishEmpire;Британская империя;British Empire;Britisches Weltreich;Brit Birodalom
+LanguageRU;Русский;Russian;Russisch;Orosz
+LanguageENG;Английский;English;Englisch;Angol
+LanguageSelect;Выбрать язык;Select language;Sprache wählen;Nyelv kiválasztása
+LanguageSelected;Выбран;Selected;Ausgewählt;Kiválasztva
+LanguagesPlanned;Позже: французский;Planned: French;Geplant: Französisch;Tervezett: francia
+GermanEmpire;Германская империя;German Empire;Deutsches Reich;Német Birodalom
+LanguageDE;Немецкий;German;Deutsch;Német
+AustroHungarianEmpire;Австро-Венгерская монархия;Austro-Hungarian Monarchy;Österreichisch-Ungarische Monarchie;Osztrák–Magyar Monarchia
+LanguageHU;Венгерский;Hungarian;Ungarisch;Magyar

@@ -16,5 +16,8 @@ MarketRolls.csv
 MarketRollSummary.csv
 CardAcquisitionStats.csv
 
+# Generated test and visual QA output
+output/
+
 # Codex local attachments
 .codex-remote-attachments/

@@ -4,6 +4,7 @@ from card_acquisition_stats import record_card_acquisitions
 
 from card_catalog import PRICE_CARD_IDS, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
+from level_routes import get_campaign_content_level
 
 
 # Game progress tracking.
@@ -652,7 +653,7 @@ def buy_diversification():
     if not is_diversification_offer_available():
         return False
     diversification_bought = True
-    print("Diversification activated: shops can now offer two cards.")
+    print("Diversification activated: shops can now offer one additional card.")
     return True
 
 
@@ -663,7 +664,8 @@ def get_shop_card_offer_slots(level_number):
         level = 0
     if level < 3:
         return 0
-    return 2 if diversification_bought else 1
+    base_slots = 2 if level == get_campaign_content_level(6) else 1
+    return base_slots + int(bool(diversification_bought))
 
 
 def is_expansion_offer_available(level_number=None):
@@ -3222,6 +3224,9 @@ def generate_shop_offers(
     card_pool = list(build_shop_card_offer_pool(level))
     if not card_pool:
         card_pool = build_all_available_shop_cards(level)
+    if level == get_campaign_content_level(6) and len(card_pool) < card_slots:
+        fallback_pool = [card for card in build_all_available_shop_cards(level) if card not in card_pool]
+        card_pool.extend(random.sample(fallback_pool, min(card_slots - len(card_pool), len(fallback_pool))))
 
     card_offers = []
     selected_card_ids = random.sample(card_pool, min(card_slots, len(card_pool)))

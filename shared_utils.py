@@ -1,3 +1,5 @@
+from localization import translate
+
 DEFAULT_WRAP_TEXT_COLOR = (83, 76, 70)
 
 
@@ -41,6 +43,7 @@ def wrap_text(text, font, max_width, color=DEFAULT_WRAP_TEXT_COLOR):
     """Split text into lines that fit within max_width using rendered widths."""
     if not text:
         return []
+    text = translate(text)
     words = text.split()
     lines = []
     current_line = []

@@ -108,29 +108,22 @@ def load_cards_config():
 
 
 def load_language(lang_code="RU"):
-    """Load language strings from Lang.csv and return them as a dict."""
+    """Load a complete locale; never silently substitute another language."""
+    from localization import SUPPORTED_LANGUAGES
+    if lang_code not in SUPPORTED_LANGUAGES:
+        raise ValueError(f"Unsupported language: {lang_code}")
     lang = {}
-
-    lang_file = "Lang.csv"
-    if not os.path.exists(lang_file):
-        print(f"WARNING: Language file not found: {lang_file}")
-        return lang
-
-    try:
-        with open(lang_file, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            for row in reader:
-                key = row.get("Key", "").strip()
-                value = row.get("RU", "").strip() if lang_code == "RU" else row.get("ENG", "").strip()
-                if key:
-                    lang[key] = value
-    except Exception as e:
-        print(f"ERROR loading language file: {e}")
-        lang = {
-            "MenuStart": "Start Game",
-            "MenuOption": "Options",
-            "MenuQuit": "Quit",
-        }
+    with open("Lang.csv", "r", encoding="utf-8-sig", newline="") as source:
+        for row in csv.DictReader(source, delimiter=";"):
+            key = row.get("Key", "").strip()
+            if not key:
+                continue
+            value = (row.get(lang_code) or "").strip()
+            if not value:
+                raise ValueError(f"Lang.csv: missing {lang_code} translation for {key}")
+            if key in lang:
+                raise ValueError(f"Lang.csv: duplicate key {key}")
+            lang[key] = value
     return lang
 
 

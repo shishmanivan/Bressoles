@@ -1,8 +1,10 @@
+from localization import SUPPORTED_LANGUAGES, set_language
 import pygame
 import sys
 import game_state
 import profile_manager
-from app_settings import load_music_volume, save_music_volume
+from app_settings import load_music_volume, save_music_volume, load_selected_language, save_selected_language
+from languages_page import LanguagesPage
 from asset_loaders import find_font_path_or_exit, load_main_background
 from boss_logic import (
     LEVEL_BOSS_ROUNDS,
@@ -69,7 +71,7 @@ CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses 
 
 
 def main():
-    global Lang
+    global Lang, CURRENT_LANGUAGE
 
     # Initialize screen
     screen = create_game_display((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -82,6 +84,8 @@ def main():
     font_path = find_font_path_or_exit()
     
     # Load language (default: RU/RUS)
+    CURRENT_LANGUAGE = load_selected_language()
+    set_language(CURRENT_LANGUAGE)
     Lang = load_language(CURRENT_LANGUAGE)
     
     # Validate levels and rounds config (RoundsData.csv vs LEVEL_BOSS_ROUNDS)
@@ -557,6 +561,17 @@ def main():
             choose_profile()
             continue
 
+        if result == "languages":
+            language_result = LanguagesPage(screen, background, font_path, Lang, CURRENT_LANGUAGE).run()
+            if language_result == "quit":
+                result = "quit"
+                break
+            if language_result in SUPPORTED_LANGUAGES:
+                CURRENT_LANGUAGE = save_selected_language(language_result)
+                set_language(CURRENT_LANGUAGE)
+                Lang = load_language(CURRENT_LANGUAGE)
+            continue
+
         if result == "options":
             settings_page = SettingsPage(
                 screen,
@@ -571,7 +586,10 @@ def main():
             if settings_result == "quit":
                 result = "quit"
                 break
-            continue
+            if settings_result == "test_mode":
+                result = "test_mode"
+            else:
+                continue
 
         if result in ("start", "test_mode"):
             if not selected_slot and result == "start":

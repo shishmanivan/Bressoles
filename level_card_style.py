@@ -4,6 +4,8 @@ import os
 
 import pygame
 
+from localization import get_language
+
 from asset_loaders import load_scaled_image
 from shared_utils import wrap_text
 
@@ -62,7 +64,7 @@ class LevelCardStyle:
         return rect
 
     def _text(self, year, description):
-        key = (year, description)
+        key = (get_language(), year, description)
         if key not in self._text_cache:
             ink = (32, 26, 20)
             # Tight tracking for the headline; crop font ascender padding so

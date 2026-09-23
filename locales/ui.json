@@ -1,0 +1,2319 @@
+[
+  {
+    "Source": "Немного усиливает вероятность роста выбранной акции.",
+    "RU": "Немного усиливает вероятность роста выбранной акции.",
+    "ENG": "Slightly increases the chance that the selected stock will rise.",
+    "DE": "Erhöht die Wahrscheinlichkeit eines Kursanstiegs der gewählten Aktie leicht.",
+    "HU": "Kissé növeli a kiválasztott részvény emelkedésének esélyét."
+  },
+  {
+    "Source": "Усиливает вероятность роста выбранной акции.",
+    "RU": "Усиливает вероятность роста выбранной акции.",
+    "ENG": "Increases the chance that the selected stock will rise.",
+    "DE": "Erhöht die Wahrscheinlichkeit eines Kursanstiegs der gewählten Aktie.",
+    "HU": "Növeli a kiválasztott részvény emelkedésének esélyét."
+  },
+  {
+    "Source": "Немного усиливает вероятность падения выбранной акции.",
+    "RU": "Немного усиливает вероятность падения выбранной акции.",
+    "ENG": "Slightly increases the chance that the selected stock will fall.",
+    "DE": "Erhöht die Wahrscheinlichkeit eines Kursrückgangs der gewählten Aktie leicht.",
+    "HU": "Kissé növeli a kiválasztott részvény esésének esélyét."
+  },
+  {
+    "Source": "Усиливает вероятность падения выбранной акции.",
+    "RU": "Усиливает вероятность падения выбранной акции.",
+    "ENG": "Increases the chance that the selected stock will fall.",
+    "DE": "Erhöht die Wahrscheinlichkeit eines Kursrückgangs der gewählten Aktie.",
+    "HU": "Növeli a kiválasztott részvény esésének esélyét."
+  },
+  {
+    "Source": "Увеличивает цену выбранной акции на 2 в течение 1 хода.",
+    "RU": "Увеличивает цену выбранной акции на 2 в течение 1 хода.",
+    "ENG": "Raises the selected stock's price by 2 for 1 turn.",
+    "DE": "Erhöht den Kurs der gewählten Aktie für 1 Zug um 2.",
+    "HU": "1 körre 2-vel növeli a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Увеличивает цену выбранной акции на 2 в течение 2 ходов.",
+    "RU": "Увеличивает цену выбранной акции на 2 в течение 2 ходов.",
+    "ENG": "Raises the selected stock's price by 2 for 2 turns.",
+    "DE": "Erhöht den Kurs der gewählten Aktie für 2 Züge um 2.",
+    "HU": "2 körre 2-vel növeli a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Увеличивает цену выбранной акции на 4 в течение 1 хода.",
+    "RU": "Увеличивает цену выбранной акции на 4 в течение 1 хода.",
+    "ENG": "Raises the selected stock's price by 4 for 1 turn.",
+    "DE": "Erhöht den Kurs der gewählten Aktie für 1 Zug um 4.",
+    "HU": "1 körre 4-gyel növeli a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Увеличивает цену выбранной акции на 4 в течение 2 ходов.",
+    "RU": "Увеличивает цену выбранной акции на 4 в течение 2 ходов.",
+    "ENG": "Raises the selected stock's price by 4 for 2 turns.",
+    "DE": "Erhöht den Kurs der gewählten Aktie für 2 Züge um 4.",
+    "HU": "2 körre 4-gyel növeli a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Снижает цену выбранной акции на 2 в течение 1 хода.",
+    "RU": "Снижает цену выбранной акции на 2 в течение 1 хода.",
+    "ENG": "Lowers the selected stock's price by 2 for 1 turn.",
+    "DE": "Senkt den Kurs der gewählten Aktie für 1 Zug um 2.",
+    "HU": "1 körre 2-vel csökkenti a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Снижает цену выбранной акции на 2 в течение 2 ходов.",
+    "RU": "Снижает цену выбранной акции на 2 в течение 2 ходов.",
+    "ENG": "Lowers the selected stock's price by 2 for 2 turns.",
+    "DE": "Senkt den Kurs der gewählten Aktie für 2 Züge um 2.",
+    "HU": "2 körre 2-vel csökkenti a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Умножает цену выбранной акции на 2 в течение 1 хода.",
+    "RU": "Умножает цену выбранной акции на 2 в течение 1 хода.",
+    "ENG": "Doubles the selected stock's price for 1 turn.",
+    "DE": "Verdoppelt den Kurs der gewählten Aktie für 1 Zug.",
+    "HU": "1 körre megduplázza a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Умножает цену выбранной акции на 2 в течение 2 ходов.",
+    "RU": "Умножает цену выбранной акции на 2 в течение 2 ходов.",
+    "ENG": "Doubles the selected stock's price for 2 turns.",
+    "DE": "Verdoppelt den Kurs der gewählten Aktie für 2 Züge.",
+    "HU": "2 körre megduplázza a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Случайное движение выбранной акции будет Flat в течение 2 ходов.",
+    "RU": "Случайное движение выбранной акции будет Flat в течение 2 ходов.",
+    "ENG": "The selected stock's random market movement is always Flat for 2 turns.",
+    "DE": "Die zufällige Marktbewegung der gewählten Aktie ist für 2 Züge immer Flat.",
+    "HU": "A kiválasztott részvény véletlenszerű piaci mozgása 2 körön át mindig oldalazás."
+  },
+  {
+    "Source": "Случайное движение выбранной акции будет Flat в течение 3 ходов.",
+    "RU": "Случайное движение выбранной акции будет Flat в течение 3 ходов.",
+    "ENG": "The selected stock's random market movement is always Flat for 3 turns.",
+    "DE": "Die zufällige Marktbewegung der gewählten Aktie ist für 3 Züge immer Flat.",
+    "HU": "A kiválasztott részvény véletlenszerű piaci mozgása 3 körön át mindig oldalazás."
+  },
+  {
+    "Source": "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке.",
+    "RU": "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке.",
+    "ENG": "The selected stock can never fall, even through card effects. This card always appears in your starting hand.",
+    "DE": "Der Kurs der gewählten Aktie kann nicht mehr fallen, auch nicht durch Karten. Diese Karte ist immer in der Starthand.",
+    "HU": "A kiválasztott részvény árfolyama semmilyen módon nem eshet, még kártyahatás miatt sem. Ez a kártya mindig a kezdő kezedbe kerül."
+  },
+  {
+    "Source": "Это бесполезная карта. Она ничего не делает и только занимает место.",
+    "RU": "Это бесполезная карта. Она ничего не делает и только занимает место.",
+    "ENG": "This card has no effect and only takes up space.",
+    "DE": "Diese Karte hat keinen Effekt und nimmt nur Platz weg.",
+    "HU": "Ennek a kártyának nincs hatása, csak a helyet foglalja."
+  },
+  {
+    "Source": "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости.",
+    "RU": "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости.",
+    "ENG": "Automatically sells all remaining shares on the final turn for 90% of their value.",
+    "DE": "Verkauft im letzten Zug automatisch alle übrigen Aktien für 90 % ihres Wertes.",
+    "HU": "Az utolsó körben automatikusan eladja az összes megmaradt részvényt az értékük 90%-áért."
+  },
+  {
+    "Source": "Удаляет все карты, выложенные на трёх рынках.",
+    "RU": "Удаляет все карты, выложенные на трёх рынках.",
+    "ENG": "Removes all cards placed on the three markets.",
+    "DE": "Entfernt alle Karten, die auf den drei Märkten ausliegen.",
+    "HU": "Eltávolítja a három piacra kihelyezett összes kártyát."
+  },
+  {
+    "Source": "Добавляет 1 ход всем Gain, Drop и Regulation-картам, включая уже выложенные.",
+    "RU": "Добавляет 1 ход всем Gain, Drop и Regulation-картам, включая уже выложенные.",
+    "ENG": "Adds 1 turn to all Gain, Drop and Regulation cards, including cards already in play.",
+    "DE": "Verlängert alle Gain-, Drop- und Regulation-Karten um 1 Zug, auch bereits ausgespielte.",
+    "HU": "1 körrel meghosszabbítja minden Gain, Drop és Regulation kártya hatását, a már játékban lévőkét is."
+  },
+  {
+    "Source": "Устанавливает цену акций компании A на 2.",
+    "RU": "Устанавливает цену акций компании A на 2.",
+    "ENG": "Sets company A's share price to 2.",
+    "DE": "Setzt den Kurs der A-Aktien auf 2.",
+    "HU": "Az A vállalat részvényárfolyamát 2-re állítja."
+  },
+  {
+    "Source": "Устанавливает цену акций компании B на 2.",
+    "RU": "Устанавливает цену акций компании B на 2.",
+    "ENG": "Sets company B's share price to 2.",
+    "DE": "Setzt den Kurs der B-Aktien auf 2.",
+    "HU": "A B vállalat részvényárfolyamát 2-re állítja."
+  },
+  {
+    "Source": "Устанавливает цену акций компании C на 2.",
+    "RU": "Устанавливает цену акций компании C на 2.",
+    "ENG": "Sets company C's share price to 2.",
+    "DE": "Setzt den Kurs der C-Aktien auf 2.",
+    "HU": "A C vállalat részvényárfolyamát 2-re állítja."
+  },
+  {
+    "Source": "Добавляет 1 ход к длительности раунда.",
+    "RU": "Добавляет 1 ход к длительности раунда.",
+    "ENG": "Adds 1 turn to the round.",
+    "DE": "Verlängert die Runde um 1 Zug.",
+    "HU": "1 körrel meghosszabbítja a fordulót."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 2.",
+    "RU": "Устанавливает цены всех трёх акций на 2.",
+    "ENG": "Sets all three share prices to 2.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 2.",
+    "HU": "Mindhárom részvény árfolyamát 2-re állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 10.",
+    "RU": "Устанавливает цены всех трёх акций на 10.",
+    "ENG": "Sets all three share prices to 10.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 10.",
+    "HU": "Mindhárom részvény árfolyamát 10-re állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 20.",
+    "RU": "Устанавливает цены всех трёх акций на 20.",
+    "ENG": "Sets all three share prices to 20.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 20.",
+    "HU": "Mindhárom részvény árfolyamát 20-ra állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 30.",
+    "RU": "Устанавливает цены всех трёх акций на 30.",
+    "ENG": "Sets all three share prices to 30.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 30.",
+    "HU": "Mindhárom részvény árfolyamát 30-ra állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 50.",
+    "RU": "Устанавливает цены всех трёх акций на 50.",
+    "ENG": "Sets all three share prices to 50.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 50.",
+    "HU": "Mindhárom részvény árfolyamát 50-re állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на 100.",
+    "RU": "Устанавливает цены всех трёх акций на 100.",
+    "ENG": "Sets all three share prices to 100.",
+    "DE": "Setzt die Kurse aller drei Aktien auf 100.",
+    "HU": "Mindhárom részvény árfolyamát 100-ra állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на их среднее значение с округлением до целого.",
+    "RU": "Устанавливает цены всех трёх акций на их среднее значение с округлением до целого.",
+    "ENG": "Sets all three share prices to their average, rounded to the nearest whole number.",
+    "DE": "Setzt die Kurse aller drei Aktien auf ihren Durchschnitt, gerundet auf eine ganze Zahl.",
+    "HU": "Mindhárom részvény árfolyamát az átlagukra állítja, a legközelebbi egész számra kerekítve."
+  },
+  {
+    "Source": "Удваивает номинал и длительность следующей выложенной Gain или Drop-карты. Эффект не переносится в следующий раунд.",
+    "RU": "Удваивает номинал и длительность следующей выложенной Gain или Drop-карты. Эффект не переносится в следующий раунд.",
+    "ENG": "Doubles the strength and duration of the next Gain or Drop card played. The effect does not carry over to the next round.",
+    "DE": "Verdoppelt die Stärke und Dauer der nächsten ausgespielten Gain- oder Drop-Karte. Der Effekt wird nicht in die nächste Runde übernommen.",
+    "HU": "Megduplázza a következőként kijátszott Gain vagy Drop kártya erejét és időtartamát. A hatás nem vihető át a következő fordulóra."
+  },
+  {
+    "Source": "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
+    "RU": "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
+    "ENG": "Can only be played on the final turn. Has a 50% chance to double the prices of stocks you own.",
+    "DE": "Nur im letzten Zug spielbar. Verdoppelt mit 50 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
+    "HU": "Csak az utolsó körben játszható ki. 50% eséllyel megduplázza a birtokodban lévő részvények árfolyamát."
+  },
+  {
+    "Source": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
+    "RU": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
+    "ENG": "May award a random gold card at the end of a victorious round. Each failed attempt raises the chance by 2 percentage points. It resets to 10% in a new run.",
+    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Nach einem Fehlschlag steigt die Chance um 2 Prozentpunkte. Zu Beginn eines neuen Durchlaufs wird sie auf 10 % zurückgesetzt.",
+    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Minden sikertelen próbálkozás 2 százalékponttal növeli az esélyt. Új menetben az esély visszaáll 10%-ra."
+  },
+  {
+    "Source": "Продаёт акции дороже их стоимости. Каждое падение акций A увеличивает процент продажи ещё на 2 пункта.",
+    "RU": "Продаёт акции дороже их стоимости. Каждое падение акций A увеличивает процент продажи ещё на 2 пункта.",
+    "ENG": "Sells shares for more than their value. Each fall in stock A raises the sale percentage by another 2 percentage points.",
+    "DE": "Verkauft Aktien über ihrem Wert. Jeder Kursrückgang der A-Aktie erhöht den Verkaufserlös um weitere 2 Prozentpunkte.",
+    "HU": "Az értéküknél drágábban adja el a részvényeket. Az A részvény minden esése további 2 százalékponttal növeli az eladási arányt."
+  },
+  {
+    "Source": "Добавляет к эффекту Rebate по 2 процентных пункта за каждый целый имеющийся наполеондор.",
+    "RU": "Добавляет к эффекту Rebate по 2 процентных пункта за каждый целый имеющийся наполеондор.",
+    "ENG": "Adds 2 percentage points to the Rebate effect for every whole Napoleondor you own.",
+    "DE": "Verstärkt den Rebate-Effekt um 2 Prozentpunkte je vollem Napoleondor in deinem Besitz.",
+    "HU": "Minden birtokodban lévő egész napóleonarany után 2 százalékponttal erősíti a Rebate hatását."
+  },
+  {
+    "Source": "Показывает следующий рыночный бросок и позволяет переиграть текущий ход.",
+    "RU": "Показывает следующий рыночный бросок и позволяет переиграть текущий ход.",
+    "ENG": "Shows the next market roll and lets you replay the current turn.",
+    "DE": "Zeigt die nächste Marktbewegung und lässt dich den aktuellen Zug wiederholen.",
+    "HU": "Megmutatja a következő piaci dobást, és lehetővé teszi az aktuális kör újrajátszását."
+  },
+  {
+    "Source": "Теперь в игре будут попадаться серебряные карты.",
+    "RU": "Теперь в игре будут попадаться серебряные карты.",
+    "ENG": "Silver cards will now appear in the game.",
+    "DE": "Ab jetzt erscheinen auch Silberkarten im Spiel.",
+    "HU": "Mostantól ezüstkártyák is megjelennek a játékban."
+  },
+  {
+    "Source": "Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.",
+    "RU": "Вы разблокировали четвёртый уровень. Вы получили свою первую чёрную карту.",
+    "ENG": "You unlocked level four and received your first black card.",
+    "DE": "Du hast Level vier freigeschaltet und erhältst deine erste schwarze Karte.",
+    "HU": "Feloldottad a negyedik szintet, és megkaptad az első fekete kártyádat."
+  },
+  {
+    "Source": "Вы завершили четвёртый уровень!",
+    "RU": "Вы завершили четвёртый уровень!",
+    "ENG": "Level four complete!",
+    "DE": "Level vier geschafft!",
+    "HU": "A negyedik szint teljesítve!"
+  },
+  {
+    "Source": "Карта добавлена",
+    "RU": "Карта добавлена",
+    "ENG": "Card added",
+    "DE": "Karte hinzugefügt",
+    "HU": "Kártya hozzáadva"
+  },
+  {
+    "Source": "Добавить в руку",
+    "RU": "Добавить в руку",
+    "ENG": "Add to hand",
+    "DE": "Auf die Hand nehmen",
+    "HU": "Kézbe vétel"
+  },
+  {
+    "Source": "Босс раунд",
+    "RU": "Босс раунд",
+    "ENG": "Boss round",
+    "DE": "Bossrunde",
+    "HU": "Főellenfél elleni forduló"
+  },
+  {
+    "Source": "Waterloo: прогноз рыночного броска",
+    "RU": "Waterloo: прогноз рыночного броска",
+    "ENG": "Waterloo: market forecast",
+    "DE": "Waterloo: Vorschau der Marktbewegung",
+    "HU": "Waterloo: piaci előrejelzés"
+  },
+  {
+    "Source": "Нет места",
+    "RU": "Нет места",
+    "ENG": "No space",
+    "DE": "Kein Platz",
+    "HU": "Nincs hely"
+  },
+  {
+    "Source": "Карта не найдена",
+    "RU": "Карта не найдена",
+    "ENG": "Card not found",
+    "DE": "Karte nicht gefunden",
+    "HU": "A kártya nem található"
+  },
+  {
+    "Source": "Hedger использован",
+    "RU": "Hedger использован",
+    "ENG": "Hedger already used",
+    "DE": "Hedger bereits eingesetzt",
+    "HU": "A Hedger már fel lett használva"
+  },
+  {
+    "Source": "Выберите карту из колоды",
+    "RU": "Выберите карту из колоды",
+    "ENG": "Choose a card from the deck",
+    "DE": "Wähle eine Karte aus dem Deck",
+    "HU": "Válassz egy kártyát a pakliból"
+  },
+  {
+    "Source": "Да",
+    "RU": "Да",
+    "ENG": "Yes",
+    "DE": "Ja",
+    "HU": "Igen"
+  },
+  {
+    "Source": "Нет",
+    "RU": "Нет",
+    "ENG": "No",
+    "DE": "Nein",
+    "HU": "Nem"
+  },
+  {
+    "Source": "босс",
+    "RU": "босс",
+    "ENG": "boss",
+    "DE": "Boss",
+    "HU": "főellenfél"
+  },
+  {
+    "Source": "раундов",
+    "RU": "раундов",
+    "ENG": "rounds",
+    "DE": "Runden",
+    "HU": "forduló"
+  },
+  {
+    "Source": "В этом забеге карта уже сработала.",
+    "RU": "В этом забеге карта уже сработала.",
+    "ENG": "This card has already triggered during this run.",
+    "DE": "Die Karte wurde in diesem Durchlauf bereits ausgelöst.",
+    "HU": "Ez a kártya már aktiválódott ebben a menetben."
+  },
+  {
+    "Source": "Рост",
+    "RU": "Рост",
+    "ENG": "Rise",
+    "DE": "Anstieg",
+    "HU": "Emelkedés"
+  },
+  {
+    "Source": "Падение",
+    "RU": "Падение",
+    "ENG": "Fall",
+    "DE": "Rückgang",
+    "HU": "Esés"
+  },
+  {
+    "Source": "Усиливает одну постоянную карту роста, падения, взлёта или снижения на {amount} до конца забега. Доступно одно усиление за магазин.",
+    "RU": "Усиливает одну постоянную карту роста, падения, взлёта или снижения на {amount} до конца забега. Доступно одно усиление за магазин.",
+    "ENG": "Strengthens one permanent Upside, Downside, Gain or Drop card by {amount} until the end of the run. One upgrade per shop.",
+    "DE": "Verstärkt eine dauerhafte Upside-, Downside-, Gain- oder Drop-Karte bis zum Ende des Durchlaufs um {amount}. Pro Laden ist eine Verstärkung möglich.",
+    "HU": "A menet végéig {amount} értékkel erősít egy állandó Upside, Downside, Gain vagy Drop kártyát. Boltonként egyszer használható."
+  },
+  {
+    "Source": "Удаляет одну выбранную карту из колоды.",
+    "RU": "Удаляет одну выбранную карту из колоды.",
+    "ENG": "Removes one card of your choice from the deck.",
+    "DE": "Entfernt eine Karte deiner Wahl aus dem Deck.",
+    "HU": "Eltávolít egy általad választott kártyát a pakliból."
+  },
+  {
+    "Source": "Позволяет продать одну карту из колоды.",
+    "RU": "Позволяет продать одну карту из колоды.",
+    "ENG": "Lets you sell one card from the deck.",
+    "DE": "Erlaubt dir, eine Karte aus dem Deck zu verkaufen.",
+    "HU": "Eladhatsz egy kártyát a pakliból."
+  },
+  {
+    "Source": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
+    "RU": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
+    "ENG": "Increases the reward for every subsequent victory by 1 Napoleondor.",
+    "DE": "Erhöht die Belohnung für jeden weiteren Sieg um 1 Napoleondor.",
+    "HU": "Minden további győzelem jutalmát 1 napóleonarannyal növeli."
+  },
+  {
+    "Source": "Даёт две разные случайные редкие серебряные карты.",
+    "RU": "Даёт две разные случайные редкие серебряные карты.",
+    "ENG": "Gives you two different random rare silver cards.",
+    "DE": "Gewährt zwei verschiedene zufällige seltene Silberkarten.",
+    "HU": "Két különböző, véletlenszerű ritka ezüstkártyát ad."
+  },
+  {
+    "Source": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
+    "RU": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
+    "ENG": "Reduces the goals of the next 5 rounds by 20%. Does not appear in the shop while active.",
+    "DE": "Senkt die Zielbeträge der nächsten 5 Runden um 20 %. Solange der Effekt aktiv ist, erscheint das Angebot nicht im Laden.",
+    "HU": "20%-kal csökkenti a következő 5 forduló célösszegét. Amíg aktív, nem jelenik meg a boltban."
+  },
+  {
+    "Source": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
+    "RU": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
+    "ENG": "Invest 2 Napoleondors now and receive 6 Napoleondors after 4 rounds.",
+    "DE": "Investiere jetzt 2 Napoleondor und erhalte nach 4 Runden 6 Napoleondor.",
+    "HU": "Fektess be most 2 napóleonaranyat, és 4 forduló múlva 6-ot kapsz."
+  },
+  {
+    "Source": "Увеличивает руку на одну карту до конца забега.",
+    "RU": "Увеличивает руку на одну карту до конца забега.",
+    "ENG": "Adds one hand slot until the end of the run.",
+    "DE": "Gewährt bis zum Ende des Durchlaufs einen zusätzlichen Handkartenplatz.",
+    "HU": "A menet végéig eggyel több lapot tarthatsz a kezedben."
+  },
+  {
+    "Source": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
+    "RU": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
+    "ENG": "Invest 2 Napoleondors: a 60% chance to receive 6, a 30% chance to lose your stake, and a 10% chance to get your 2 back.",
+    "DE": "Investiere 2 Napoleondor: 60 % Chance auf 6, 30 % auf den Verlust des Einsatzes und 10 % auf eine Rückzahlung von 2.",
+    "HU": "Fektess be 2 napóleonaranyat: 60% eséllyel 6-ot kapsz, 30% eséllyel elveszíted a tétet, 10% eséllyel pedig visszakapod a 2-t."
+  },
+  {
+    "Source": "Открывает новый слот для чёрных, серебряных и золотых карт.",
+    "RU": "Открывает новый слот для чёрных, серебряных и золотых карт.",
+    "ENG": "Unlocks another shared slot for black, silver and gold cards.",
+    "DE": "Schaltet einen weiteren gemeinsamen Platz für schwarze Karten, Silber- und Goldkarten frei.",
+    "HU": "Felold egy további közös helyet a fekete, ezüst- és aranykártyáknak."
+  },
+  {
+    "Source": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
+    "RU": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
+    "ENG": "Pays 25% interest on your remaining Napoleondors before the next shop. Interest is calculated in increments of 0.5.",
+    "DE": "Gewährt vor dem nächsten Laden 25 % Zinsen auf deine übrigen Napoleondor. Die Zinsen werden in Schritten von 0,5 berechnet.",
+    "HU": "A következő bolt előtt 25% kamatot fizet a megmaradt napóleonaranyaid után. A kamatot 0,5-ös lépésekben számolja."
+  },
+  {
+    "Source": "Добавляет случайную золотую карту в текущем забеге.",
+    "RU": "Добавляет случайную золотую карту в текущем забеге.",
+    "ENG": "Gives you a random gold card for the current run.",
+    "DE": "Gewährt eine zufällige Goldkarte für den aktuellen Durchlauf.",
+    "HU": "Véletlenszerű aranykártyát ad az aktuális menetre."
+  },
+  {
+    "Source": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
+    "RU": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
+    "ENG": "Strengthens all Upside and Downside cards by 1 percentage point until the end of the run.",
+    "DE": "Verstärkt alle Upside- und Downside-Karten bis zum Ende des Durchlaufs um 1 Prozentpunkt.",
+    "HU": "A menet végéig 1 százalékponttal erősíti az összes Upside és Downside kártyát."
+  },
+  {
+    "Source": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
+    "RU": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
+    "ENG": "Immediately gives you 5 Napoleondors, but increases the current boss's goals by 20%.",
+    "DE": "Gewährt sofort 5 Napoleondor, erhöht aber die Zielbeträge des aktuellen Bosses um 20 %.",
+    "HU": "Azonnal 5 napóleonaranyat ad, de 20%-kal növeli az aktuális főellenfél célösszegeit."
+  },
+  {
+    "Source": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
+    "RU": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
+    "ENG": "Sell up to three cards: silver cards for 2 Napoleondors each, gold cards for 4. Black cards cannot be sold.",
+    "DE": "Verkaufe bis zu drei Karten: Silberkarten für je 2, Goldkarten für je 4 Napoleondor. Schwarze Karten können nicht verkauft werden.",
+    "HU": "Legfeljebb három kártyát adhatsz el: az ezüstkártyákért egyenként 2, az aranykártyákért 4 napóleonaranyat kapsz. Fekete kártyák nem adhatók el."
+  },
+  {
+    "Source": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
+    "RU": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
+    "ENG": "Adds one more card for sale in every subsequent shop until the end of the run.",
+    "DE": "Bis zum Ende des Durchlaufs steht in jedem weiteren Laden eine zusätzliche Karte zum Kauf.",
+    "HU": "A menet végéig minden következő boltban eggyel több eladó kártya jelenik meg."
+  },
+  {
+    "Source": "Добавляет ещё одно предложение в каждый следующий магазин.",
+    "RU": "Добавляет ещё одно предложение в каждый следующий магазин.",
+    "ENG": "Adds one more offer to every subsequent shop.",
+    "DE": "Fügt jedem weiteren Laden ein zusätzliches Angebot hinzu.",
+    "HU": "Minden következő boltban eggyel több ajánlat jelenik meg."
+  },
+  {
+    "Source": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
+    "RU": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
+    "ENG": "Immediately lowers prices in the current shop and gives a 25% discount on cards, offers, licenses and investments until the end of the run. Prices are rounded to 0.5 Napoleondors.",
+    "DE": "Senkt sofort die Preise im aktuellen Laden und gewährt bis zum Ende des Durchlaufs 25 % Rabatt auf Karten, Angebote, Lizenzen und Investitionen. Die Preise werden auf 0,5 Napoleondor gerundet.",
+    "HU": "Azonnal csökkenti az aktuális bolt árait, és a menet végéig 25% kedvezményt ad kártyákra, ajánlatokra, licencekre és befektetésekre. Az árakat 0,5 napóleonaranyra kerekíti."
+  },
+  {
+    "Source": "Показывает игровые вероятности в течение следующих 5 раундов.",
+    "RU": "Показывает игровые вероятности в течение следующих 5 раундов.",
+    "ENG": "Reveals the game's probabilities for the next 5 rounds.",
+    "DE": "Zeigt während der nächsten 5 Runden die Wahrscheinlichkeiten im Spiel an.",
+    "HU": "A következő 5 fordulóban megmutatja a játék valószínűségeit."
+  },
+  {
+    "Source": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
+    "RU": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
+    "ENG": "Increases each subsequent investment upgrade from 1 to 2.",
+    "DE": "Erhöht alle künftigen Verstärkungen im Bereich Investitionen von 1 auf 2.",
+    "HU": "Minden további befektetés erősítő hatását 1-ről 2-re növeli."
+  },
+  {
+    "Source": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
+    "RU": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
+    "ENG": "Choose and copy one of your silver cards, provided there is room in storage.",
+    "DE": "Kopiere eine deiner Silberkarten, sofern im Inventar Platz ist.",
+    "HU": "Válassz ki és másolj le egy ezüstkártyádat, ha van hely a készletedben."
+  },
+  {
+    "Source": "Позволяет выбрать и скопировать одну имеющуюся золотую карту, если в хранилище есть свободное место.",
+    "RU": "Позволяет выбрать и скопировать одну имеющуюся золотую карту, если в хранилище есть свободное место.",
+    "ENG": "Choose and copy one of your gold cards, provided there is room in storage.",
+    "DE": "Kopiere eine deiner Goldkarten, sofern im Inventar Platz ist.",
+    "HU": "Válassz ki és másolj le egy aranykártyádat, ha van hely a készletedben."
+  },
+  {
+    "Source": "Показывает пять случайных доступных предложений. Одно из них можно выбрать бесплатно.",
+    "RU": "Показывает пять случайных доступных предложений. Одно из них можно выбрать бесплатно.",
+    "ENG": "Shows five random available offers. Choose one for free.",
+    "DE": "Zeigt fünf zufällige verfügbare Angebote. Eines davon darfst du kostenlos wählen.",
+    "HU": "Öt véletlenszerű elérhető ajánlatot mutat. Egyet ingyen választhatsz közülük."
+  },
+  {
+    "Source": "После поражения сохраняет все золотые карты и переносит их в следующий забег.",
+    "RU": "После поражения сохраняет все золотые карты и переносит их в следующий забег.",
+    "ENG": "Preserves all gold cards after defeat and carries them into the next run.",
+    "DE": "Bewahrt bei einer Niederlage alle Goldkarten für den nächsten Durchlauf.",
+    "HU": "Vereség után megőrzi az összes aranykártyát, és átviszi őket a következő menetre."
+  },
+  {
+    "Source": "Дублирует любую выбранную карту текущей колоды. Дубликат сохраняется после победы над боссом.",
+    "RU": "Дублирует любую выбранную карту текущей колоды. Дубликат сохраняется после победы над боссом.",
+    "ENG": "Duplicates any card you choose from your current deck. The copy remains after defeating a boss.",
+    "DE": "Kopiert eine Karte deiner Wahl aus dem aktuellen Deck. Die Kopie bleibt nach einem Sieg über einen Boss erhalten.",
+    "HU": "Lemásolja az aktuális paklid egy tetszőleges kártyáját. A másolat a főellenfél legyőzése után is megmarad."
+  },
+  {
+    "Source": "После победы над текущим боссом позволяет сохранить одну временную карту для следующего босса.",
+    "RU": "После победы над текущим боссом позволяет сохранить одну временную карту для следующего босса.",
+    "ENG": "After defeating the current boss, lets you keep one temporary card for the next boss.",
+    "DE": "Nach dem Sieg über den aktuellen Boss darfst du eine vorübergehende Karte für den nächsten Boss behalten.",
+    "HU": "Az aktuális főellenfél legyőzése után megtarthatsz egy ideiglenes kártyát a következő főellenfélig."
+  },
+  {
+    "Source": "Добавляет 10 процентных пунктов к вероятности появления редких золотых карт и предложений.",
+    "RU": "Добавляет 10 процентных пунктов к вероятности появления редких золотых карт и предложений.",
+    "ENG": "Adds 10 percentage points to the chance of rare gold cards and offers appearing.",
+    "DE": "Erhöht die Wahrscheinlichkeit seltener Goldkarten und Angebote um 10 Prozentpunkte.",
+    "HU": "10 százalékponttal növeli a ritka aranykártyák és ajánlatok megjelenésének esélyét."
+  },
+  {
+    "Source": "Инвестиции",
+    "RU": "Инвестиции",
+    "ENG": "Investments",
+    "DE": "Investitionen",
+    "HU": "Befektetések"
+  },
+  {
+    "Source": "Устанавливает цены всех акций на 10.",
+    "RU": "Устанавливает цены всех акций на 10.",
+    "ENG": "Sets all share prices to 10.",
+    "DE": "Setzt alle Aktienkurse auf 10.",
+    "HU": "Minden részvény árfolyamát 10-re állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех акций на 20.",
+    "RU": "Устанавливает цены всех акций на 20.",
+    "ENG": "Sets all share prices to 20.",
+    "DE": "Setzt alle Aktienkurse auf 20.",
+    "HU": "Minden részvény árfolyamát 20-ra állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех акций на 30.",
+    "RU": "Устанавливает цены всех акций на 30.",
+    "ENG": "Sets all share prices to 30.",
+    "DE": "Setzt alle Aktienkurse auf 30.",
+    "HU": "Minden részvény árfolyamát 30-ra állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех акций на 50.",
+    "RU": "Устанавливает цены всех акций на 50.",
+    "ENG": "Sets all share prices to 50.",
+    "DE": "Setzt alle Aktienkurse auf 50.",
+    "HU": "Minden részvény árfolyamát 50-re állítja."
+  },
+  {
+    "Source": "Устанавливает цены всех акций на 100.",
+    "RU": "Устанавливает цены всех акций на 100.",
+    "ENG": "Sets all share prices to 100.",
+    "DE": "Setzt alle Aktienkurse auf 100.",
+    "HU": "Minden részvény árfolyamát 100-ra állítja."
+  },
+  {
+    "Source": "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
+    "RU": "Parity: устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
+    "ENG": "Parity: sets all three share prices to their average, rounded to the nearest whole number.",
+    "DE": "Parity: Setzt die Kurse aller drei Aktien auf ihren Durchschnitt, gerundet auf die nächste ganze Zahl.",
+    "HU": "Parity: mindhárom részvény árfolyamát az átlagukra állítja, a legközelebbi egész számra kerekítve."
+  },
+  {
+    "Source": "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
+    "RU": "Accumulation: удваивает номинал и длительность следующей выложенной Gain/Drop-карты. Ожидание не ограничено по ходам, но усиление не переходит в следующий раунд.",
+    "ENG": "Accumulation: doubles the strength and duration of the next Gain/Drop card played. You can wait any number of turns, but the effect expires at the end of the round.",
+    "DE": "Accumulation: Verdoppelt die Stärke und Dauer der nächsten ausgespielten Gain/Drop-Karte. Die Wartezeit ist unbegrenzt, die Verstärkung verfällt jedoch am Rundenende.",
+    "HU": "Accumulation: megduplázza a következőként kijátszott Gain/Drop kártya erejét és időtartamát. Bármennyi kört várhatsz vele, de a forduló végén a hatás megszűnik."
+  },
+  {
+    "Source": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
+    "RU": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
+    "ENG": "Breakout: can only be played on the final turn. Has a 50% chance to double the prices of stocks you own.",
+    "DE": "Breakout: Nur im letzten Zug spielbar. Verdoppelt mit 50 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
+    "HU": "Breakout: csak az utolsó körben játszható ki. 50% eséllyel megduplázza a birtokodban lévő részvények árfolyamát."
+  },
+  {
+    "Source": "Умножает цену выбранной акции на 2 на один ход.",
+    "RU": "Умножает цену выбранной акции на 2 на один ход.",
+    "ENG": "Doubles the selected stock's price for one turn.",
+    "DE": "Verdoppelt den Kurs der gewählten Aktie für einen Zug.",
+    "HU": "Egy körre megduplázza a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Умножает цену выбранной акции на 2 на два хода.",
+    "RU": "Умножает цену выбранной акции на 2 на два хода.",
+    "ENG": "Doubles the selected stock's price for two turns.",
+    "DE": "Verdoppelt den Kurs der gewählten Aktie für zwei Züge.",
+    "HU": "Két körre megduplázza a kiválasztott részvény árfolyamát."
+  },
+  {
+    "Source": "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
+    "RU": "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
+    "ENG": "Regulation: the selected stock's random market movement is always Flat for 2 turns.",
+    "DE": "Regulation: Die zufällige Marktbewegung der gewählten Aktie ist für 2 Züge immer Flat.",
+    "HU": "Regulation: a kiválasztott részvény véletlenszerű piaci mozgása 2 körön át mindig oldalazás."
+  },
+  {
+    "Source": "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
+    "RU": "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
+    "ENG": "Regulation: the selected stock's random market movement is always Flat for 3 turns.",
+    "DE": "Regulation: Die zufällige Marktbewegung der gewählten Aktie ist für 3 Züge immer Flat.",
+    "HU": "Regulation: a kiválasztott részvény véletlenszerű piaci mozgása 3 körön át mindig oldalazás."
+  },
+  {
+    "Source": "Крах: после розыгрыша устанавливает цены всех акций на 2.",
+    "RU": "Крах: после розыгрыша устанавливает цены всех акций на 2.",
+    "ENG": "Crash: sets all share prices to 2 when played.",
+    "DE": "Crash: Setzt beim Ausspielen alle Aktienkurse auf 2.",
+    "HU": "Crash: kijátszáskor minden részvény árfolyamát 2-re állítja."
+  },
+  {
+    "Source": "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
+    "RU": "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
+    "ENG": "Bear: reduces the goal by 2%. Each victory increases the reduction by another 2 percentage points.",
+    "DE": "Bear: Senkt den Zielbetrag um 2 %. Nach jedem Sieg steigt die Senkung um weitere 2 Prozentpunkte.",
+    "HU": "Bear: 2%-kal csökkenti a célösszeget. Minden győzelem további 2 százalékponttal növeli a csökkentést."
+  },
+  {
+    "Source": "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
+    "RU": "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
+    "ENG": "Forward Trading: each Shareholder played adds one turn.",
+    "DE": "Forward Trading: Jeder ausgespielte Shareholder gewährt einen zusätzlichen Zug.",
+    "HU": "Forward Trading: minden kijátszott Shareholder egy további kört ad."
+  },
+  {
+    "Source": "Грант: добавляет 8 к стартовым деньгам.",
+    "RU": "Грант: добавляет 8 к стартовым деньгам.",
+    "ENG": "Grant: adds 8 to your starting cash.",
+    "DE": "Grant: Erhöht das Startkapital um 8.",
+    "HU": "Grant: 8-cal növeli a kezdő készpénzt."
+  },
+  {
+    "Source": "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
+    "RU": "Flat: отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
+    "ENG": "Flat: prevents random rises and falls. The market roll is always Flat.",
+    "DE": "Flat: Verhindert zufällige Kursanstiege und Kursrückgänge. Die Marktbewegung ist immer Flat.",
+    "HU": "Flat: megakadályozza a véletlenszerű árfolyam-emelkedést és -esést. A piaci dobás mindig oldalazást eredményez."
+  },
+  {
+    "Source": "Insider: первые два хода акции C гарантированно растут.",
+    "RU": "Insider: первые два хода акции C гарантированно растут.",
+    "ENG": "Insider: stock C is guaranteed to rise on the first two turns.",
+    "DE": "Insider: In den ersten beiden Zügen steigt der Kurs der C-Aktie garantiert.",
+    "HU": "Insider: az első két körben a C részvény árfolyama biztosan emelkedik."
+  },
+  {
+    "Source": "Gambling: усиливает карты Upside и Downside.",
+    "RU": "Gambling: усиливает карты Upside и Downside.",
+    "ENG": "Gambling: strengthens Upside and Downside cards.",
+    "DE": "Gambling: Verstärkt Upside- und Downside-Karten.",
+    "HU": "Gambling: erősíti az Upside és Downside kártyákat."
+  },
+  {
+    "Source": "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз.",
+    "RU": "Momentum: после случайного роста или падения акция повторяет то же движение ещё раз.",
+    "ENG": "Momentum: after a random rise or fall, the stock repeats the same movement once more.",
+    "DE": "Momentum: Nach einem zufälligen Anstieg oder Rückgang wiederholt die Aktie dieselbe Kursbewegung noch einmal.",
+    "HU": "Momentum: véletlenszerű emelkedés vagy esés után a részvény még egyszer megismétli ugyanazt a mozgást."
+  },
+  {
+    "Source": "Манипуляция",
+    "RU": "Манипуляция",
+    "ENG": "Manipulation",
+    "DE": "Manipulation",
+    "HU": "Manipulation"
+  },
+  {
+    "Source": "Рибейт",
+    "RU": "Рибейт",
+    "ENG": "Rebate",
+    "DE": "Rebate",
+    "HU": "Rebate"
+  },
+  {
+    "Source": "Снижение долга",
+    "RU": "Снижение долга",
+    "ENG": "Debt Reduction",
+    "DE": "Schuldenabbau",
+    "HU": "Debt Reduction"
+  },
+  {
+    "Source": "Ролловер",
+    "RU": "Ролловер",
+    "ENG": "Rollover",
+    "DE": "Rollover",
+    "HU": "Rollover"
+  },
+  {
+    "Source": "Банкротство A",
+    "RU": "Банкротство A",
+    "ENG": "Bankruptcy A",
+    "DE": "Bankrott A",
+    "HU": "Bankruptcy A"
+  },
+  {
+    "Source": "Банкротство B",
+    "RU": "Банкротство B",
+    "ENG": "Bankruptcy B",
+    "DE": "Bankrott B",
+    "HU": "Bankruptcy B"
+  },
+  {
+    "Source": "Банкротство C",
+    "RU": "Банкротство C",
+    "ENG": "Bankruptcy C",
+    "DE": "Bankrott C",
+    "HU": "Bankruptcy C"
+  },
+  {
+    "Source": "Продление",
+    "RU": "Продление",
+    "ENG": "Extension",
+    "DE": "Verlängerung",
+    "HU": "Extension"
+  },
+  {
+    "Source": "Фьючерс",
+    "RU": "Фьючерс",
+    "ENG": "Futures",
+    "DE": "Futures",
+    "HU": "Futures"
+  },
+  {
+    "Source": "Контанго",
+    "RU": "Контанго",
+    "ENG": "Contango",
+    "DE": "Contango",
+    "HU": "Contango"
+  },
+  {
+    "Source": "Корзинная торговля",
+    "RU": "Корзинная торговля",
+    "ENG": "Basket Trading",
+    "DE": "Basket Trading",
+    "HU": "Basket Trading"
+  },
+  {
+    "Source": "Форвардная торговля",
+    "RU": "Форвардная торговля",
+    "ENG": "Forward Trading",
+    "DE": "Forward Trading",
+    "HU": "Forward Trading"
+  },
+  {
+    "Source": "Грант",
+    "RU": "Грант",
+    "ENG": "Grant",
+    "DE": "Grant",
+    "HU": "Grant"
+  },
+  {
+    "Source": "Вексель",
+    "RU": "Вексель",
+    "ENG": "Bill of Exchange",
+    "DE": "Wechsel",
+    "HU": "Bill of Exchange"
+  },
+  {
+    "Source": "Набоб",
+    "RU": "Набоб",
+    "ENG": "Nabob",
+    "DE": "Nabob",
+    "HU": "Nabob"
+  },
+  {
+    "Source": "Облигация",
+    "RU": "Облигация",
+    "ENG": "Obligation",
+    "DE": "Anleihe",
+    "HU": "Obligation"
+  },
+  {
+    "Source": "Страхование",
+    "RU": "Страхование",
+    "ENG": "Insurance",
+    "DE": "Versicherung",
+    "HU": "Insurance"
+  },
+  {
+    "Source": "Крах",
+    "RU": "Крах",
+    "ENG": "Crash",
+    "DE": "Crash",
+    "HU": "Crash"
+  },
+  {
+    "Source": "Медведь",
+    "RU": "Медведь",
+    "ENG": "Bear",
+    "DE": "Bear",
+    "HU": "Bear"
+  },
+  {
+    "Source": "Устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
+    "RU": "Устанавливает цены всех трёх акций на их среднее значение, округлённое до ближайшего целого.",
+    "ENG": "Sets all three share prices to their average, rounded to the nearest whole number.",
+    "DE": "Setzt die Kurse aller drei Aktien auf ihren Durchschnitt, gerundet auf die nächste ganze Zahl.",
+    "HU": "Mindhárom részvény árfolyamát az átlagukra állítja, a legközelebbi egész számra kerekítve."
+  },
+  {
+    "Source": "Удваивает номинал и количество ходов следующей выложенной Gain/Drop-карты. Действует, пока такая карта не будет выложена, но усиление не переходит в следующий раунд.",
+    "RU": "Удваивает номинал и количество ходов следующей выложенной Gain/Drop-карты. Действует, пока такая карта не будет выложена, но усиление не переходит в следующий раунд.",
+    "ENG": "Doubles the strength and duration of the next Gain/Drop card played. Lasts until such a card is played, but expires at the end of the round.",
+    "DE": "Verdoppelt die Stärke und Dauer der nächsten ausgespielten Gain/Drop-Karte. Gilt bis zum Ausspielen einer solchen Karte, verfällt aber am Rundenende.",
+    "HU": "Megduplázza a következőként kijátszott Gain/Drop kártya erejét és időtartamát. A kijátszásig tart, de a forduló végén megszűnik."
+  },
+  {
+    "Source": "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
+    "RU": "Если игрок владеет акциями C и цена C упала в этом ходу, сразу даёт 4 акции A.",
+    "ENG": "If you own C shares and stock C falls this turn, immediately gives you 4 A shares.",
+    "DE": "Wenn du C-Aktien besitzt und deren Kurs in diesem Zug gefallen ist, erhältst du sofort 4 A-Aktien.",
+    "HU": "Ha van C-részvényed, és a C árfolyama ebben a körben esik, azonnal 4 A-részvényt kapsz."
+  },
+  {
+    "Source": "Пока активна, убирает из игры все Upside и Downside.",
+    "RU": "Пока активна, убирает из игры все Upside и Downside.",
+    "ENG": "Removes all Upside and Downside cards from play while active.",
+    "DE": "Entfernt alle Upside- und Downside-Karten aus dem Spiel, solange diese Karte aktiv ist.",
+    "HU": "Amíg aktív, eltávolít minden játékban lévő Upside és Downside kártyát."
+  },
+  {
+    "Source": "Продлевает действие всех карт роста и падения на 1 ход, включая уже сыгранные.",
+    "RU": "Продлевает действие всех карт роста и падения на 1 ход, включая уже сыгранные.",
+    "ENG": "Adds 1 turn to all Gain and Drop cards, including cards already in play.",
+    "DE": "Verlängert alle Gain- und Drop-Karten um 1 Zug, auch bereits ausgespielte.",
+    "HU": "1 körrel meghosszabbítja minden Gain és Drop kártya hatását, a már játékban lévőkét is."
+  },
+  {
+    "Source": "Добавляет 2 хода к длительности раунда.",
+    "RU": "Добавляет 2 хода к длительности раунда.",
+    "ENG": "Adds 2 turns to the round.",
+    "DE": "Verlängert die Runde um 2 Züge.",
+    "HU": "2 körrel meghosszabbítja a fordulót."
+  },
+  {
+    "Source": "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
+    "RU": "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
+    "ENG": "Doubles the strength of all Gain and Drop cards. Additional copies multiply the effect again.",
+    "DE": "Verdoppelt die Stärke aller Gain- und Drop-Karten. Mehrere Exemplare multiplizieren den Effekt erneut.",
+    "HU": "Megduplázza minden Gain és Drop kártya erejét. További példányok újra megszorozzák a hatást."
+  },
+  {
+    "Source": "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями.",
+    "RU": "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями.",
+    "ENG": "Controlling Stake: Shareholders can no longer disable the trading buttons.",
+    "DE": "Controlling Stake: Shareholder können die Handelsschaltflächen nicht mehr sperren.",
+    "HU": "Controlling Stake: a Shareholder kártyák többé nem tilthatják le a kereskedési gombokat."
+  },
+  {
+    "Source": "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
+    "RU": "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
+    "ENG": "Adds 1 turn to the round for every two Shareholders played.",
+    "DE": "Gewährt für je zwei ausgespielte Shareholder einen zusätzlichen Zug.",
+    "HU": "Minden két kijátszott Shareholder után 1 körrel meghosszabbítja a fordulót."
+  },
+  {
+    "Source": "Переносит все неиспользованные ходы в следующий раунд.",
+    "RU": "Переносит все неиспользованные ходы в следующий раунд.",
+    "ENG": "Carries all unused turns into the next round.",
+    "DE": "Überträgt alle ungenutzten Züge in die nächste Runde.",
+    "HU": "Minden fel nem használt kört átvisz a következő fordulóra."
+  },
+  {
+    "Source": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
+    "RU": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
+    "ENG": "Strengthens percentage-based card effects by 10 percentage points.",
+    "DE": "Verstärkt die in Prozent angegebenen Karteneffekte um 10 Prozentpunkte.",
+    "HU": "10 százalékponttal erősíti a százalékos kártyahatásokat."
+  },
+  {
+    "Source": "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
+    "RU": "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
+    "ENG": "If all your money is invested in a stock that has fallen 5 times, you win immediately. Does not work against bosses.",
+    "DE": "Wenn dein gesamtes Geld in einer Aktie steckt, deren Kurs fünfmal gefallen ist, gewinnst du sofort. Wirkt nicht gegen Bosse.",
+    "HU": "Ha minden pénzed egy olyan részvényben van, amelynek árfolyama 5-ször esett, azonnal nyersz. Főellenfelek ellen nem működik."
+  },
+  {
+    "Source": "Добавляет 4 к стартовым деньгам в начале раунда.",
+    "RU": "Добавляет 4 к стартовым деньгам в начале раунда.",
+    "ENG": "Adds 4 to your starting cash at the beginning of the round.",
+    "DE": "Erhöht das Startkapital zu Beginn der Runde um 4.",
+    "HU": "A forduló elején 4-gyel növeli a kezdő készpénzt."
+  },
+  {
+    "Source": "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    "RU": "После победы снижает цены всех предложений в следующем магазине на 50%.",
+    "ENG": "After a victory, reduces all offer prices in the next shop by 50%.",
+    "DE": "Senkt nach einem Sieg die Preise aller Angebote im nächsten Laden um 50 %.",
+    "HU": "Győzelem után 50%-kal csökkenti a következő bolt összes ajánlatának árát."
+  },
+  {
+    "Source": "Удваивает всю прибыль, полученную за раунд, после применения остальных бонусов.",
+    "RU": "Удваивает всю прибыль, полученную за раунд, после применения остальных бонусов.",
+    "ENG": "Doubles all income earned during the round after other bonuses have been applied.",
+    "DE": "Verdoppelt den gesamten Ertrag der Runde, nachdem alle anderen Boni angewendet wurden.",
+    "HU": "A többi bónusz elszámolása után megduplázza a forduló során szerzett összes bevételt."
+  },
+  {
+    "Source": "После победы приносит дополнительно 5 наполеондоров.",
+    "RU": "После победы приносит дополнительно 5 наполеондоров.",
+    "ENG": "Awards 5 extra Napoleondors after a victory.",
+    "DE": "Gewährt nach einem Sieg 5 zusätzliche Napoleondor.",
+    "HU": "Győzelem után 5 további napóleonaranyat ad."
+  },
+  {
+    "Source": "После победы приносит дополнительно 10 наполеондоров.",
+    "RU": "После победы приносит дополнительно 10 наполеондоров.",
+    "ENG": "Awards 10 extra Napoleondors after a victory.",
+    "DE": "Gewährt nach einem Sieg 10 zusätzliche Napoleondor.",
+    "HU": "Győzelem után 10 további napóleonaranyat ad."
+  },
+  {
+    "Source": "После победы приносит дополнительно 15 наполеондоров.",
+    "RU": "После победы приносит дополнительно 15 наполеондоров.",
+    "ENG": "Awards 15 extra Napoleondors after a victory.",
+    "DE": "Gewährt nach einem Sieg 15 zusätzliche Napoleondor.",
+    "HU": "Győzelem után 15 további napóleonaranyat ad."
+  },
+  {
+    "Source": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
+    "RU": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
+    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the goal of the next regular round. Does not work against bosses.",
+    "DE": "Verwandelt in einer regulären Runde eine Niederlage in einen Sieg. Der fehlende Betrag wird zum Zielbetrag der nächsten regulären Runde addiert. Wirkt nicht gegen Bosse.",
+    "HU": "A rendes forduló vereségét győzelemmé változtatja. A hiányzó összeg hozzáadódik a következő rendes forduló célösszegéhez. Főellenfelek ellen nem működik."
+  },
+  {
+    "Source": "Делистинг",
+    "RU": "Делистинг",
+    "ENG": "Delisting",
+    "DE": "Delisting",
+    "HU": "Delisting"
+  },
+  {
+    "Source": "Выберите карту для удаления",
+    "RU": "Выберите карту для удаления",
+    "ENG": "Choose a card to remove",
+    "DE": "Wähle eine Karte zum Entfernen",
+    "HU": "Válassz egy eltávolítandó kártyát"
+  },
+  {
+    "Source": "Удалить",
+    "RU": "Удалить",
+    "ENG": "Remove",
+    "DE": "Entfernen",
+    "HU": "Eltávolítás"
+  },
+  {
+    "Source": "Зеркалирование",
+    "RU": "Зеркалирование",
+    "ENG": "Mirroring",
+    "DE": "Mirroring",
+    "HU": "Mirroring"
+  },
+  {
+    "Source": "Выберите карту для дублирования",
+    "RU": "Выберите карту для дублирования",
+    "ENG": "Choose a card to duplicate",
+    "DE": "Wähle eine Karte zum Kopieren",
+    "HU": "Válassz egy lemásolandó kártyát"
+  },
+  {
+    "Source": "В колоде нет доступных карт",
+    "RU": "В колоде нет доступных карт",
+    "ENG": "No available cards in the deck",
+    "DE": "Keine verfügbaren Karten im Deck",
+    "HU": "Nincs választható kártya a pakliban"
+  },
+  {
+    "Source": "Дублировать",
+    "RU": "Дублировать",
+    "ENG": "Duplicate",
+    "DE": "Kopieren",
+    "HU": "Másolás"
+  },
+  {
+    "Source": "Удержание",
+    "RU": "Удержание",
+    "ENG": "Retention",
+    "DE": "Retention",
+    "HU": "Retention"
+  },
+  {
+    "Source": "Выберите временную карту для следующего босса",
+    "RU": "Выберите временную карту для следующего босса",
+    "ENG": "Choose a temporary card to keep for the next boss",
+    "DE": "Wähle eine vorübergehende Karte für den nächsten Boss",
+    "HU": "Válassz egy ideiglenes kártyát, amelyet megtartasz a következő főellenfélig"
+  },
+  {
+    "Source": "Нет временных карт",
+    "RU": "Нет временных карт",
+    "ENG": "No temporary cards",
+    "DE": "Keine vorübergehenden Karten",
+    "HU": "Nincsenek ideiglenes kártyák"
+  },
+  {
+    "Source": "Сохранить",
+    "RU": "Сохранить",
+    "ENG": "Keep",
+    "DE": "Behalten",
+    "HU": "Megtartás"
+  },
+  {
+    "Source": "Выбрать другую",
+    "RU": "Выбрать другую",
+    "ENG": "Choose another",
+    "DE": "Andere wählen",
+    "HU": "Másik választása"
+  },
+  {
+    "Source": "Выберите карту роста, падения, взлёта или снижения",
+    "RU": "Выберите карту роста, падения, взлёта или снижения",
+    "ENG": "Choose an Upside, Downside, Gain or Drop card",
+    "DE": "Wähle eine Upside-, Downside-, Gain- oder Drop-Karte",
+    "HU": "Válassz egy Upside, Downside, Gain vagy Drop kártyát"
+  },
+  {
+    "Source": "В постоянной колоде нет доступных карт",
+    "RU": "В постоянной колоде нет доступных карт",
+    "ENG": "No eligible cards in the permanent deck",
+    "DE": "Keine geeigneten Karten im dauerhaften Deck",
+    "HU": "Nincs megfelelő kártya az állandó pakliban"
+  },
+  {
+    "Source": "Усилить",
+    "RU": "Усилить",
+    "ENG": "Upgrade",
+    "DE": "Verstärken",
+    "HU": "Erősítés"
+  },
+  {
+    "Source": "Трейдер",
+    "RU": "Трейдер",
+    "ENG": "Trader",
+    "DE": "Trader",
+    "HU": "Trader"
+  },
+  {
+    "Source": "Выберите одну карту для продажи",
+    "RU": "Выберите одну карту для продажи",
+    "ENG": "Choose one card to sell",
+    "DE": "Wähle eine Karte zum Verkaufen",
+    "HU": "Válassz egy eladandó kártyát"
+  },
+  {
+    "Source": "В колоде нет карт для продажи",
+    "RU": "В колоде нет карт для продажи",
+    "ENG": "No cards available to sell",
+    "DE": "Keine verkäuflichen Karten im Deck",
+    "HU": "Nincs eladható kártya"
+  },
+  {
+    "Source": "Продать",
+    "RU": "Продать",
+    "ENG": "Sell",
+    "DE": "Verkaufen",
+    "HU": "Eladás"
+  },
+  {
+    "Source": "Коррекция",
+    "RU": "Коррекция",
+    "ENG": "Correction",
+    "DE": "Correction",
+    "HU": "Correction"
+  },
+  {
+    "Source": "Выберите до трёх серебряных или золотых карт",
+    "RU": "Выберите до трёх серебряных или золотых карт",
+    "ENG": "Choose up to three silver or gold cards",
+    "DE": "Wähle bis zu drei Silber- oder Goldkarten",
+    "HU": "Válassz legfeljebb három ezüst- vagy aranykártyát"
+  },
+  {
+    "Source": "Нет серебряных или золотых карт для продажи",
+    "RU": "Нет серебряных или золотых карт для продажи",
+    "ENG": "No silver or gold cards available to sell",
+    "DE": "Keine verkäuflichen Silber- oder Goldkarten",
+    "HU": "Nincs eladható ezüst- vagy aranykártya"
+  },
+  {
+    "Source": "Прибыль",
+    "RU": "Прибыль",
+    "ENG": "Profit",
+    "DE": "Profit",
+    "HU": "Profit"
+  },
+  {
+    "Source": "Андеррайтер",
+    "RU": "Андеррайтер",
+    "ENG": "Underwriter",
+    "DE": "Underwriter",
+    "HU": "Underwriter"
+  },
+  {
+    "Source": "Бейлаут",
+    "RU": "Бейлаут",
+    "ENG": "Bailout",
+    "DE": "Bailout",
+    "HU": "Bailout"
+  },
+  {
+    "Source": "Лонг",
+    "RU": "Лонг",
+    "ENG": "Long",
+    "DE": "Long",
+    "HU": "Long"
+  },
+  {
+    "Source": "Дериватив",
+    "RU": "Дериватив",
+    "ENG": "Derivative",
+    "DE": "Derivative",
+    "HU": "Derivative"
+  },
+  {
+    "Source": "Джанк-бонд",
+    "RU": "Джанк-бонд",
+    "ENG": "Junk Bond",
+    "DE": "Junk Bond",
+    "HU": "Junk Bond"
+  },
+  {
+    "Source": "Эмитент",
+    "RU": "Эмитент",
+    "ENG": "Issuer",
+    "DE": "Issuer",
+    "HU": "Issuer"
+  },
+  {
+    "Source": "Банк",
+    "RU": "Банк",
+    "ENG": "Bank",
+    "DE": "Bank",
+    "HU": "Bank"
+  },
+  {
+    "Source": "Мультбэггер",
+    "RU": "Мультбэггер",
+    "ENG": "Multibagger",
+    "DE": "Multibagger",
+    "HU": "Multibagger"
+  },
+  {
+    "Source": "Дисперсия",
+    "RU": "Дисперсия",
+    "ENG": "Variance",
+    "DE": "Variance",
+    "HU": "Variance"
+  },
+  {
+    "Source": "Ссуда",
+    "RU": "Ссуда",
+    "ENG": "Loan",
+    "DE": "Loan",
+    "HU": "Loan"
+  },
+  {
+    "Source": "Диверсификация",
+    "RU": "Диверсификация",
+    "ENG": "Diversification",
+    "DE": "Diversification",
+    "HU": "Diversification"
+  },
+  {
+    "Source": "Экспансия",
+    "RU": "Экспансия",
+    "ENG": "Expansion",
+    "DE": "Expansion",
+    "HU": "Expansion"
+  },
+  {
+    "Source": "Репликация",
+    "RU": "Репликация",
+    "ENG": "Replication",
+    "DE": "Replication",
+    "HU": "Replication"
+  },
+  {
+    "Source": "Репликация Плюс",
+    "RU": "Репликация Плюс",
+    "ENG": "Replication Plus",
+    "DE": "Replication Plus",
+    "HU": "Replication Plus"
+  },
+  {
+    "Source": "Скрининг",
+    "RU": "Скрининг",
+    "ENG": "Screening",
+    "DE": "Screening",
+    "HU": "Screening"
+  },
+  {
+    "Source": "Сохранение капитала",
+    "RU": "Сохранение капитала",
+    "ENG": "Capital Preservation",
+    "DE": "Capital Preservation",
+    "HU": "Capital Preservation"
+  },
+  {
+    "Source": "Продаёт акции за 130% от их стоимости. Каждый раз, когда акции A падают, это число увеличивается ещё на 2%.",
+    "RU": "Продаёт акции за 130% от их стоимости. Каждый раз, когда акции A падают, это число увеличивается ещё на 2%.",
+    "ENG": "Sells shares for 130% of their value. Each fall in stock A increases this by another 2 percentage points.",
+    "DE": "Verkauft Aktien für 130 % ihres Wertes. Jeder Kursrückgang der A-Aktie erhöht diesen Wert um weitere 2 Prozentpunkte.",
+    "HU": "A részvényeket az értékük 130%-áért adja el. Az A részvény minden esése további 2 százalékponttal növeli ezt az arányt."
+  },
+  {
+    "Source": "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+    "RU": "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+    "ENG": "Hedger: once per round, lets you take any card from the deck into your hand, provided there is room.",
+    "DE": "Hedger: Einmal pro Runde darfst du eine beliebige Karte aus dem Deck auf die Hand nehmen, sofern Platz ist.",
+    "HU": "Hedger: fordulónként egyszer bármelyik kártyát a kezedbe veheted a pakliból, ha van hely."
+  },
+  {
+    "Source": "Добавляет к эффекту Rebate по 2% за каждый имеющийся наполеондор.",
+    "RU": "Добавляет к эффекту Rebate по 2% за каждый имеющийся наполеондор.",
+    "ENG": "Adds 2 percentage points to the Rebate effect for each Napoleondor you own.",
+    "DE": "Verstärkt den Rebate-Effekt um 2 Prozentpunkte je Napoleondor in deinem Besitz.",
+    "HU": "Minden birtokodban lévő napóleonarany után 2 százalékponttal erősíti a Rebate hatását."
+  },
+  {
+    "Source": "На четвёртом ходу акции, которыми владеет игрок, гарантированно растут.",
+    "RU": "На четвёртом ходу акции, которыми владеет игрок, гарантированно растут.",
+    "ENG": "On turn four, all stocks you own are guaranteed to rise.",
+    "DE": "Im vierten Zug steigen die Kurse der Aktien in deinem Besitz garantiert.",
+    "HU": "A negyedik körben minden birtokodban lévő részvény árfolyama biztosan emelkedik."
+  },
+  {
+    "Source": "На четвёртом и восьмом ходах акции, которыми владеет игрок, гарантированно растут.",
+    "RU": "На четвёртом и восьмом ходах акции, которыми владеет игрок, гарантированно растут.",
+    "ENG": "On turns four and eight, all stocks you own are guaranteed to rise.",
+    "DE": "Im vierten und achten Zug steigen die Kurse der Aktien in deinem Besitz garantiert.",
+    "HU": "A negyedik és nyolcadik körben minden birtokodban lévő részvény árfolyama biztosan emelkedik."
+  },
+  {
+    "Source": "Удваивает вероятность падения акций, которыми игрок не владеет.",
+    "RU": "Удваивает вероятность падения акций, которыми игрок не владеет.",
+    "ENG": "Doubles the chance of a fall in stocks you do not own.",
+    "DE": "Verdoppelt die Wahrscheinlichkeit eines Kursrückgangs bei Aktien, die du nicht besitzt.",
+    "HU": "Megduplázza azon részvények esésének esélyét, amelyekből nincs a birtokodban."
+  },
+  {
+    "Source": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
+    "RU": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
+    "ENG": "Strengthens percentage-based card effects by 15 percentage points.",
+    "DE": "Verstärkt die in Prozent angegebenen Karteneffekte um 15 Prozentpunkte.",
+    "HU": "15 százalékponttal erősíti a százalékos kártyahatásokat."
+  },
+  {
+    "Source": "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
+    "RU": "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
+    "ENG": "If you neither buy nor sell for four consecutive turns, stock A's price is tripled at the end of the fourth turn.",
+    "DE": "Wenn du vier Züge in Folge weder kaufst noch verkaufst, wird der Kurs der A-Aktie am Ende des vierten Zuges verdreifacht.",
+    "HU": "Ha négy egymást követő körben sem nem veszel, sem nem adsz el, a negyedik kör végén az A részvény árfolyama megháromszorozódik."
+  },
+  {
+    "Source": "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
+    "RU": "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
+    "ENG": "Awards 5 Napoleondors if all three market rolls are Flat, with no price changes.",
+    "DE": "Gewährt 5 Napoleondor, wenn alle drei Märkte Flat ergeben, die Kurse sich also nicht ändern.",
+    "HU": "5 napóleonaranyat ad, ha mindhárom piaci dobás oldalazást eredményez, árfolyamváltozás nélkül."
+  },
+  {
+    "Source": "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",
+    "RU": "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",
+    "ENG": "Before the round begins, choose 2 cards guaranteed to appear in your starting hand.",
+    "DE": "Vor Rundenbeginn darfst du 2 Karten wählen, die garantiert in deine Starthand kommen.",
+    "HU": "A forduló előtt válassz 2 kártyát, amelyek biztosan a kezdő kezedbe kerülnek."
+  },
+  {
+    "Source": "Перед началом раунда позволяет выбрать 3 карты, которые гарантированно попадут в стартовую руку.",
+    "RU": "Перед началом раунда позволяет выбрать 3 карты, которые гарантированно попадут в стартовую руку.",
+    "ENG": "Before the round begins, choose 3 cards guaranteed to appear in your starting hand.",
+    "DE": "Vor Rundenbeginn darfst du 3 Karten wählen, die garantiert in deine Starthand kommen.",
+    "HU": "A forduló előtt válassz 3 kártyát, amelyek biztosan a kezdő kezedbe kerülnek."
+  },
+  {
+    "Source": "После первого роста удерживаемой акции каждый следующий последовательный рост дополнительно умножает её цену на 1.2. Flat, падение или продажа акции прерывают её серию.",
+    "RU": "После первого роста удерживаемой акции каждый следующий последовательный рост дополнительно умножает её цену на 1.2. Flat, падение или продажа акции прерывают её серию.",
+    "ENG": "After the first rise in a stock you own, each consecutive rise also multiplies its price by 1.2. Flat, a fall, or selling the stock ends its streak.",
+    "DE": "Nach dem ersten Kursanstieg einer Aktie in deinem Besitz wird ihr Kurs bei jedem weiteren Anstieg in Folge zusätzlich mit 1,2 multipliziert. Flat, ein Kursrückgang oder der Verkauf der Aktie unterbricht die Serie.",
+    "HU": "Egy birtokodban lévő részvény első emelkedése után minden további, megszakítás nélküli emelkedés az árfolyamot 1,2-del is megszorozza. Oldalazás, esés vagy a részvény eladása megszakítja a sorozatot."
+  },
+  {
+    "Source": "С шансом 15% удваивает цены всех акций, которыми владеет игрок.",
+    "RU": "С шансом 15% удваивает цены всех акций, которыми владеет игрок.",
+    "ENG": "Has a 15% chance to double the prices of all stocks you own.",
+    "DE": "Verdoppelt mit 15 % Wahrscheinlichkeit die Kurse aller Aktien in deinem Besitz.",
+    "HU": "15% eséllyel megduplázza az összes birtokodban lévő részvény árfolyamát."
+  },
+  {
+    "Source": "В начале раунда устанавливает стартовую цену акций A на 6 долларов.",
+    "RU": "В начале раунда устанавливает стартовую цену акций A на 6 долларов.",
+    "ENG": "Sets stock A's starting price to $6 at the beginning of the round.",
+    "DE": "Setzt den Startkurs der A-Aktie zu Rundenbeginn auf 6 $.",
+    "HU": "A forduló elején az A részvény kezdő árfolyamát 6 dollárra állítja."
+  },
+  {
+    "Source": "Снижает цель третьего и четвёртого обычных раундов на 30%. В остальных раундах и боях с боссами не действует.",
+    "RU": "Снижает цель третьего и четвёртого обычных раундов на 30%. В остальных раундах и боях с боссами не действует.",
+    "ENG": "Reduces the goals of the third and fourth regular rounds by 30%. Has no effect in other rounds or boss battles.",
+    "DE": "Senkt den Zielbetrag der dritten und vierten regulären Runde um 30 %. Wirkt weder in anderen Runden noch gegen Bosse.",
+    "HU": "30%-kal csökkenti a harmadik és negyedik rendes forduló célösszegét. Más fordulókban és főellenfelek ellen nincs hatása."
+  },
+  {
+    "Source": "Каждый Shareholder в руке добавляет 20 процентных пунктов к итоговому эффекту Rebate.",
+    "RU": "Каждый Shareholder в руке добавляет 20 процентных пунктов к итоговому эффекту Rebate.",
+    "ENG": "Each Shareholder in your hand adds 20 percentage points to the final Rebate effect.",
+    "DE": "Jeder Shareholder auf deiner Hand verstärkt den endgültigen Rebate-Effekt um 20 Prozentpunkte.",
+    "HU": "A kezedben lévő minden Shareholder 20 százalékponttal erősíti a Rebate végső hatását."
+  },
+  {
+    "Source": "Увеличивает шаг роста и падения каждого рынка на 2.",
+    "RU": "Увеличивает шаг роста и падения каждого рынка на 2.",
+    "ENG": "Increases each market's rise and fall step by 2.",
+    "DE": "Erhöht die Schrittweite für Kursanstiege und Kursrückgänge auf jedem Markt um 2.",
+    "HU": "Minden piacon 2-vel növeli az emelkedés és esés lépésközét."
+  },
+  {
+    "Source": "Увеличивает шаг роста и падения каждого рынка на 4.",
+    "RU": "Увеличивает шаг роста и падения каждого рынка на 4.",
+    "ENG": "Increases each market's rise and fall step by 4.",
+    "DE": "Erhöht die Schrittweite für Kursanstiege und Kursrückgänge auf jedem Markt um 4.",
+    "HU": "Minden piacon 4-gyel növeli az emelkedés és esés lépésközét."
+  },
+  {
+    "Source": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+    "RU": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+    "ENG": "Each victory over a boss adds 50 percentage points to the final Rebate effect.",
+    "DE": "Verstärkt nach jedem Sieg über einen Boss den endgültigen Rebate-Effekt um 50 Prozentpunkte.",
+    "HU": "Minden legyőzött főellenfél 50 százalékponttal erősíti a Rebate végső hatását."
+  },
+  {
+    "Source": "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
+    "RU": "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
+    "ENG": "Reveals the game's probabilities and slightly strengthens cards with probability-based effects.",
+    "DE": "Zeigt die Wahrscheinlichkeiten im Spiel an und verstärkt Karten mit Wahrscheinlichkeitseffekten leicht.",
+    "HU": "Megmutatja a játék valószínűségeit, és kissé erősíti a valószínűségi hatású kártyákat."
+  },
+  {
+    "Source": "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
+    "RU": "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
+    "ENG": "Awards 7 Napoleondors if every card in your deck has been placed on a card slot.",
+    "DE": "Gewährt 7 Napoleondor, wenn alle Karten des Decks auf den Kartenplätzen ausliegen.",
+    "HU": "7 napóleonaranyat ad, ha a paklid minden kártyáját kijátszottad valamelyik kártyahelyre."
+  },
+  {
+    "Source": "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
+    "RU": "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
+    "ENG": "Removes all Upside and Downside cards and the initial Shareholder from play while active. Shareholders gained later remain.",
+    "DE": "Entfernt alle Upside- und Downside-Karten sowie den anfänglichen Shareholder aus dem Spiel, solange diese Karte aktiv ist. Später erhaltene Shareholder bleiben erhalten.",
+    "HU": "Amíg aktív, eltávolítja a játékból az összes Upside és Downside kártyát, valamint a kezdő Shareholder kártyát. A később szerzett Shareholder kártyák megmaradnak."
+  },
+  {
+    "Source": "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
+    "RU": "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
+    "ENG": "Has a 25% chance to reveal the next market roll and let you replay the turn.",
+    "DE": "Zeigt mit 25 % Wahrscheinlichkeit die nächste Marktbewegung und lässt dich den Zug wiederholen.",
+    "HU": "25% eséllyel megmutatja a következő piaci dobást, és lehetővé teszi a kör újrajátszását."
+  },
+  {
+    "Source": "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
+    "RU": "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
+    "ENG": "Choosing a hard round (H) adds 10 percentage points to the final Rebate effect.",
+    "DE": "Jede Wahl einer schweren Runde (H) verstärkt den endgültigen Rebate-Effekt um 10 Prozentpunkte.",
+    "HU": "Minden nehéz forduló (H) választása 10 százalékponttal erősíti a Rebate végső hatását."
+  },
+  {
+    "Source": "Гарантирует, что за ход упадёт хотя бы одна акция.",
+    "RU": "Гарантирует, что за ход упадёт хотя бы одна акция.",
+    "ENG": "Guarantees that at least one stock falls each turn.",
+    "DE": "Garantiert, dass in jedem Zug mindestens ein Aktienkurs fällt.",
+    "HU": "Garantálja, hogy minden körben legalább egy részvény árfolyama essen."
+  },
+  {
+    "Source": "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
+    "RU": "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
+    "ENG": "Guarantees two Drop cards in your starting hand if they are in the deck.",
+    "DE": "Garantiert zwei Drop-Karten in der Starthand, sofern sie im Deck vorhanden sind.",
+    "HU": "Garantál két Drop kártyát a kezdő kezedben, ha vannak ilyenek a pakliban."
+  },
+  {
+    "Source": "В конце раунда даёт 1 наполеондор за каждого Shareholder в колоде.",
+    "RU": "В конце раунда даёт 1 наполеондор за каждого Shareholder в колоде.",
+    "ENG": "At the end of the round, awards 1 Napoleondor for each Shareholder in the deck.",
+    "DE": "Gewährt am Rundenende 1 Napoleondor für jeden Shareholder im Deck.",
+    "HU": "A forduló végén a pakliban lévő minden Shareholder után 1 napóleonaranyat ad."
+  },
+  {
+    "Source": "Скоро",
+    "RU": "Скоро",
+    "ENG": "Coming soon",
+    "DE": "Demnächst",
+    "HU": "Hamarosan"
+  },
+  {
+    "Source": "Недостаточно монет",
+    "RU": "Недостаточно монет",
+    "ENG": "Not enough coins",
+    "DE": "Nicht genug Münzen",
+    "HU": "Nincs elég pénz"
+  },
+  {
+    "Source": "Премия увеличена",
+    "RU": "Премия увеличена",
+    "ENG": "Victory reward increased",
+    "DE": "Siegesbelohnung erhöht",
+    "HU": "A győzelmi jutalom megnőtt"
+  },
+  {
+    "Source": "Bailout активирован на 5 раундов",
+    "RU": "Bailout активирован на 5 раундов",
+    "ENG": "Bailout activated for 5 rounds",
+    "DE": "Bailout für 5 Runden aktiviert",
+    "HU": "A Bailout 5 fordulóra aktiválva"
+  },
+  {
+    "Source": "Long активирован",
+    "RU": "Long активирован",
+    "ENG": "Long activated",
+    "DE": "Long aktiviert",
+    "HU": "A Long aktiválva"
+  },
+  {
+    "Source": "Банк открыт",
+    "RU": "Банк открыт",
+    "ENG": "Bank opened",
+    "DE": "Bank eröffnet",
+    "HU": "A Bank megnyílt"
+  },
+  {
+    "Source": "Все карты усилены на 1%",
+    "RU": "Все карты усилены на 1%",
+    "ENG": "All cards strengthened by 1 percentage point",
+    "DE": "Alle Karten um 1 Prozentpunkt verstärkt",
+    "HU": "Minden kártya 1 százalékponttal erősödött"
+  },
+  {
+    "Source": "В магазине теперь больше предложений",
+    "RU": "В магазине теперь больше предложений",
+    "ENG": "Shops now have more offers",
+    "DE": "Die Läden bieten jetzt mehr Angebote",
+    "HU": "Mostantól több ajánlat van a boltokban"
+  },
+  {
+    "Source": "Цены снижены на 25%",
+    "RU": "Цены снижены на 25%",
+    "ENG": "Prices reduced by 25%",
+    "DE": "Preise um 25 % gesenkt",
+    "HU": "Az árak 25%-kal csökkentek"
+  },
+  {
+    "Source": "Вероятности открыты на 5 раундов",
+    "RU": "Вероятности открыты на 5 раундов",
+    "ENG": "Probabilities revealed for 5 rounds",
+    "DE": "Wahrscheinlichkeiten für 5 Runden sichtbar",
+    "HU": "A valószínűségek 5 fordulóig láthatók"
+  },
+  {
+    "Source": "Инвестиции теперь усиливают карты на 2",
+    "RU": "Инвестиции теперь усиливают карты на 2",
+    "ENG": "Investments now upgrade cards by 2",
+    "DE": "Investitionen verstärken Karten jetzt um 2",
+    "HU": "A befektetések mostantól 2-vel erősítik a kártyákat"
+  },
+  {
+    "Source": "Серебряная карта добавлена",
+    "RU": "Серебряная карта добавлена",
+    "ENG": "Silver card added",
+    "DE": "Silberkarte hinzugefügt",
+    "HU": "Ezüstkártya hozzáadva"
+  },
+  {
+    "Source": "Золотая карта добавлена",
+    "RU": "Золотая карта добавлена",
+    "ENG": "Gold card added",
+    "DE": "Goldkarte hinzugefügt",
+    "HU": "Aranykártya hozzáadva"
+  },
+  {
+    "Source": "Карта продублирована",
+    "RU": "Карта продублирована",
+    "ENG": "Card duplicated",
+    "DE": "Karte kopiert",
+    "HU": "Kártya lemásolva"
+  },
+  {
+    "Source": "Удержание активно до победы над боссом",
+    "RU": "Удержание активно до победы над боссом",
+    "ENG": "Retention is active until the boss is defeated",
+    "DE": "Retention ist bis zum Sieg über den Boss aktiv",
+    "HU": "A Retention a főellenfél legyőzéséig aktív"
+  },
+  {
+    "Source": "Золотые карты защищены",
+    "RU": "Золотые карты защищены",
+    "ENG": "Gold cards protected",
+    "DE": "Goldkarten sind geschützt",
+    "HU": "Az aranykártyák védettek"
+  },
+  {
+    "Source": "Получено 5 наполеондоров",
+    "RU": "Получено 5 наполеондоров",
+    "ENG": "Received 5 Napoleondors",
+    "DE": "5 Napoleondor erhalten",
+    "HU": "Kaptál 5 napóleonaranyat"
+  },
+  {
+    "Source": "Дериватив увеличил руку",
+    "RU": "Дериватив увеличил руку",
+    "ENG": "Derivative increased your hand size",
+    "DE": "Derivative hat die Hand vergrößert",
+    "HU": "A Derivative megnövelte a kézben tartható lapok számát"
+  },
+  {
+    "Source": "Магазин",
+    "RU": "Магазин",
+    "ENG": "Shop",
+    "DE": "Laden",
+    "HU": "Bolt"
+  },
+  {
+    "Source": "Карты",
+    "RU": "Карты",
+    "ENG": "Cards",
+    "DE": "Karten",
+    "HU": "Kártyák"
+  },
+  {
+    "Source": "Предложения",
+    "RU": "Предложения",
+    "ENG": "Offers",
+    "DE": "Angebote",
+    "HU": "Ajánlatok"
+  },
+  {
+    "Source": "Лицензии",
+    "RU": "Лицензии",
+    "ENG": "Licenses",
+    "DE": "Lizenzen",
+    "HU": "Licencek"
+  },
+  {
+    "Source": "Дальше",
+    "RU": "Дальше",
+    "ENG": "Continue",
+    "DE": "Weiter",
+    "HU": "Folytatás"
+  },
+  {
+    "Source": "Бесплатно",
+    "RU": "Бесплатно",
+    "ENG": "Free",
+    "DE": "Kostenlos",
+    "HU": "Ingyenes"
+  },
+  {
+    "Source": "Выберите одно бесплатное предложение",
+    "RU": "Выберите одно бесплатное предложение",
+    "ENG": "Choose one free offer",
+    "DE": "Wähle ein kostenloses Angebot",
+    "HU": "Válassz egy ingyenes ajánlatot"
+  },
+  {
+    "Source": "Выбрать",
+    "RU": "Выбрать",
+    "ENG": "Choose",
+    "DE": "Auswählen",
+    "HU": "Kiválasztás"
+  },
+  {
+    "Source": "Добавляет эту карту в пул будущих забегов.",
+    "RU": "Добавляет эту карту в пул будущих забегов.",
+    "ENG": "Adds this card to the pool for future runs.",
+    "DE": "Fügt diese Karte dem Auswahlpool künftiger Durchläufe hinzu.",
+    "HU": "Hozzáadja ezt a kártyát a későbbi menetekben elérhető választékhoz."
+  },
+  {
+    "Source": "Куплено",
+    "RU": "Куплено",
+    "ENG": "Purchased",
+    "DE": "Gekauft",
+    "HU": "Megvásárolva"
+  },
+  {
+    "Source": "Карта удалена",
+    "RU": "Карта удалена",
+    "ENG": "Card removed",
+    "DE": "Karte entfernt",
+    "HU": "Kártya eltávolítva"
+  },
+  {
+    "Source": "Нужно два свободных места",
+    "RU": "Нужно два свободных места",
+    "ENG": "Two free slots required",
+    "DE": "Zwei freie Plätze benötigt",
+    "HU": "Két szabad hely szükséges"
+  },
+  {
+    "Source": "Уже активны два Long",
+    "RU": "Уже активны два Long",
+    "ENG": "Two Long investments are already active",
+    "DE": "Es sind bereits zwei Long aktiv",
+    "HU": "Már két Long befektetés aktív"
+  },
+  {
+    "Source": "Не повезло",
+    "RU": "Не повезло",
+    "ENG": "No luck this time",
+    "DE": "Leider verloren",
+    "HU": "Most nem volt szerencséd"
+  },
+  {
+    "Source": "Нет доступных золотых карт",
+    "RU": "Нет доступных золотых карт",
+    "ENG": "No gold cards available",
+    "DE": "Keine Goldkarten verfügbar",
+    "HU": "Nincs elérhető aranykártya"
+  },
+  {
+    "Source": "Диверсификация уже куплена",
+    "RU": "Диверсификация уже куплена",
+    "ENG": "Diversification already purchased",
+    "DE": "Diversification bereits gekauft",
+    "HU": "A Diversification már meg lett vásárolva"
+  },
+  {
+    "Source": "три",
+    "RU": "три",
+    "ENG": "three",
+    "DE": "drei",
+    "HU": "három"
+  },
+  {
+    "Source": "две",
+    "RU": "две",
+    "ENG": "two",
+    "DE": "zwei",
+    "HU": "két"
+  },
+  {
+    "Source": "Экспансия уже куплена",
+    "RU": "Экспансия уже куплена",
+    "ENG": "Expansion already purchased",
+    "DE": "Expansion bereits gekauft",
+    "HU": "Az Expansion már meg lett vásárolva"
+  },
+  {
+    "Source": "Вексель уже куплен",
+    "RU": "Вексель уже куплен",
+    "ENG": "Bill of Exchange already purchased",
+    "DE": "Wechsel bereits gekauft",
+    "HU": "A Bill of Exchange már meg lett vásárolva"
+  },
+  {
+    "Source": "Disclousure уже действует",
+    "RU": "Disclousure уже действует",
+    "ENG": "Disclosure is already active",
+    "DE": "Disclosure ist bereits aktiv",
+    "HU": "A Disclosure már aktív"
+  },
+  {
+    "Source": "Compounding уже куплен",
+    "RU": "Compounding уже куплен",
+    "ENG": "Compounding already purchased",
+    "DE": "Compounding bereits gekauft",
+    "HU": "A Compounding már meg lett vásárolva"
+  },
+  {
+    "Source": "Нет серебряной карты или свободного места",
+    "RU": "Нет серебряной карты или свободного места",
+    "ENG": "No silver card or free slot",
+    "DE": "Keine Silberkarte oder kein freier Platz",
+    "HU": "Nincs ezüstkártya vagy szabad hely"
+  },
+  {
+    "Source": "Карта недоступна",
+    "RU": "Карта недоступна",
+    "ENG": "Card unavailable",
+    "DE": "Karte nicht verfügbar",
+    "HU": "A kártya nem elérhető"
+  },
+  {
+    "Source": "Нет золотой карты или свободного места",
+    "RU": "Нет золотой карты или свободного места",
+    "ENG": "No gold card or free slot",
+    "DE": "Keine Goldkarte oder kein freier Platz",
+    "HU": "Nincs aranykártya vagy szabad hely"
+  },
+  {
+    "Source": "Зеркалирование больше недоступно",
+    "RU": "Зеркалирование больше недоступно",
+    "ENG": "Mirroring is no longer available",
+    "DE": "Mirroring ist nicht mehr verfügbar",
+    "HU": "A Mirroring már nem elérhető"
+  },
+  {
+    "Source": "Удержание недоступно",
+    "RU": "Удержание недоступно",
+    "ENG": "Retention unavailable",
+    "DE": "Retention nicht verfügbar",
+    "HU": "A Retention nem elérhető"
+  },
+  {
+    "Source": "Недостаточно доступных предложений",
+    "RU": "Недостаточно доступных предложений",
+    "ENG": "Not enough available offers",
+    "DE": "Nicht genug verfügbare Angebote",
+    "HU": "Nincs elég elérhető ajánlat"
+  },
+  {
+    "Source": "Сохранение капитала уже куплено",
+    "RU": "Сохранение капитала уже куплено",
+    "ENG": "Capital Preservation already purchased",
+    "DE": "Capital Preservation bereits gekauft",
+    "HU": "A Capital Preservation már meg lett vásárolva"
+  },
+  {
+    "Source": "Ссуда недоступна",
+    "RU": "Ссуда недоступна",
+    "ENG": "Loan unavailable",
+    "DE": "Loan nicht verfügbar",
+    "HU": "A Loan nem elérhető"
+  },
+  {
+    "Source": "Описание эффекта этой карты пока не задано.",
+    "RU": "Описание эффекта этой карты пока не задано.",
+    "ENG": "This card's effect has not been described yet.",
+    "DE": "Für diese Karte liegt noch keine Effektbeschreibung vor.",
+    "HU": "Ennek a kártyának a hatása még nincs leírva."
+  },
+  {
+    "Source": "Нет места для карты",
+    "RU": "Нет места для карты",
+    "ENG": "No room for the card",
+    "DE": "Kein Platz für die Karte",
+    "HU": "Nincs hely a kártyának"
+  },
+  {
+    "Source": "Карта усилена",
+    "RU": "Карта усилена",
+    "ENG": "Card upgraded",
+    "DE": "Karte verstärkt",
+    "HU": "Kártya megerősítve"
+  },
+  {
+    "Source": "До конца забега осталось слишком мало раундов",
+    "RU": "До конца забега осталось слишком мало раундов",
+    "ENG": "Too few rounds remain in this run",
+    "DE": "Zu wenige Runden bis zum Ende des Durchlaufs",
+    "HU": "Túl kevés forduló maradt ebben a menetben"
+  },
+  {
+    "Source": "Нельзя",
+    "RU": "Нельзя",
+    "ENG": "Unavailable",
+    "DE": "Nicht möglich",
+    "HU": "Nem elérhető"
+  },
+  {
+    "Source": "Ваша ставка сыграла",
+    "RU": "Ваша ставка сыграла",
+    "ENG": "Your investment paid off",
+    "DE": "Dein Einsatz hat sich gelohnt",
+    "HU": "A befektetésed nyereséget hozott"
+  },
+  {
+    "Source": "Ставка возвращена",
+    "RU": "Ставка возвращена",
+    "ENG": "Stake returned",
+    "DE": "Einsatz zurückgezahlt",
+    "HU": "A tét visszajárt"
+  },
+  {
+    "Source": "Карта куплена",
+    "RU": "Карта куплена",
+    "ENG": "Card purchased",
+    "DE": "Karte gekauft",
+    "HU": "Kártya megvásárolva"
+  },
+  {
+    "Source": "Карта уже куплена",
+    "RU": "Карта уже куплена",
+    "ENG": "Card already purchased",
+    "DE": "Karte bereits gekauft",
+    "HU": "A kártya már meg lett vásárolva"
+  },
+  {
+    "Source": "Лицензия уже куплена",
+    "RU": "Лицензия уже куплена",
+    "ENG": "License already purchased",
+    "DE": "Lizenz bereits gekauft",
+    "HU": "A licenc már meg lett vásárolva"
+  },
+  {
+    "Source": "В последний ход автоматически продаёт все оставшиеся акции по полной текущей цене.",
+    "RU": "В последний ход автоматически продаёт все оставшиеся акции по полной текущей цене.",
+    "ENG": "Automatically sells all remaining shares on the final turn at their full current price.",
+    "DE": "Verkauft im letzten Zug automatisch alle übrigen Aktien zum vollen aktuellen Kurs.",
+    "HU": "Az utolsó körben automatikusan eladja az összes megmaradt részvényt a teljes aktuális árfolyamon."
+  },
+  {
+    "Source": "Удваивает силу всех Gain/Drop-карт. Несколько копий умножают эффект повторно.",
+    "RU": "Удваивает силу всех Gain/Drop-карт. Несколько копий умножают эффект повторно.",
+    "ENG": "Doubles the strength of all Gain/Drop cards. Additional copies multiply the effect again.",
+    "DE": "Verdoppelt die Stärke aller Gain/Drop-Karten. Mehrere Exemplare multiplizieren den Effekt erneut.",
+    "HU": "Megduplázza az összes Gain/Drop kártya erejét. További példányok újra megszorozzák a hatást."
+  },
+  {
+    "Source": "Карты Shareholder больше не могут отключать кнопки торговли на одном из рынков.",
+    "RU": "Карты Shareholder больше не могут отключать кнопки торговли на одном из рынков.",
+    "ENG": "Shareholders can no longer disable a market's trading buttons.",
+    "DE": "Shareholder können die Handelsschaltflächen eines Marktes nicht mehr sperren.",
+    "HU": "A Shareholder kártyák többé nem tilthatják le a piacok kereskedési gombjait."
+  },
+  {
+    "Source": "Если за ход выросли все три рынка, дополнительно повышает цену каждой акции на 2.",
+    "RU": "Если за ход выросли все три рынка, дополнительно повышает цену каждой акции на 2.",
+    "ENG": "If all three markets rise in one turn, raises each share price by an additional 2.",
+    "DE": "Wenn in einem Zug alle drei Märkte steigen, erhöht sich jeder Aktienkurs zusätzlich um 2.",
+    "HU": "Ha egy körben mindhárom piac emelkedik, minden részvény árfolyamát további 2-vel növeli."
+  },
+  {
+    "Source": "За каждые две сыгранные карты Shareholder добавляет 1 ход к раунду.",
+    "RU": "За каждые две сыгранные карты Shareholder добавляет 1 ход к раунду.",
+    "ENG": "Adds 1 turn to the round for every two Shareholders played.",
+    "DE": "Gewährt für je zwei ausgespielte Shareholder einen zusätzlichen Zug.",
+    "HU": "Minden két kijátszott Shareholder után 1 körrel meghosszabbítja a fordulót."
+  },
+  {
+    "Source": "Добавляет 1 ход всем Gain/Drop-картам.",
+    "RU": "Добавляет 1 ход всем Gain/Drop-картам.",
+    "ENG": "Adds 1 turn to all Gain/Drop cards.",
+    "DE": "Verlängert alle Gain/Drop-Karten um 1 Zug.",
+    "HU": "1 körrel meghosszabbítja az összes Gain/Drop kártya hatását."
+  },
+  {
+    "Source": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Нельзя использовать против боссов.",
+    "RU": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Нельзя использовать против боссов.",
+    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the goal of the next regular round. Cannot be used against bosses.",
+    "DE": "Verwandelt in einer regulären Runde eine Niederlage in einen Sieg. Der fehlende Betrag wird zum Zielbetrag der nächsten regulären Runde addiert. Kann nicht gegen Bosse eingesetzt werden.",
+    "HU": "A rendes forduló vereségét győzelemmé változtatja. A hiányzó összeg hozzáadódik a következő rendes forduló célösszegéhez. Főellenfelek ellen nem használható."
+  },
+  {
+    "Source": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
+    "RU": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
+    "ENG": "May award a random gold card at the end of a victorious round. The base chance is 10% and rises by 2 percentage points after each failed attempt. After a success, it cannot trigger again until the next run.",
+    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Die Grundchance beträgt 10 % und steigt nach jedem Fehlschlag um 2 Prozentpunkte. Nach einem Erfolg wird der Effekt erst im nächsten Durchlauf wieder verfügbar.",
+    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Az alap esély 10%, amely minden sikertelen próbálkozás után 2 százalékponttal nő. Siker után csak a következő menetben aktiválódhat újra."
+  },
+  {
+    "Source": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора.",
+    "RU": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора.",
+    "ENG": "Awards 1 Napoleondor after a victory, or 2 after defeating a boss.",
+    "DE": "Gewährt nach einem Sieg 1 Napoleondor, nach einem Sieg über einen Boss 2 Napoleondor.",
+    "HU": "Győzelem után 1 napóleonaranyat ad, főellenfél legyőzése után pedig 2-t."
+  },
+  {
+    "Source": "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",
+    "RU": "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",
+    "ENG": "Reduces the goal by 2%. Each victory increases the reduction by another 2 percentage points.",
+    "DE": "Senkt den Zielbetrag um 2 %. Nach jedem Sieg steigt die Senkung um weitere 2 Prozentpunkte.",
+    "HU": "2%-kal csökkenti a célösszeget. Minden győzelem további 2 százalékponttal növeli a csökkentést."
+  },
+  {
+    "Source": "Каждая сыгранная карта Shareholder добавляет 1 ход.",
+    "RU": "Каждая сыгранная карта Shareholder добавляет 1 ход.",
+    "ENG": "Each Shareholder played adds 1 turn.",
+    "DE": "Jeder ausgespielte Shareholder gewährt 1 zusätzlichen Zug.",
+    "HU": "Minden kijátszott Shareholder 1 további kört ad."
+  },
+  {
+    "Source": "Добавляет 8 к стартовым деньгам.",
+    "RU": "Добавляет 8 к стартовым деньгам.",
+    "ENG": "Adds 8 to your starting cash.",
+    "DE": "Erhöht das Startkapital um 8.",
+    "HU": "8-cal növeli a kezdő készpénzt."
+  },
+  {
+    "Source": "Первые два хода акции C гарантированно растут.",
+    "RU": "Первые два хода акции C гарантированно растут.",
+    "ENG": "Stock C is guaranteed to rise on the first two turns.",
+    "DE": "In den ersten beiden Zügen steigt der Kurs der C-Aktie garantiert.",
+    "HU": "Az első két körben a C részvény árfolyama biztosan emelkedik."
+  },
+  {
+    "Source": "Отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
+    "RU": "Отключает случайные падения и взлёты акций. Рыночный бросок всегда Flat.",
+    "ENG": "Prevents random rises and falls. The market roll is always Flat.",
+    "DE": "Verhindert zufällige Kursanstiege und Kursrückgänge. Die Marktbewegung ist immer Flat.",
+    "HU": "Megakadályozza a véletlenszerű emelkedést és esést. A piaci dobás mindig oldalazást eredményez."
+  },
+  {
+    "Source": "Усиливает карты Upside и Downside.",
+    "RU": "Усиливает карты Upside и Downside.",
+    "ENG": "Strengthens Upside and Downside cards.",
+    "DE": "Verstärkt Upside- und Downside-Karten.",
+    "HU": "Erősíti az Upside és Downside kártyákat."
+  },
+  {
+    "Source": "Один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+    "RU": "Один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
+    "ENG": "Once per round, lets you take any card from the deck into your hand, provided there is room.",
+    "DE": "Einmal pro Runde darfst du eine beliebige Karte aus dem Deck auf die Hand nehmen, sofern Platz ist.",
+    "HU": "Fordulónként egyszer bármelyik kártyát a kezedbe veheted a pakliból, ha van hely."
+  },
+  {
+    "Source": "После случайного роста или падения акция повторяет то же движение ещё раз.",
+    "RU": "После случайного роста или падения акция повторяет то же движение ещё раз.",
+    "ENG": "After a random rise or fall, the stock repeats the same movement once more.",
+    "DE": "Nach einem zufälligen Anstieg oder Rückgang wiederholt die Aktie dieselbe Kursbewegung noch einmal.",
+    "HU": "Véletlenszerű emelkedés vagy esés után a részvény még egyszer megismétli ugyanazt a mozgást."
+  },
+  {
+    "Source": "Серебряная карта",
+    "RU": "Серебряная карта",
+    "ENG": "Silver card",
+    "DE": "Silberkarte",
+    "HU": "Ezüstkártya"
+  },
+  {
+    "Source": "Чёрная карта",
+    "RU": "Чёрная карта",
+    "ENG": "Black card",
+    "DE": "Schwarze Karte",
+    "HU": "Fekete kártya"
+  },
+  {
+    "Source": "Золотая карта",
+    "RU": "Золотая карта",
+    "ENG": "Gold card",
+    "DE": "Goldkarte",
+    "HU": "Aranykártya"
+  },
+  {
+    "Source": "Выберите золотую карту, которую хотите скопировать",
+    "RU": "Выберите золотую карту, которую хотите скопировать",
+    "ENG": "Choose a gold card to copy",
+    "DE": "Wähle eine Goldkarte zum Kopieren",
+    "HU": "Válassz egy lemásolandó aranykártyát"
+  },
+  {
+    "Source": "Выберите серебряную карту, которую хотите скопировать",
+    "RU": "Выберите серебряную карту, которую хотите скопировать",
+    "ENG": "Choose a silver card to copy",
+    "DE": "Wähle eine Silberkarte zum Kopieren",
+    "HU": "Válassz egy lemásolandó ezüstkártyát"
+  },
+  {
+    "Source": "Случайная серебряная карта",
+    "RU": "Случайная серебряная карта",
+    "ENG": "Random silver card",
+    "DE": "Zufällige Silberkarte",
+    "HU": "Véletlenszerű ezüstkártya"
+  },
+  {
+    "Source": "При получении превращается в случайную доступную серебряную карту.",
+    "RU": "При получении превращается в случайную доступную серебряную карту.",
+    "ENG": "Turns into a random available silver card when received.",
+    "DE": "Wird beim Erhalt in eine zufällige verfügbare Silberkarte umgewandelt.",
+    "HU": "Megszerzéskor egy véletlenszerű elérhető ezüstkártyává alakul."
+  },
+  {
+    "Source": "Пред.",
+    "RU": "Пред.",
+    "ENG": "Prev.",
+    "DE": "Zurück",
+    "HU": "Előző"
+  },
+  {
+    "Source": "След.",
+    "RU": "След.",
+    "ENG": "Next",
+    "DE": "Weiter",
+    "HU": "Következő"
+  },
+  {
+    "Source": "Карта",
+    "RU": "Карта",
+    "ENG": "Card",
+    "DE": "Karte",
+    "HU": "Kártya"
+  },
+  {
+    "Source": " Осталось: {v0} {v1}.",
+    "RU": " Осталось: {v0} {v1}.",
+    "ENG": " Remaining: {v0} {v1}.",
+    "DE": " Noch {v0} {v1}.",
+    "HU": " Hátralévő idő: {v0} {v1}."
+  },
+  {
+    "Source": "Раунд {v0} из {v1}",
+    "RU": "Раунд {v0} из {v1}",
+    "ENG": "Round {v0} of {v1}",
+    "DE": "Runde {v0} von {v1}",
+    "HU": "Forduló: {v0} / {v1}"
+  },
+  {
+    "Source": "Падение {v0}%",
+    "RU": "Падение {v0}%",
+    "ENG": "Fall {v0}%",
+    "DE": "Rückgang {v0} %",
+    "HU": "Esés: {v0}%"
+  },
+  {
+    "Source": "Флэт {v0}%",
+    "RU": "Флэт {v0}%",
+    "ENG": "Flat {v0}%",
+    "DE": "Flat {v0} %",
+    "HU": "Oldalazás: {v0}%"
+  },
+  {
+    "Source": "Рост {v0}%",
+    "RU": "Рост {v0}%",
+    "ENG": "Rise {v0}%",
+    "DE": "Anstieg {v0} %",
+    "HU": "Emelkedés: {v0}%"
+  },
+  {
+    "Source": "Добавить карту {v0} в руку?",
+    "RU": "Добавить карту {v0} в руку?",
+    "ENG": "Add card {v0} to your hand?",
+    "DE": "Karte {v0} auf die Hand nehmen?",
+    "HU": "Kézbe veszed ezt a kártyát: {v0}?"
+  },
+  {
+    "Source": "Текущая вероятность: {v0}%.",
+    "RU": "Текущая вероятность: {v0}%.",
+    "ENG": "Current chance: {v0}%.",
+    "DE": "Aktuelle Wahrscheinlichkeit: {v0} %.",
+    "HU": "Jelenlegi esély: {v0}%."
+  },
+  {
+    "Source": "Текущий процент продажи: {v0}%.",
+    "RU": "Текущий процент продажи: {v0}%.",
+    "ENG": "Current sale percentage: {v0}%.",
+    "DE": "Aktueller Verkaufserlös: {v0} %.",
+    "HU": "Jelenlegi eladási arány: {v0}%."
+  },
+  {
+    "Source": "{v0} Текущий бонус карты: +{v1}%.",
+    "RU": "{v0} Текущий бонус карты: +{v1}%.",
+    "ENG": "{v0} Current card bonus: +{v1}%.",
+    "DE": "{v0} Aktueller Kartenbonus: +{v1} %.",
+    "HU": "{v0} A kártya jelenlegi bónusza: +{v1}%."
+  },
+  {
+    "Source": "{v0}   {v1} до {v2}",
+    "RU": "{v0}   {v1} до {v2}",
+    "ENG": "{v0}   {v1} to {v2}",
+    "DE": "{v0}   {v1} auf {v2}",
+    "HU": "{v0}   {v1}, új árfolyam: {v2}"
+  },
+  {
+    "Source": "Day: {v0} /{v1}",
+    "RU": "День: {v0} /{v1}",
+    "ENG": "Day: {v0} /{v1}",
+    "DE": "Tag: {v0} /{v1}",
+    "HU": "Nap: {v0} /{v1}"
+  },
+  {
+    "Source": "Текущая вероятность каждой проверки: {v0}%.",
+    "RU": "Текущая вероятность каждой проверки: {v0}%.",
+    "ENG": "Current chance per check: {v0}%.",
+    "DE": "Aktuelle Wahrscheinlichkeit pro Prüfung: {v0} %.",
+    "HU": "Jelenlegi esély ellenőrzésenként: {v0}%."
+  },
+  {
+    "Source": "Текущий бонус Uptrend: +{v0}%.",
+    "RU": "Текущий бонус Uptrend: +{v0}%.",
+    "ENG": "Current Uptrend bonus: +{v0}%.",
+    "DE": "Aktueller Uptrend-Bonus: +{v0} %.",
+    "HU": "Jelenlegi Uptrend-bónusz: +{v0}%."
+  },
+  {
+    "Source": "Уровень {v0}",
+    "RU": "Уровень {v0}",
+    "ENG": "Level {v0}",
+    "DE": "Level {v0}",
+    "HU": "Szint: {v0}"
+  },
+  {
+    "Source": "Карта {v0}?",
+    "RU": "Карта {v0}?",
+    "ENG": "Card {v0}?",
+    "DE": "Karte {v0}?",
+    "HU": "Kártya: {v0}?"
+  },
+  {
+    "Source": "Удалить карту {v0}?",
+    "RU": "Удалить карту {v0}?",
+    "ENG": "Remove card {v0}?",
+    "DE": "Karte {v0} entfernen?",
+    "HU": "Eltávolítod ezt a kártyát: {v0}?"
+  },
+  {
+    "Source": "Дублировать карту {v0}?",
+    "RU": "Дублировать карту {v0}?",
+    "ENG": "Duplicate card {v0}?",
+    "DE": "Karte {v0} kopieren?",
+    "HU": "Lemásolod ezt a kártyát: {v0}?"
+  },
+  {
+    "Source": "Сохранить карту {v0}?",
+    "RU": "Сохранить карту {v0}?",
+    "ENG": "Keep card {v0}?",
+    "DE": "Karte {v0} behalten?",
+    "HU": "Megtartod ezt a kártyát: {v0}?"
+  },
+  {
+    "Source": "Усилить карту {v0}?",
+    "RU": "Усилить карту {v0}?",
+    "ENG": "Upgrade card {v0}?",
+    "DE": "Karte {v0} verstärken?",
+    "HU": "Megerősíted ezt a kártyát: {v0}?"
+  },
+  {
+    "Source": "Открывает карту {v0}: теперь она может появляться в следующих забегах. {v1}",
+    "RU": "Открывает карту {v0}: теперь она может появляться в следующих забегах. {v1}",
+    "ENG": "Unlocks card {v0}, allowing it to appear in future runs. {v1}",
+    "DE": "Schaltet Karte {v0} frei. Sie kann nun in künftigen Durchläufen erscheinen. {v1}",
+    "HU": "Feloldja a(z) {v0} kártyát, amely így megjelenhet a későbbi menetekben. {v1}"
+  },
+  {
+    "Source": "Получены карты: {v0}",
+    "RU": "Получены карты: {v0}",
+    "ENG": "Cards received: {v0}",
+    "DE": "Erhaltene Karten: {v0}",
+    "HU": "Kapott kártyák: {v0}"
+  },
+  {
+    "Source": "Открыто слотов: {v0}",
+    "RU": "Открыто слотов: {v0}",
+    "ENG": "Slots unlocked: {v0}",
+    "DE": "Freigeschaltete Plätze: {v0}",
+    "HU": "Feloldott helyek: {v0}"
+  },
+  {
+    "Source": "Шанс редких карт и предложений увеличен на {v0}%",
+    "RU": "Шанс редких карт и предложений увеличен на {v0}%",
+    "ENG": "Chance of rare cards and offers increased by {v0} percentage points",
+    "DE": "Chance auf seltene Karten und Angebote um {v0} Prozentpunkte erhöht",
+    "HU": "A ritka kártyák és ajánlatok esélye {v0} százalékponttal nőtt"
+  },
+  {
+    "Source": "В магазине теперь предлагаются {v0} карты",
+    "RU": "В магазине теперь предлагаются {v0} карты",
+    "ENG": "Shops now offer {v0} cards",
+    "DE": "Im Laden werden jetzt {v0} Karten angeboten",
+    "HU": "A boltok mostantól {v0} kártyát kínálnak"
+  },
+  {
+    "Source": "Продано карт: {v0} на сумму {v1}",
+    "RU": "Продано карт: {v0} на сумму {v1}",
+    "ENG": "Cards sold: {v0}, total proceeds: {v1}",
+    "DE": "Verkaufte Karten: {v0}, Erlös: {v1}",
+    "HU": "Eladott kártyák: {v0}, teljes bevétel: {v1}"
+  },
+  {
+    "Source": "Карта {v0}",
+    "RU": "Карта {v0}",
+    "ENG": "Card {v0}",
+    "DE": "Karte {v0}",
+    "HU": "Kártya: {v0}"
+  },
+  {
+    "Source": "Добавляет карту {v0} в вашу колоду.",
+    "RU": "Добавляет карту {v0} в вашу колоду.",
+    "ENG": "Adds card {v0} to your deck.",
+    "DE": "Fügt Karte {v0} deinem Deck hinzu.",
+    "HU": "Hozzáadja a(z) {v0} kártyát a paklidhoz."
+  },
+  {
+    "Source": "Продано: {v0}",
+    "RU": "Продано: {v0}",
+    "ENG": "Sold: {v0}",
+    "DE": "Verkauft: {v0}",
+    "HU": "Eladva: {v0}"
+  },
+  {
+    "Source": "Продать карту за {v0}?",
+    "RU": "Продать карту за {v0}?",
+    "ENG": "Sell this card for {v0}?",
+    "DE": "Karte für {v0} verkaufen?",
+    "HU": "Eladod ezt a kártyát ennyiért: {v0}?"
+  },
+  {
+    "Source": "Выбрано: {v0} из {v1}. Получите: {v2}",
+    "RU": "Выбрано: {v0} из {v1}. Получите: {v2}",
+    "ENG": "Selected: {v0} of {v1}. Proceeds: {v2}",
+    "DE": "Ausgewählt: {v0} von {v1}. Erlös: {v2}",
+    "HU": "Kiválasztva: {v0} / {v1}. Bevétel: {v2}"
+  },
+  {
+    "Source": "Карта усилена на {v0}",
+    "RU": "Карта усилена на {v0}",
+    "ENG": "Card upgraded by {v0}",
+    "DE": "Karte um {v0} verstärkt",
+    "HU": "A kártya ennyivel erősödött: {v0}"
+  },
+  {
+    "Source": "Лицензия куплена: {v0}",
+    "RU": "Лицензия куплена: {v0}",
+    "ENG": "License purchased: {v0}",
+    "DE": "Lizenz gekauft: {v0}",
+    "HU": "Megvásárolt licenc: {v0}"
+  },
+  {
+    "Source": "Выберите карты для стартовой руки: {v0} / {v1}",
+    "RU": "Выберите карты для стартовой руки: {v0} / {v1}",
+    "ENG": "Choose cards for your starting hand: {v0} / {v1}",
+    "DE": "Wähle Karten für deine Starthand: {v0} / {v1}",
+    "HU": "Válassz kártyákat a kezdő kezedbe: {v0} / {v1}"
+  },
+  {
+    "Source": "НЕДОСТУПНО ПЕРЕД БОССОМ. {v0}",
+    "RU": "НЕДОСТУПНО ПЕРЕД БОССОМ. {v0}",
+    "ENG": "UNAVAILABLE BEFORE A BOSS. {v0}",
+    "DE": "VOR EINEM BOSS NICHT VERFÜGBAR. {v0}",
+    "HU": "FŐELLENFÉL ELŐTT NEM ELÉRHETŐ. {v0}"
+  },
+  {
+    "Source": "Goal:",
+    "RU": "Цель:",
+    "ENG": "Goal:",
+    "DE": "Ziel:",
+    "HU": "Cél:"
+  },
+  {
+    "Source": "Money:",
+    "RU": "Деньги:",
+    "ENG": "Money:",
+    "DE": "Bargeld:",
+    "HU": "Készpénz:"
+  },
+  {
+    "Source": "Day {v0}: {v1} +${v2}",
+    "RU": "День {v0}: {v1} +${v2}",
+    "ENG": "Day {v0}: {v1} +${v2}",
+    "DE": "Tag {v0}: {v1} +${v2}",
+    "HU": "{v0}. nap: {v1} +${v2}"
+  },
+  {
+    "Source": "Day {v0}: {v1} x{v2}",
+    "RU": "День {v0}: {v1} x{v2}",
+    "ENG": "Day {v0}: {v1} x{v2}",
+    "DE": "Tag {v0}: {v1} ×{v2}",
+    "HU": "{v0}. nap: {v1} x{v2}"
+  },
+  {
+    "Source": "Turns:",
+    "RU": "Ходы:",
+    "ENG": "Turns:",
+    "DE": "Züge:",
+    "HU": "Körök:"
+  },
+  {
+    "Source": "Без изменений",
+    "RU": "Без изменений",
+    "ENG": "Unchanged",
+    "DE": "Unverändert",
+    "HU": "Változatlan"
+  }
+]

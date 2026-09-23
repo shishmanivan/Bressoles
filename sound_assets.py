@@ -35,6 +35,6 @@ def play_action_click():
 
 def load_card_taking_sound():
     return load_sound(
-        os.path.join("Sounds", "Taking-playing-card-522520.wav"),
-        "Taking-playing-card-522520.wav",
+        os.path.join("Sounds", "Taking Card.wav"),
+        "Taking Card.wav",
     )
