@@ -4,6 +4,16 @@ import pygame
 
 
 _sound_cache = {}
+_effects_volume = 1.0
+
+
+def set_effects_volume(value):
+    global _effects_volume
+    _effects_volume = max(0.0, min(1.0, float(value)))
+    for sound in _sound_cache.values():
+        sound.set_volume(_effects_volume)
+    return _effects_volume
+
 
 
 def load_sound(path, warning_label=None):
@@ -19,6 +29,7 @@ def load_sound(path, warning_label=None):
         label = warning_label or os.path.basename(normalized_path)
         print(f"WARNING: {label} sound unavailable: {error}")
         return None
+    sound.set_volume(_effects_volume)
     _sound_cache[normalized_path] = sound
     return sound
 

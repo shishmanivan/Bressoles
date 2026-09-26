@@ -674,9 +674,9 @@
   {
     "Source": "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
     "RU": "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
-    "ENG": "Forward Trading: each Shareholder played adds one turn.",
-    "DE": "Forward Trading: Jeder ausgespielte Shareholder gewährt einen zusätzlichen Zug.",
-    "HU": "Forward Trading: minden kijátszott Shareholder egy további kört ad."
+    "ENG": "Forward Trading: Each Shareholder you play gives you an extra turn.",
+    "DE": "Forward Trading: Für jeden Shareholder, den du ausspielst, bekommst du einen zusätzlichen Zug.",
+    "HU": "Forward Trading: Minden kijátszott Shareholder után kapsz egy extra kört."
   },
   {
     "Source": "Грант: добавляет 8 к стартовым деньгам.",
@@ -894,13 +894,6 @@
     "ENG": "Doubles the strength of all Gain and Drop cards. Additional copies multiply the effect again.",
     "DE": "Verdoppelt die Stärke aller Gain- und Drop-Karten. Mehrere Exemplare multiplizieren den Effekt erneut.",
     "HU": "Megduplázza minden Gain és Drop kártya erejét. További példányok újra megszorozzák a hatást."
-  },
-  {
-    "Source": "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями.",
-    "RU": "Контрольный пакет: акционеры больше не могут отключать кнопки торговли акциями.",
-    "ENG": "Controlling Stake: Shareholders can no longer disable the trading buttons.",
-    "DE": "Controlling Stake: Shareholder können die Handelsschaltflächen nicht mehr sperren.",
-    "HU": "Controlling Stake: a Shareholder kártyák többé nem tilthatják le a kereskedési gombokat."
   },
   {
     "Source": "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
@@ -1261,10 +1254,10 @@
   },
   {
     "Source": "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
-    "RU": "Hedger: один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
-    "ENG": "Hedger: once per round, lets you take any card from the deck into your hand, provided there is room.",
-    "DE": "Hedger: Einmal pro Runde darfst du eine beliebige Karte aus dem Deck auf die Hand nehmen, sofern Platz ist.",
-    "HU": "Hedger: fordulónként egyszer bármelyik kártyát a kezedbe veheted a pakliból, ha van hely."
+    "RU": "Hedger: раз в раунд вы можете выбрать любую карту из колоды и взять её в руку, если есть место.",
+    "ENG": "Hedger: Once per round, you can choose any card from the deck and add it to your hand if you have room.",
+    "DE": "Hedger: Einmal pro Runde kannst du eine beliebige Karte aus dem Deck auswählen und auf die Hand nehmen, wenn du noch Platz hast.",
+    "HU": "Hedger: fordulónként egyszer kiválaszthatsz egy tetszőleges kártyát a pakliból, és a kezedbe veheted, ha van még hely."
   },
   {
     "Source": "Добавляет к эффекту Rebate по 2% за каждый имеющийся наполеондор.",
@@ -1862,13 +1855,6 @@
     "HU": "Megduplázza az összes Gain/Drop kártya erejét. További példányok újra megszorozzák a hatást."
   },
   {
-    "Source": "Карты Shareholder больше не могут отключать кнопки торговли на одном из рынков.",
-    "RU": "Карты Shareholder больше не могут отключать кнопки торговли на одном из рынков.",
-    "ENG": "Shareholders can no longer disable a market's trading buttons.",
-    "DE": "Shareholder können die Handelsschaltflächen eines Marktes nicht mehr sperren.",
-    "HU": "A Shareholder kártyák többé nem tilthatják le a piacok kereskedési gombjait."
-  },
-  {
     "Source": "Если за ход выросли все три рынка, дополнительно повышает цену каждой акции на 2.",
     "RU": "Если за ход выросли все три рынка, дополнительно повышает цену каждой акции на 2.",
     "ENG": "If all three markets rise in one turn, raises each share price by an additional 2.",
@@ -1920,9 +1906,9 @@
   {
     "Source": "Каждая сыгранная карта Shareholder добавляет 1 ход.",
     "RU": "Каждая сыгранная карта Shareholder добавляет 1 ход.",
-    "ENG": "Each Shareholder played adds 1 turn.",
-    "DE": "Jeder ausgespielte Shareholder gewährt 1 zusätzlichen Zug.",
-    "HU": "Minden kijátszott Shareholder 1 további kört ad."
+    "ENG": "Each Shareholder you play gives you an extra turn.",
+    "DE": "Für jeden Shareholder, den du ausspielst, bekommst du einen zusätzlichen Zug.",
+    "HU": "Minden kijátszott Shareholder után kapsz egy extra kört."
   },
   {
     "Source": "Добавляет 8 к стартовым деньгам.",
@@ -1954,10 +1940,10 @@
   },
   {
     "Source": "Один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
-    "RU": "Один раз за раунд позволяет взять любую карту из колоды в руку, если есть место.",
-    "ENG": "Once per round, lets you take any card from the deck into your hand, provided there is room.",
-    "DE": "Einmal pro Runde darfst du eine beliebige Karte aus dem Deck auf die Hand nehmen, sofern Platz ist.",
-    "HU": "Fordulónként egyszer bármelyik kártyát a kezedbe veheted a pakliból, ha van hely."
+    "RU": "Раз в раунд вы можете выбрать любую карту из колоды и взять её в руку, если есть место.",
+    "ENG": "Once per round, you can choose any card from the deck and add it to your hand if you have room.",
+    "DE": "Einmal pro Runde kannst du eine beliebige Karte aus dem Deck auswählen und auf die Hand nehmen, wenn du noch Platz hast.",
+    "HU": "Fordulónként egyszer kiválaszthatsz egy tetszőleges kártyát a pakliból, és a kezedbe veheted, ha van még hely."
   },
   {
     "Source": "После случайного роста или падения акция повторяет то же движение ещё раз.",
@@ -2315,5 +2301,75 @@
     "ENG": "Unchanged",
     "DE": "Unverändert",
     "HU": "Változatlan"
+  },
+  {
+    "Source": "Добавляет 4% к итоговому эффекту Rebate если сыграна только одна карта за ход и 2% если сыграно только две карты",
+    "RU": "Добавляет 4% к итоговому эффекту Rebate если сыграна только одна карта за ход и 2% если сыграно только две карты",
+    "ENG": "Adds 4% to the final Rebate effect if only one card is played during a turn, and 2% if only two cards are played.",
+    "DE": "Erhöht den endgültigen Rebate-Effekt um 4%, wenn in einem Zug nur eine Karte gespielt wird, und um 2%, wenn nur zwei Karten gespielt werden.",
+    "HU": "4%-kal növeli a Rebate végső hatását, ha egy körben csak egy kártyát játszol ki, és 2%-kal, ha csak két kártyát játszol ki."
+  },
+  {
+    "Source": "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
+    "RU": "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
+    "ENG": "Removes Shareholder effects (they will not block markets). Also prevents Shareholder cards from entering the deck.",
+    "DE": "Hebt die Effekte der Aktionäre auf (sie blockieren keine Märkte mehr). Verhindert außerdem, dass Shareholder-Karten ins Deck gelangen.",
+    "HU": "Megszünteti a részvényesek hatását (nem blokkolják a piacokat). Emellett megakadályozza, hogy Shareholder-kártyák kerüljenek a pakliba."
+  },
+  {
+    "Source": "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду каждую вторую карту Shareholder",
+    "RU": "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду каждую вторую карту Shareholder",
+    "ENG": "Removes Shareholder effects (they will not block markets). Also prevents every second Shareholder card from entering the deck.",
+    "DE": "Hebt die Effekte der Aktionäre auf (sie blockieren keine Märkte mehr). Verhindert außerdem, dass jede zweite Shareholder-Karte ins Deck gelangt.",
+    "HU": "Megszünteti a részvényesek hatását (nem blokkolják a piacokat). Emellett megakadályozza, hogy minden második Shareholder-kártya a pakliba kerüljön."
+  },
+  {
+    "Source": "Благодаря карте «Контрольный пакет» Shareholder не попал в колоду.",
+    "RU": "Благодаря карте «Контрольный пакет» Shareholder не попал в колоду.",
+    "ENG": "Controlling Stake prevented this Shareholder from entering the deck.",
+    "DE": "Controlling Stake hat verhindert, dass dieser Shareholder ins Deck gelangt.",
+    "HU": "A Controlling Stake megakadályozta, hogy ez a Shareholder a pakliba kerüljön."
+  },
+  {
+    "Source": "Благодаря карте Golden Stake Shareholder не попал в колоду.",
+    "RU": "Благодаря карте Golden Stake Shareholder не попал в колоду.",
+    "ENG": "Golden Stake prevented this Shareholder from entering the deck.",
+    "DE": "Golden Stake hat verhindert, dass dieser Shareholder ins Deck gelangt.",
+    "HU": "A Golden Stake megakadályozta, hogy ez a Shareholder a pakliba kerüljön."
+  },
+  {
+    "Source": "Начисляет 20% на остаток наличных денег.",
+    "RU": "Начисляет 20% на остаток наличных денег.",
+    "ENG": "Pays 20% interest on the remaining cash balance.",
+    "DE": "Verzinst das verbleibende Bargeld mit 20%.",
+    "HU": "20% kamatot fizet a megmaradt készpénzegyenlegre."
+  },
+  {
+    "Source": "Никто не знает, что эта карта делает.",
+    "RU": "Никто не знает, что эта карта делает.",
+    "ENG": "Nobody knows what this card does.",
+    "DE": "Niemand weiß, was diese Karte bewirkt.",
+    "HU": "Senki sem tudja, mit csinál ez a kártya."
+  },
+  {
+    "Source": "В три раза увеличивает Rebate эффект",
+    "RU": "В три раза увеличивает Rebate эффект",
+    "ENG": "Triples the Rebate effect",
+    "DE": "Verdreifacht den Rebate-Effekt",
+    "HU": "Megháromszorozza a Rebate hatását"
+  },
+  {
+    "Source": "Вы получили чёрную карту «100%». В три раза увеличивает Rebate эффект.",
+    "RU": "Вы получили чёрную карту «100%». В три раза увеличивает Rebate эффект.",
+    "ENG": "You received the black card “100%”. Triples the Rebate effect.",
+    "DE": "Du hast die schwarze Karte „100%“ erhalten. Verdreifacht den Rebate-Effekt.",
+    "HU": "Megkaptad a „100%” fekete kártyát. Megháromszorozza a Rebate hatását."
+  },
+  {
+    "Source": "Чёрная карта. Никто не знает, что эта карта делает.",
+    "RU": "Чёрная карта. Никто не знает, что эта карта делает.",
+    "ENG": "Black card. Nobody knows what this card does.",
+    "DE": "Schwarze Karte. Niemand weiß, was diese Karte bewirkt.",
+    "HU": "Fekete kártya. Senki sem tudja, mit csinál ez a kártya."
   }
 ]

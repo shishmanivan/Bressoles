@@ -249,6 +249,8 @@ class SilverRewardPoolTests(RewardPoolTestCase):
     def test_full_silver_inventory_does_not_cancel_later_reward(self):
         game_state.silver_cards = [201] * game_state.MAX_SILVER_CARDS
         gameplay = mock.Mock()
+        gameplay.active_gold_cards = []
+        gameplay.active_silver_cards = []
         gameplay.is_boss_fight = False
         gameplay.level_number = 3
         gameplay.round_num = 3

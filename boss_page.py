@@ -1,3 +1,4 @@
+from sound_assets import load_sound
 from localization import translate as _tr
 import os
 import sys
@@ -381,7 +382,7 @@ class BossPage:
 
         pen_sound_path = os.path.join("Sounds", "Pen.mp3")
         if os.path.exists(pen_sound_path):
-            self.pen_sound = pygame.mixer.Sound(pen_sound_path)
+            self.pen_sound = load_sound(pen_sound_path)
         else:
             print(f"WARNING: Pen.mp3 not found at {pen_sound_path}")
             self.pen_sound = None

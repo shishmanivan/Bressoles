@@ -4,6 +4,9 @@ import sys
 import game_state
 import profile_manager
 from app_settings import load_music_volume, save_music_volume, load_selected_language, save_selected_language
+from app_settings import load_settings, set_card_information_enabled
+from sound_assets import set_effects_volume
+from display_runtime import apply_display_settings
 from languages_page import LanguagesPage
 from asset_loaders import find_font_path_or_exit, load_main_background
 from boss_logic import (
@@ -75,6 +78,14 @@ def main():
 
     # Initialize screen
     screen = create_game_display((SCREEN_WIDTH, SCREEN_HEIGHT))
+    preferences = load_settings()
+    if preferences["fullscreen"] or preferences["resolution"] != LOGICAL_SCREEN_SIZE:
+        try:
+            screen = apply_display_settings(preferences)
+        except pygame.error:
+            screen = create_game_display(LOGICAL_SCREEN_SIZE)
+    set_effects_volume(preferences["sound_volume"])
+    set_card_information_enabled(preferences["show_card_info"])
     pygame.display.set_caption("Bressoles")
     menu_music = MenuMusic(volume=load_music_volume())
     menu_music.play()
@@ -582,7 +593,7 @@ def main():
                 on_volume_change=menu_music.set_volume,
             )
             settings_result, music_volume = settings_page.run()
-            save_music_volume(music_volume)
+            screen = settings_page.screen
             if settings_result == "quit":
                 result = "quit"
                 break

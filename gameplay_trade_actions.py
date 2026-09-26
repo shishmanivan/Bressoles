@@ -27,6 +27,17 @@ def calculate_rebate_sale_percent(
     return sale_percent + additional_bonus_percent
 
 
+def apply_ordered_rebate_modifiers(base_percent, modifiers):
+    """Apply additive and multiplicative effects in displayed slot order."""
+    result = base_percent
+    for operation, value in modifiers:
+        if operation == "multiply":
+            result *= value
+        else:
+            result += value
+    return result
+
+
 def apply_arrow_trade(money, quantities, prices, frame_idx, arrow_type, blocked_buy_prices=None):
     """Apply a buy/sell arrow action and return updated trade state."""
     if frame_idx not in MARKET_KEYS:

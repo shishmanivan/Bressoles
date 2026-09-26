@@ -1,3 +1,4 @@
+from sound_assets import load_sound
 import os
 
 import pygame
@@ -562,7 +563,7 @@ def _load_scaled_half_image(path, warning_message):
 
 def _load_sound(path, warning_message):
     if os.path.exists(path):
-        return pygame.mixer.Sound(path)
+        return load_sound(path)
     print(warning_message, path)
     return None
 

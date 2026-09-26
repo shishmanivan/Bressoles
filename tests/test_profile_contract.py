@@ -70,7 +70,7 @@ class ProfileContractTests(unittest.TestCase):
         profile["progress"]["black_cards"] = [301, 303]
 
         self.assertTrue(profile_manager._migrate_completed_black_rewards(profile))
-        self.assertEqual(profile["progress"]["black_cards"], [301, 302, 303])
+        self.assertEqual(profile["progress"]["black_cards"], [301, 302, 303, 304])
         self.assertFalse(profile_manager._migrate_completed_black_rewards(profile))
 
     def test_campaign_v2_migrates_the_former_level4_run_to_level5(self):

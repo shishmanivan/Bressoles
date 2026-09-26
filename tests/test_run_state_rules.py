@@ -303,7 +303,7 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertTrue(game_state.get_progress_flags()["level_8_unlocked"])
         self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 4)
         self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [302])
-        self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303])
+        self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303, 304])
 
     def test_golden_stocks_already_owned_is_not_removed_by_the_new_level5_reward(self):
         game_state.black_cards[:] = [301, 302]
@@ -564,6 +564,8 @@ class RewardLifecycleRulesTests(GameStateTestCase):
 
     def test_empty_primary_red_pool_does_not_cancel_later_rewards(self):
         gameplay = mock.Mock()
+        gameplay.active_gold_cards = []
+        gameplay.active_silver_cards = []
         gameplay.is_boss_fight = False
         gameplay.level_number = 3
         gameplay.round_num = 3
@@ -669,8 +671,8 @@ class RewardLifecycleRulesTests(GameStateTestCase):
             add_silver_card=mock.Mock(),
         )
 
-        self.assertEqual(game_state.black_cards, [301, 302, 303])
-        self.assertEqual(gameplay.last_earned_cards, [303])
+        self.assertEqual(game_state.black_cards, [301, 302, 303, 304])
+        self.assertEqual(gameplay.last_earned_cards, [303, 304])
 
     def test_level4_final_boss_awards_golden_stocks_black_card(self):
         gameplay = mock.Mock()

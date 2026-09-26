@@ -1,3 +1,4 @@
+from app_settings import card_information_enabled
 from localization import translate as _tr
 import pygame
 import random
@@ -33,6 +34,10 @@ from card_catalog import (
     GOLD_UPTREND_PERCENT_PER_NAPOLEONDOR,
     GOLD_SELLING_PRESSURE_CARD_ID,
     GOLD_SHAREHOLDER_BASE_CARD_ID,
+    GOLD_EFFICIENCY_CARD_ID,
+    GOLDEN_STAKE_CARD_ID,
+    GOLD_CASH_YIELD_CARD_ID,
+    GOLD_CASH_YIELD_PERCENT,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -111,7 +116,7 @@ from gameplay_price_helpers import (
     update_arrow_animation_entries,
 )
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
-from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent
+from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent, apply_ordered_rebate_modifiers
 from gameplay_turn import (
     advance_price_animation_frame,
     build_price_cards_processing_queue,
@@ -152,6 +157,7 @@ LEVEL6_BOT_ACTION_MS = 2000
 LEVEL6_BOT_END_PRESS_MS = 650
 
 FIELD_CARD_TOOLTIPS = {
+    126: ("25%", "Никто не знает, что эта карта делает."),
     1: ("Upside", "Немного усиливает вероятность роста выбранной акции."),
     2: ("Upside", "Усиливает вероятность роста выбранной акции."),
     3: ("Downside", "Немного усиливает вероятность падения выбранной акции."),
@@ -272,6 +278,10 @@ class GameplayPage:
             game_state.set_active_gold_cards(self.active_gold_cards)
         self.insider_c_growth_turns_remaining = 2 if self._count_active_silver_card(405) > 0 else 0
         self.rebate_a_fall_bonus_percent = 0
+        self.efficiency_bonus_percent = 0
+        self.efficiency_last_recorded_day = None
+        self.cash_yield_last_applied_day = None
+        self.percent_puzzle_completed_day = None
         self.short_seller_fall_counts = [0, 0, 0]
         self.short_seller_counted_markets_this_resolution = set()
         self.surge_turns_without_trade = 0
@@ -720,6 +730,7 @@ class GameplayPage:
         
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
+        self.blocked_reward_cards = []
         self.last_earned_napoleondors = 0
         self.long_payout_amount = 0
         self.golden_stocks_reward_card = None
@@ -1832,6 +1843,7 @@ class GameplayPage:
             "win_lose_state": self.win_lose_state,
             "win_lose_y": self.win_lose_y,
             "last_earned_cards": list(self.last_earned_cards or []),
+            "blocked_reward_cards": [dict(entry) for entry in getattr(self, "blocked_reward_cards", [])],
             "last_earned_napoleondors": float(self.last_earned_napoleondors or 0),
             "long_payout_amount": int(self.long_payout_amount or 0),
             "golden_stocks_reward_card": self.golden_stocks_reward_card,
@@ -1848,6 +1860,10 @@ class GameplayPage:
             "active_gold_cards": list(self.active_gold_cards or []),
             "insider_c_growth_turns_remaining": int(self.insider_c_growth_turns_remaining or 0),
             "rebate_a_fall_bonus_percent": int(self.rebate_a_fall_bonus_percent or 0),
+            "efficiency_bonus_percent": int(getattr(self, "efficiency_bonus_percent", 0) or 0),
+            "efficiency_last_recorded_day": getattr(self, "efficiency_last_recorded_day", None),
+            "cash_yield_last_applied_day": getattr(self, "cash_yield_last_applied_day", None),
+            "percent_puzzle_completed_day": getattr(self, "percent_puzzle_completed_day", None),
             "short_seller_fall_counts": list(
                 (getattr(self, "short_seller_fall_counts", None) or [0, 0, 0])[:3]
             ),
@@ -1901,6 +1917,10 @@ class GameplayPage:
             "win_lose_y",
             "insider_c_growth_turns_remaining",
             "rebate_a_fall_bonus_percent",
+            "efficiency_bonus_percent",
+            "efficiency_last_recorded_day",
+            "cash_yield_last_applied_day",
+            "percent_puzzle_completed_day",
             "surge_turns_without_trade",
             "surge_traded_this_turn",
             "surge_triggered",
@@ -1963,6 +1983,7 @@ class GameplayPage:
         if self.win_lose_state == "win" and self.is_final_boss:
             self.reward_window_text = self._get_final_boss_reward_text()
         self.last_earned_cards = list(state.get("last_earned_cards") or [])
+        self.blocked_reward_cards = [dict(entry) for entry in state.get("blocked_reward_cards", [])]
         self.last_earned_napoleondors = float(state.get("last_earned_napoleondors", 0) or 0)
         self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
         self.golden_stocks_reward_card = state.get("golden_stocks_reward_card")
@@ -2299,7 +2320,13 @@ class GameplayPage:
         return min(1.0, (count + 1) * 0.05)
 
     def _has_controlling_stake(self):
-        """Return whether silver card 205 neutralizes the Shareholder penalty."""
+        """Return whether an equipped controlling stake neutralizes Shareholders."""
+        for card_id in getattr(self, "active_gold_cards", []) or []:
+            try:
+                if int(card_id) == GOLDEN_STAKE_CARD_ID:
+                    return True
+            except (TypeError, ValueError):
+                continue
         for card_id in getattr(self, "active_silver_cards", []) or []:
             try:
                 if int(card_id) == 205:
@@ -2580,6 +2607,13 @@ class GameplayPage:
 
         return None
     
+    def _has_result_report(self):
+        return self.win_lose_state == "win" or (
+            self.win_lose_state == "lose"
+            and getattr(self, "percent_puzzle_completed_day", None) is not None
+            and getattr(self, "result_report_stage", "cards") == "card_report"
+        )
+
     def handle_input(self):
         mouse_pos = pygame.mouse.get_pos()
         if getattr(self, "result_transition_ready", None):
@@ -2603,7 +2637,7 @@ class GameplayPage:
             
             # Handle Ok button click if WinLose screen is shown
             if (
-                self.win_lose_state == "win"
+                self._has_result_report()
                 and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
                 and self._get_active_result_report_image()
             ):
@@ -2643,6 +2677,15 @@ class GameplayPage:
                         if event.button == 1:  # Left click
                             # Check if click is on Ok button
                             if self.ok_button_rect.collidepoint(event.pos):
+                                if getattr(self, "percent_puzzle_completed_day", None) is not None:
+                                    self.result_report_stage = "card_report"
+                                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
+                                    self.finance_stamp_state = "idle"
+                                    self.finance_stamp_started_at = 0
+                                    self.finance_stamp_rect = None
+                                    self._play_result_report_rustle()
+                                    self._save_active_game()
+                                    continue
                                 # Lost: return to level selection screen
                                 return "level_select"
                     
@@ -2928,6 +2971,8 @@ class GameplayPage:
                     if dropped:
                         self._play_card_placing_sound()
                     self._reset_drag_state()
+                    if dropped and self._try_complete_percent_puzzle():
+                        self._save_active_game()
         
         return None
     
@@ -3057,6 +3102,39 @@ class GameplayPage:
         else:
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
             print(f"LOSE on LastTurn: Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
+
+    def _try_complete_percent_puzzle(self):
+        """Consume one equipped quarter of each colour when red 126 is placed."""
+        if getattr(self, "percent_puzzle_completed_day", None) is not None:
+            return False
+        if not (221 in self.active_silver_cards and 304 in self.active_black_cards
+                and 438 in self.active_gold_cards and 126 in self.side_cards_top):
+            return False
+        slot = self.side_cards_top.index(126)
+        red_card = self.side_cards_top[slot]
+        if not game_state.complete_percent_puzzle(self.level_number, red_card):
+            return False
+        self.side_cards_top[slot] = None
+        self.side_card_origins_top.pop(slot, None)
+        self.side_cards_locked_top.pop(slot, None)
+        self.side_card_jump_animations.pop(slot, None)
+        self.active_silver_cards.remove(221)
+        self.active_black_cards.remove(304)
+        self.active_gold_cards.remove(438)
+        remaining_order = []
+        consumed = {221, 304, 438}
+        for entry in self.active_lifecycle_card_order:
+            if entry["card_id"] in consumed:
+                consumed.remove(entry["card_id"])
+            else:
+                remaining_order.append(entry)
+        self.active_lifecycle_card_order = self._normalize_active_lifecycle_card_order(remaining_order)
+        self.lifecycle_card_jump_animations.clear()
+        self.lifecycle_card_scale_animations = {}
+        self.lifecycle_card_shake_animations = {}
+        self.percent_puzzle_completed_day = self.Day
+        self.last_earned_cards.append(305)
+        return True
 
     def _has_played_side_card(self, target_card_id):
         return any(card_id == target_card_id for card_id in self.side_cards_top)
@@ -3587,6 +3665,32 @@ class GameplayPage:
             getattr(self, "active_gold_cards", []) or []
         )
 
+    def _record_efficiency_turn_bonus(self):
+        """Bank the turn bonus before fresh player cards are locked or removed."""
+        count = self._count_active_card_safely(GOLD_EFFICIENCY_CARD_ID)
+        if count <= 0:
+            return 0
+        day = self.Day
+        if getattr(self, "efficiency_last_recorded_day", None) == day:
+            return 0
+        market_locks = getattr(self, "market_cards_locked", {})
+        played = sum(
+            card_id is not None and not market_locks.get(market, {}).get(slot)
+            for market, cards in getattr(self, "market_cards", {}).items()
+            for slot, card_id in cards.items()
+        )
+        side_locks = getattr(self, "side_cards_locked_top", {})
+        played += sum(
+            card_id is not None and not side_locks.get(slot)
+            for slot, card_id in enumerate(getattr(self, "side_cards_top", []))
+        )
+        if getattr(self, "percent_puzzle_completed_day", None) == self.Day:
+            played += 1  # The consumed red quarter was still played this turn.
+        bonus = {1: 4, 2: 2}.get(played, 0) * count
+        self.efficiency_bonus_percent = int(getattr(self, "efficiency_bonus_percent", 0) or 0) + bonus
+        self.efficiency_last_recorded_day = day
+        return bonus
+
     def _get_current_rebate_sale_percent(self):
         full_price = self._has_active_silver_card(201)
         gold_rebate_count = self._count_active_card_safely(407)
@@ -3594,6 +3698,8 @@ class GameplayPage:
         # Keep bonus getters inactive when no base card enables auto-liquidation.
         if gold_rebate_count <= 0 and not full_price and not discounted:
             return None
+        if 305 in (getattr(self, "active_black_cards", []) or []):
+            return self._get_ordered_rebate_sale_percent(full_price, discounted, gold_rebate_count)
         return calculate_rebate_sale_percent(
             full_price=full_price,
             discounted=discounted,
@@ -3605,8 +3711,34 @@ class GameplayPage:
                 + self._get_stewardship_rebate_bonus_percent()
                 + self._get_windfall_rebate_bonus_percent()
                 + self._get_risk_premium_rebate_bonus_percent()
+                + int(getattr(self, "efficiency_bonus_percent", 0) or 0)
             ),
         )
+
+    def _get_ordered_rebate_sale_percent(self, full_price, discounted, gold_rebate_count):
+        base = calculate_rebate_sale_percent(
+            full_price=full_price, discounted=discounted, gold_rebate_count=gold_rebate_count,
+            fall_bonus=self.rebate_a_fall_bonus_percent if gold_rebate_count else 0,
+        )
+        if base is None:
+            return None
+        cards = [int(card) for card in self._active_lifecycle_cards()]
+        totals = {
+            410: self._get_uptrend_rebate_bonus_percent(),
+            423: self._get_stewardship_rebate_bonus_percent(),
+            426: self._get_windfall_rebate_bonus_percent(),
+            431: self._get_risk_premium_rebate_bonus_percent(),
+            435: int(getattr(self, "efficiency_bonus_percent", 0) or 0),
+        }
+        modifiers = []
+        for card in cards:
+            if card == 305:
+                modifiers.append(("multiply", 3))
+            elif card in totals:
+                modifiers.append(("add", totals[card] // cards.count(card)))
+            elif gold_rebate_count and card in (210, 414):
+                modifiers.append(("add", 10 if card == 210 else 15))
+        return apply_ordered_rebate_modifiers(base, modifiers)
 
     def _start_final_auto_liquidation_animation(self, liquidation):
         duration_ms = 1200
@@ -3637,7 +3769,7 @@ class GameplayPage:
 
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                is_rebate = int(card_id) in (201, 407)
+                is_rebate = int(card_id) in (201, 407, 305)
             except (TypeError, ValueError):
                 is_rebate = False
             if is_rebate:
@@ -4015,7 +4147,11 @@ class GameplayPage:
                 normalized = int(card_id)
             except (TypeError, ValueError):
                 normalized = card_id
-            if game_state.is_silver_card(normalized):
+            if normalized == 305:
+                label = _tr("Вы получили чёрную карту «100%». В три раза увеличивает Rebate эффект.")
+            elif normalized == 304:
+                label = _tr("Чёрная карта. Никто не знает, что эта карта делает.")
+            elif game_state.is_silver_card(normalized):
                 label = self._get_text(
                     "CardReportSilver",
                     "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
@@ -4046,6 +4182,18 @@ class GameplayPage:
                     "Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде",
                 )
             rows.append({"card_id": normalized, "label": label})
+        for entry in reversed(getattr(self, "blocked_reward_cards", []) or []):
+            explanation = _tr(
+                "Благодаря карте «Контрольный пакет» Shareholder не попал в колоду."
+                if entry["blocked_by"] == 205 else
+                "Благодаря карте Golden Stake Shareholder не попал в колоду."
+            )
+            description = _tr(FIELD_CARD_TOOLTIPS[100][1])
+            rows.insert(entry["position"], {
+                "card_id": entry["card_id"],
+                "blocked_by": entry["blocked_by"],
+                "label": f"{description} {explanation}",
+            })
         return rows
 
     def _get_card_report_notice(self):
@@ -4280,17 +4428,27 @@ class GameplayPage:
             card_image = self._load_winlose_card(row["card_id"], card_width)
             if card_image:
                 self.screen.blit(card_image, (card_x, card_y))
+                if row.get("blocked_by"):
+                    self._draw_negative_card_overlay(card_x, card_y, card_image.get_size())
                 card_rect = card_image.get_rect(topleft=(card_x, card_y))
                 if card_rect.collidepoint(mouse_pos):
                     hovered_card = {
                         "card_id": row["card_id"],
+                        "blocked_by": row.get("blocked_by"),
                         "rect": card_rect,
                     }
-            lines = wrap_text(str(row["label"]), font, text_width)
-            line_height = font.get_height() + 4
+            row_font = font
+            for font_size in range(26 if len(rows) <= 3 else 21, 16, -1):
+                lines = wrap_text(_tr(str(row["label"])), row_font, text_width)
+                line_height = row_font.get_height() + 4
+                if len(lines) * line_height <= slot_height - 8:
+                    break
+                row_font = pygame.font.Font(self.font_path, font_size)
+            lines = wrap_text(_tr(str(row["label"])), row_font, text_width)
+            line_height = row_font.get_height() + 4
             text_y = slot_top + max(0, (slot_height - len(lines) * line_height) // 2)
             for line_index, line in enumerate(lines):
-                surface = font.render(_tr(line), True, PAPER_COLOR)
+                surface = row_font.render(_tr(line), True, PAPER_COLOR)
                 self.screen.blit(surface, (text_x, text_y + line_index * line_height))
         if is_boss_report:
             self._draw_card_report_boss_text(
@@ -4313,6 +4471,8 @@ class GameplayPage:
             if hover_image:
                 hover_rect = hover_image.get_rect(center=hovered_card["rect"].center)
                 self.screen.blit(hover_image, hover_rect.topleft)
+                if hovered_card.get("blocked_by"):
+                    self._draw_negative_card_overlay(hover_rect.x, hover_rect.y, hover_image.get_size())
             self.card_report_tooltip = (hovered_card["card_id"], mouse_pos)
 
     def _draw_finance_report(self):
@@ -4472,7 +4632,7 @@ class GameplayPage:
         self._winlose_last_tick = now
         dt = _clamp_dt_seconds(dt)
         if (
-            self.win_lose_state == "win"
+            self._has_result_report()
             and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
         ):
             report_image = self._get_active_result_report_image()
@@ -4483,7 +4643,7 @@ class GameplayPage:
                     self.finance_stamp_state = "idle"
                     self._play_result_report_rustle()
                 else:
-                    self.result_transition_ready = "round_select"
+                    self.result_transition_ready = "round_select" if self.win_lose_state == "win" else "level_select"
                 return
             if self.finance_stamp_state == "closing":
                 target_y = float(-report_image.get_height() - 30)
@@ -4518,7 +4678,7 @@ class GameplayPage:
                     self.finance_stamp_rect = None
                     self._play_result_report_rustle()
                 else:
-                    self.result_transition_ready = "round_select"
+                    self.result_transition_ready = "round_select" if self.win_lose_state == "win" else "level_select"
             return
 
         if not self.win_lose_image:
@@ -5033,6 +5193,7 @@ class GameplayPage:
 
     def _start_market_resolution_after_actions(self):
         """Resolve the shared market after every participant has acted."""
+        self._record_efficiency_turn_bonus()
         animation_queue = self._take_waterloo_preview_or_roll()
         self.stock_price_turn_results = list(animation_queue or [])
         self._lock_market_cards()
@@ -5394,7 +5555,23 @@ class GameplayPage:
             return
         self._finish_turn_after_astor_cash_burn()
 
+    def _apply_cash_yield_turn_bonus(self):
+        """Pay interest on remaining cash once per resolved turn, before Rebate."""
+        if getattr(self, "win_lose_state", None) is not None:
+            return 0
+        count = sum(
+            str(card_id) == str(GOLD_CASH_YIELD_CARD_ID)
+            for card_id in getattr(self, "active_gold_cards", []) or []
+        )
+        if not count or getattr(self, "cash_yield_last_applied_day", None) == self.Day:
+            return 0
+        self.cash_yield_last_applied_day = self.Day
+        bonus = max(0, int(self.Money or 0)) * GOLD_CASH_YIELD_PERCENT * count // 100
+        self.Money += bonus
+        return bonus
+
     def _finish_turn_after_astor_cash_burn(self):
+        self._apply_cash_yield_turn_bonus()
         self._check_win_lose()
         if self._is_final_auto_liquidation_animating():
             return
@@ -6807,6 +6984,8 @@ class GameplayPage:
         return None
 
     def _draw_card_tooltip(self, card_id, mouse_pos):
+        if not card_information_enabled():
+            return
         content = self._get_field_card_tooltip_content(card_id)
         if content is None:
             return
@@ -7798,7 +7977,7 @@ class GameplayPage:
         
         # Victory reports are shown one after another: finances, then earned cards.
         if (
-            self.win_lose_state == "win"
+            self._has_result_report()
             and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
         ):
             self._draw_finance_report()

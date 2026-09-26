@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 from card_acquisition_stats import record_card_acquisitions
 
-from card_catalog import PRICE_CARD_IDS, get_price_card_spec
+from card_catalog import GOLDEN_STAKE_CARD_ID, PRICE_CARD_IDS, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
 from level_routes import get_campaign_content_level
 
@@ -165,8 +165,13 @@ GOLD_CARD_MIN_LEVELS = {
     432: 3,
     433: 3,
     434: 3,
+    435: 6,
+    436: 5,
+    437: 6,
+    438: 6,
 }
-SILVER_CARD_MIN_LEVELS = {213: 5}
+SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6}
+RED_CARD_MIN_LEVELS = {126: 6}
 
 SHOP_CARD_COSTS = {
     20: 4,
@@ -209,10 +214,16 @@ SHOP_CARD_COSTS = {
     432: 4,
     433: 4,
     434: 4,
+    435: 5,
+    436: 5,
+    437: 5,
+    438: 3,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
 LICENSE_COSTS = {
+    126: 3,
+    221: 3,
     112: 3,
     113: 5,
     114: 5,
@@ -246,6 +257,7 @@ LICENSES_BY_LEVEL = {
     3: [112, 113, 114, 115, 123, 124, 125, 203, 204, 207, 209, 210, 212, 214, 215, 217, 218, 219, 220],
     4: [205, 211],
     5: [118, 119, 120, 121, 122, 213, 216],
+    6: [126, 221],
 }
 # Licenses normally remain available from their unlock level onward until bought.
 LICENSE_LEVEL_RESTRICTIONS = {}
@@ -276,7 +288,7 @@ LEVEL_COMPLETION_REWARD_CARDS = {
 LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
     3: [301],
     4: [302],
-    5: [303],
+    5: [303, 304],
 }
 
 # Silver cards are kept outside the regular deck. They are spent after the
@@ -298,6 +310,7 @@ active_lifecycle_card_order = []
 bear_goal_reduction_steps = 0
 windfall_boss_victories = 0
 risk_premium_h_rounds = 0
+golden_stake_shareholder_parity = 0
 insurance_goal_debt = 0
 # Unused turns banked by silver card 209 for the immediately following round.
 Frugality = 0
@@ -546,6 +559,37 @@ def clear_mirroring_cards(reason="defeat"):
         print(f"Cleared mirrored cards after {reason}: {mirrored_deck_cards}")
     mirrored_deck_cards.clear()
     mirroring_bought_count = 0
+
+
+def complete_percent_puzzle(level_number, red_card):
+    """Replace the owned black quarter, consuming the other three played pieces."""
+    if 304 not in black_cards or 221 not in silver_cards or 438 not in gold_cards:
+        return False
+    # Replacing in place works even when the black inventory is full.
+    index = black_cards.index(304)
+    if 305 in black_cards:
+        black_cards.pop(index)
+    else:
+        black_cards[index] = 305
+    silver_cards.remove(221)
+    gold_cards.remove(438)
+    if 304 in active_black_cards:
+        active_black_cards.remove(304)
+    if 438 in active_gold_cards:
+        active_gold_cards.remove(438)
+    _sync_active_lifecycle_card_order(active_lifecycle_card_order)
+    level = int(level_number)
+    origin = getattr(red_card, "deck_origin", None)
+    sources = ([round_reward_cards.get(level, [])] if origin == "temporary" else [
+        earned_reward_cards.get(level, []), shop_deck_cards, mirrored_deck_cards,
+        round_reward_cards.get(level, []),
+    ])
+    for source in sources:
+        if 126 in source:
+            source.remove(126)
+            break
+    _remove_start_hand_guarantee(level, 126)
+    return True
 
 
 def add_black_card(card_id):
@@ -885,6 +929,7 @@ def has_selectable_lifecycle_cards():
 
 def clear_gold_cards(reason="defeat"):
     global bear_goal_reduction_steps, windfall_boss_victories, risk_premium_h_rounds
+    global golden_stake_shareholder_parity
     if gold_cards:
         cleared = list(gold_cards)
         gold_cards.clear()
@@ -896,6 +941,7 @@ def clear_gold_cards(reason="defeat"):
     bear_goal_reduction_steps = 0
     windfall_boss_victories = 0
     risk_premium_h_rounds = 0
+    golden_stake_shareholder_parity = 0
 
 
 def is_capital_preservation_offer_available(level_number=None):
@@ -920,12 +966,14 @@ def buy_capital_preservation():
 def consume_capital_preservation():
     """Consume defeat protection while keeping gold-card inventory and loadout."""
     global capital_preservation_bought, bear_goal_reduction_steps, windfall_boss_victories, risk_premium_h_rounds
+    global golden_stake_shareholder_parity
     if not capital_preservation_bought:
         return False
     capital_preservation_bought = False
     bear_goal_reduction_steps = 0
     windfall_boss_victories = 0
     risk_premium_h_rounds = 0
+    golden_stake_shareholder_parity = 0
     _sync_active_lifecycle_card_order()
     print(f"Capital Preservation kept gold cards after defeat: {gold_cards}")
     return True
@@ -1131,6 +1179,24 @@ def record_windfall_boss_victory(active_cards=None):
     windfall_boss_victories = get_windfall_boss_victories() + 1
     print(f"Windfall boss victory progress increased: victories={windfall_boss_victories}")
     return True
+
+
+def get_golden_stake_shareholder_parity():
+    try:
+        return max(0, int(golden_stake_shareholder_parity or 0)) % 2
+    except (TypeError, ValueError):
+        return 0
+
+
+def should_block_golden_stake_shareholder(active_cards=None):
+    """Accept the first new Shareholder, block the next, across equipped rounds."""
+    global golden_stake_shareholder_parity
+    cards = active_gold_cards if active_cards is None else active_cards
+    if not _contains_card(cards, GOLDEN_STAKE_CARD_ID):
+        return False
+    blocked = get_golden_stake_shareholder_parity() == 1
+    golden_stake_shareholder_parity = 0 if blocked else 1
+    return blocked
 
 
 def get_risk_premium_h_rounds():
@@ -1937,7 +2003,8 @@ def get_level_completion_black_reward_cards(level_number):
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
-    return list(LEVEL_COMPLETION_BLACK_REWARD_CARDS.get(level, []) or [])
+    return [card for card in LEVEL_COMPLETION_BLACK_REWARD_CARDS.get(level, [])
+            if card != 304 or 305 not in black_cards]
 
 
 def get_completed_level_reward_cards():
@@ -3638,6 +3705,10 @@ def build_gain_drop_cards_pool(excluded_card_ids=None):
 
 def build_red_cards_deck_for_level(level_num):
     """Build the per-run deck of available red cards when a level is selected."""
+    try:
+        level = int(level_num or 0)
+    except (TypeError, ValueError):
+        level = 0
     cfg = load_cards_config() or {}
     red_cards = []
     for card_id, row in cfg.items():
@@ -3646,6 +3717,8 @@ def build_red_cards_deck_for_level(level_num):
         except (TypeError, ValueError):
             continue
         if cid <= 100 or cid >= 200:
+            continue
+        if cid in RED_CARD_MIN_LEVELS and level < RED_CARD_MIN_LEVELS[cid]:
             continue
 
         open_val = row.get("Open") if isinstance(row, dict) else None

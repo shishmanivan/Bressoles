@@ -272,6 +272,7 @@ def _empty_progress():
         "bear_goal_reduction_steps": 0,
         "windfall_boss_victories": 0,
         "risk_premium_h_rounds": 0,
+        "golden_stake_shareholder_parity": 0,
         "insurance_goal_debt": 0,
         "Frugality": 0,
         "guaranteed_start_hand_cards_by_level": {},
@@ -374,6 +375,8 @@ def _migrate_completed_black_rewards(profile):
             continue
         for card_id in reward_cards:
             normalized = int(card_id)
+            if normalized == 304 and 305 in black_cards:
+                continue
             if normalized in black_cards or len(black_cards) >= game_state.MAX_BLACK_CARDS:
                 continue
             black_cards.append(normalized)
@@ -641,6 +644,10 @@ def apply_profile_to_game_state(profile_or_slot):
     except (TypeError, ValueError):
         game_state.windfall_boss_victories = 0
     try:
+        game_state.golden_stake_shareholder_parity = max(0, int(progress.get("golden_stake_shareholder_parity", 0) or 0)) % 2
+    except (TypeError, ValueError):
+        game_state.golden_stake_shareholder_parity = 0
+    try:
         game_state.risk_premium_h_rounds = max(
             0,
             int(progress.get("risk_premium_h_rounds", 0) or 0),
@@ -780,6 +787,7 @@ def _capture_progress():
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "windfall_boss_victories": game_state.get_windfall_boss_victories(),
         "risk_premium_h_rounds": game_state.get_risk_premium_h_rounds(),
+        "golden_stake_shareholder_parity": game_state.get_golden_stake_shareholder_parity(),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "Frugality": max(0, int(game_state.Frugality or 0)),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(

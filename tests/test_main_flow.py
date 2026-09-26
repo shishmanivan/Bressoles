@@ -178,12 +178,13 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertTrue(profile["progress"]["level_1_boss_defeated"])
         self.assertIsNone(profile["active_game"])
 
-    def test_options_page_saves_music_volume_and_returns_to_main_menu(self):
+    def test_options_page_owns_saving_and_returns_to_main_menu(self):
         settings_pages = []
 
         class FakeSettingsPage:
             def __init__(self, *args, **kwargs):
                 self.kwargs = kwargs
+                self.screen = args[0]
                 settings_pages.append(self)
 
             def run(self):
@@ -199,7 +200,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
             Main.main()
 
         self.assertEqual(len(settings_pages), 1)
-        save_volume.assert_called_once_with(0.35)
+        save_volume.assert_not_called()
 
     def test_test_level_thirteen_opens_bot_match_without_boss_or_round_pages(self):
         gameplay_pages = []

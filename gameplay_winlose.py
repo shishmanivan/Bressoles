@@ -266,6 +266,25 @@ def apply_win_reward(
                 f"round {round_num}, button {button}"
             )
             continue
+        if reward_card_number == 100:
+            silver_cards = getattr(gameplay_instance, "active_silver_cards", []) or []
+            blocking_card = None
+            if any(str(card_id) == "205" for card_id in silver_cards):
+                blocking_card = 205
+            elif game_state.should_block_golden_stake_shareholder(
+                getattr(gameplay_instance, "active_gold_cards", []) or []
+            ):
+                blocking_card = 436
+            if blocking_card is not None:
+                blocked_rewards = getattr(gameplay_instance, "blocked_reward_cards", None)
+                if blocked_rewards is None:
+                    blocked_rewards = gameplay_instance.blocked_reward_cards = []
+                blocked_rewards.append({
+                    "card_id": reward_card_number,
+                    "blocked_by": blocking_card,
+                    "position": len(gameplay_instance.last_earned_cards),
+                })
+                continue
         if reward_card_number == REWARD_TOKEN_RANDOM_SILVER:
             reward_card_number = add_silver_card(reward_card_number, gameplay_instance.level_number)
             if reward_card_number is None:

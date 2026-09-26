@@ -54,8 +54,12 @@ def _read_settings(path):
 
 
 def _save_setting(key, value, path):
+    _save_values({key: value}, path)
+
+
+def _save_values(values, path):
     data = _read_settings(path)
-    data[key] = value
+    data.update(values)
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     descriptor, temporary_path = tempfile.mkstemp(
@@ -75,3 +79,34 @@ def _save_setting(key, value, path):
         except OSError:
             pass
         raise
+
+
+RESOLUTIONS = ((1280, 800), (1440, 900), (1680, 1050), (1920, 1080), (1920, 1200), (2560, 1440))
+_card_information_enabled = True
+
+
+def load_settings(path=SETTINGS_FILE):
+    data = _read_settings(path)
+    resolution = data.get("resolution", [1680, 1050])
+    if not isinstance(resolution, (list, tuple)) or tuple(resolution) not in RESOLUTIONS:
+        resolution = (1680, 1050)
+    return {
+        "resolution": tuple(resolution),
+        "fullscreen": data.get("fullscreen") is True,
+        "music_volume": _clamp_volume(data.get("music_volume", 1.0)),
+        "sound_volume": _clamp_volume(data.get("sound_volume", 1.0)),
+        "show_card_info": data.get("show_card_info") is not False,
+    }
+
+
+def save_settings(values, path=SETTINGS_FILE):
+    _save_values(values, path)
+
+
+def set_card_information_enabled(enabled):
+    global _card_information_enabled
+    _card_information_enabled = bool(enabled)
+
+
+def card_information_enabled():
+    return _card_information_enabled
