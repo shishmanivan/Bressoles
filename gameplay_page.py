@@ -383,8 +383,8 @@ class GameplayPage:
         self.sideway_applied_this_resolution = False
         self.c_price_fell_this_resolution = False
         self.manipulation_applied_this_resolution = False
-        self.price_animation_speed = 12  # frames per second (increased by 30% from 9 to 12, approximately 83ms per frame)
-        self.price_animation_interval = 1000 // self.price_animation_speed  # ms per frame
+        self.price_animation_speed = 12 * 1.2  # frames per second, 20% faster
+        self.price_animation_interval = 1000 / self.price_animation_speed  # ms per frame
 
         self.logo_a = gameplay_assets["logo_a"]
         self.logo_b = gameplay_assets["logo_b"]
@@ -1167,13 +1167,13 @@ class GameplayPage:
 
     def _draw_active_shop_offer_tooltip(self, entry, panel):
         special_id = entry.get("special_id")
-        label = SHOP_SPECIAL_ASSETS.get(special_id, (str(special_id), None))[0]
-        description = SHOP_SPECIAL_DESCRIPTIONS.get(special_id, "")
+        label = _tr(SHOP_SPECIAL_ASSETS.get(special_id, (str(special_id), None))[0])
+        description = _tr(SHOP_SPECIAL_DESCRIPTIONS.get(special_id, ""))
         status = ""
         remaining = entry.get("remaining")
         if remaining is not None:
             unit = "босс" if entry.get("remaining_kind") == "bosses" else "раундов"
-            status = f" Осталось: {remaining} {unit}."
+            status = _tr(f" Осталось: {remaining} {unit}.")
         text = f"{label}. {description}{status}".strip()
         self._draw_boss_reward_tooltip(
             {"reward_text": text},
@@ -1243,7 +1243,7 @@ class GameplayPage:
             self._draw_boss_reward_tooltip(hovered[0], hovered[1], panel)
 
     def _draw_boss_reward_tooltip(self, entry, icon_rect, panel):
-        text = entry.get("reward_text") or ""
+        text = _tr(entry.get("reward_text") or "")
         max_width = 360
         lines = wrap_text(text, self.font_small, max_width)
         if not lines:
@@ -1268,7 +1268,7 @@ class GameplayPage:
         pygame.draw.rect(self.screen, (238, 228, 205), tooltip_rect)
         pygame.draw.rect(self.screen, PAPER_COLOR, tooltip_rect, 2)
         for index, line in enumerate(lines):
-            surface = self.font_small.render(_tr(line), True, PAPER_COLOR)
+            surface = self.font_small.render(line, True, PAPER_COLOR)
             self.screen.blit(surface, (tooltip_rect.x + 14, tooltip_rect.y + 12 + index * line_height))
 
     def _draw_current_boss_marker(self):

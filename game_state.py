@@ -2951,6 +2951,7 @@ def build_shop_special_offer_pool(
     defeated_count=None,
     bosses_required=None,
     rounds_remaining=None,
+    excluded_offer_ids=(),
 ):
     try:
         level = int(level_number or 0)
@@ -3136,12 +3137,22 @@ def build_shop_special_offer_pool(
         offer_limit = 2
     if offer_limit <= 0:
         return []
-    offer_pool = [offer_id for offer_id in rolled if offer_id in allowed_offers]
+    excluded_offer_ids = set(excluded_offer_ids)
+    offer_pool = [
+        offer_id for offer_id in rolled
+        if offer_id in allowed_offers and offer_id not in excluded_offer_ids
+    ]
     for offer_id in fallback_offers:
         if len(offer_pool) >= offer_limit:
             break
-        if offer_id not in offer_pool:
+        if offer_id not in offer_pool and offer_id not in excluded_offer_ids:
             offer_pool.append(offer_id)
+    if not offer_pool and excluded_offer_ids:
+        offer_pool = [
+            offer_id for offer_id in _available_screening_offer_ids(
+                level, defeated_count, bosses_required, rounds_remaining,
+            ) if offer_id not in excluded_offer_ids
+        ]
     if len(offer_pool) <= offer_limit:
         return offer_pool
 

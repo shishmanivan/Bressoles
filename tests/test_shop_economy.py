@@ -140,6 +140,9 @@ class ShopEconomyTestCase(unittest.TestCase):
         page.napoleondors = float(game_state.napoleondors)
         page.message = ""
         page.discount_percent = 0
+        page.panel_rect = mock.Mock(left=120, right=1560, centerx=840, y=75)
+        page.offer_image_box = (200, 296)
+        page.offer_image_cache = {}
         return page
 
 
@@ -384,6 +387,9 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertTrue(game_state.expansion_bought)
         self.assertEqual(game_state.get_shop_special_offer_slots(), 3)
         self.assertEqual(page.message, "В магазине теперь больше предложений")
+        self.assertEqual(len(page.offers), 2)
+        self.assertEqual(len(page.offer_rects), 2)
+        self.assertEqual(page.sold_offer_indexes, {0})
 
         self.assertEqual(game_state.add_boss_shop_offer_bonus(), 4)
         self.assertEqual(game_state.get_shop_special_offer_slots(), 4)
@@ -396,6 +402,43 @@ class ShopTransactionTests(ShopEconomyTestCase):
         repeated_offer._buy_offer(0)
         self.assertEqual(game_state.napoleondors, 5)
         self.assertEqual(repeated_offer.message, "Экспансия уже куплена")
+
+    def test_expansion_immediately_adds_discounted_offer_and_keeps_sold_indexes(self):
+        game_state.napoleondors = 10
+        page = self._shop({"kind": "special", "special_id": "expansion", "cost": 5})
+        license_offer = {"kind": "license", "card_id": 121, "cost": 3}
+        page.offers.append(license_offer)
+        page.sold_offer_indexes.add(1)
+        page.discount_percent = 25
+        with mock.patch.object(game_state, "build_shop_special_offer_pool", return_value=["profit"]) as pool:
+            page._buy_offer(0)
+        self.assertEqual(pool.call_args.kwargs["excluded_offer_ids"], {"expansion"})
+        self.assertEqual(page.offers[1]["special_id"], "profit")
+        self.assertEqual(page.offers[1]["cost"], game_state.get_discounted_shop_price(
+            game_state.get_shop_special_cost("profit", 5), 25,
+        ))
+        self.assertIs(page.offers[2], license_offer)
+        self.assertEqual(page.sold_offer_indexes, {0, 2})
+        self.assertEqual(len(page.offer_rects), 3)
+        page._buy_offer(0)
+        self.assertEqual(len(page.offers), 3)
+
+    def test_free_expansion_keeps_new_offer_and_removes_temporary_offer(self):
+        page = self._shop({"kind": "special", "special_id": "screening", "cost": 1})
+        balance = game_state.napoleondors
+        with mock.patch.object(game_state, "build_shop_special_offer_pool", return_value=["profit"]):
+            self.assertTrue(page._activate_free_special_offer("expansion"))
+        self.assertEqual([offer["special_id"] for offer in page.offers], ["screening", "profit"])
+        self.assertEqual(page.sold_offer_indexes, set())
+        self.assertEqual(len(page.offer_rects), 2)
+        self.assertEqual(game_state.napoleondors, balance)
+
+    def test_expansion_pool_excludes_existing_offers_even_when_all_rolls_miss(self):
+        excluded = {"delisting", "trader", "profit", "expansion"}
+        with mock.patch.object(game_state.random, "randint", return_value=100):
+            offers = game_state.build_shop_special_offer_pool(5, max_offers=1, excluded_offer_ids=excluded)
+        self.assertEqual(len(offers), 1)
+        self.assertFalse(set(offers) & excluded)
 
     def test_expansion_has_twenty_percent_pool_roll_and_then_disappears(self):
         with (

@@ -490,11 +490,11 @@
     "HU": "A menet végéig minden következő boltban eggyel több eladó kártya jelenik meg."
   },
   {
-    "Source": "Добавляет ещё одно предложение в каждый следующий магазин.",
-    "RU": "Добавляет ещё одно предложение в каждый следующий магазин.",
-    "ENG": "Adds one more offer to every subsequent shop.",
-    "DE": "Fügt jedem weiteren Laden ein zusätzliches Angebot hinzu.",
-    "HU": "Minden következő boltban eggyel több ajánlat jelenik meg."
+    "Source": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
+    "RU": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
+    "ENG": "Immediately adds one more offer to the current shop and every subsequent shop.",
+    "DE": "Fügt sofort dem aktuellen und jedem weiteren Laden ein zusätzliches Angebot hinzu.",
+    "HU": "Azonnal hozzáad egy további ajánlatot az aktuális és minden következő bolthoz."
   },
   {
     "Source": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",

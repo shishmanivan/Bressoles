@@ -1,14 +1,43 @@
 import os
 import unittest
+from unittest import mock
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 from game_data import load_language
 from gameplay_page import GameplayPage
+from localization import get_language, set_language, translate
+from shop_page import SPECIAL_ASSETS, SPECIAL_DESCRIPTIONS
 from round_page_helpers import resolve_boss_reward_text
 
 
 class LocalizationContractTests(unittest.TestCase):
+    def test_active_offer_tooltips_are_translated_before_wrapping(self):
+        original_language = get_language()
+        self.addCleanup(set_language, original_language)
+        page = GameplayPage.__new__(GameplayPage)
+        page.font_small = mock.Mock()
+        for language in ("ENG", "DE", "HU", "RU"):
+            set_language(language)
+            for special_id, description in SPECIAL_DESCRIPTIONS.items():
+                for remaining_kind in (None, "rounds", "bosses"):
+                    with self.subTest(language=language, offer=special_id, remaining=remaining_kind):
+                        entry = {"special_id": special_id}
+                        status = ""
+                        if remaining_kind:
+                            entry.update(remaining=2, remaining_kind=remaining_kind)
+                            unit = "босс" if remaining_kind == "bosses" else "раундов"
+                            status = translate(f" Осталось: 2 {unit}.")
+                        with mock.patch("gameplay_page.wrap_text", return_value=[]) as wrap:
+                            page._draw_active_shop_offer_tooltip(entry, None)
+                        text = wrap.call_args.args[0]
+                        self.assertEqual(text, (
+                            f"{translate(SPECIAL_ASSETS[special_id][0])}. "
+                            f"{translate(description)}{status}"
+                        ).strip())
+                        if language != "RU":
+                            self.assertNotRegex(text, r"[А-Яа-яЁё]")
+
     def test_boss_texts_do_not_end_with_accidental_colons(self):
         english = load_language("ENG")
         for boss_number in range(1, 7):

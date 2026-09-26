@@ -84,7 +84,7 @@ SPECIAL_DESCRIPTIONS = {
     "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
     "diversification": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
-    "expansion": "Добавляет ещё одно предложение в каждый следующий магазин.",
+    "expansion": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
     "bill_of_exchange": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
     "compounding": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
@@ -611,19 +611,58 @@ class ShopPage:
                 temporary_discount,
             )
 
+    def _add_expansion_offer(self):
+        special_ids = game_state.build_shop_special_offer_pool(
+            self.level_number,
+            max_offers=1,
+            defeated_count=getattr(self, "defeated_count", 0),
+            bosses_required=getattr(self, "bosses_required", None),
+            rounds_remaining=getattr(self, "rounds_remaining", None),
+            excluded_offer_ids={
+                offer.get("special_id") for offer in self.offers
+                if offer.get("kind") == "special"
+            },
+        )
+        if not special_ids:
+            return
+        special_id = special_ids[0]
+        if special_id == "correction":
+            game_state.correction_shop_cooldown = game_state.CORRECTION_SHOP_COOLDOWN
+        index = next(
+            (i for i, offer in enumerate(self.offers)
+             if offer.get("kind") in ("license", "investment")),
+            len(self.offers),
+        )
+        self.offers.insert(index, {
+            "kind": "special",
+            "special_id": special_id,
+            "cost": game_state.get_discounted_shop_price(
+                game_state.get_shop_special_cost(special_id, self.level_number),
+                self.discount_percent,
+            ),
+        })
+        self.sold_offer_indexes = {
+            i + 1 if i >= index else i for i in self.sold_offer_indexes
+        }
+        self.offer_image_cache.clear()
+        self.offer_rects = self._build_offer_rects()
+
     def _activate_free_special_offer(self, special_id):
         temporary_index = len(self.offers)
         self.offers.append(
             {"kind": "special", "special_id": special_id, "cost": 0}
         )
         try:
-            self._buy_offer(temporary_index)
-            return temporary_index in self.sold_offer_indexes
+            self._buy_offer(temporary_index, refresh_expansion=False)
+            purchased = temporary_index in self.sold_offer_indexes
         finally:
             self.sold_offer_indexes.discard(temporary_index)
             self.offers.pop()
+        if purchased and special_id == "expansion":
+            self._add_expansion_offer()
+        return purchased
 
-    def _buy_offer(self, index):
+    def _buy_offer(self, index, *, refresh_expansion=True):
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
@@ -822,6 +861,8 @@ class ShopPage:
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "В магазине теперь больше предложений"
+            if refresh_expansion:
+                self._add_expansion_offer()
             return
 
         if special_id == "bill_of_exchange":
