@@ -18,6 +18,7 @@ def normalize_boss_effect(value):
 
 
 REWARD_KINDS = {
+    "disclosure5rounds": "disclosure_5_rounds",
     "redcard": "red_card",
     "freeshop": "free_shop",
     "nextshopfree": "free_shop",
@@ -57,6 +58,7 @@ REWARD_KINDS = {
 }
 
 FUNCTIONALITY_KINDS = {
+    "nofirstturntrading": "no_first_turn_trading",
     "arkwrightstealshares": "arkwright_steal",
     "stealshares": "arkwright_steal",
     "sharesteal": "arkwright_steal",

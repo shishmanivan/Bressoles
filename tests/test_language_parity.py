@@ -97,7 +97,7 @@ class LanguageParityTests(unittest.TestCase):
                 self.assertGreaterEqual(cards.top, layout['text_bottom'] + 5)
                 self.assertTrue(window.contains(cards))
                 self.assertFalse(cards.colliderect(button))
-                for number in range(1, 16):
+                for number in range(1, 17):
                     if f'Boss{number}Text' not in lang:
                         continue
                     popup = build_boss_popup_text_layout(font, 375, lang[f'Boss{number}Text'], lang['PopUpReward'], lang[f'Boss{number}Reward'])

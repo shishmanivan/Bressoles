@@ -18,7 +18,7 @@ BOSS_LEVELS = {
     "4_NicolasApper.png": 1,
     "5_SamuelSlater.png": 1,
     "6_Arkwright.png": 1,
-    "7_Kolbe.png": 1,
+    "7_Kolbe.png": 2,
     "10_Stephenson.png": 1,
     "8_List.png": 2,
     "9_Laffitte.png": 2,
@@ -27,6 +27,7 @@ BOSS_LEVELS = {
     "13_Say.png": 2,
     "14_Peabody.png": 2,
     "15_Astor.png": 1,
+    "16_Whitney.png": 1,
 }
 
 CATEGORY_TWO_BASE_B_SHARES = 4
@@ -109,7 +110,7 @@ def _build_level8_default_roster():
 # Boss roster per level and boss rounds
 LEVEL_BOSS_ROUNDS = {
     1: [["1_Watt.png"]],
-    2: [["2_AdamSmith.png", "3_RobertFulton.png"],
+    2: [["2_AdamSmith.png", "3_RobertFulton.png", "16_Whitney.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
     6: _build_level6_default_roster(),
@@ -127,6 +128,7 @@ def _generate_level3_boss_roster(bosses_required: int):
         "4_NicolasApper.png",
         "5_SamuelSlater.png",
         "6_Arkwright.png",
+        "16_Whitney.png",
     ]
     random.shuffle(candidates)
     try:
@@ -148,6 +150,7 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
         "4_NicolasApper.png",
         "5_SamuelSlater.png",
         "6_Arkwright.png",
+        "16_Whitney.png",
     }
     if isinstance(roster, list) and len(roster) == expected_len:
         roster_bosses = [step[0] for step in roster if isinstance(step, list) and len(step) == 1]
@@ -480,6 +483,10 @@ def apply_boss_reward(reward_string, gameplay_instance):
             return
 
         normalized_reward = str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
+        if normalized_reward == "disclosure5rounds":
+            game_state.grant_disclosure_rounds(5)
+            return
+
         if normalized_reward.startswith("guaranteeredstart"):
             level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
             count = 2
@@ -726,6 +733,10 @@ def apply_boss_functionality(func_string, gameplay_instance):
         if normalized_func in ("oddturntradingonly", "kolbeoddturntrading", "tradingoddturnsonly"):
             setattr(gameplay_instance, "boss_odd_turn_trading_only", True)
             print("Applied boss functionality: odd-turn trading only enabled")
+            return
+
+        if normalized_func == "nofirstturntrading":
+            setattr(gameplay_instance, "boss_no_first_turn_trading", True)
             return
 
         if normalized_func in (

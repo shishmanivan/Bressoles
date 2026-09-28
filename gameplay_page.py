@@ -38,6 +38,8 @@ from card_catalog import (
     GOLDEN_STAKE_CARD_ID,
     GOLD_CASH_YIELD_CARD_ID,
     GOLD_CASH_YIELD_PERCENT,
+    GOLD_SHAREHOLDER_VALUE_CARD_ID,
+    GOLD_SHAREHOLDER_VALUE_REWARD,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -295,6 +297,7 @@ class GameplayPage:
         self.forward_trading_shareholder_count = 0
         self.boss_steals_shares = False
         self.boss_odd_turn_trading_only = False
+        self.boss_no_first_turn_trading = False
         self.boss_forbid_price_2_buys = False
         self.boss_limit_red_gain_drop_per_turn = False
         self.boss_block_card_turn_extensions = False
@@ -2301,12 +2304,18 @@ class GameplayPage:
         return [item[3] for item in candidates]
 
     def _is_arrow_trading_disabled(self):
-        if not getattr(self, "boss_odd_turn_trading_only", False):
+        if not (getattr(self, "boss_no_first_turn_trading", False)
+                or getattr(self, "boss_odd_turn_trading_only", False)):
             return False
         try:
-            return int(self.Day) % 2 == 0
+            day = int(self.Day)
         except (TypeError, ValueError):
             return False
+        return (
+            getattr(self, "boss_no_first_turn_trading", False) and day == 1
+        ) or (
+            getattr(self, "boss_odd_turn_trading_only", False) and day % 2 == 0
+        )
 
     @staticmethod
     def shareholder_market_shutdown_probability(shareholder_count):
@@ -3047,6 +3056,8 @@ class GameplayPage:
             else:
                 print(f"WIN (early): Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
             self._apply_bill_of_exchange_shop_discount()
+            # Consume the completed round before granting rewards for future rounds.
+            game_state.advance_disclosure_round()
             self._add_reward_card_to_deck()
             boss_reward_amount = max(
                 0.0,
@@ -3098,7 +3109,6 @@ class GameplayPage:
             self.finance_stamp_started_at = 0
             self._play_result_report_rustle()
             game_state.advance_bailout_round()
-            game_state.advance_disclosure_round()
         else:
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
             print(f"LOSE on LastTurn: Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
@@ -6066,6 +6076,7 @@ class GameplayPage:
     def _apply_red_card_effects_if_needed(self):
         """Apply one-shot effects for freshly played Type=2 red cards."""
         effects = (
+            self._apply_shareholder_value_effect_if_needed,
             self._apply_forward_trading_effect_if_needed,
             self._apply_extended_gain_drop_effect_if_needed,
             self._apply_price_setting_red_card_effects_in_slot_order,
@@ -6140,6 +6151,22 @@ class GameplayPage:
         self._start_fresh_side_card_jump_animation_for_card(112)
         source = "Card 112 Rollover"
         print(f"{source} extended Gain/Drop/Regulation durations by {bonus}.")
+        return True
+
+    def _apply_shareholder_value_effect_if_needed(self):
+        """Pay $2 per fresh Shareholder for each active Shareholder Value copy."""
+        card_count = self._count_active_card_safely(GOLD_SHAREHOLDER_VALUE_CARD_ID)
+        if card_count <= 0:
+            return False
+        shareholder_count = self._count_fresh_side_card(100)
+        if shareholder_count <= 0:
+            return False
+
+        self.Money += GOLD_SHAREHOLDER_VALUE_REWARD * shareholder_count * card_count
+        self._start_fresh_side_card_jump_animation_for_card(100)
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
+            if card_id == GOLD_SHAREHOLDER_VALUE_CARD_ID:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         return True
 
     def _apply_forward_trading_effect_if_needed(self):

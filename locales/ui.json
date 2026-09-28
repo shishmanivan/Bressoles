@@ -2371,5 +2371,12 @@
     "ENG": "Black card. Nobody knows what this card does.",
     "DE": "Schwarze Karte. Niemand weiß, was diese Karte bewirkt.",
     "HU": "Fekete kártya. Senki sem tudja, mit csinál ez a kártya."
+  },
+  {
+    "Source": "Даёт по 2$ за каждую сыгранную карту Shareholder",
+    "RU": "Даёт по 2$ за каждую сыгранную карту Shareholder",
+    "ENG": "Gives $2 for each Shareholder card played",
+    "DE": "Gibt 2$ für jede ausgespielte Shareholder-Karte",
+    "HU": "Minden kijátszott Shareholder kártyáért 2$-t ad"
   }
 ]

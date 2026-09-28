@@ -169,6 +169,7 @@ GOLD_CARD_MIN_LEVELS = {
     436: 5,
     437: 6,
     438: 6,
+    439: 6,
 }
 SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6}
 RED_CARD_MIN_LEVELS = {126: 6}
@@ -218,6 +219,7 @@ SHOP_CARD_COSTS = {
     436: 5,
     437: 5,
     438: 3,
+    439: 5,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -1381,6 +1383,13 @@ def buy_disclosure(rounds=DISCLOSURE_ROUNDS):
         return 0
     disclosure_rounds_remaining = duration
     print(f"Disclosure activated for {disclosure_rounds_remaining} round(s).")
+    return disclosure_rounds_remaining
+
+
+def grant_disclosure_rounds(rounds=DISCLOSURE_ROUNDS):
+    """Guarantee at least this many upcoming rounds of probability visibility."""
+    global disclosure_rounds_remaining
+    disclosure_rounds_remaining = max(get_disclosure_rounds_remaining(), max(0, int(rounds)))
     return disclosure_rounds_remaining
 
 

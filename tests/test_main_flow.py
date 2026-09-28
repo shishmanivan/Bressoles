@@ -368,7 +368,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
             },
             5: {
                 "roster": [
-                    ["7_Kolbe.png", "10_Stephenson.png"],
+                    ["16_Whitney.png", "10_Stephenson.png"],
                     ["2_AdamSmith.png", "4_NicolasApper.png"],
                     ["8_List.png", "9_Laffitte.png"],
                     ["11_Malthus.png", "12_Ricardo.png"],

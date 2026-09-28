@@ -39,13 +39,13 @@ class SettingsPage:
         self.video_previewed = False
         self.master = pygame.image.load(MASTER_BACKGROUND_PATH).convert()
         self.art = pygame.transform.smoothscale(
-            pygame.image.load('UI/Settings Frame Worn.png').convert_alpha(), (1680, 1050))
+            pygame.image.load('UI/Settings Frame Straight Bottom.png').convert_alpha(), (1680, 1050))
         self.canvas = pygame.Surface((1680, 1050), pygame.SRCALPHA)
         self.fonts = {}
         self.slider_rect = pygame.Rect(320, 650, 208, 10)
         self.sound_slider_rect = pygame.Rect(320, 715, 208, 10)
-        self.back_rect = pygame.Rect(102, 108, 205, 48)
-        self.save_rect = pygame.Rect(700, 914, 280, 55)
+        self.back_rect = pygame.Rect(119, 110, 183, 40)
+        self.save_rect = pygame.Rect(701, 904, 266, 50)
         self.resolution_rect = pygame.Rect(316, 322, 230, 48)
         self.window_rect = pygame.Rect(485, 409, 30, 30)
         self.fullscreen_rect = pygame.Rect(485, 464, 30, 30)
@@ -107,7 +107,7 @@ class SettingsPage:
         return ((pos[0] - self.panel_rect.x) * 1680 / self.panel_rect.width,
                 (pos[1] - self.panel_rect.y) * 1050 / self.panel_rect.height)
 
-    def _text(self, text, rect, size=26, centered=False, color=INK):
+    def _text(self, text, rect, size=26, centered=False, color=INK, ink_centered=False):
         rect = pygame.Rect(rect)
         text = self.lang.get(self.text_keys.get(text), tr(text))
         while True:
@@ -117,6 +117,9 @@ class SettingsPage:
             if label.get_width() <= rect.width or size <= 14:
                 break
             size -= 1
+        if ink_centered:
+            # Align visible glyphs, excluding the font ascent/descent padding.
+            label = label.subsurface(label.get_bounding_rect()).copy()
         target = label.get_rect(center=rect.center) if centered else label.get_rect(midleft=rect.midleft)
         self.canvas.blit(label, target)
 
@@ -285,7 +288,7 @@ class SettingsPage:
         self.canvas.fill((0, 0, 0, 0))
         self.canvas.blit(self.art, (0, 0))
         self._text('Настройки', (625, 73, 435, 85), 62, True)
-        self._text('Закрыть', self.back_rect, 28, True)
+        self._text('Закрыть', self.back_rect, 28, True, ink_centered=True)
         self._text('Тестовый режим', self.controls['test_mode'], 22, True)
         for text, rect in [('Видео', (105, 225, 425, 55)),
                            ('Звуки', (105, 552, 425, 55)),
@@ -305,19 +308,19 @@ class SettingsPage:
         self._text('Громкость звуков', (91, 691, 218, 46), 24)
         self._slide(self.slider_rect, self.music_volume)
         self._slide(self.sound_slider_rect, self.values['sound_volume'])
-        self._text('Историческая музыка', (91, 778, 360, 40), 24)
-        self._text('Нормальная музыка', (91, 829, 360, 40), 24, color=(126, 105, 78))
-        self._box(pygame.Rect(485, 785, 30, 30), True, True)
-        self._box(pygame.Rect(485, 836, 30, 30), False, True)
+        self._text('Историческая музыка', (91, 763, 360, 40), 24)
+        self._text('Нормальная музыка', (91, 808, 360, 40), 24, color=(126, 105, 78))
+        self._box(pygame.Rect(485, 768, 30, 30), True, True)
+        self._box(pygame.Rect(485, 813, 30, 30), False, True)
         self._text('Показывать информацию', (636, 322, 390, 35), 25)
         self._text('по картам', (636, 358, 390, 35), 25)
         self._box(self.info_rect, self.values['show_card_info'])
-        self._text('Сохранить', self.save_rect, 32, True)
+        self._text('Сохранить', self.save_rect, 32, True, ink_centered=True)
         if self.error:
             self._text(self.error, (1090, 924, 510, 40), 21, color=(110, 42, 22))
         hovered = self._point(pygame.mouse.get_pos())
         for name, rect in self.controls.items():
-            if name == self.focus or rect.collidepoint(hovered):
+            if name not in ('back', 'save') and (name == self.focus or rect.collidepoint(hovered)):
                 pygame.draw.rect(self.canvas, SELECTED, rect.inflate(8, 8), 2, border_radius=4)
         if self.dropdown:
             for index, resolution in enumerate(RESOLUTIONS):
