@@ -110,7 +110,7 @@ def _build_level8_default_roster():
 # Boss roster per level and boss rounds
 LEVEL_BOSS_ROUNDS = {
     1: [["1_Watt.png"]],
-    2: [["2_AdamSmith.png", "3_RobertFulton.png", "16_Whitney.png"],
+    2: [["2_AdamSmith.png", "3_RobertFulton.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
     6: _build_level6_default_roster(),

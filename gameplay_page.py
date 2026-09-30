@@ -118,6 +118,7 @@ from gameplay_price_helpers import (
     update_arrow_animation_entries,
 )
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
+from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent, apply_ordered_rebate_modifiers
 from gameplay_turn import (
     advance_price_animation_frame,
@@ -245,6 +246,8 @@ class GameplayPage:
         self.lang_dict = lang_dict or {}
         self.test_mode = test_mode
         self.profile_slot = profile_slot
+        self.tutorial_hint = None
+        self.tutorial_dismissed_this_round = set()
         self.market_roll_stats = MarketRollStats()
         self._initial_saved_state = saved_state if isinstance(saved_state, dict) else None
         self._stats_recorded = False
@@ -978,6 +981,7 @@ class GameplayPage:
             int(getattr(self, "boss_turn_time_limit_seconds", 0) or 0) > 0
             and self.win_lose_state is None
             and not self.pause_menu_active
+            and not getattr(self, "tutorial_hint", None)
             and not self.deck_view_active
             and not self._is_turn_resolution_active()
             and not self._is_hand_transition_active()
@@ -1805,6 +1809,7 @@ class GameplayPage:
 
     def _serialize_gameplay_state(self):
         return {
+            "tutorial_dismissed_this_round": sorted(getattr(self, "tutorial_dismissed_this_round", set())),
             "Goal": self.Goal,
             "Money": self.Money,
             "Day": self.Day,
@@ -1899,6 +1904,8 @@ class GameplayPage:
     def _restore_saved_state(self, state):
         if not state:
             return
+
+        self.tutorial_dismissed_this_round = set(state.get("tutorial_dismissed_this_round", []))
 
         scalar_fields = (
             "Goal",
@@ -2633,6 +2640,18 @@ class GameplayPage:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return "quit"
+
+            if getattr(self, "tutorial_hint", None) is not None:
+                if self.tutorial_hint.accepts(event):
+                    hint = self.tutorial_hint
+                    if not hint.has_checkbox or hint.dont_show_again:
+                        profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
+                    self.tutorial_dismissed_this_round.add(hint.hint_id)
+                    self.tutorial_hint = None
+                    self._save_active_game()
+                    # Discard the rest of this event batch to avoid click-through.
+                    return None
+                continue
 
             if self.pause_menu_active:
                 pause_result = self._handle_pause_menu_event(event)
@@ -8048,11 +8067,37 @@ class GameplayPage:
             self._draw_pause_menu()
 
         self._draw_field_card_tooltip()
+
+        if getattr(self, "tutorial_hint", None) is not None:
+            self.tutorial_hint.draw(self.screen)
         
         pygame.display.flip()
     
+    def _maybe_show_sell_tutorial(self):
+        if (
+            self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+            or self.Day != self.LastTurn - 1 or self.win_lose_state is not None
+            or SELL_HINT_ID in self.tutorial_dismissed_this_round
+            or self.pause_menu_active or self.deck_view_active
+            or self._is_turn_resolution_active() or self._is_hand_transition_active()
+        ):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, SELL_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=SELL_HINT_ID, text=SELL_HINT_TEXT,
+            )
+        else:
+            self.tutorial_dismissed_this_round.add(SELL_HINT_ID)
+
     def run(self):
+        self.tutorial_hint = None
+        if not self.test_mode and profile_manager.is_tutorial_pending(self.profile_slot, FIRST_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+            )
         while True:
+            self._maybe_show_sell_tutorial()
             result = self.handle_input()
             
             if result == "quit":
@@ -8076,7 +8121,7 @@ class GameplayPage:
 
             self._update_boss_turn_timer()
 
-            if self.deck_view_active or self.pause_menu_active:
+            if self.deck_view_active or self.pause_menu_active or self.tutorial_hint is not None:
                 self.draw()
                 self.clock.tick(FPS)
                 continue

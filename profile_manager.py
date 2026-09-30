@@ -1,3 +1,4 @@
+import copy
 import json
 import math
 import os
@@ -12,7 +13,7 @@ from gameplay_deck import restore_card_instance, serialize_card_instance
 
 PROFILES_DIR = "Profiles"
 INDEX_FILE = os.path.join(PROFILES_DIR, "index.json")
-MAX_PROFILES = 4
+MAX_PROFILES = 6
 _recovered_profile_paths = set()
 
 
@@ -207,6 +208,7 @@ def _default_profile(slot):
         "name": "",
         "progress": _empty_progress(),
         "active_game": None,
+        "tutorial_seen": [],
     }
 
 
@@ -294,6 +296,8 @@ def load_profile(slot):
         return _default_profile(slot)
     profile = _default_profile(slot)
     profile.update(data)
+    # Existing profiles predate onboarding; only newly created profiles opt in.
+    profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards"])
     profile["slot"] = slot
     profile["version"] = data.get("version", 1)
     profile.setdefault("active_game", None)
@@ -303,6 +307,18 @@ def load_profile(slot):
     if migrated:
         save_profile(profile)
     return profile
+
+
+def is_tutorial_pending(slot, hint_id):
+    return bool(slot) and hint_id not in load_profile(slot).get("tutorial_seen", [])
+
+
+def mark_tutorial_seen(slot, hint_id):
+    profile = load_profile(slot)
+    seen = profile.setdefault("tutorial_seen", [])
+    if hint_id not in seen:
+        seen.append(hint_id)
+        save_profile(profile)
 
 
 def _migrate_campaign_v2(profile):
@@ -393,6 +409,12 @@ def save_profile(profile):
     slot = int(profile.get("slot") or 1)
     profile["slot"] = slot
     _validate_profile_data(profile)
+    # Temporary balance tooling: keep the final state independently of autosaves.
+    checkpoint = profile.get("balance_checkpoint")
+    if isinstance(checkpoint, dict):
+        level = checkpoint.get("level")
+        if profile["progress"].get(f"level_{level}_boss_defeated"):
+            checkpoint["completed_progress"] = copy.deepcopy(profile["progress"])
     path = get_profile_path(slot)
     try:
         previous = _read_profile_data(path)
@@ -418,6 +440,23 @@ def list_profiles():
             unavailable["_load_error"] = str(error)
             profiles.append(unavailable)
     return profiles
+
+
+def delete_profile(slot):
+    """Free a save slot; all CSV statistics remain cumulative and untouched."""
+    slot = int(slot)
+    if not 1 <= slot <= MAX_PROFILES:
+        raise ValueError("Invalid profile slot")
+    path = get_profile_path(slot)
+    if get_selected_slot() == slot:
+        save_index({"selected_slot": None})
+    # Remove the recovery copy first so the deleted save cannot reappear.
+    for target in (path + ".bak", path):
+        try:
+            os.remove(target)
+        except FileNotFoundError:
+            pass
+    _recovered_profile_paths.discard(os.path.abspath(path))
 
 
 def select_profile(slot, name=None):
@@ -674,6 +713,48 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.active_red_cards_deck = list(progress.get("active_red_cards_deck") or [])
     game_state.active_silver_cards_level = progress.get("active_silver_cards_level")
     game_state.active_silver_cards_deck = list(progress.get("active_silver_cards_deck") or [])
+
+
+def capture_balance_checkpoint(slot, level):
+    """Keep one replay boundary until the player starts a different level."""
+    if not slot:
+        return
+    profile = load_profile(slot)
+    checkpoint = profile.get("balance_checkpoint") or {}
+    if checkpoint.get("level") == int(level):
+        return
+    # An old save already inside a run has no trustworthy pre-level snapshot.
+    state = game_state.boss_progress.get(int(level)) or {}
+    if state.get("run_stats_started") or state.get("defeated") or state.get("round_progress"):
+        return
+    profile["progress"] = _capture_progress()
+    profile["balance_checkpoint"] = {
+        "level": int(level),
+        "progress": copy.deepcopy(profile["progress"]),
+    }
+    save_profile(profile)
+
+
+def get_balance_replay_level(slot):
+    if not slot:
+        return None
+    checkpoint = load_profile(slot).get("balance_checkpoint") or {}
+    return checkpoint.get("level") if isinstance(checkpoint.get("progress"), dict) else None
+
+
+def rollback_balance_level(slot):
+    """Restore gameplay only; all CSV attempt statistics remain cumulative."""
+    if not slot:
+        return False
+    profile = load_profile(slot)
+    checkpoint = profile.get("balance_checkpoint") or {}
+    if not isinstance(checkpoint.get("progress"), dict):
+        return False
+    profile["progress"] = copy.deepcopy(checkpoint["progress"])
+    profile["active_game"] = None
+    save_profile(profile)
+    apply_profile_to_game_state(profile)
+    return True
 
 
 def save_progress_from_game_state(slot):

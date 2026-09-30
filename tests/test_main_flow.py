@@ -178,6 +178,21 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertTrue(profile["progress"]["level_1_boss_defeated"])
         self.assertIsNone(profile["active_game"])
 
+    def test_balance_rollback_reopens_level_selector_with_restored_flags(self):
+        profile_manager.capture_balance_checkpoint(1, 1)
+        game_state.level_1_boss_defeated = True
+        profile_manager.save_progress_from_game_state(1)
+        pages = []
+        with (
+            patch.object(Main, "StartPage", self._sequenced_page(["start"])),
+            patch.object(Main, "GameScreen", self._sequenced_page(["balance_rollback", "quit"], pages)),
+        ):
+            Main.main()
+        self.assertEqual(pages[0].kwargs["balance_replay_level"], 1)
+        self.assertTrue(pages[0].kwargs["progress_flags"]["level_1_boss_defeated"])
+        self.assertFalse(pages[1].kwargs["progress_flags"]["level_1_boss_defeated"])
+        self.assertFalse(profile_manager.load_profile(1)["progress"]["level_1_boss_defeated"])
+
     def test_options_page_owns_saving_and_returns_to_main_menu(self):
         settings_pages = []
 

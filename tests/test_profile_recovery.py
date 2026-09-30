@@ -118,7 +118,7 @@ class ProfileRecoveryTests(unittest.TestCase):
     def test_listing_keeps_other_slots_available_and_error_stub_cannot_be_saved(self):
         self.primary.write_bytes(b'broken')
         profiles = profile_manager.list_profiles()
-        self.assertEqual(len(profiles), 4)
+        self.assertEqual(len(profiles), 6)
         self.assertTrue(profiles[0]["_load_error"])
         self.assertNotIn("_load_error", profiles[1])
         with self.assertRaises(ValueError):

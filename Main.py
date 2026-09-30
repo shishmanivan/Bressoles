@@ -793,6 +793,10 @@ def main():
                         test_mode=test_mode,
                         lang_dict=Lang,
                         progress_flags=game_state.get_progress_flags(),
+                        balance_replay_level=(
+                            profile_manager.get_balance_replay_level(selected_slot)
+                            if not test_mode else None
+                        ),
                     )
                     level_result = level_page.run()
 
@@ -801,6 +805,10 @@ def main():
                 if level_result == "quit":
                     result = "quit"
                     break
+                if level_result == "balance_rollback":
+                    if selected_slot and not test_mode:
+                        profile_manager.rollback_balance_level(selected_slot)
+                    continue
                 if not (level_result and level_result.startswith("level_")):
                     continue
 
@@ -817,6 +825,8 @@ def main():
                 bosses_required = get_bosses_required(level_num, rounds_config)
                 if not test_mode and game_state.is_level_completed(level_num):
                     continue
+                if selected_slot and not test_mode:
+                    profile_manager.capture_balance_checkpoint(selected_slot, level_num)
                 bp_state = game_state.boss_progress.setdefault(level_num, new_boss_progress_state())
                 bp_state.setdefault("round_progress", {})
                 run_stats_started_before = bool(bp_state.get("run_stats_started"))

@@ -38,12 +38,16 @@ PAPER_COLOR = (32, 26, 20)
 
 
 class GameScreen:
-    def __init__(self, screen, background, font_path, test_mode=False, lang_dict=None, progress_flags=None):
+    def __init__(self, screen, background, font_path, test_mode=False, lang_dict=None, progress_flags=None,
+                 balance_replay_level=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.test_mode = test_mode
         self.lang = lang_dict or {}
         self.progress_flags = progress_flags or {}
+        self.balance_replay_level = balance_replay_level
+        self.balance_rollback_rect = pygame.Rect(16, 12, 350, 44)
+        self.balance_font = pygame.font.Font(font_path, 22)
         self.button_sound = load_sound(os.path.join("Sounds", "Level Button.wav"))
         self.page_arrow_sound = load_sound(os.path.join("Sounds", "Skrip.wav"))
 
@@ -435,6 +439,9 @@ class GameScreen:
                 )
                 if mouse_pos is None:
                     continue
+                if (not self.test_mode and getattr(self, "balance_replay_level", None) is not None
+                        and self.balance_rollback_rect.collidepoint(mouse_pos)):
+                    return "balance_rollback"
                 if self.test_mode:
                     for level_num in range(1, self.num_levels + 1):
                         card_index = level_num - 1
@@ -660,6 +667,7 @@ class GameScreen:
         self.screen = self._content_surface
         try:
             self._draw_cards()
+            self._draw_balance_rollback()
         finally:
             self.screen = viewport
 
@@ -669,6 +677,20 @@ class GameScreen:
             content = pygame.transform.smoothscale(content, rect.size)
         viewport.blit(content, rect)
         pygame.display.flip()
+
+    def _draw_balance_rollback(self):
+        if self.test_mode:
+            return
+        level = self.balance_replay_level
+        # Campaign card 6 uses content/save identity 8.
+        display_level = 6 if level == 8 else level
+        label = (f"ТЕСТ: откатить уровень {display_level}" if level is not None
+                 else "ТЕСТ: нет точки отката")
+        rect = self.balance_rollback_rect
+        pygame.draw.rect(self.screen, (239, 224, 187) if level is not None else (174, 167, 150), rect, border_radius=7)
+        pygame.draw.rect(self.screen, PAPER_COLOR, rect, width=2, border_radius=7)
+        text = self.balance_font.render(label, True, PAPER_COLOR)
+        self.screen.blit(text, text.get_rect(center=rect.center))
 
     def _start_page_animation(self, target):
         sound = getattr(self, "page_arrow_sound", None)
@@ -722,6 +744,8 @@ class GameScreen:
 
             if result == "back":
                 return "back"
+            if result == "balance_rollback":
+                return result
 
             if result and result.startswith("level_"):
                 return result

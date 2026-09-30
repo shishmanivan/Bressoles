@@ -17,9 +17,12 @@ from gameplay_page import GameplayPage
 
 
 class WhitneyBossTests(unittest.TestCase):
-    def test_available_from_level_two_and_in_later_boss_pools(self):
+    def test_available_from_level_three_and_in_later_boss_pools(self):
         self.assertNotIn("16_Whitney.png", [boss for step in LEVEL_BOSS_ROUNDS[1] for boss in step])
-        self.assertIn("16_Whitney.png", LEVEL_BOSS_ROUNDS[2][0])
+        self.assertEqual(LEVEL_BOSS_ROUNDS[2], [
+            ["2_AdamSmith.png", "3_RobertFulton.png"],
+            ["4_NicolasApper.png", "5_SamuelSlater.png"],
+        ])
         # Levels 3 and 4 share this random roster generator.
         with mock.patch("boss_logic.random.shuffle", side_effect=lambda pool: pool.reverse()):
             roster = _generate_level3_boss_roster(3)

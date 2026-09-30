@@ -2378,5 +2378,47 @@
     "ENG": "Gives $2 for each Shareholder card played",
     "DE": "Gibt 2$ für jede ausgespielte Shareholder-Karte",
     "HU": "Minden kijátszott Shareholder kártyáért 2$-t ad"
+  },
+  {
+    "Source": "Акции растут и падают. Влияйте на рост и падение цен с помощью карт.",
+    "RU": "Акции растут и падают. Влияйте на рост и падение цен с помощью карт.",
+    "ENG": "Stock prices rise and fall. Use cards to influence their rise and fall.",
+    "DE": "Aktienkurse steigen und fallen. Nutze Karten, um ihren Anstieg und Rückgang zu beeinflussen.",
+    "HU": "A részvényárfolyamok emelkednek és esnek. Kártyákkal befolyásolhatod az emelkedésüket és esésüket."
+  },
+  {
+    "Source": "Перед последним ходом вы должны обналичить свои акции. Карты, позволяющие автоматически продавать акции на последнем ходу, появятся позже. Пока их нет, продавать акции нужно вручную.",
+    "RU": "Перед последним ходом вы должны обналичить свои акции. Карты, позволяющие автоматически продавать акции на последнем ходу, появятся позже. Пока их нет, продавать акции нужно вручную.",
+    "ENG": "You must sell your shares before the final turn. Cards that automatically sell shares on the final turn will become available later. Until then, you need to sell your shares manually.",
+    "DE": "Du musst deine Aktien vor dem letzten Zug verkaufen. Karten, die Aktien im letzten Zug automatisch verkaufen, erhältst du erst später. Bis dahin musst du deine Aktien manuell verkaufen.",
+    "HU": "Az utolsó kör előtt el kell adnod a részvényeidet. Az utolsó körben a részvényeket automatikusan eladó kártyák később válnak elérhetővé. Addig kézzel kell eladnod a részvényeidet."
+  },
+  {
+    "Source": "Больше не показывать",
+    "RU": "Больше не показывать",
+    "ENG": "Don't show again",
+    "DE": "Nicht mehr anzeigen",
+    "HU": "Ne jelenjen meg újra"
+  },
+  {
+    "Source": "Удалить профиль {slot}?",
+    "RU": "Удалить профиль {slot}?",
+    "ENG": "Delete profile {slot}?",
+    "DE": "Profil {slot} löschen?",
+    "HU": "Törlöd a(z) {slot}. profilt?"
+  },
+  {
+    "Source": "Это действие нельзя отменить.",
+    "RU": "Это действие нельзя отменить.",
+    "ENG": "This action cannot be undone.",
+    "DE": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "HU": "Ez a művelet nem vonható vissza."
+  },
+  {
+    "Source": "Не удалось удалить профиль. Попробуйте ещё раз.",
+    "RU": "Не удалось удалить профиль. Попробуйте ещё раз.",
+    "ENG": "Could not delete the profile. Please try again.",
+    "DE": "Das Profil konnte nicht gelöscht werden. Bitte versuche es erneut.",
+    "HU": "A profil törlése nem sikerült. Próbáld újra."
   }
 ]

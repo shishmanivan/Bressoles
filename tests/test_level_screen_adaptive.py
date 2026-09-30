@@ -60,6 +60,15 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page._update_level_hover(point)
         self.assertIsNone(page._hovered_level)
 
+    def test_balance_rollback_button_uses_scaled_coordinates(self):
+        page = self.make_page((1280, 720), balance_replay_level=2)
+        point = self.viewport_point(page, page.balance_rollback_rect.center)
+        self.assertEqual(self.click(page, point), "balance_rollback")
+        page.balance_replay_level = None
+        self.assertIsNone(self.click(page, point))
+        page = self.make_page((1280, 720), test_mode=True, balance_replay_level=2)
+        self.assertIsNone(self.click(page, point))
+
     def test_hover_grows_about_center_and_restores_original_size(self):
         page = self.make_page()
         page.screen = mock.Mock()

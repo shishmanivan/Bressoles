@@ -2,10 +2,13 @@ import os
 import sys
 
 import pygame
+from pathlib import Path
 
 import profile_manager
 from asset_loaders import load_scaled_image
 from shared_utils import wrap_text
+from localization import get_language, translate
+from gameplay_assets import build_hand_frame
 
 
 SCREEN_WIDTH = 1680
@@ -25,6 +28,8 @@ class ProfilePage:
         self.clock = pygame.time.Clock()
         self.background = background
         self.lang = lang_dict or {}
+        if get_language() == "HU":
+            font_path = str(Path(__file__).parent / "Fonts" / "OldStandard-Bold.ttf")
         self.font_title = pygame.font.Font(font_path, 64)
         self.font_medium = pygame.font.Font(font_path, 44)
         self.font_small = pygame.font.Font(font_path, 30)
@@ -35,6 +40,8 @@ class ProfilePage:
         self.input_text = ""
         self._text_cache = {}
         self.status_message = ""
+        self.deleting_slot = None
+        self.occupied_slots = self._occupied_slots()
         unavailable = [str(p["slot"]) for p in self.profiles if p.get("_load_error")]
         recovered = [str(p["slot"]) for p in self.profiles if profile_manager.was_profile_recovered(p["slot"])]
         if unavailable:
@@ -45,22 +52,21 @@ class ProfilePage:
         window_path = os.path.join("GameplayPage", "WinLose.png")
         self.window_image = load_scaled_image(
             window_path,
-            target_size=(900, 620),
+            target_size=(900, 740),
             warning_message="WARNING: WinLose.png not found:",
         )
-        self.window_rect = pygame.Rect(0, 0, 900, 620)
+        self.window_rect = pygame.Rect(0, 0, 900, 740)
         self.window_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
         self.button_rects = []
         button_w = 310
         button_h = 95
         gap_x = 54
-        gap_y = 42
+        gap_y = 24
         grid_w = button_w * 2 + gap_x
-        grid_h = button_h * 2 + gap_y
         start_x = self.window_rect.centerx - grid_w // 2
-        start_y = self.window_rect.y + 170
-        for row in range(2):
+        start_y = self.window_rect.y + 230
+        for row in range((profile_manager.MAX_PROFILES + 1) // 2):
             for col in range(2):
                 self.button_rects.append(
                     pygame.Rect(
@@ -77,6 +83,33 @@ class ProfilePage:
             620,
             62,
         )
+        self.delete_rects = [pygame.Rect(rect.right + 8, rect.centery - 17, 34, 34)
+                             for rect in self.button_rects]
+        self.confirm_rect = pygame.Rect(0, 0, 760, 420)
+        self.confirm_rect.center = self.window_rect.center
+        frame = load_scaled_image(os.path.join("GameplayPage", "Frame.png"), target_size=(378, 548))
+        self.confirm_frame = build_hand_frame(frame, self.confirm_rect.size) if frame else None
+        self.delete_yes_rect = pygame.Rect(self.confirm_rect.centerx - 235, self.confirm_rect.bottom - 95, 210, 56)
+        self.delete_no_rect = self.delete_yes_rect.move(260, 0)
+
+    @staticmethod
+    def _occupied_slots():
+        return {slot for slot in range(1, profile_manager.MAX_PROFILES + 1)
+                if any(os.path.exists(profile_manager.get_profile_path(slot) + suffix)
+                       for suffix in ("", ".bak"))}
+
+    def _confirm_delete(self):
+        try:
+            profile_manager.delete_profile(self.deleting_slot)
+            self.status_message = ""
+        except OSError:
+            self.status_message = translate("Не удалось удалить профиль. Попробуйте ещё раз.")
+        self.deleting_slot = None
+        self.editing_slot = None
+        self.input_text = ""
+        self.profiles = profile_manager.list_profiles()
+        self.selected_slot = profile_manager.get_selected_slot()
+        self.occupied_slots = self._occupied_slots()
 
     def _get_text(self, key, default=None):
         if default is None:
@@ -140,6 +173,19 @@ class ProfilePage:
             if event.type == pygame.QUIT:
                 return "quit"
 
+            if self.deleting_slot is not None:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    self.deleting_slot = None
+                    return None
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.delete_yes_rect.collidepoint(event.pos):
+                        self._confirm_delete()
+                        return None
+                    if self.delete_no_rect.collidepoint(event.pos):
+                        self.deleting_slot = None
+                        return None
+                continue
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return "back" if self.selected_slot else None
@@ -152,11 +198,15 @@ class ProfilePage:
                         self.input_text += event.unicode
                     continue
 
-                if pygame.K_1 <= event.key <= pygame.K_4:
+                if pygame.K_1 <= event.key <= pygame.K_0 + profile_manager.MAX_PROFILES:
                     self._start_editing(event.key - pygame.K_0)
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = event.pos
+                for index, rect in enumerate(self.delete_rects):
+                    if index + 1 in self.occupied_slots and rect.collidepoint(mouse_pos):
+                        self.deleting_slot = index + 1
+                        return None
                 for index, rect in enumerate(self.button_rects):
                     if rect.collidepoint(mouse_pos):
                         self._start_editing(index + 1)
@@ -183,7 +233,7 @@ class ProfilePage:
             pygame.draw.rect(self.screen, PAPER_COLOR, self.window_rect, 4)
 
         title = self._render_text_cached(self.font_title, self._get_text("Profile", "Profile"), PAPER_COLOR)
-        title_rect = title.get_rect(center=(self.window_rect.centerx, self.window_rect.y + 92))
+        title_rect = title.get_rect(center=(self.window_rect.centerx, self.window_rect.y + 180))
         self.screen.blit(title, title_rect)
 
         for index, rect in enumerate(self.button_rects):
@@ -204,10 +254,20 @@ class ProfilePage:
             name_surface = self._render_text_cached(self.font_small, name, PAPER_COLOR)
             max_name_width = rect.width - 95
             if name_surface.get_width() > max_name_width:
-                clipped = str(name)[:18] + "..."
-                name_surface = self._render_text_cached(self.font_small, clipped, PAPER_COLOR)
+                clipped = str(name)
+                while clipped and self.font_small.size(clipped + "...")[0] > max_name_width:
+                    clipped = clipped[:-1]
+                name_surface = self._render_text_cached(self.font_small, clipped + "...", PAPER_COLOR)
             name_rect = name_surface.get_rect(midleft=(rect.x + 86, rect.centery))
             self.screen.blit(name_surface, name_rect)
+
+            if slot in self.occupied_slots:
+                cross = self.delete_rects[index]
+                pygame.draw.rect(self.screen, (228, 213, 176), cross, border_radius=4)
+                pygame.draw.rect(self.screen, PAPER_COLOR, cross, 2, border_radius=4)
+                inner = cross.inflate(-18, -18)
+                pygame.draw.line(self.screen, (112, 48, 36), inner.topleft, inner.bottomright, 3)
+                pygame.draw.line(self.screen, (112, 48, 36), inner.topright, inner.bottomleft, 3)
 
         if self.editing_slot is not None:
             pygame.draw.rect(self.screen, (244, 232, 196), self.input_rect, border_radius=6)
@@ -223,7 +283,35 @@ class ProfilePage:
             surface = self._render_text_cached(self.status_font, line, PAPER_COLOR)
             self.screen.blit(surface, (self.window_rect.x + 30, self.window_rect.bottom - 70 + index * 26))
 
+        if self.deleting_slot is not None:
+            self._draw_delete_confirmation()
         pygame.display.flip()
+
+    def _draw_delete_confirmation(self):
+        shade = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 150))
+        self.screen.blit(shade, (0, 0))
+        pygame.draw.rect(self.screen, (236, 226, 201), self.confirm_rect.inflate(-16, -16))
+        if self.confirm_frame:
+            self.screen.blit(self.confirm_frame, self.confirm_rect)
+        else:
+            pygame.draw.rect(self.screen, PAPER_COLOR, self.confirm_rect, 3)
+        texts = (
+            translate("Удалить профиль {slot}?").format(slot=self.deleting_slot),
+            translate("Это действие нельзя отменить."),
+        )
+        y = self.confirm_rect.top + 65
+        for text in texts:
+            for line in wrap_text(text, self.font_small, self.confirm_rect.width - 110):
+                rendered = self._render_text_cached(self.font_small, line, PAPER_COLOR)
+                self.screen.blit(rendered, (self.confirm_rect.centerx - rendered.get_width() // 2, y))
+                y += self.font_small.get_linesize() + 5
+            y += 14
+        for rect, label in ((self.delete_yes_rect, "Да"), (self.delete_no_rect, "Нет")):
+            pygame.draw.rect(self.screen, (228, 213, 176), rect, border_radius=4)
+            pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2, border_radius=4)
+            rendered = self._render_text_cached(self.font_small, translate(label), PAPER_COLOR)
+            self.screen.blit(rendered, rendered.get_rect(center=rect.center))
 
     def run(self):
         while True:
