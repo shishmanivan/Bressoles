@@ -2420,5 +2420,33 @@
     "ENG": "Could not delete the profile. Please try again.",
     "DE": "Das Profil konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "HU": "A profil törlése nem sikerült. Próbáld újra."
+  },
+  {
+    "Source": "Акции A сами по себе никогда не падают, растут на 2 доллара. Небольшая вероятность того, что цена не изменится.",
+    "RU": "Акции A сами по себе никогда не падают, растут на 2 доллара. Небольшая вероятность того, что цена не изменится.",
+    "ENG": "Stock A never falls on its own and rises by $2. There is a small chance that its price will stay unchanged.",
+    "DE": "Aktie A fällt von sich aus nie und steigt um 2 Dollar. Es besteht eine geringe Wahrscheinlichkeit, dass der Kurs unverändert bleibt.",
+    "HU": "Az A részvény árfolyama magától soha nem esik, és 2 dollárral emelkedik. Kis eséllyel az árfolyam változatlan marad."
+  },
+  {
+    "Source": "Акции B растут и падают на 4 доллара. Большая вероятность роста, небольшая вероятность падения и небольшая вероятность того, что цена не изменится.",
+    "RU": "Акции B растут и падают на 4 доллара. Большая вероятность роста, небольшая вероятность падения и небольшая вероятность того, что цена не изменится.",
+    "ENG": "Stock B rises and falls by $4. There is a high chance of a rise, a small chance of a fall, and a small chance that its price will stay unchanged.",
+    "DE": "Aktie B steigt und fällt um 4 Dollar. Ein Anstieg ist sehr wahrscheinlich. Ein Rückgang oder ein unveränderter Kurs sind jeweils wenig wahrscheinlich.",
+    "HU": "A B részvény árfolyama 4 dollárral emelkedik vagy esik. Nagy az emelkedés esélye, kicsi az esés esélye, és kicsi az esélye annak, hogy az árfolyam változatlan marad."
+  },
+  {
+    "Source": "Акции C растут и падают на 6 долларов. Существенная вероятность падения. Существенная вероятность того, что цена не изменится. Самые рискованные акции.",
+    "RU": "Акции C растут и падают на 6 долларов. Существенная вероятность падения. Существенная вероятность того, что цена не изменится. Самые рискованные акции.",
+    "ENG": "Stock C rises and falls by $6. There is a substantial chance of a fall and a substantial chance that its price will stay unchanged. The riskiest stock.",
+    "DE": "Aktie C steigt und fällt um 6 Dollar. Ein Rückgang ist recht wahrscheinlich. Auch ein unveränderter Kurs ist recht wahrscheinlich. Die riskanteste Aktie.",
+    "HU": "A C részvény árfolyama 6 dollárral emelkedik vagy esik. Jelentős az esés esélye. Jelentős az esélye annak is, hogy az árfolyam változatlan marad. A legkockázatosabb részvény."
+  },
+  {
+    "Source": "Наведите мышь на логотип акции для того, чтобы узнать более подробную информацию.",
+    "RU": "Наведите мышь на логотип акции для того, чтобы узнать более подробную информацию.",
+    "ENG": "Hover over a stock logo to see more detailed information.",
+    "DE": "Bewege die Maus über das Logo einer Aktie, um mehr Informationen zu erhalten.",
+    "HU": "Vidd az egeret egy részvény logója fölé a részletesebb információkért."
   }
 ]

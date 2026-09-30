@@ -12,6 +12,7 @@ import profile_manager
 from gameplay_page import GameplayPage
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import FIRST_HINT_TEXT
+from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
 from localization import SUPPORTED_LANGUAGES, get_language, set_language, translate
 from asset_loaders import find_font_path_or_exit
 
@@ -23,7 +24,8 @@ class TutorialTests(unittest.TestCase):
         try:
             for language in SUPPORTED_LANGUAGES:
                 set_language(language)
-                for hint_id, text in ((FIRST_HINT_ID, FIRST_HINT_TEXT), (SELL_HINT_ID, SELL_HINT_TEXT)):
+                for hint_id, text in ((FIRST_HINT_ID, FIRST_HINT_TEXT), (SELL_HINT_ID, SELL_HINT_TEXT),
+                                      (LOGO_HINT_ID, LOGO_HINT_TEXT)):
                     with self.subTest(language=language, hint=hint_id):
                         translated = translate(text)
                         label = translate("Больше не показывать")
@@ -133,6 +135,55 @@ class TutorialTests(unittest.TestCase):
             with mock.patch.object(profile_manager, "is_tutorial_pending", return_value=False):
                 page._maybe_show_sell_tutorial()
             hint.assert_not_called()
+
+    def test_logo_reminder_third_turn_and_discovery_persist_across_rounds(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.test_mode = False
+        page.profile_slot = 1
+        page.tutorial_hint = None
+        page.tutorial_dismissed_this_round = set()
+        page.win_lose_state = page.dragged_card_source = None
+        page.pause_menu_active = page.deck_view_active = False
+        page._is_turn_resolution_active = mock.Mock(return_value=False)
+        page._is_hand_transition_active = mock.Mock(return_value=False)
+        page.screen = mock.Mock()
+        page.frame = page.font_path = page.ok1_button = None
+        page.stock_description_font = mock.Mock()
+        page.stock_logo_rects = {0: pygame.Rect(20, 20, 100, 100)}
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ), mock.patch("gameplay_page.TutorialHint") as hint_factory:
+            hint_factory.return_value.hint_id = LOGO_HINT_ID
+            for day in (1, 2):
+                page.Day = day
+                page._maybe_show_logo_tutorial()
+                hint_factory.assert_not_called()
+            page.Day = 3
+            page._maybe_show_logo_tutorial()
+            hint_factory.assert_called_once()
+            with mock.patch.object(pygame.mouse, "get_pos", return_value=(50, 50)), mock.patch(
+                "gameplay_page.draw_stock_tooltip"
+            ) as draw:
+                page._draw_stock_logo_tooltip()
+                draw.assert_called_once()
+            self.assertIsNone(page.tutorial_hint)
+            self.assertFalse(profile_manager.is_tutorial_pending(1, LOGO_HINT_ID))
+            page._stock_logo_discovered = False  # Simulate another round/reload.
+            hint_factory.reset_mock()
+            page._maybe_show_logo_tutorial()
+            hint_factory.assert_not_called()
+            # A different new profile discovers the logo before turn three.
+            page.profile_slot = 2
+            page._stock_logo_discovered = False
+            page.Day = 1
+            with mock.patch.object(pygame.mouse, "get_pos", return_value=(50, 50)), mock.patch(
+                "gameplay_page.draw_stock_tooltip"
+            ):
+                page._draw_stock_logo_tooltip()
+            page.Day = 3
+            page._maybe_show_logo_tutorial()
+            hint_factory.assert_not_called()
+            self.assertFalse(profile_manager.is_tutorial_pending(2, LOGO_HINT_ID))
 
     def test_checkbox_controls_permanent_suppression(self):
         pygame.init()

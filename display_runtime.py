@@ -9,6 +9,18 @@ MIN_WINDOW_SIZE = (1280, 800)
 ADAPTIVE_DISPLAY_FLAGS = pygame.RESIZABLE | pygame.DOUBLEBUF
 FALLBACK_DISPLAY_FLAGS = pygame.HWSURFACE | pygame.DOUBLEBUF
 
+# pygame 2.6 stores a borrowed Window pointer in SDL's event data without
+# retaining it. Keep the wrapper alive while SDL can attach it to events.
+_display_window = None
+
+
+def _borrow_display_window():
+    global _display_window
+    from pygame._sdl2.video import Window
+
+    _display_window = Window.from_display_module()
+    return _display_window
+
 
 def _windows_geometry():
     """Read the current monitor's work area (excluding its taskbar)."""
@@ -51,7 +63,6 @@ def _set_minimum_window_size():
         return
     import ctypes
     from pathlib import Path
-    from pygame._sdl2.video import Window
 
     # Use the same SDL library as pygame; pygame 2.6 exposes no min-size setter.
     sdl = ctypes.CDLL(str(Path(pygame.__file__).parent / 'SDL2.dll'))
@@ -59,7 +70,7 @@ def _set_minimum_window_size():
     sdl.SDL_GetWindowFromID.restype = ctypes.c_void_p
     sdl.SDL_SetWindowMinimumSize.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
     sdl.SDL_SetWindowMinimumSize.restype = None
-    window = sdl.SDL_GetWindowFromID(Window.from_display_module().id)
+    window = sdl.SDL_GetWindowFromID(_borrow_display_window().id)
     if not window:
         raise pygame.error('Could not find the game window for minimum size')
     sdl.SDL_SetWindowMinimumSize(window, *MIN_WINDOW_SIZE)
@@ -90,8 +101,7 @@ def create_game_display(logical_size=LOGICAL_SCREEN_SIZE):
         screen = pygame.display.set_mode(window_size, FALLBACK_DISPLAY_FLAGS)
     _set_minimum_window_size()
     if work is not None:
-        from pygame._sdl2.video import Window
-        window = Window.from_display_module()
+        window = _borrow_display_window()
         # SDL can retain maximization/position when leaving fullscreen.
         window.restore()
         window.borderless = False
@@ -114,5 +124,8 @@ def create_game_display(logical_size=LOGICAL_SCREEN_SIZE):
 
 def apply_display_settings(settings):
     if settings["fullscreen"]:
-        return pygame.display.set_mode(settings["resolution"], pygame.FULLSCREEN | pygame.DOUBLEBUF)
+        screen = pygame.display.set_mode(settings["resolution"], pygame.FULLSCREEN | pygame.DOUBLEBUF)
+        if sys.platform == 'win32' and pygame.display.get_driver() != 'dummy':
+            _borrow_display_window()
+        return screen
     return create_game_display(settings["resolution"])

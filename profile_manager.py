@@ -297,7 +297,7 @@ def load_profile(slot):
     profile = _default_profile(slot)
     profile.update(data)
     # Existing profiles predate onboarding; only newly created profiles opt in.
-    profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards"])
+    profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards", "stock_logo_hover"])
     profile["slot"] = slot
     profile["version"] = data.get("version", 1)
     profile.setdefault("active_game", None)

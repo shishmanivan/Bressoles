@@ -119,6 +119,8 @@ from gameplay_price_helpers import (
 )
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
+from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
+from gameplay_stock_tooltips import draw_stock_tooltip, stock_tooltip_font
 from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent, apply_ordered_rebate_modifiers
 from gameplay_turn import (
     advance_price_animation_frame,
@@ -7071,6 +7073,25 @@ class GameplayPage:
             text_y += line_height
         self.screen.blit(tooltip, (x, y))
 
+    def _draw_stock_logo_tooltip(self):
+        hint = getattr(self, "tutorial_hint", None)
+        if (self.dragged_card_source is not None or self.pause_menu_active
+                or self.deck_view_active or self.win_lose_state is not None
+                or (hint is not None and hint.hint_id != LOGO_HINT_ID)):
+            return
+        mouse_pos = pygame.mouse.get_pos()
+        for market, rect in getattr(self, "stock_logo_rects", {}).items():
+            if rect.collidepoint(mouse_pos):
+                if not hasattr(self, "stock_description_font"):
+                    self.stock_description_font = stock_tooltip_font(self.font_path)
+                draw_stock_tooltip(self.screen, market, mouse_pos, self.stock_description_font)
+                if not self.test_mode and self.profile_slot and not getattr(self, "_stock_logo_discovered", False):
+                    profile_manager.mark_tutorial_seen(self.profile_slot, LOGO_HINT_ID)
+                    self._stock_logo_discovered = True
+                if hint is not None and hint.hint_id == LOGO_HINT_ID:
+                    self.tutorial_hint = None
+                return
+
     def _draw_field_card_tooltip(self):
         if (
             self.dragged_card_source is not None
@@ -7260,6 +7281,7 @@ class GameplayPage:
         self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
     
     def draw(self):
+        self.stock_logo_rects = {}
         # Clear market placeholders list at start of draw
         self.market_placeholders = []
 
@@ -7423,6 +7445,7 @@ class GameplayPage:
                     logo_x = frame_x + 25
                     logo_y = frame_y + 20
                     self.screen.blit(logo, (logo_x, logo_y))
+                    self.stock_logo_rects[i] = logo.get_rect(topleft=(logo_x, logo_y))
                     self._draw_market_probability_debug(
                         i,
                         logo_x + logo.get_width() + 8,
@@ -8067,12 +8090,31 @@ class GameplayPage:
             self._draw_pause_menu()
 
         self._draw_field_card_tooltip()
+        self._draw_stock_logo_tooltip()
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
         
         pygame.display.flip()
     
+    def _maybe_show_logo_tutorial(self):
+        if (
+            self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+            or self.Day < 3 or self.win_lose_state is not None
+            or getattr(self, "_stock_logo_discovered", False)
+            or LOGO_HINT_ID in self.tutorial_dismissed_this_round
+            or self.pause_menu_active or self.deck_view_active
+            or self._is_turn_resolution_active() or self._is_hand_transition_active()
+        ):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, LOGO_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=LOGO_HINT_ID, text=LOGO_HINT_TEXT,
+            )
+        else:
+            self._stock_logo_discovered = True
+
     def _maybe_show_sell_tutorial(self):
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
@@ -8098,6 +8140,7 @@ class GameplayPage:
             )
         while True:
             self._maybe_show_sell_tutorial()
+            self._maybe_show_logo_tutorial()
             result = self.handle_input()
             
             if result == "quit":
