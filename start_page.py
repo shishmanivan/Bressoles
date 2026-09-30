@@ -15,12 +15,13 @@ LIGHT_GOLD = PAPER_COLOR
 MENU_TEXT_OPACITY = 255
 MENU_HOVER_SCALE = 1.02
 PRESS_DURATION_MS = 90
-MENU_TEXT_SCALE_X = 0.90
+# The custom display face has narrow proportions in its vector outlines.
+MENU_TEXT_SCALE_X = 1.0
 
 MASTER_BACKGROUND_PATH = os.path.join("UI", "Master Background.png")
 TITLE_PATH = os.path.join("UI", "Bressoles Title.png")
 MENU_IMAGE_PATH = os.path.join("UI", "Menu3_1.png")
-MENU_FONT_PATH = os.path.join("Fonts", "YesevaOne-Regular.ttf")
+MENU_FONT_PATH = os.path.join("Fonts", "BressolesDisplay-Regular.ttf")
 
 
 @dataclass(frozen=True)
@@ -79,7 +80,9 @@ def build_start_page_layout(viewport_size, title_source_size, menu_source_size):
     )
     # Menu typography stays deliberately substantial even when the decorative
     # frame is compact. Long profile names are fitted separately at draw time.
-    font_size = round(clamp(24, menu_rect.height * 0.09, 50))
+    # The reference's full capitals occupy about 9% of the frame's height.
+    # Bressoles Display's cap height is 70% of its em size.
+    font_size = round(clamp(28, menu_rect.height * 0.126, 88))
     return StartPageLayout(
         viewport_size=tuple(viewport_size),
         title_rect=title_rect,
