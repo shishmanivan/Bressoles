@@ -225,15 +225,15 @@ def bar_right(y, end=452, tall=30, flare=155, upside=False):
     return transform(p, sy=-1, dy=700) if upside else p
 
 
-def bowl(bottom, top, end, start=131, heavy=104):
+def bowl(bottom, top, end, start=131, heavy=104, rim=34):
     mid = (bottom + top) / 2
     p = svg(f"M {start} {bottom} L {end-155} {bottom} "
             f"C {end-42} {bottom} {end} {bottom+58} {end} {mid} "
             f"C {end} {top-53} {end-48} {top} {end-162} {top} L {start} {top} Z")
-    hole = svg(f"M {start+38} {bottom+34} L {end-169} {bottom+34} "
-               f"C {end-heavy-8} {bottom+34} {end-heavy} {bottom+83} {end-heavy} {mid} "
-               f"C {end-heavy} {top-80} {end-heavy-10} {top-34} {end-174} {top-34} "
-               f"L {start+38} {top-34} Z")
+    hole = svg(f"M {start+38} {bottom+rim} L {end-169} {bottom+rim} "
+               f"C {end-heavy-8} {bottom+rim} {end-heavy} {bottom+83} {end-heavy} {mid} "
+               f"C {end-heavy} {top-80} {end-heavy-10} {top-rim} {end-174} {top-rim} "
+               f"L {start+38} {top-rim} Z")
     return cut(p, hole)
 
 
@@ -244,11 +244,14 @@ def register(char, path, advance):
 def latin():
     # Continuous diagonal silhouettes avoid the projecting butt ends that
     # occurred when separate rectangular strokes were united at the apex.
+    # Keep the light left stroke; give the right diagonal about 108 units of
+    # horizontal thickness. The smaller counter follows that contrast rather
+    # than emboldening both sides of the letter.
     a = svg("M 9 0 L 148 0 L 148 22 C 102 26 93 37 109 91 L 153 239 "
-            "L 360 239 L 406 78 C 417 38 403 27 359 22 L 359 0 L 531 0 "
+            "L 315 239 L 365 78 C 377 38 363 27 324 22 L 324 0 L 531 0 "
             "L 531 22 C 495 27 482 44 467 92 L 286 697 "
             "C 282 713 264 716 260 700 L 65 101 C 50 39 42 27 9 22 Z")
-    a = cut(a, svg("M 164 273 L 260 595 C 262 602 266 602 268 595 L 350 273 Z"))
+    a = cut(a, svg("M 164 273 L 230 494 C 232 501 236 501 238 494 L 304 273 Z"))
     register("A", a, 540)
     register("B", join(stem(67), bowl(0, 358, 472), bowl(335, 700, 446)), 520)
     c = svg("M 471 695 L 471 505 L 442 505 C 427 617 382 674 285 674 "
@@ -295,10 +298,13 @@ def latin():
     q_tail = svg("M 273 139 C 335 89 359 18 413 -33 C 441 -60 467 -63 505 -39 "
                  "L 519 -62 C 453 -117 397 -102 357 -51 C 325 -11 300 61 257 115 Z")
     register("Q", join(oval(), q_tail), 559)
-    r_leg = svg("M 240 356 C 333 349 355 297 388 192 L 424 84 "
-                "C 439 39 453 26 494 31 L 501 8 C 391 -25 350 13 325 111 "
-                "L 286 260 C 274 306 250 321 170 320 L 170 356 Z")
-    register("R", join(stem(67), bowl(321, 700, 458), r_leg), 541)
+    # The reference menu's R has a full bowl and a substantial diagonal leg,
+    # ending in a broad foot rather than a thin, curling calligraphic tail.
+    r_leg = svg("M 254 355 C 318 352 347 310 368 270 L 451 85 "
+                "C 475 42 500 27 525 22 L 525 0 L 339 0 L 339 22 "
+                "C 364 25 375 39 366 65 L 281 253 "
+                "C 263 301 239 317 175 321 L 175 355 Z")
+    register("R", join(stem(67, 112), bowl(321, 700, 468, heavy=122, rim=42), r_leg), 541)
     s = svg("M 444 695 L 444 510 L 415 510 C 397 620 356 674 277 674 "
             "C 197 674 164 629 164 573 C 164 495 223 468 306 427 "
             "C 416 373 483 319 483 207 C 483 66 390 -12 272 -12 "
@@ -400,7 +406,11 @@ def cyrillic():
     register("Э", join(transform(GLYPHS["C"][0], sx=-1, dx=535),
                        box(147, 334, 421, 370)), 535)
     register("Ю", join(stem(67), transform(oval(), dx=266), box(145, 334, 410, 369)), 816)
-    register("Я", transform(GLYPHS["R"][0], sx=-1, dx=541), 541)
+    # Я retains its established drawing independently of the Latin R revision.
+    ya_leg = svg("M 240 356 C 333 349 355 297 388 192 L 424 84 "
+                 "C 439 39 453 26 494 31 L 501 8 C 391 -25 350 13 325 111 "
+                 "L 286 260 C 274 306 250 321 170 320 L 170 356 Z")
+    register("Я", transform(join(stem(67), bowl(321, 700, 458), ya_leg), sx=-1, dx=541), 541)
     # Ukrainian and Belarusian additions are useful to the game's future locales.
     GLYPHS["І"] = GLYPHS["I"]
     register("Є", join(GLYPHS["C"][0], box(152, 334, 423, 370)), 535)
@@ -670,9 +680,9 @@ def build():
     fb.setupHorizontalHeader(ascent=940, descent=-230, lineGap=20)
     fb.setupNameTable({
         "familyName": "Bressoles Display", "styleName": "Regular",
-        "uniqueFontIdentifier": "Bressoles Display 0.110 softened outlines",
+        "uniqueFontIdentifier": "Bressoles Display 0.112 stronger A diagonal",
         "fullName": "Bressoles Display Regular", "psName": "BressolesDisplay-Regular",
-        "version": "Version 0.110",
+        "version": "Version 0.112",
         "copyright": "Bressoles project. Original vector outlines, 2026.",
         "description": "Menu lettering inspired by the Bressoles reference. Lowercase is small capitals. Latin, Cyrillic, French and Hungarian.",
     })
@@ -683,7 +693,7 @@ def build():
     fb.setupMaxp()
     font = fb.font
     font["head"].flags |= 0x08
-    font["head"].fontRevision = .110
+    font["head"].fontRevision = .112
     font.recalcTimestamp = False
     timestamp = int(datetime(2026, 9, 30, tzinfo=timezone.utc).timestamp()) + 2082844800
     font["head"].created = timestamp

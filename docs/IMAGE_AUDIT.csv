@@ -1,0 +1,639 @@
+﻿path,action,reason,bytes,tracked,destination,sha256,dimensions
+.codex-remote-attachments/019f1f2f-7918-7151-85e0-8211241a61dd/54b0dd63-fe7a-4085-bff2-4dcd77622cec/1-Photo-1.jpg,ignored,"Already ignored: environment, attachment or generated QA output",45262,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput1.gif,ignored,"Already ignored: environment, attachment or generated QA output",5649,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput11.gif,ignored,"Already ignored: environment, attachment or generated QA output",5649,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput2.gif,ignored,"Already ignored: environment, attachment or generated QA output",72233,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput21.gif,ignored,"Already ignored: environment, attachment or generated QA output",72233,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput3.gif,ignored,"Already ignored: environment, attachment or generated QA output",6294,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput31.gif,ignored,"Already ignored: environment, attachment or generated QA output",6294,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput4.gif,ignored,"Already ignored: environment, attachment or generated QA output",29185,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput41.gif,ignored,"Already ignored: environment, attachment or generated QA output",29185,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput5.gif,ignored,"Already ignored: environment, attachment or generated QA output",37349,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedInputOutput51.gif,ignored,"Already ignored: environment, attachment or generated QA output",37349,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha1.gif,ignored,"Already ignored: environment, attachment or generated QA output",14915,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha11.gif,ignored,"Already ignored: environment, attachment or generated QA output",14915,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha2.gif,ignored,"Already ignored: environment, attachment or generated QA output",71819,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha21.gif,ignored,"Already ignored: environment, attachment or generated QA output",71819,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha3.gif,ignored,"Already ignored: environment, attachment or generated QA output",30380,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputAlpha31.gif,ignored,"Already ignored: environment, attachment or generated QA output",30380,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess1.gif,ignored,"Already ignored: environment, attachment or generated QA output",15951,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess11.gif,ignored,"Already ignored: environment, attachment or generated QA output",15951,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess2.gif,ignored,"Already ignored: environment, attachment or generated QA output",1868,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess21.gif,ignored,"Already ignored: environment, attachment or generated QA output",1868,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess3.gif,ignored,"Already ignored: environment, attachment or generated QA output",1912,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess31.gif,ignored,"Already ignored: environment, attachment or generated QA output",1912,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess4.gif,ignored,"Already ignored: environment, attachment or generated QA output",14500,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess41.gif,ignored,"Already ignored: environment, attachment or generated QA output",14500,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess5.gif,ignored,"Already ignored: environment, attachment or generated QA output",16896,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess51.gif,ignored,"Already ignored: environment, attachment or generated QA output",16896,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess6.gif,ignored,"Already ignored: environment, attachment or generated QA output",34058,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/AdvancedOutputProcess61.gif,ignored,"Already ignored: environment, attachment or generated QA output",34058,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-INPUT-resultscreen.png,ignored,"Already ignored: environment, attachment or generated QA output",5973,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-INPUT-resultscreen1.png,ignored,"Already ignored: environment, attachment or generated QA output",5973,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-INPUT-sourcecode.png,ignored,"Already ignored: environment, attachment or generated QA output",77061,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-INPUT-sourcecode1.png,ignored,"Already ignored: environment, attachment or generated QA output",77061,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-PROCESS-resultscreen.png,ignored,"Already ignored: environment, attachment or generated QA output",5348,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-PROCESS-resultscreen1.png,ignored,"Already ignored: environment, attachment or generated QA output",5348,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-PROCESS-sourcecode.png,ignored,"Already ignored: environment, attachment or generated QA output",66070,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-PROCESS-sourcecode1.png,ignored,"Already ignored: environment, attachment or generated QA output",66070,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-ouput-result-screen.png,ignored,"Already ignored: environment, attachment or generated QA output",4819,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Bagic-ouput-result-screen1.png,ignored,"Already ignored: environment, attachment or generated QA output",4819,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Basic-ouput-sourcecode.png,ignored,"Already ignored: environment, attachment or generated QA output",57466,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/Basic-ouput-sourcecode1.png,ignored,"Already ignored: environment, attachment or generated QA output",57466,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/angle_to.png,ignored,"Already ignored: environment, attachment or generated QA output",25349,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_average.jpg,ignored,"Already ignored: environment, attachment or generated QA output",20881,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_background.jpg,ignored,"Already ignored: environment, attachment or generated QA output",7493,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_green.jpg,ignored,"Already ignored: environment, attachment or generated QA output",10219,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_hsv.jpg,ignored,"Already ignored: environment, attachment or generated QA output",36673,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_mask.jpg,ignored,"Already ignored: environment, attachment or generated QA output",18779,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_rgb.jpg,ignored,"Already ignored: environment, attachment or generated QA output",32488,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_thresh.jpg,ignored,"Already ignored: environment, attachment or generated QA output",4346,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_thresholded.jpg,ignored,"Already ignored: environment, attachment or generated QA output",23678,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/camera_yuv.jpg,ignored,"Already ignored: environment, attachment or generated QA output",20105,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/chimpshot.gif,ignored,"Already ignored: environment, attachment or generated QA output",46010,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/draw_module_example.png,ignored,"Already ignored: environment, attachment or generated QA output",6476,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/intro_ball.gif,ignored,"Already ignored: environment, attachment or generated QA output",5015,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/intro_blade.jpg,ignored,"Already ignored: environment, attachment or generated QA output",2631,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/intro_freedom.jpg,ignored,"Already ignored: environment, attachment or generated QA output",7050,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-Battleship.png,ignored,"Already ignored: environment, attachment or generated QA output",165586,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-Battleship1.png,ignored,"Already ignored: environment, attachment or generated QA output",165586,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-PuyoPuyo.png,ignored,"Already ignored: environment, attachment or generated QA output",31388,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-PuyoPuyo1.png,ignored,"Already ignored: environment, attachment or generated QA output",31388,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-TPS.png,ignored,"Already ignored: environment, attachment or generated QA output",136031,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/introduction-TPS1.png,ignored,"Already ignored: environment, attachment or generated QA output",136031,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/joystick_calls.png,ignored,"Already ignored: environment, attachment or generated QA output",30004,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/pygame_lofi.png,ignored,"Already ignored: environment, attachment or generated QA output",134242,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/pygame_logo.png,ignored,"Already ignored: environment, attachment or generated QA output",132068,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/pygame_powered.png,ignored,"Already ignored: environment, attachment or generated QA output",179911,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/pygame_powered_lowres.png,ignored,"Already ignored: environment, attachment or generated QA output",179911,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/pygame_tiny.png,ignored,"Already ignored: environment, attachment or generated QA output",15310,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_allblack.png,ignored,"Already ignored: environment, attachment or generated QA output",125,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_flipped.png,ignored,"Already ignored: environment, attachment or generated QA output",50835,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_redimg.png,ignored,"Already ignored: environment, attachment or generated QA output",23443,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_rgbarray.png,ignored,"Already ignored: environment, attachment or generated QA output",50897,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_scaledown.png,ignored,"Already ignored: environment, attachment or generated QA output",15109,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_scaleup.png,ignored,"Already ignored: environment, attachment or generated QA output",67759,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_soften.png,ignored,"Already ignored: environment, attachment or generated QA output",47540,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_striped.png,ignored,"Already ignored: environment, attachment or generated QA output",392,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/surfarray_xfade.png,ignored,"Already ignored: environment, attachment or generated QA output",41834,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/tom_basic.png,ignored,"Already ignored: environment, attachment or generated QA output",5139,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/tom_event-flowchart.png,ignored,"Already ignored: environment, attachment or generated QA output",5528,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/tom_formulae.png,ignored,"Already ignored: environment, attachment or generated QA output",6763,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_images/tom_radians.png,ignored,"Already ignored: environment, attachment or generated QA output",17409,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/file.png,ignored,"Already ignored: environment, attachment or generated QA output",286,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/minus.png,ignored,"Already ignored: environment, attachment or generated QA output",90,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/plus.png,ignored,"Already ignored: environment, attachment or generated QA output",90,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame.ico,ignored,"Already ignored: environment, attachment or generated QA output",1078,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_lofi.png,ignored,"Already ignored: environment, attachment or generated QA output",134242,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_lofi.svg,ignored,"Already ignored: environment, attachment or generated QA output",59281,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_logo.png,ignored,"Already ignored: environment, attachment or generated QA output",132068,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_logo.svg,ignored,"Already ignored: environment, attachment or generated QA output",59262,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_powered.png,ignored,"Already ignored: environment, attachment or generated QA output",179911,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_powered.svg,ignored,"Already ignored: environment, attachment or generated QA output",102819,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_powered_lowres.png,ignored,"Already ignored: environment, attachment or generated QA output",179911,False,,,
+.venv/Lib/site-packages/pygame/docs/generated/_static/pygame_tiny.png,ignored,"Already ignored: environment, attachment or generated QA output",15310,False,,,
+.venv/Lib/site-packages/pygame/examples/data/BGR.png,ignored,"Already ignored: environment, attachment or generated QA output",244,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien1.gif,ignored,"Already ignored: environment, attachment or generated QA output",3826,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien1.jpg,ignored,"Already ignored: environment, attachment or generated QA output",3103,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien1.png,ignored,"Already ignored: environment, attachment or generated QA output",3522,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien2.gif,ignored,"Already ignored: environment, attachment or generated QA output",3834,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien2.png,ignored,"Already ignored: environment, attachment or generated QA output",3526,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien3.gif,ignored,"Already ignored: environment, attachment or generated QA output",3829,False,,,
+.venv/Lib/site-packages/pygame/examples/data/alien3.png,ignored,"Already ignored: environment, attachment or generated QA output",3518,False,,,
+.venv/Lib/site-packages/pygame/examples/data/arraydemo.bmp,ignored,"Already ignored: environment, attachment or generated QA output",76854,False,,,
+.venv/Lib/site-packages/pygame/examples/data/asprite.bmp,ignored,"Already ignored: environment, attachment or generated QA output",578,False,,,
+.venv/Lib/site-packages/pygame/examples/data/background.gif,ignored,"Already ignored: environment, attachment or generated QA output",9133,False,,,
+.venv/Lib/site-packages/pygame/examples/data/blue.gif,ignored,"Already ignored: environment, attachment or generated QA output",84,False,,,
+.venv/Lib/site-packages/pygame/examples/data/bomb.gif,ignored,"Already ignored: environment, attachment or generated QA output",1170,False,,,
+.venv/Lib/site-packages/pygame/examples/data/brick.png,ignored,"Already ignored: environment, attachment or generated QA output",170,False,,,
+.venv/Lib/site-packages/pygame/examples/data/chimp.png,ignored,"Already ignored: environment, attachment or generated QA output",826,False,,,
+.venv/Lib/site-packages/pygame/examples/data/city.png,ignored,"Already ignored: environment, attachment or generated QA output",143,False,,,
+.venv/Lib/site-packages/pygame/examples/data/cursor.png,ignored,"Already ignored: environment, attachment or generated QA output",2708,False,,,
+.venv/Lib/site-packages/pygame/examples/data/danger.gif,ignored,"Already ignored: environment, attachment or generated QA output",2761,False,,,
+.venv/Lib/site-packages/pygame/examples/data/explosion1.gif,ignored,"Already ignored: environment, attachment or generated QA output",6513,False,,,
+.venv/Lib/site-packages/pygame/examples/data/fist.png,ignored,"Already ignored: environment, attachment or generated QA output",86196,False,,,
+.venv/Lib/site-packages/pygame/examples/data/laplacian.png,ignored,"Already ignored: environment, attachment or generated QA output",253,False,,,
+.venv/Lib/site-packages/pygame/examples/data/liquid.bmp,ignored,"Already ignored: environment, attachment or generated QA output",11734,False,,,
+.venv/Lib/site-packages/pygame/examples/data/midikeys.png,ignored,"Already ignored: environment, attachment or generated QA output",19666,False,,,
+.venv/Lib/site-packages/pygame/examples/data/player1.gif,ignored,"Already ignored: environment, attachment or generated QA output",3470,False,,,
+.venv/Lib/site-packages/pygame/examples/data/red.jpg,ignored,"Already ignored: environment, attachment or generated QA output",1251,False,,,
+.venv/Lib/site-packages/pygame/examples/data/scarlet.webp,ignored,"Already ignored: environment, attachment or generated QA output",82,False,,,
+.venv/Lib/site-packages/pygame/examples/data/shot.gif,ignored,"Already ignored: environment, attachment or generated QA output",129,False,,,
+.venv/Lib/site-packages/pygame/examples/data/static.png,ignored,"Already ignored: environment, attachment or generated QA output",1202,False,,,
+.venv/Lib/site-packages/pygame/examples/data/teal.svg,ignored,"Already ignored: environment, attachment or generated QA output",313,False,,,
+.venv/Lib/site-packages/pygame/examples/data/turquoise.tif,ignored,"Already ignored: environment, attachment or generated QA output",1186,False,,,
+.venv/Lib/site-packages/pygame/pygame.ico,ignored,"Already ignored: environment, attachment or generated QA output",145516,False,,,
+.venv/Lib/site-packages/pygame/pygame_icon.bmp,ignored,"Already ignored: environment, attachment or generated QA output",630,False,,,
+.venv/Lib/site-packages/pygame/pygame_icon_mac.bmp,ignored,"Already ignored: environment, attachment or generated QA output",262282,False,,,
+.venv/Lib/site-packages/pygame/tests/fixtures/fonts/A_PyGameMono-8.png,ignored,"Already ignored: environment, attachment or generated QA output",92,False,,,
+.venv/Lib/site-packages/pygame/tests/fixtures/fonts/u13079_PyGameMono-8.png,ignored,"Already ignored: environment, attachment or generated QA output",89,False,,,
+Arts/ApproveStamp.png,keep,Runtime literal reference (reviewed path),2397933,True,,,1938x811
+Arts/CardReport.png,keep,Runtime literal reference (reviewed path),2218037,True,,,1086x1448
+Arts/FinanceReport.png,keep,Runtime literal reference (reviewed path),2597004,True,,,1086x1448
+Arts/StampOnPaper.png,keep,Runtime literal reference (reviewed path),1617462,True,,,1619x971
+Bosses/10_Stephenson.png,keep,Runtime literal reference (reviewed path),335288,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",368091,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",335738,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",331883,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",328102,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",335584,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",331504,True,,,400x404
+Bosses/10_Stephenson/1_NewPortrait6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",327950,True,,,400x404
+Bosses/11_Malthus.png,keep,Runtime literal reference (reviewed path),275318,True,,,400x404
+Bosses/11_Malthus/1_Maltus0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",276589,True,,,400x404
+Bosses/11_Malthus/1_Maltus1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",263756,True,,,400x404
+Bosses/11_Malthus/1_Maltus2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",263408,True,,,400x404
+Bosses/11_Malthus/1_Maltus3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",262886,True,,,400x404
+Bosses/11_Malthus/1_Maltus4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",263735,True,,,400x404
+Bosses/11_Malthus/1_Maltus5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",263217,True,,,400x404
+Bosses/11_Malthus/1_Maltus6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",262577,True,,,400x404
+Bosses/12_Ricardo.png,keep,Runtime literal reference (reviewed path),284615,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",283896,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",286291,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",286699,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",286278,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",286370,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",286483,True,,,400x404
+Bosses/12_Ricardo/1_Ricardo6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",285938,True,,,400x404
+Bosses/13_Say.png,keep,Runtime literal reference (reviewed path),273139,True,,,400x404
+Bosses/13_Say/1_Say0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",272534,True,,,400x404
+Bosses/13_Say/1_Say1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",277179,True,,,400x404
+Bosses/13_Say/1_Say2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",277397,True,,,400x404
+Bosses/13_Say/1_Say3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",277274,True,,,400x404
+Bosses/13_Say/1_Say4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",277927,True,,,400x404
+Bosses/13_Say/1_Say5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",278395,True,,,400x404
+Bosses/13_Say/1_Say6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",278362,True,,,400x404
+Bosses/14_Peabody.png,keep,Runtime literal reference (reviewed path),259119,True,,,400x404
+Bosses/14_Peabody/1_Peabody0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",258457,True,,,400x404
+Bosses/14_Peabody/1_Peabody1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",264273,True,,,400x404
+Bosses/14_Peabody/1_Peabody2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265269,True,,,400x404
+Bosses/14_Peabody/1_Peabody3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265045,True,,,400x404
+Bosses/14_Peabody/1_Peabody4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",264851,True,,,400x404
+Bosses/14_Peabody/1_Peabody5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265782,True,,,400x404
+Bosses/14_Peabody/1_Peabody6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265049,True,,,400x404
+Bosses/15_Astor.png,keep,Runtime literal reference (reviewed path),205176,True,,,400x404
+Bosses/15_Astor/1_Astor0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",209709,True,,,400x404
+Bosses/15_Astor/1_Astor1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",227267,True,,,400x404
+Bosses/15_Astor/1_Astor2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",228167,True,,,400x404
+Bosses/15_Astor/1_Astor3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",228100,True,,,400x404
+Bosses/15_Astor/1_Astor4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",227394,True,,,400x404
+Bosses/15_Astor/1_Astor5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",228486,True,,,400x404
+Bosses/15_Astor/1_Astor6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",228336,True,,,400x404
+Bosses/16_Whitney.png,keep,Runtime literal reference (reviewed path),285257,True,,,400x404
+Bosses/16_Whitney/1_Whitney0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",285257,True,,,400x404
+Bosses/16_Whitney/1_Whitney1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",290616,True,,,400x404
+Bosses/16_Whitney/1_Whitney2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",290290,True,,,400x404
+Bosses/16_Whitney/1_Whitney3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",290081,True,,,400x404
+Bosses/16_Whitney/1_Whitney4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",291259,True,,,400x404
+Bosses/16_Whitney/1_Whitney5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",291174,True,,,400x404
+Bosses/16_Whitney/1_Whitney6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",291481,True,,,400x404
+Bosses/1_Watt.png,keep,Runtime literal reference (reviewed path),297774,True,,,400x404
+Bosses/1_Watt/1_Watt0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",297774,True,,,400x404
+Bosses/1_Watt/1_Watt1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",276933,True,,,400x404
+Bosses/1_Watt/1_Watt2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",262618,True,,,400x404
+Bosses/1_Watt/1_Watt3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",252070,True,,,400x404
+Bosses/1_Watt/1_Watt4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",276675,True,,,400x404
+Bosses/1_Watt/1_Watt5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",262488,True,,,400x404
+Bosses/1_Watt/1_Watt6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",251625,True,,,400x404
+Bosses/2_AdamSmith.png,keep,Runtime literal reference (reviewed path),296381,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",296381,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",278180,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265039,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",254520,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",278569,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",265310,True,,,400x404
+Bosses/2_AdamSmith/2_AdamSmith6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",254919,True,,,400x404
+Bosses/3_RobertFulton.png,keep,Runtime literal reference (reviewed path),293137,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",293137,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",271748,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",258151,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",247541,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",271078,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",256872,True,,,400x404
+Bosses/3_RobertFulton/3_RobertFulton6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",246128,True,,,400x404
+Bosses/4_NicolasApper.png,keep,Runtime literal reference (reviewed path),270993,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",270993,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",255292,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",243999,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",235403,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",255364,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",243575,True,,,400x404
+Bosses/4_NicolasApper/4_NicolasApper6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",234639,True,,,400x404
+Bosses/5_SamuelSlater.png,keep,Runtime literal reference (reviewed path),271466,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",271466,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",254600,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",242833,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",233852,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",254764,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",242890,True,,,400x404
+Bosses/5_SamuelSlater/5_SamuelSlater6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",233693,True,,,400x404
+Bosses/6_Arkwright.png,keep,Runtime literal reference (reviewed path),310853,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",310853,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",288112,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",273138,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",261433,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",288284,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",272567,True,,,400x404
+Bosses/6_Arkwright/6_Arkwright6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",260660,True,,,400x404
+Bosses/7_Kolbe.png,keep,Runtime literal reference (reviewed path),259424,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",260789,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",251467,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",251156,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",250512,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",251410,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",251226,True,,,400x404
+Bosses/7_Kolbe/1_Kolbe6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",250801,True,,,400x404
+Bosses/8_List.png,keep,Runtime literal reference (reviewed path),273503,True,,,404x404
+Bosses/8_List/1_Coin0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",261524,True,,,404x404
+Bosses/8_List/1_Coin1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",240522,True,,,404x404
+Bosses/8_List/1_Coin2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",238791,True,,,404x404
+Bosses/8_List/1_Coin3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",237862,True,,,404x404
+Bosses/8_List/1_Coin4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",240428,True,,,404x404
+Bosses/8_List/1_Coin5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",238477,True,,,404x404
+Bosses/8_List/1_Coin6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",238005,True,,,404x404
+Bosses/9_Laffitte.png,keep,Runtime literal reference (reviewed path),300989,True,,,404x404
+Bosses/9_Laffitte/1_NewCoin0.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",324788,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin1.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",303592,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin2.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",302253,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin3.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",300849,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin4.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",303380,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin5.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",302172,True,,,400x404
+Bosses/9_Laffitte/1_NewCoin6.png,keep,"Dynamic boss animation: boss_page.py and round_page_assets.py, frames 0..6",301102,True,,,400x404
+Bosses/PopUp.png,keep,Runtime literal reference (reviewed path),1644192,True,,,800x1200
+Bosses/PopUp2.jpg,keep,Runtime literal reference (reviewed path),985588,True,,,1024x1024
+Cards/Arts/Negative.png,keep,Runtime literal reference (reviewed path),939448,True,,,1254x1254
+Cards/Card_1.png,keep,Cards.csv + card_catalog.get_card_image_base_id,245401,True,,,300x461
+Cards/Card_100.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1111871,True,,,640x984
+Cards/Card_11.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1204543,True,,,640x984
+Cards/Card_110.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1377919,True,,,640x984
+Cards/Card_111.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1188850,True,,,640x984
+Cards/Card_112.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1155271,True,,,640x984
+Cards/Card_113.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1216052,True,,,640x984
+Cards/Card_114.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1215554,True,,,640x984
+Cards/Card_115.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1210777,True,,,640x984
+Cards/Card_116.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1021564,True,,,640x984
+Cards/Card_117.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1278812,True,,,640x984
+Cards/Card_118.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1254492,True,,,640x984
+Cards/Card_123.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1511367,True,,,640x984
+Cards/Card_124.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1373046,True,,,640x984
+Cards/Card_125.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1385984,True,,,640x984
+Cards/Card_126.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1218316,True,,,640x984
+Cards/Card_15.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1217121,True,,,640x984
+Cards/Card_17.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1208007,True,,,640x984
+Cards/Card_2.png,keep,Cards.csv + card_catalog.get_card_image_base_id,250133,True,,,300x461
+Cards/Card_20.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1234152,True,,,640x984
+Cards/Card_201.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1284106,True,,,640x984
+Cards/Card_202.png,keep,Cards.csv + card_catalog.get_card_image_base_id,965129,True,,,640x984
+Cards/Card_203.png,keep,Cards.csv + card_catalog.get_card_image_base_id,960116,True,,,640x984
+Cards/Card_204.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1076259,True,,,640x984
+Cards/Card_205.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1005328,True,,,640x984
+Cards/Card_206.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1293747,True,,,640x984
+Cards/Card_207.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1070329,True,,,640x984
+Cards/Card_208.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1105062,True,,,640x984
+Cards/Card_209.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1248100,True,,,640x984
+Cards/Card_210.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1089121,True,,,640x984
+Cards/Card_211.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1281163,True,,,640x984
+Cards/Card_212.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1229892,True,,,640x984
+Cards/Card_213.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1355221,True,,,640x984
+Cards/Card_214.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1236423,True,,,640x984
+Cards/Card_215.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1131500,True,,,640x984
+Cards/Card_216.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1164255,True,,,640x984
+Cards/Card_217.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1233278,True,,,640x984
+Cards/Card_218.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1231758,True,,,640x984
+Cards/Card_219.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1228628,True,,,640x984
+Cards/Card_22.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1625994,True,,,640x984
+Cards/Card_220.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1064302,True,,,640x984
+Cards/Card_221.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1184231,True,,,640x984
+Cards/Card_3.png,keep,Cards.csv + card_catalog.get_card_image_base_id,142714,True,,,340x540
+Cards/Card_301.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1033319,True,,,640x984
+Cards/Card_302.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1396564,True,,,640x984
+Cards/Card_303.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1230939,True,,,640x984
+Cards/Card_304.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1230352,True,,,640x984
+Cards/Card_305.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1202920,True,,,640x984
+Cards/Card_4.png,keep,Cards.csv + card_catalog.get_card_image_base_id,150064,True,,,340x540
+Cards/Card_401.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1345198,True,,,640x984
+Cards/Card_402.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1033268,True,,,640x984
+Cards/Card_403.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1248746,True,,,640x984
+Cards/Card_404.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1388602,True,,,640x985
+Cards/Card_405.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1418656,True,,,640x985
+Cards/Card_406.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1508695,True,,,640x985
+Cards/Card_407.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1424577,True,,,640x984
+Cards/Card_408.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1151441,True,,,640x984
+Cards/Card_409.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1213193,True,,,640x984
+Cards/Card_410.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1481216,True,,,640x984
+Cards/Card_411.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1476564,True,,,640x984
+Cards/Card_412.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1470881,True,,,640x984
+Cards/Card_413.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1400461,True,,,640x984
+Cards/Card_414.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1074433,True,,,640x984
+Cards/Card_415.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1064805,True,,,640x984
+Cards/Card_416.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1034210,True,,,640x984
+Cards/Card_417.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1262112,True,,,640x984
+Cards/Card_418.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1215446,True,,,640x984
+Cards/Card_419.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1112587,True,,,640x984
+Cards/Card_420.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1028621,True,,,640x984
+Cards/Card_421.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1228550,True,,,640x984
+Cards/Card_422.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1286559,True,,,640x984
+Cards/Card_423.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1258945,True,,,640x984
+Cards/Card_424.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1044784,True,,,640x984
+Cards/Card_425.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1041111,True,,,640x984
+Cards/Card_426.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1494228,True,,,640x984
+Cards/Card_427.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1239034,True,,,640x984
+Cards/Card_428.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1559641,True,,,640x984
+Cards/Card_429.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1432967,True,,,640x984
+Cards/Card_430.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1327218,True,,,640x984
+Cards/Card_431.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1487186,True,,,640x984
+Cards/Card_432.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1622742,True,,,640x984
+Cards/Card_433.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1618317,True,,,640x984
+Cards/Card_434.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1330376,True,,,640x984
+Cards/Card_435.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1465162,True,,,640x984
+Cards/Card_436.png,keep,Cards.csv + card_catalog.get_card_image_base_id,974798,True,,,640x984
+Cards/Card_437.edges-v2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3069436,True,gitignore/not used pictures/Cards/Card_437.edges-v2.png,7645a6a6d4c5cc0483ec8762f28780c066dd1e010568ead819334b8ce9426c31,1012x1555
+Cards/Card_437.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1339228,True,,,640x984
+Cards/Card_438.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1250623,True,,,640x984
+Cards/Card_439.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1537680,True,,,640x984
+Cards/Card_440.png,keep,Cards.csv + card_catalog.get_card_image_base_id,1410856,False,,,640x984
+Cards/Comp/113 Bankruptcy A.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1216052,True,gitignore/not used pictures/Cards/Comp/113 Bankruptcy A.png,fa2b0a7cde2f9b30b2da3af7dbd29df0be4264e48e8e5403d5cf6a5284f54426,640x984
+Cards/Comp/Card_113.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",77068,True,gitignore/not used pictures/Cards/Comp/Card_113.png,52fe8850dd2f3382f0115dd86a0efab2bce92f902d08230f8507d58396656951,200x318
+Cards/Templates/Black_Template_01.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1421538,True,gitignore/not used pictures/Cards/Templates/Black_Template_01.png,7e96607f4671f25f8c22a418b0ae88d600aad860643df77308c0fe0abcea7ad2,640x984
+Cards/Templates/Black_Template_02.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1417266,True,gitignore/not used pictures/Cards/Templates/Black_Template_02.png,e7558e30aadee81074fcf4730f15cd92d489cb309f3d7007f1eee95a7d9317a4,640x984
+Cards/Templates/Gold_Template_01.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1458332,True,gitignore/not used pictures/Cards/Templates/Gold_Template_01.png,d0894313209e5aa3a3450e7e39e1df8ec83f322bd1f0ffec39e6348538e84dad,640x984
+Cards/Templates/Gold_Template_02.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1496080,True,gitignore/not used pictures/Cards/Templates/Gold_Template_02.png,b4b3c3dea3cc97cbf1d5ae586f76df408589e4e3e476c859bcbcb68b41a4a89b,640x984
+Cards/Templates/Gold_Template_03.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1427888,True,gitignore/not used pictures/Cards/Templates/Gold_Template_03.png,0ac39ec778c02e20eecc81db0c119fdc1f706e89636daef63b74dfe923deb996,640x984
+Cards/Templates/Red_Template_01.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1401783,True,gitignore/not used pictures/Cards/Templates/Red_Template_01.png,907bbad96ca818d43394167b83e4a3a7ea9ffadc532f237b5c11108f81c8d0cf,640x984
+Cards/Templates/Red_Template_02.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1405990,True,gitignore/not used pictures/Cards/Templates/Red_Template_02.png,8a56d62061ebf8d2aca25ae23c06793f8812964c4dc15c05fdcc58f7a7d83f22,640x984
+Cards/Templates/Silver_Template_01.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1406415,True,gitignore/not used pictures/Cards/Templates/Silver_Template_01.png,749835008dbf77b3dc832963256c5821ac69156f7ab14d5a841b83041c79688a,640x984
+Cards/Templates/Silver_Template_02.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1441083,True,gitignore/not used pictures/Cards/Templates/Silver_Template_02.png,a1fcb6a782accc928f48be05f6e1045f89fb17c64e5a0b0e41e4583def602ecc,640x984
+GameplayPage/A bundle of shares.png,keep,Runtime literal reference (reviewed path),22705,True,,,120x121
+GameplayPage/A logo New.png,keep,Runtime literal reference (reviewed path),24239,True,,,177x186
+GameplayPage/Arrow1.png,keep,Runtime literal reference (reviewed path),1585193,True,,,1254x1254
+GameplayPage/Arrow2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1560889,True,gitignore/not used pictures/GameplayPage/Arrow2.png,3d9d5a7d2ad43197f1dda2a9383086fdc8cf2d2c4fb901b7edbd3a523dfe887b,1254x1254
+GameplayPage/Arrow3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1616549,True,gitignore/not used pictures/GameplayPage/Arrow3.png,18b2263b435f6f79398c2e52c402d51e17dd918f2c7abd5e4ca98f90e42121c5,1254x1254
+GameplayPage/Arrow4.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1840124,True,gitignore/not used pictures/GameplayPage/Arrow4.png,f6d38c3cf148e5198d3aa24652996d92cba903b02462953e35a148d9e213689c,1254x1254
+GameplayPage/Arrow5.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1708554,True,gitignore/not used pictures/GameplayPage/Arrow5.png,d6f86480e17ed95f1193497145bab5c5f57c3ed7b5ec852344935db661dfee5a,1254x1254
+GameplayPage/ArrowAll/ArrowAll-1.png,keep,Runtime literal reference (reviewed path),1549733,True,,,1254x1254
+GameplayPage/ArrowAll/ArrowAll-2.png,keep,Runtime literal reference (reviewed path),1412465,True,,,1254x1254
+GameplayPage/ArrowAll/ArrowAll.png,keep,Runtime literal reference (reviewed path),1726419,True,,,1254x1254
+GameplayPage/ArrowAllDown/ArrowAll.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",47199,True,gitignore/not used pictures/GameplayPage/ArrowAllDown/ArrowAll.png,8d42bba5a2660986bfb8f2d70f3fc4c5ac7a816d184d0faffe5fe43a89f1cef3,200x200
+GameplayPage/ArrowAllDown/ArrowAll1.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",45083,True,gitignore/not used pictures/GameplayPage/ArrowAllDown/ArrowAll1.png,0c5405776e6b2e052e538df12d0cbe2db9ba9737aedcc3a3f72494d70da9c094,200x200
+GameplayPage/ArrowAllDown/ArrowAll2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",42062,True,gitignore/not used pictures/GameplayPage/ArrowAllDown/ArrowAll2.png,1c0bf26e5d636a9718d8b0c0734a7c6c6eb085b35fb697a40599d1ea522cdc26,200x200
+GameplayPage/ArrowDown1.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",45564,True,gitignore/not used pictures/GameplayPage/ArrowDown1.png,948c525e0f30e09c53ee556884622e98dcaf8fdef799381d39ac6ab7b7a4aadf,200x200
+GameplayPage/ArrowMiddle/Arrow1.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",48734,True,gitignore/not used pictures/GameplayPage/ArrowMiddle/Arrow1.png,04fb4cda6854f91ffd4024c8758b6049b2ae01eaf291b58cb531cf79dc211b2b,200x200
+GameplayPage/ArrowMiddle/Arrow2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",45265,True,gitignore/not used pictures/GameplayPage/ArrowMiddle/Arrow2.png,aad5aa10b3e9298718412adbb050e933300863441362a5cdd29765a671fc958a,200x200
+GameplayPage/ArrowMiddle/Arrow3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",43385,True,gitignore/not used pictures/GameplayPage/ArrowMiddle/Arrow3.png,b7826e2cf78a53413f151e686dbd43541604c91fdb23e151730205dcef97a2a2,200x200
+GameplayPage/ArrowMiddleDown/ArrowDown1.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",49277,True,gitignore/not used pictures/GameplayPage/ArrowMiddleDown/ArrowDown1.png,1bca98472427ceccb4667c5501c9d3466bc4bef2e8ca1f9142580309615ad35d,200x200
+GameplayPage/ArrowMiddleDown/ArrowDown2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",45533,True,gitignore/not used pictures/GameplayPage/ArrowMiddleDown/ArrowDown2.png,1c36f940df85c040bf73a7b8cfb84f7b79e851494a9f25f2cf06c060d8b19619,200x200
+GameplayPage/ArrowMiddleDown/ArrowDown3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",43658,True,gitignore/not used pictures/GameplayPage/ArrowMiddleDown/ArrowDown3.png,0c57b1cfe80f0b88c72f59397799a2c433433f1e8226384941154477d403ad38,200x200
+GameplayPage/Arrows/Stop Bar.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,77188,True,,,596x58
+GameplayPage/Arrows/all-down-0.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,296828,True,,,512x512
+GameplayPage/Arrows/all-down-1.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,287720,True,,,512x512
+GameplayPage/Arrows/all-down-2.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,279105,True,,,512x512
+GameplayPage/Arrows/all-up-0.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,296517,True,,,512x512
+GameplayPage/Arrows/all-up-1.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,287564,True,,,512x512
+GameplayPage/Arrows/all-up-2.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,278673,True,,,512x512
+GameplayPage/Arrows/single-down-0.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,287250,True,,,512x512
+GameplayPage/Arrows/single-down-1.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,278160,True,,,512x512
+GameplayPage/Arrows/single-down-2.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,269436,True,,,512x512
+GameplayPage/Arrows/single-up-0.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,286795,True,,,512x512
+GameplayPage/Arrows/single-up-1.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,277848,True,,,512x512
+GameplayPage/Arrows/single-up-2.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,269246,True,,,512x512
+GameplayPage/B Logo New.png,keep,Runtime literal reference (reviewed path),57582,True,,,177x264
+GameplayPage/Background.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1676194,True,gitignore/not used pictures/GameplayPage/Background.png,222e66bd7df3c379da75609aecb6dc99ea394b09b973780b11e2324046d8aefa,1680x1050
+GameplayPage/Bosses.png,keep,Runtime literal reference (reviewed path),2731122,True,,,1254x1254
+GameplayPage/Bottom Frame.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",19876,True,gitignore/not used pictures/GameplayPage/Bottom Frame.png,ac50cc3e4ba82dce3e6d04fc4d8488af6f7b491c38d655ebd27fa85764e8e88b,507x131
+GameplayPage/Bottom Frame3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",470110,True,gitignore/not used pictures/GameplayPage/Bottom Frame3.png,6321992afabb03d93b323d3ce94571765d479ee8ef9fe7d1c3dc652afa153d48,2172x724
+GameplayPage/C Logo New.png,keep,Runtime literal reference (reviewed path),65457,True,,,177x243
+GameplayPage/CardNewShablon.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",115177,True,gitignore/not used pictures/GameplayPage/CardNewShablon.png,57c2feef2216e81beceb91dc2618aa925d6e658ae2d855535b3f4d9239a2a28f,340x540
+GameplayPage/Deck.png,keep,Runtime literal reference (reviewed path),2756870,True,,,1254x1254
+GameplayPage/Dollar.png,keep,Runtime literal reference (reviewed path),7547,True,,,60x89
+GameplayPage/End Turn DE.png,keep,Runtime literal reference (reviewed path),1488482,True,,,1448x1086
+GameplayPage/End Turn FR.png,keep,Runtime literal reference (reviewed path),1496338,False,,,1448x1086
+GameplayPage/End Turn HU.png,keep,Runtime literal reference (reviewed path),1476772,True,,,1448x1086
+GameplayPage/End Turn RU.png,keep,Runtime literal reference (reviewed path),1462067,True,,,1448x1086
+GameplayPage/End Turn.png,keep,Runtime literal reference (reviewed path),1507109,True,,,1448x1086
+GameplayPage/EndButton.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",394468,True,gitignore/not used pictures/GameplayPage/EndButton.png,28e108915e9d74787aacaa056cbfcf34b486f7743974308dd40236a5d7f803fb,452x461
+GameplayPage/Frame.png,keep,Runtime literal reference (reviewed path),410371,True,,,1039x1514
+GameplayPage/Frame2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",12805,True,gitignore/not used pictures/GameplayPage/Frame2.png,931025b11abd9ba0fda0965b8ce6beb9df160409fb043a68b61ebc088f29811d,201x286
+GameplayPage/Frame3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",323692,True,gitignore/not used pictures/GameplayPage/Frame3.png,fd89c66b077cada60a414098c2cf7ec44e1efec53c4e31aa6bfb98d2f33cdcec,1039x1514
+GameplayPage/Graph=/0.png,keep,Dynamic graph animation: gameplay_assets.py,7253,True,,,369x369
+GameplayPage/Graph=/1.png,keep,Dynamic graph animation: gameplay_assets.py,9669,True,,,369x369
+GameplayPage/Graph=/10.png,keep,Dynamic graph animation: gameplay_assets.py,63311,True,,,369x369
+GameplayPage/Graph=/11.png,keep,Dynamic graph animation: gameplay_assets.py,66682,True,,,369x369
+GameplayPage/Graph=/12.png,keep,Dynamic graph animation: gameplay_assets.py,71727,True,,,369x369
+GameplayPage/Graph=/13.png,keep,Dynamic graph animation: gameplay_assets.py,73548,True,,,369x369
+GameplayPage/Graph=/14.png,keep,Dynamic graph animation: gameplay_assets.py,73708,True,,,369x369
+GameplayPage/Graph=/15.png,keep,Dynamic graph animation: gameplay_assets.py,96340,True,,,369x369
+GameplayPage/Graph=/16.png,keep,Dynamic graph animation: gameplay_assets.py,92702,True,,,369x369
+GameplayPage/Graph=/19.png,keep,Dynamic graph animation: gameplay_assets.py,55098,True,,,369x369
+GameplayPage/Graph=/2.png,keep,Dynamic graph animation: gameplay_assets.py,55098,True,,,369x369
+GameplayPage/Graph=/3.png,keep,Dynamic graph animation: gameplay_assets.py,43697,True,,,369x369
+GameplayPage/Graph=/4.png,keep,Dynamic graph animation: gameplay_assets.py,33127,True,,,369x369
+GameplayPage/Graph=/5.png,keep,Dynamic graph animation: gameplay_assets.py,43682,True,,,369x369
+GameplayPage/Graph=/6.png,keep,Dynamic graph animation: gameplay_assets.py,51791,True,,,369x369
+GameplayPage/Graph=/7.png,keep,Dynamic graph animation: gameplay_assets.py,55239,True,,,369x369
+GameplayPage/Graph=/8.png,keep,Dynamic graph animation: gameplay_assets.py,58593,True,,,369x369
+GameplayPage/Graph=/9.png,keep,Dynamic graph animation: gameplay_assets.py,61153,True,,,369x369
+GameplayPage/GraphDown/1.png,keep,Dynamic graph animation: gameplay_assets.py,47691,True,,,369x369
+GameplayPage/GraphDown/10.png,keep,Dynamic graph animation: gameplay_assets.py,52972,True,,,369x369
+GameplayPage/GraphDown/11.png,keep,Dynamic graph animation: gameplay_assets.py,54661,True,,,369x369
+GameplayPage/GraphDown/12.png,keep,Dynamic graph animation: gameplay_assets.py,57482,True,,,369x369
+GameplayPage/GraphDown/13.png,keep,Dynamic graph animation: gameplay_assets.py,60126,True,,,369x369
+GameplayPage/GraphDown/14.png,keep,Dynamic graph animation: gameplay_assets.py,69057,True,,,369x369
+GameplayPage/GraphDown/15.png,keep,Dynamic graph animation: gameplay_assets.py,77359,True,,,369x369
+GameplayPage/GraphDown/16.png,keep,Dynamic graph animation: gameplay_assets.py,77979,True,,,369x369
+GameplayPage/GraphDown/17.png,keep,Dynamic graph animation: gameplay_assets.py,40336,True,,,369x369
+GameplayPage/GraphDown/2.png,keep,Dynamic graph animation: gameplay_assets.py,37916,True,,,369x369
+GameplayPage/GraphDown/3.png,keep,Dynamic graph animation: gameplay_assets.py,28805,True,,,369x369
+GameplayPage/GraphDown/4.png,keep,Dynamic graph animation: gameplay_assets.py,34852,True,,,369x369
+GameplayPage/GraphDown/5.png,keep,Dynamic graph animation: gameplay_assets.py,37917,True,,,369x369
+GameplayPage/GraphDown/6.png,keep,Dynamic graph animation: gameplay_assets.py,41617,True,,,369x369
+GameplayPage/GraphDown/7.png,keep,Dynamic graph animation: gameplay_assets.py,46288,True,,,369x369
+GameplayPage/GraphDown/8.png,keep,Dynamic graph animation: gameplay_assets.py,48842,True,,,369x369
+GameplayPage/GraphDown/9.png,keep,Dynamic graph animation: gameplay_assets.py,51275,True,,,369x369
+GameplayPage/GraphRise/1.png,keep,Dynamic graph animation: gameplay_assets.py,3262,True,,,369x369
+GameplayPage/GraphRise/10.png,keep,Dynamic graph animation: gameplay_assets.py,58941,True,,,369x369
+GameplayPage/GraphRise/11.png,keep,Dynamic graph animation: gameplay_assets.py,64189,True,,,369x369
+GameplayPage/GraphRise/12.png,keep,Dynamic graph animation: gameplay_assets.py,68011,True,,,369x369
+GameplayPage/GraphRise/13.png,keep,Dynamic graph animation: gameplay_assets.py,74025,True,,,369x369
+GameplayPage/GraphRise/14.png,keep,Dynamic graph animation: gameplay_assets.py,64897,True,,,369x369
+GameplayPage/GraphRise/15.png,keep,Dynamic graph animation: gameplay_assets.py,16030,True,,,369x369
+GameplayPage/GraphRise/2.png,keep,Dynamic graph animation: gameplay_assets.py,33309,True,,,369x369
+GameplayPage/GraphRise/3.png,keep,Dynamic graph animation: gameplay_assets.py,25473,True,,,369x369
+GameplayPage/GraphRise/4.png,keep,Dynamic graph animation: gameplay_assets.py,31340,True,,,369x369
+GameplayPage/GraphRise/5.png,keep,Dynamic graph animation: gameplay_assets.py,36661,True,,,369x369
+GameplayPage/GraphRise/6.png,keep,Dynamic graph animation: gameplay_assets.py,43901,True,,,369x369
+GameplayPage/GraphRise/7.png,keep,Dynamic graph animation: gameplay_assets.py,48580,True,,,369x369
+GameplayPage/GraphRise/8.png,keep,Dynamic graph animation: gameplay_assets.py,52255,True,,,369x369
+GameplayPage/GraphRise/9.png,keep,Dynamic graph animation: gameplay_assets.py,55983,True,,,369x369
+GameplayPage/Master Background.png,keep,Runtime literal reference (reviewed path),4841375,True,,,3440x1440
+GameplayPage/New Arrow.png,development,Development dependency: tools/build_trade_arrows.py or tests/test_gameplay_arrow_assets.py,1676675,True,,,1254x1254
+GameplayPage/NewArrow/Arrow-1.png,keep,Runtime literal reference (reviewed path),1407903,True,,,1254x1254
+GameplayPage/NewArrow/Arrow-2.png,keep,Runtime literal reference (reviewed path),1283989,True,,,1254x1254
+GameplayPage/Offers.png,keep,Runtime literal reference (reviewed path),2635480,True,,,1254x1254
+GameplayPage/Ok1.png,keep,Runtime literal reference (reviewed path),4770,True,,,80x43
+GameplayPage/Ok2.png,keep,Runtime literal reference (reviewed path),4770,True,,,80x43
+GameplayPage/Placeholder.png,keep,Runtime literal reference (reviewed path),2456996,True,,,1060x1484
+GameplayPage/Placeholder2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",44669,True,gitignore/not used pictures/GameplayPage/Placeholder2.png,fb1087507ae2b9ec1b882da01c6d9fc11ba579dc592ebd3b13619117ffed882d,150x238
+GameplayPage/Start.png,keep,Runtime literal reference (reviewed path),1499258,True,,,1448x1086
+GameplayPage/WinLose.png,keep,Runtime literal reference (reviewed path),3283772,True,,,1536x1024
+LevelPage/Bulavka.png,keep,Runtime literal reference (reviewed path),856496,True,,,1254x1254
+LevelPage/Card_1.png,keep,Dynamic level card: level_card_style.py,2474766,True,,,1839x855
+LevelPage/Card_2.png,keep,Dynamic level card: level_card_style.py,2517159,True,,,1774x887
+LevelPage/Card_3.png,keep,Dynamic level card: level_card_style.py,2577157,True,,,1916x821
+LevelPage/Card_4.png,keep,Dynamic level card: level_card_style.py,2514157,True,,,1916x821
+LevelPage/Card_5.png,keep,Dynamic level card: level_card_style.py,2690589,True,,,1916x821
+LevelPage/Card_6.png,keep,Dynamic level card: level_card_style.py,2506102,True,,,1916x821
+"LevelPage/ChatGPT Image 1 янв. 2026 г., 20_59_16.png",move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3096272,True,"gitignore/not used pictures/LevelPage/ChatGPT Image 1 янв. 2026 г., 20_59_16.png",4806b4a6a6f6490de7d7a67f8ef3c4023dd0b68a11cfc06f92f45999630ba000,1536x1024
+LevelPage/Level Button.png,keep,Runtime literal reference (reviewed path),55721,True,,,250x250
+LevelPage/Level1Picture.png,keep,Runtime literal reference (reviewed path),2613670,True,,,1024x1041
+LevelPage/Level2Picture.jpg,keep,Runtime literal reference (reviewed path),988882,True,,,1024x1024
+LevelPage/Level3Picture.jpg,keep,Runtime literal reference (reviewed path),1338729,True,,,1024x1019
+LevelPage/Level4Picture.jpg,keep,Runtime literal reference (reviewed path),371819,True,,,1024x1024
+LevelPage/Level5Picture.png,keep,Runtime literal reference (reviewed path),3399157,True,,,1254x1254
+LevelPage/Level6Picture.png,keep,Runtime literal reference (reviewed path),3431036,True,,,1254x1254
+LevelPage/LevelCard.jpg,keep,Runtime literal reference (reviewed path),160850,True,,,755x360
+LevelPage/Levels_master_background.png,keep,Runtime literal reference (reviewed path),6747678,True,,,3440x1440
+LevelPage/Stamp.png,keep,Runtime literal reference (reviewed path),1872389,True,,,1254x1254
+LevelPage/StartArrow.jpg,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2033,True,gitignore/not used pictures/LevelPage/StartArrow.jpg,8f145fd81dce5b6217266319ec9c92af09e01c0a19363051661ea2e50b22ae7e,122x70
+RoundPage/Koordinates.png,keep,Runtime literal reference (reviewed path),184278,True,,,1938x811
+RoundPage/Koordinates_old.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3087687,True,gitignore/not used pictures/RoundPage/Koordinates_old.png,ee89827ca0dedf9d7a9b125dece15fee999a0ac284066d60b39eb09db1229ec5,1536x1024
+RoundPage/LevelButtonE.png,keep,Runtime literal reference (reviewed path),92192,True,,,244x246
+RoundPage/LevelButtonH.png,keep,Runtime literal reference (reviewed path),92320,True,,,244x246
+RoundPage/LevelButtonM.png,keep,Runtime literal reference (reviewed path),92784,True,,,244x246
+RoundPage/Master background.png,keep,Runtime literal reference (reviewed path),5591075,True,,,3440x1440
+RoundPage/RandSilver.png,keep,Runtime literal reference (reviewed path),1061763,True,,,640x984
+RoundPage/RandomDropGain.png,keep,Runtime literal reference (reviewed path),1201674,True,,,640x984
+RoundPage/RandomRed.png,keep,Runtime literal reference (reviewed path),346812,True,,,544x747
+RoundPage/SilverBlack.png,keep,Runtime literal reference (reviewed path),1736039,True,,,1672x941
+Shop/Bailout.png,keep,Runtime literal reference (reviewed path),954891,True,,,600x887
+Shop/Bank.png,keep,Runtime literal reference (reviewed path),965104,True,,,600x887
+Shop/Bill of Exchange.png,keep,Runtime literal reference (reviewed path),704124,True,,,600x887
+Shop/Capital Preservation.png,keep,Runtime literal reference (reviewed path),900195,True,,,600x887
+Shop/Compouding.png,keep,Runtime literal reference (reviewed path),742454,True,,,600x887
+Shop/Correction.png,keep,Runtime literal reference (reviewed path),1031351,True,,,600x887
+Shop/Deal Flow.png,keep,Runtime literal reference (reviewed path),787641,True,,,600x887
+Shop/Delisting.png,keep,Runtime literal reference (reviewed path),999162,True,,,600x887
+Shop/Derivative.png,keep,Runtime literal reference (reviewed path),701510,True,,,600x887
+Shop/Disclousure.png,keep,Runtime literal reference (reviewed path),651770,True,,,600x887
+Shop/Diversification.png,keep,Runtime literal reference (reviewed path),841497,True,,,600x887
+Shop/Expansion.png,keep,Runtime literal reference (reviewed path),710153,True,,,600x887
+Shop/Investment.png,keep,Runtime literal reference (reviewed path),930727,True,,,600x887
+Shop/Issuer.png,keep,Runtime literal reference (reviewed path),814738,True,,,600x887
+Shop/Junk Bond.png,keep,Runtime literal reference (reviewed path),910354,True,,,600x887
+Shop/Loan.png,keep,Runtime literal reference (reviewed path),812131,True,,,600x887
+Shop/Long.png,keep,Runtime literal reference (reviewed path),984999,True,,,600x887
+Shop/Mirroring.png,keep,Runtime literal reference (reviewed path),760970,True,,,600x887
+Shop/Multibagger.png,keep,Runtime literal reference (reviewed path),907661,True,,,600x887
+Shop/Napoleondor.png,keep,Runtime literal reference (reviewed path),215575,True,,,300x300
+Shop/Profit.png,keep,Runtime literal reference (reviewed path),1071622,True,,,600x887
+Shop/Replication+.png,keep,Runtime literal reference (reviewed path),762502,True,,,600x887
+Shop/Replication.png,keep,Runtime literal reference (reviewed path),792322,True,,,600x887
+Shop/Retention.png,keep,Runtime literal reference (reviewed path),838017,True,,,600x887
+Shop/Screening.png,keep,Runtime literal reference (reviewed path),810443,True,,,600x887
+Shop/Trader.png,keep,Runtime literal reference (reviewed path),941007,True,,,600x887
+Shop/Underwriter.png,keep,Runtime literal reference (reviewed path),908189,True,,,600x887
+Shop/Variance.png,keep,Runtime literal reference (reviewed path),798703,True,,,600x887
+UI/Arrow/Arrow_1.png,keep,"Dynamic level navigation: game_screen.py, frames 1..4",42413,True,,,300x200
+UI/Arrow/Arrow_2.png,keep,"Dynamic level navigation: game_screen.py, frames 1..4",42893,True,,,300x200
+UI/Arrow/Arrow_3.png,keep,"Dynamic level navigation: game_screen.py, frames 1..4",41472,True,,,300x200
+UI/Arrow/Arrow_4.png,keep,"Dynamic level navigation: game_screen.py, frames 1..4",40276,True,,,300x200
+UI/Back2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2975563,True,gitignore/not used pictures/UI/Back2.png,02feeaf61ec0cd7c183991ac655707ddd4a22fd2f16d312da5c89750bf278f8f,1536x1024
+UI/Back3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2348798,True,gitignore/not used pictures/UI/Back3.png,4ce2363204f7e8eea7c79f3c381b0224bf803fa78e3e3388b4fb47c4212d9f9e,1248x832
+UI/Back5.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3392623,True,gitignore/not used pictures/UI/Back5.png,bd2bf29166bf01c010a31c32a358e8971fe634dc0c51d4d662c986151457bcc1,1536x1024
+UI/Background Main.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2027837,True,gitignore/not used pictures/UI/Background Main.png,dd43ecfda4524c8a2c4508f167759eb4d5f68a31d884199a17348a22921a8043,1672x941
+UI/Background.png,keep,Runtime literal reference (reviewed path),1676194,True,,,1680x1050
+UI/Botton.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1082262,True,gitignore/not used pictures/UI/Botton.png,b60c08df8ac101a49af8bbba4ec88de86e5455236d9f837eda3e4d5c7464a9e0,2159x253
+UI/Bressoles Title.png,keep,Runtime literal reference (reviewed path),1329261,True,,,2172x724
+"UI/ChatGPT Image 22 дек. 2025 г., 17_20_40.png",move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3426822,True,"gitignore/not used pictures/UI/ChatGPT Image 22 дек. 2025 г., 17_20_40.png",71dfccff3dcb376627671cee0c24aa7262fd14c517d812e1d5d842231edbda1f,1536x1024
+"UI/ChatGPT Image 22 дек. 2025 г., 17_26_40.png",move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3478829,True,"gitignore/not used pictures/UI/ChatGPT Image 22 дек. 2025 г., 17_26_40.png",8e4eeb9ee3e30ea58cf8fcb4a27a53da70485aebdde10e20f2b97ab2018dcd5e,1536x1024
+UI/Franks.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",778821,True,gitignore/not used pictures/UI/Franks.png,c465afeaa2d8b8b52d790e8f6470560157b56e2928167e968cf9043ffe54b64c,934x793
+UI/Languages Compass.png,keep,Runtime literal reference (reviewed path),953670,True,,,1212x1297
+UI/Languages Map.png,keep,Runtime literal reference (reviewed path),3007486,True,,,1678x937
+UI/MainBack2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1709044,True,gitignore/not used pictures/UI/MainBack2.png,2ce8ba6f536e45a5336aefb27f2ec8b023e8c145cac023e4dbd8d82770490f53,1021x843
+UI/Master Background 2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",5555450,True,gitignore/not used pictures/UI/Master Background 2.png,f88c05003a043c983e08665cc3c036c2d2272976f5cb0e8ec458e32ac136d7b2,3440x1440
+UI/Master Background Main.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",5660196,True,gitignore/not used pictures/UI/Master Background Main.png,c244a50850440af6ad2c9f6a7f36e654591e99e69bbf81e168138278edbe0c64,3440x1440
+UI/Master Background.png,keep,Runtime literal reference (reviewed path),6190390,True,,,3440x1440
+UI/Menu.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",999793,True,gitignore/not used pictures/UI/Menu.png,fc6d601bdf2516604fc2da01d750f90d858f6a50f6ce0c0d798cf8a02db8a6a0,1086x1448
+UI/Menu2.jpg,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",89601,True,gitignore/not used pictures/UI/Menu2.jpg,6355c82f5d62a77b2140163c8de78dd8c80ca57bb1ebf9b3844d117067599bed,834x794
+UI/Menu2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",319075,True,gitignore/not used pictures/UI/Menu2.png,271792c665e1d70629d13239acddc3faf45c1db1a54267e1abfb80be8b1ec306,834x794
+UI/Menu3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2853469,True,gitignore/not used pictures/UI/Menu3.png,fb5badd3d7fc95d50a97491c790b934a470784553916754bc1bfe0acad9f97a0,1678x937
+UI/Menu3_1.png,keep,Runtime literal reference (reviewed path),3116746,True,,,1678x937
+UI/Menu4.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2853469,True,gitignore/not used pictures/UI/Menu4.png,fb5badd3d7fc95d50a97491c790b934a470784553916754bc1bfe0acad9f97a0,1678x937
+UI/Ornate Button Blank.png,keep,Runtime literal reference (reviewed path),1452710,False,,,1448x1086
+UI/Press.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1156470,True,gitignore/not used pictures/UI/Press.png,017915e45d2987a29979419b7dee3f0cfcaa693c053c22caf17dd2a9eef33472,1672x941
+UI/Press/Press-1.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1100007,True,gitignore/not used pictures/UI/Press/Press-1.png,0557fee3278fd97af4ad6ca45bfb6c3f62f736655b620cdd9104a9cf940a02be,1672x941
+UI/Press/Press-10.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",768508,True,gitignore/not used pictures/UI/Press/Press-10.png,ac37c5979f3d6392721ad7bffbf897e0e594d9575261cf150cbfb26b7c357562,1672x941
+UI/Press/Press-11.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",614334,True,gitignore/not used pictures/UI/Press/Press-11.png,630cc4d2b616ac7031349f2fba6306f4ddccc58ca5ba80d2c29033c8f1e55d9f,1672x941
+UI/Press/Press-12.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",452108,True,gitignore/not used pictures/UI/Press/Press-12.png,104b08b7ad381bbab93c74eb66eed40bb0156e92272bc81e5249ab889bd5fb4a,1672x941
+UI/Press/Press-13.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",274109,True,gitignore/not used pictures/UI/Press/Press-13.png,9b6de36c947f5b05b75ca721a73d9837a2f43c09b3a052772e1fd6e484e494ac,1672x941
+UI/Press/Press-14.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",101228,True,gitignore/not used pictures/UI/Press/Press-14.png,7ff5de13a69b73af1d8ec6c7c3a2eb1e716b2a8c008d868b98b7ca776947dcba,1672x941
+UI/Press/Press-2.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1085563,True,gitignore/not used pictures/UI/Press/Press-2.png,22e7f28ced9f9460fa3ab4fef852e820a979f65f70360cf255f7def16dde2f11,1672x941
+UI/Press/Press-3.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1047398,True,gitignore/not used pictures/UI/Press/Press-3.png,a84686eee133fd5eaa3eae8a7149a12b57d1a93de89f10532cc3c042193b7b45,1672x941
+UI/Press/Press-4.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1021749,True,gitignore/not used pictures/UI/Press/Press-4.png,b4296d314c8c9d432e46b42defb5740c5061e5b6744b2d120a00d6ff9c24f321,1672x941
+UI/Press/Press-5.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1009752,True,gitignore/not used pictures/UI/Press/Press-5.png,60ca6873ac8948a6ce98c7a070ec66c1cdb1b41e408ed0be3b562030a0b1fc9e,1672x941
+UI/Press/Press-6.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",991585,True,gitignore/not used pictures/UI/Press/Press-6.png,927e9a30b08926cd58936340f97c3adcd24ec86bfd50d34dc45420c3dce8fb0c,1672x941
+UI/Press/Press-7.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",974455,True,gitignore/not used pictures/UI/Press/Press-7.png,f13a15923cdd1aebf6cc79331af88eb4036631a799858f5c99d8e810b48e4134,1672x941
+UI/Press/Press-8.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",939518,True,gitignore/not used pictures/UI/Press/Press-8.png,b13c32c2d5d95205b9d16ff02b4044036b9fd17d3d429d17379656ce943a6f85,1672x941
+UI/Press/Press-9.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",859619,True,gitignore/not used pictures/UI/Press/Press-9.png,97c6d41f1fe0d8a5a4b5b7763a8f7f600374f022d149fff742400d061b07e93f,1672x941
+UI/Ribbon.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1348445,True,gitignore/not used pictures/UI/Ribbon.png,605e288b4b079519ca705ded72be551f49c85a07f41971d32d4de7e75cfeaf66,2172x724
+UI/Settings Frame Straight Bottom.png,keep,Runtime literal reference (reviewed path),1799375,True,,,1584x993
+UI/Settings Frame Transparent.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2221314,True,gitignore/not used pictures/UI/Settings Frame Transparent.png,368be96808996528d2171134c32b4c37490187a5a669a7f54a94eaddf40d48d5,1585x992
+UI/Settings Frame Worn.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2210402,True,gitignore/not used pictures/UI/Settings Frame Worn.png,f812d8d2f6ea1e8e2f02527ea84cba9c92714868812b77ab0482d69808214fb6,1585x992
+UI/Settings Frame.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2652030,True,gitignore/not used pictures/UI/Settings Frame.png,f5f294a184e3c47b3f0dd9fefbe5fbe869d2bfd9082f673664e9d8421e6561ad,1586x992
+UI/StartPage.jpg,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",5204145,True,gitignore/not used pictures/UI/StartPage.jpg,ce8546401c10b4f1713b7ff97f828ff0c684ccc5470bab73867243ce1b7c218f,2752x1536
+UI/Top.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",1067590,True,gitignore/not used pictures/UI/Top.png,8f4c668363a829e3825d12b24300b23329db541949dc70731185a438ff09d53e,1238x425
+UI/Translator.png,keep,Runtime literal reference (reviewed path),3614166,False,,,1375x1144
+german-gameplay-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2089118,True,gitignore/not used pictures/german-gameplay-preview.png,881ee9847d67df129d9f041a6f5d3b9ac3f543596dbee4f5cd769756e10b6d06,1680x1050
+german-level-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2678190,True,gitignore/not used pictures/german-level-preview.png,8560892e90d9740267ecf6c73ea451c4d191dddcf64c98d3b582fa306d33b8a7,1680x1050
+german-menu-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",3069168,True,gitignore/not used pictures/german-menu-preview.png,7471aa95d4a82b3a606f4ddb3f0257b3939ed057c3475c2d8c0c6bf0e476501d,1680x1050
+german-shop-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2217476,True,gitignore/not used pictures/german-shop-preview.png,e86f86dfae97878ea08e2705d23c5989c0c17847e095b5ac8eb5dc33a434ef1e,1680x1050
+languages-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2911504,True,gitignore/not used pictures/languages-preview.png,106fb42fa1f0848ab055393393e9c64c71b707164178e7c5252d3d00de527905,1680x1050
+output/16_Whitney_animation.gif,ignored,"Already ignored: environment, attachment or generated QA output",1537233,False,,,400x404
+output/boss-choice-tutorial.png,ignored,"Already ignored: environment, attachment or generated QA output",1606489,False,,,1680x1050
+output/bressoles-font/Bressoles-A-comparison.png,ignored,"Already ignored: environment, attachment or generated QA output",68462,False,,,1600x1100
+output/bressoles-font/Bressoles-Display-specimen.png,ignored,"Already ignored: environment, attachment or generated QA output",273952,False,,,1800x2050
+output/bressoles-font/Bressoles-R-comparison.png,ignored,"Already ignored: environment, attachment or generated QA output",82321,False,,,1600x1190
+output/bressoles-font/Bressoles-menu-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",3459008,False,,,1920x1080
+output/bressoles-font/Bressoles-menu-ENG.png,ignored,"Already ignored: environment, attachment or generated QA output",3459093,False,,,1920x1080
+output/bressoles-font/Bressoles-menu-HU.png,ignored,"Already ignored: environment, attachment or generated QA output",3461692,False,,,1920x1080
+output/bressoles-font/Bressoles-menu-RU-1280.png,ignored,"Already ignored: environment, attachment or generated QA output",1787462,False,,,1280x720
+output/bressoles-font/Bressoles-menu-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",3458246,False,,,1920x1080
+output/bressoles-font/Bressoles-rounded-comparison.png,ignored,"Already ignored: environment, attachment or generated QA output",150010,False,,,1800x1430
+output/french/gameplay.png,ignored,"Already ignored: environment, attachment or generated QA output",2086953,False,,,1680x1050
+output/french/languages.png,ignored,"Already ignored: environment, attachment or generated QA output",2843532,False,,,1680x1050
+output/french/menu.png,ignored,"Already ignored: environment, attachment or generated QA output",3068535,False,,,1680x1050
+output/french/notice-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",1422418,False,,,1680x1050
+output/french/notice-FR.png,ignored,"Already ignored: environment, attachment or generated QA output",1413221,False,,,1680x1050
+output/french/notice-HU.png,ignored,"Already ignored: environment, attachment or generated QA output",1412942,False,,,1680x1050
+output/french/pause.png,ignored,"Already ignored: environment, attachment or generated QA output",1342846,False,,,1680x1050
+output/french/settings.png,ignored,"Already ignored: environment, attachment or generated QA output",2153750,False,,,1680x1050
+output/french/shop.png,ignored,"Already ignored: environment, attachment or generated QA output",2157742,False,,,1680x1050
+output/hungarian/languages.png,ignored,"Already ignored: environment, attachment or generated QA output",2879614,False,,,1680x1050
+output/hungarian/menu.png,ignored,"Already ignored: environment, attachment or generated QA output",3071444,False,,,1680x1050
+output/hungarian/shop.png,ignored,"Already ignored: environment, attachment or generated QA output",2137697,False,,,1680x1050
+output/language-audit/bosses-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",56420,False,,,750x390
+output/language-audit/bosses-ENG.png,ignored,"Already ignored: environment, attachment or generated QA output",54833,False,,,750x390
+output/language-audit/bosses-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",61298,False,,,750x390
+output/language-audit/gameplay-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",2084434,False,,,1680x1050
+output/language-audit/gameplay-ENG.png,ignored,"Already ignored: environment, attachment or generated QA output",2086470,False,,,1680x1050
+output/language-audit/gameplay-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",2082492,False,,,1680x1050
+output/language-audit/shop-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",2125880,False,,,1680x1050
+output/language-audit/shop-ENG.png,ignored,"Already ignored: environment, attachment or generated QA output",2126456,False,,,1680x1050
+output/language-audit/shop-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",2128781,False,,,1680x1050
+output/profile-delete-DE.png,ignored,"Already ignored: environment, attachment or generated QA output",611173,False,,,1680x1050
+output/profile-delete-ENG.png,ignored,"Already ignored: environment, attachment or generated QA output",606946,False,,,1680x1050
+output/profile-delete-HU.png,ignored,"Already ignored: environment, attachment or generated QA output",618101,False,,,1680x1050
+output/profile-delete-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",609877,False,,,1680x1050
+output/profile-delete-slots.png,ignored,"Already ignored: environment, attachment or generated QA output",964687,False,,,1680x1050
+output/profiles-six.png,ignored,"Already ignored: environment, attachment or generated QA output",899429,False,,,1680x1050
+output/round-choice-tutorial.png,ignored,"Already ignored: environment, attachment or generated QA output",1611310,False,,,1680x1050
+output/stock-tooltip-HU.png,ignored,"Already ignored: environment, attachment or generated QA output",1987273,False,,,1680x1050
+output/stock-tooltip-RU.png,ignored,"Already ignored: environment, attachment or generated QA output",2018380,False,,,1680x1050
+output/tutorial-first-hint.png,ignored,"Already ignored: environment, attachment or generated QA output",1588719,False,,,1680x1050
+output/tutorial-hu.png,ignored,"Already ignored: environment, attachment or generated QA output",37634,False,,,760x470
+output/tutorial-locales.png,ignored,"Already ignored: environment, attachment or generated QA output",209224,False,,,1520x940
+output/tutorial-metal-ok.png,ignored,"Already ignored: environment, attachment or generated QA output",115290,False,,,1680x1050
+output/tutorial-sell-hint.png,ignored,"Already ignored: environment, attachment or generated QA output",1544201,False,,,1680x1050
+settings-preview-de.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2170852,True,gitignore/not used pictures/settings-preview-de.png,5501100bfe1d0adf28c611e92889832761d6090bb396ac05b853fc201bc118dd,1680x1050
+settings-preview-en.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2161182,True,gitignore/not used pictures/settings-preview-en.png,352d67b3b3a251ebba56d39a3c5b10431e58c97bbc71ae19aa0534f1229caadb,1680x1050
+settings-preview-hu.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2174679,True,gitignore/not used pictures/settings-preview-hu.png,ae0e02f561e7ccf4412cddac1bbd372ec2bd5d2fa0e10653c65bd0f44c7f25bf,1680x1050
+settings-preview.png,move,"No runtime, test or tool input reference; outside reviewed dynamic loaders",2172629,True,gitignore/not used pictures/settings-preview.png,dd129ee33576c49bf414205935269929d9e4b6e5b371602b574ddf640055ef4a,1680x1050

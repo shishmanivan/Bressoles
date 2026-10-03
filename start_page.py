@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pygame
 
 from adaptive_ui import AnchoredElement, clamp, cover_geometry, proportional_size
-from sound_assets import load_sound
+from sound_assets import load_card_hover_sound, load_sound
 
 
 FPS = 60
@@ -107,6 +107,7 @@ class StartPage:
         self.title_image = self._load_image(TITLE_PATH, alpha=True)
         self.menu_image = self._load_image(MENU_IMAGE_PATH, alpha=True)
         self.button_sound = load_sound(os.path.join("Sounds", "Cliack3.wav"))
+        self.hover_sound = load_card_hover_sound()
 
         self._scaled_image_cache = {}
         self._font_cache = {}
@@ -115,6 +116,7 @@ class StartPage:
         self._pending_action = None
         self._pressed_target = None
         self._keyboard_focus = False
+        self._mouse_hovered_target = None
         self._layout = None
 
         self.menu_items = [
@@ -250,6 +252,17 @@ class StartPage:
         if sound:
             sound.play()
 
+    def _play_hover_sound(self):
+        sound = getattr(self, "hover_sound", None)
+        if sound:
+            sound.play()
+
+    def _set_mouse_hover_target(self, target):
+        previous = getattr(self, "_mouse_hovered_target", None)
+        self._mouse_hovered_target = target
+        if target is not None and target != previous:
+            self._play_hover_sound()
+
     def _activate_menu_item(self, index):
         self._play_button_sound()
         return ("start", "options", "quit", "languages")[index]
@@ -275,10 +288,14 @@ class StartPage:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     self._keyboard_focus = True
+                    self._mouse_hovered_target = None
                     self.selected_index = (self.selected_index - 1) % len(self.menu_items)
+                    self._play_hover_sound()
                 elif event.key == pygame.K_DOWN:
                     self._keyboard_focus = True
+                    self._mouse_hovered_target = None
                     self.selected_index = (self.selected_index + 1) % len(self.menu_items)
+                    self._play_hover_sound()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._keyboard_focus = True
                     self._begin_press(self.selected_index, ("start", "options", "quit", "languages")[self.selected_index])
@@ -287,11 +304,15 @@ class StartPage:
                 self._keyboard_focus = False
                 mouse_pos = event.pos
                 if self.profile_rect and self.profile_rect.collidepoint(mouse_pos):
+                    self._set_mouse_hover_target("profile")
                     continue
+                hovered_index = None
                 for index in range(len(self.menu_items)):
                     if self._get_menu_rect(index).collidepoint(mouse_pos):
                         self.selected_index = index
+                        hovered_index = index
                         break
+                self._set_mouse_hover_target(hovered_index)
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = event.pos

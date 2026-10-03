@@ -106,6 +106,18 @@ class AdaptiveStartPageTests(unittest.TestCase):
 
         page.button_sound.play.assert_called_once_with()
 
+    def test_menu_hover_sound_only_plays_when_hover_target_changes(self):
+        page = StartPage.__new__(StartPage)
+        page.hover_sound = mock.Mock()
+        page._mouse_hovered_target = None
+
+        page._set_mouse_hover_target(0)
+        page._set_mouse_hover_target(0)
+        page._set_mouse_hover_target(1)
+        page._set_mouse_hover_target(None)
+
+        self.assertEqual(page.hover_sound.play.call_count, 2)
+
     def test_cover_crops_sides_on_16_by_9(self):
         scaled_size, position = cover_geometry((3440, 1440), (1920, 1080))
         self.assertEqual(scaled_size, (2580, 1080))

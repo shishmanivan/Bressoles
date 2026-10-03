@@ -76,13 +76,13 @@ class GermanLocalizationTests(unittest.TestCase):
         pygame.init()
         for size in ((1680,1050), (1280,720), (2560,1080)):
             page = LanguagesPage(pygame.display.set_mode(size), None, None, load_language('DE'), 'DE')
-            self.assertEqual(list(page.title_rects), ['ENG','DE','RU','HU'])
+            self.assertEqual(list(page.title_rects), ['ENG','FR','DE','RU','HU'])
             self.assertEqual(EMPIRE_NAMES['RU'], 'Российская империя')
             self.assertEqual(EMPIRE_NAMES['DE'], 'Deutsches Reich')
-            for x, y, code in [(1030,535,'DE'), (1160,530,'RU'), (870,640,None), (700,400,None)]:
+            for x, y, code in [(1030,535,'DE'), (1160,530,'RU'), (870,640,'FR'), (700,400,None)]:
                 pos = (page.map_rect.x+round(x*page.map_rect.width/1678), page.map_rect.y+round(y*page.map_rect.height/937))
                 self.assertEqual(page.region_at(pos), code)
-            for expected in ('ENG','DE','RU','HU','ENG'):
+            for expected in ('ENG','FR','DE','RU','HU','ENG'):
                 with patch('pygame.event.get', return_value=[pygame.event.Event(pygame.KEYDOWN,key=pygame.K_TAB,mod=0)]):
                     page.handle_input()
                 self.assertEqual(page.focus, expected)

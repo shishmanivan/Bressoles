@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 os.environ.setdefault('SDL_VIDEODRIVER','dummy')
 os.environ.setdefault('SDL_AUDIODRIVER','dummy')
 import pygame
@@ -26,7 +26,7 @@ class LanguagePickerTests(unittest.TestCase):
             save_music_volume(.8,path)
             self.assertEqual(load_selected_language(path),'ENG')
             with self.assertRaises(ValueError):
-                save_selected_language('FR',path)
+                save_selected_language('XX',path)
 
     def test_regions_resize_click_and_ocean(self):
         for size in [(1680,1050),(1280,720),(2560,1080)]:
@@ -34,7 +34,7 @@ class LanguagePickerTests(unittest.TestCase):
             page = LanguagesPage(screen,None,None,load_language('RU'))
             def pos(x,y):
                 return (page.map_rect.x + int((x+MAP_SHIFT_X)*page.map_rect.width/1678), page.map_rect.y + int(y*page.map_rect.height/937))
-            for point, expected in [((620,490),'ENG'),((1150,380),'RU'),((970,295),'RU'),((945,540),'RU'),((690,330),None),((657,635),None)]:
+            for point, expected in [((620,490),'ENG'),((1150,380),'RU'),((970,295),'RU'),((945,540),'RU'),((690,330),None),((657,635),'FR')]:
                 self.assertEqual(page.region_at(pos(*point)),expected,(size,point))
             click=pygame.event.Event(pygame.MOUSEBUTTONDOWN,button=1,pos=pos(620,490))
             with patch('pygame.event.get',return_value=[click]):
@@ -51,6 +51,18 @@ class LanguagePickerTests(unittest.TestCase):
         event=pygame.event.Event(pygame.MOUSEBUTTONDOWN,button=1,pos=settings.test_mode_rect.center)
         with patch('pygame.event.get',return_value=[event]):
             self.assertEqual(settings.handle_input(),'test_mode')
+
+    def test_language_hover_sound_only_plays_for_new_targets(self):
+        page = LanguagesPage.__new__(LanguagesPage)
+        page.hover_sound = Mock()
+        page._hover_target = None
+
+        page._set_hover_target('RU')
+        page._set_hover_target('RU')
+        page._set_hover_target('ENG')
+        page._set_hover_target(None)
+
+        self.assertEqual(page.hover_sound.play.call_count, 2)
 
 if __name__=='__main__':
     unittest.main()

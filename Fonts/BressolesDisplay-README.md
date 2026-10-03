@@ -1,4 +1,4 @@
-# Бресоль / Bressoles Display — 0.110
+# Бресоль / Bressoles Display — 0.112
 
 First working display face for the Bressoles main menu, inspired exclusively by
 the menu lettering in the reference image dated 21 December 2025. The logo in
@@ -13,6 +13,24 @@ with a 518-unit height against 700-unit full capitals. This reproduces the
 capital initial / small-cap remainder seen in the reference menu. It is a
 display design for menus and headings; ordinary lowercase body typography is
 not part of this first version.
+
+## Stronger right diagonal of A — 0.112
+
+A keeps its fine left stroke and gains a substantially heavier right diagonal,
+with a matching broader right foot and a smaller, softly rounded counter.
+The same construction applies to Latin/Cyrillic small capitals, accented A
+variants and the A component of Æ. Advances and kerning are preserved.
+The specimen script renders `Bressoles-A-comparison.png` when the previous
+font in `output/bressoles-font/v0111/` is available.
+
+## Fuller Latin R — 0.111
+
+The Latin R has a fuller bowl, stronger bowl rims and a broader diagonal leg
+ending in a substantial serif foot, closer to the original menu reference.
+The small-cap r and accented Latin derivatives share the revised drawing.
+Other glyphs, including Cyrillic Я, keep their previous outlines. Advances
+and kerning are preserved. The specimen script also renders
+`Bressoles-R-comparison.png` when the saved font in `v0110/` is available.
 
 ## Rounded contour revision — 0.110
 

@@ -6,6 +6,9 @@ import sys
 import pygame
 
 from asset_loaders import load_scaled_image
+import profile_manager
+from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT, TutorialHint
+from sound_assets import load_button_sound
 from sound_assets import play_action_click
 from round_page_assets import GRAPH_INK_COLOR, ROUND_GRAPH_ORIGIN, load_round_page_static_assets
 from shared_utils import _clamp_dt_seconds, clamp_popup_y, move_towards, wrap_text
@@ -277,8 +280,14 @@ class BossPage:
         load_rounds_config=None,
         get_bosses_required=None,
         get_boss_number_from_filename=None,
+        profile_slot=None,
+        test_mode=False,
     ):
         self.screen = screen
+        self.profile_slot = profile_slot
+        self.test_mode = test_mode
+        self.font_path = font_path
+        self.tutorial_hint = None
         self.clock = pygame.time.Clock()
         self.level_number = level_number
         self.defeated_count = defeated_count
@@ -463,6 +472,22 @@ class BossPage:
         return self.lang.get(key, default)
 
     def handle_input(self):
+        hint = getattr(self, "tutorial_hint", None)
+        if hint is not None:
+            if hint.ready_to_close():
+                if hint.dont_show_again:
+                    profile_manager.mark_tutorial_seen(self.profile_slot, BOSS_CHOICE_HINT_ID)
+                self.tutorial_hint = None
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return "quit"
+                return None
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                if hint.accepts(event):
+                    hint.start_press(load_button_sound())
+            return None
         mouse_pos = pygame.mouse.get_pos()
 
         hovered_boss = None
@@ -618,9 +643,12 @@ class BossPage:
             if self.popup_boss_index is not None:
                 self.popup_boss_index = None
 
+        if getattr(self, "tutorial_hint", None) is not None:
+            self.tutorial_hint.draw(self.screen)
         pygame.display.flip()
 
     def run(self):
+        self._prepare_tutorial()
         while True:
             result = self.handle_input()
 
@@ -636,3 +664,13 @@ class BossPage:
 
             self.draw()
             self.clock.tick(FPS)
+
+    def _prepare_tutorial(self):
+        if (self.level_number == 2 and not self.test_mode
+                and profile_manager.is_tutorial_pending(self.profile_slot, BOSS_CHOICE_HINT_ID)):
+            frame = load_scaled_image(os.path.join("GameplayPage", "Frame.png"), target_size=(378, 548))
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), frame, self.font_path,
+                hint_id=BOSS_CHOICE_HINT_ID, text=BOSS_CHOICE_HINT_TEXT,
+                placement="right",
+            )

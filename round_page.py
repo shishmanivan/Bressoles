@@ -4,6 +4,10 @@ import sys
 import pygame
 
 import game_state
+import profile_manager
+from asset_loaders import load_scaled_image
+from gameplay_tutorial import ROUND_CHOICE_HINT_ID, ROUND_CHOICE_HINT_TEXT, TutorialHint
+from sound_assets import load_button_sound
 from sound_assets import play_action_click
 from boss_effects import parse_boss_functionality_spec
 from boss_logic import resolve_boss_number
@@ -60,8 +64,11 @@ class RoundPage:
         apper_goal_boost=None,
         reward_token_random_red=None,
         round_progress=None,
+        profile_slot=None,
     ):
         self.screen = screen
+        self.profile_slot = profile_slot
+        self.tutorial_hint = None
         self.clock = pygame.time.Clock()
         self.level_number = level_number
         self.boss_index = boss_index
@@ -530,6 +537,22 @@ class RoundPage:
         return None
 
     def handle_input(self):
+        hint = getattr(self, "tutorial_hint", None)
+        if hint is not None:
+            if hint.ready_to_close():
+                if hint.dont_show_again:
+                    profile_manager.mark_tutorial_seen(self.profile_slot, ROUND_CHOICE_HINT_ID)
+                self.tutorial_hint = None
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return "quit"
+                return None
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                if hint.accepts(event):
+                    hint.start_press(load_button_sound())
+            return None
         self._refresh_button_rects()
         self._refresh_button_goals()
         mouse_pos = pygame.mouse.get_pos()
@@ -897,9 +920,12 @@ class RoundPage:
             if self.popup_button is not None:
                 self.popup_button = None
 
+        if getattr(self, "tutorial_hint", None) is not None:
+            self.tutorial_hint.draw(self.screen)
         pygame.display.flip()
 
     def run(self):
+        self._prepare_tutorial()
         self.popup_y = float(getattr(self, "popup_hidden_y", -450.0))
         self.popup_target_y = float(getattr(self, "popup_hidden_y", -450.0))
         self.popup_button = None
@@ -918,3 +944,12 @@ class RoundPage:
                 return "boss_clicked"
             self.draw()
             self.clock.tick(FPS)
+
+    def _prepare_tutorial(self):
+        if (self.level_number == 2 and not self.test_mode
+                and profile_manager.is_tutorial_pending(self.profile_slot, ROUND_CHOICE_HINT_ID)):
+            frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), frame, self.font_path,
+                hint_id=ROUND_CHOICE_HINT_ID, text=ROUND_CHOICE_HINT_TEXT, placement="right",
+            )

@@ -38,6 +38,8 @@ REWARD_KINDS = {
     "gaindropcard": "gain_drop_card",
     "randomgaindrop": "gain_drop_card",
     "randomgaindropcard": "gain_drop_card",
+    "dropcard": "drop_card",
+    "fixeddropcard": "drop_card",
     "silvercard": "silver_card",
     "randomsilver": "silver_card",
     "randomsilvercard": "silver_card",

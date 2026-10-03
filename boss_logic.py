@@ -530,7 +530,16 @@ def apply_boss_reward(reward_string, gameplay_instance):
             print("Applied boss reward StartCPlus2: future rounds start with +2 C shares")
             return
 
-        # Special reward: GainDropCard (pick a random available Gain/Drop card for the level deck)
+        # Fulton's fixed reward: one Drop -2 card lasting one turn.
+        if normalized_reward in ("dropcard", "fixeddropcard"):
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            drop_card = 15
+            game_state.earned_reward_cards.setdefault(level_num, []).append(drop_card)
+            _append_last_earned_card(gameplay_instance, drop_card)
+            print(f"Applied boss reward DropCard: card {drop_card} for level {level_num}")
+            return
+
+        # Legacy reward: pick a random available Gain/Drop card for the level deck.
         if normalized_reward in (
             "gaindropcard",
             "randomgaindrop",

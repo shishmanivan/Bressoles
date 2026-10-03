@@ -494,6 +494,22 @@ class UiLayoutTests(unittest.TestCase):
             "Вы получаете 3 серебряные карты (должно быть место).",
         )
 
+    def test_fulton_report_keeps_only_the_non_card_bonus(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.lang_dict = load_language("RU")
+        page.is_boss_fight = True
+        page.is_final_boss = False
+        page.random_boss_reward_text = None
+        page.boss_filename = "3_Fulton.png"
+        page.boss_index = 0
+        page.defeated_count = 0
+        page.level_number = 2
+
+        description = page._get_card_report_boss_description()
+
+        self.assertEqual(description, "Следующие раунды начинаются с 2$.")
+        self.assertNotIn("Gain/Drop", description)
+
     def test_slater_report_keeps_only_the_non_card_bonus(self):
         page = GameplayPage.__new__(GameplayPage)
         page.lang_dict = load_language("RU")

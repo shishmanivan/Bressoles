@@ -17,7 +17,7 @@ def render():
     small = ImageFont.truetype(plain, 23)
     font = lambda size: ImageFont.truetype(str(FONT), size)
     draw.rectangle((30, 30, 1770, 2020), outline=secondary, width=2)
-    draw.text((85, 69), "БРЕСОЛЬ  /  BRESSOLES DISPLAY  /  ВЕРСИЯ 0.11", font=label, fill=secondary)
+    draw.text((85, 69), "БРЕСОЛЬ  /  BRESSOLES DISPLAY  /  ВЕРСИЯ 0.112", font=label, fill=secondary)
     draw.text((85, 117), "Шрифт меню · новые векторные буквы · строчные как малая капитель", font=small, fill=secondary)
     draw.line((85, 174, 1715, 174), fill=secondary, width=1)
     # The French phrases are deliberately the same as the reference menu.
@@ -55,7 +55,7 @@ def render():
         comp = ImageDraw.Draw(comparison)
         comp.text((70, 42), "БРЕСОЛЬ / СМЯГЧЕНИЕ КОНТУРОВ", font=label, fill=ink)
         comp.text((70, 99), "БЫЛО · 0.100", font=label, fill=secondary)
-        comp.text((950, 99), "СТАЛО · 0.110", font=label, fill=secondary)
+        comp.text((950, 99), "СТАЛО · 0.112", font=label, fill=secondary)
         comp.line((890, 99, 890, 1340), fill=secondary)
         rows = [("A M N V W Y", 154, 340), ("Е Н Б Д Ж", 156, 565),
                 ("Commencer", 116, 750), ("Mode Campagne", 100, 930),
@@ -66,6 +66,37 @@ def render():
                           fill=ink, anchor="ls")
         comp.text((70, 1370), "Сравнение при одинаковом размере: плавные стыки, скруглённые засечки и внутренние углы.", font=small, fill=secondary)
         comparison.save(OUT / "Bressoles-rounded-comparison.png")
+    previous_r = OUT / "v0110/BressolesDisplay-Regular.ttf"
+    if previous_r.exists():
+        comparison = Image.new("RGB", (1600, 1190), "#eee0c6")
+        comp = ImageDraw.Draw(comparison)
+        comp.text((65, 38), "БРЕСОЛЬ / БОЛЕЕ ПОЛНАЯ R", font=label, fill=ink)
+        comp.text((65, 103), "БЫЛО · 0.110", font=label, fill=secondary)
+        comp.text((855, 103), "СТАЛО · 0.112", font=label, fill=secondary)
+        comp.line((800, 100, 800, 1115), fill=secondary)
+        for text, size, baseline in [("R r", 320, 430), ("Commencer", 108, 620),
+                                     ("Multijoueur", 100, 790), ("Quitter", 110, 950),
+                                     ("Roi · Cœur · Árvíz", 74, 1090)]:
+            for x, source in ((65, previous_r), (855, FONT)):
+                comp.text((x, baseline), text, font=ImageFont.truetype(str(source), size),
+                          fill=ink, anchor="ls")
+        comp.text((65, 1140), "Одинаковый размер и интервалы · полнее чаша, массивнее диагональная ножка", font=small, fill=secondary)
+        comparison.save(OUT / "Bressoles-R-comparison.png")
+    previous_a = OUT / "v0111/BressolesDisplay-Regular.ttf"
+    if previous_a.exists():
+        comparison = Image.new("RGB", (1600, 1100), "#eee0c6")
+        comp = ImageDraw.Draw(comparison)
+        comp.text((65, 38), "БРЕСОЛЬ / ВЕС ПРАВОГО ШТРИХА A", font=label, fill=ink)
+        comp.text((65, 103), "БЫЛО · 0.111", font=label, fill=secondary)
+        comp.text((855, 103), "СТАЛО · 0.112", font=label, fill=secondary)
+        comp.line((800, 100, 800, 1015), fill=secondary)
+        for text, size, baseline in [("A a", 320, 430), ("Mode Campagne", 96, 620),
+                                     ("Начать игру", 104, 785), ("À Á Â Ä · А а", 105, 965)]:
+            for x, source in ((65, previous_a), (855, FONT)):
+                comp.text((x, baseline), text, font=ImageFont.truetype(str(source), size),
+                          fill=ink, anchor="ls")
+        comp.text((65, 1040), "Тонкий левый штрих · массивный правый штрих · мягкие скругления", font=small, fill=secondary)
+        comparison.save(OUT / "Bressoles-A-comparison.png")
 
 
 if __name__ == "__main__":

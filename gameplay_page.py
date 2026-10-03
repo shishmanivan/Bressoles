@@ -40,6 +40,8 @@ from card_catalog import (
     GOLD_CASH_YIELD_PERCENT,
     GOLD_SHAREHOLDER_VALUE_CARD_ID,
     GOLD_SHAREHOLDER_VALUE_REWARD,
+    GOLD_STANDARDIZATION_CARD_ID,
+    GOLD_STANDARDIZATION_STEP,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -79,6 +81,7 @@ from gameplay_card_rendering import (
     load_winlose_card_preview,
 )
 from gameplay_deck import (
+    is_red_card,
     get_card_investment_bonus,
     restore_card_instance,
     restore_legacy_deck_origins,
@@ -120,6 +123,8 @@ from gameplay_price_helpers import (
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
+from gameplay_tutorial import RED_CARD_HINT_ID, RED_CARD_HINT_TEXT
+from gameplay_tutorial import LATE_END_TURN_HINT_ID, LATE_END_TURN_HINT_TEXT
 from gameplay_stock_tooltips import draw_stock_tooltip, stock_tooltip_font
 from gameplay_trade_actions import apply_arrow_trade, calculate_rebate_sale_percent, apply_ordered_rebate_modifiers
 from gameplay_turn import (
@@ -2632,7 +2637,23 @@ class GameplayPage:
             and getattr(self, "result_report_stage", "cards") == "card_report"
         )
 
+    def _dismiss_tutorial_hint(self):
+        hint = self.tutorial_hint
+        if not hint.has_checkbox or hint.dont_show_again:
+            profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
+        self.tutorial_dismissed_this_round.add(hint.hint_id)
+        self.tutorial_hint = None
+        self._save_active_game()
+
     def handle_input(self):
+        hint = getattr(self, "tutorial_hint", None)
+        if hint is not None and hint.ready_to_close():
+            self._dismiss_tutorial_hint()
+            # Consume queued clicks/keys so the closing press cannot affect play.
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+            return None
         mouse_pos = pygame.mouse.get_pos()
         if getattr(self, "result_transition_ready", None):
             result = self.result_transition_ready
@@ -2645,12 +2666,7 @@ class GameplayPage:
 
             if getattr(self, "tutorial_hint", None) is not None:
                 if self.tutorial_hint.accepts(event):
-                    hint = self.tutorial_hint
-                    if not hint.has_checkbox or hint.dont_show_again:
-                        profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
-                    self.tutorial_dismissed_this_round.add(hint.hint_id)
-                    self.tutorial_hint = None
-                    self._save_active_game()
+                    self.tutorial_hint.start_press(getattr(self, "end_turn_sound", None))
                     # Discard the rest of this event batch to avoid click-through.
                     return None
                 continue
@@ -3460,6 +3476,10 @@ class GameplayPage:
         return True
 
     def _apply_volatility_steps(self):
+        # Standardization fixes the final market step, including with Volatility.
+        if self._count_active_card_safely(GOLD_STANDARDIZATION_CARD_ID):
+            self.StepA = self.StepB = self.StepC = GOLD_STANDARDIZATION_STEP
+            return 0
         volatility_count = self._count_active_card_safely(424)
         volatility_plus_count = self._count_active_card_safely(425)
         pair_count = min(volatility_count, volatility_plus_count)
@@ -4252,6 +4272,12 @@ class GameplayPage:
             )
         if not boss_number:
             return None
+        # Fulton's Gain/Drop reward is already displayed as a card above.
+        # Keep only the separate starting-money bonus in the report text.
+        if boss_number == 3:
+            description = self._get_text("Boss3Reward", "Boss 3 reward.")
+            items = self._split_card_report_bonus_items(description)
+            return items[0] if items else None
         if boss_number == 5:
             return self._get_text(
                 "CardReportBoss5Reward",
@@ -8097,6 +8123,43 @@ class GameplayPage:
         
         pygame.display.flip()
     
+    def _maybe_show_late_end_turn_tutorial(self):
+        if (
+            self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+            or self.level_number != 4 or self.defeated_count != 0
+            or self.round_num != 1 or self.is_boss_fight or self.Day != 3
+            or self.win_lose_state is not None
+            or LATE_END_TURN_HINT_ID in self.tutorial_dismissed_this_round
+            or self.pause_menu_active or self.deck_view_active
+            or self._is_turn_resolution_active() or self._is_hand_transition_active()
+        ):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, LATE_END_TURN_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=LATE_END_TURN_HINT_ID, text=LATE_END_TURN_HINT_TEXT,
+            )
+        else:
+            self.tutorial_dismissed_this_round.add(LATE_END_TURN_HINT_ID)
+
+    def _maybe_show_red_card_tutorial(self):
+        if (
+            self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+            or self.win_lose_state is not None
+            or RED_CARD_HINT_ID in self.tutorial_dismissed_this_round
+            or self.pause_menu_active or self.deck_view_active
+            or self._is_turn_resolution_active() or self._is_hand_transition_active()
+            or not any(is_red_card(card) for card in self.hand_cards)
+        ):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, RED_CARD_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=RED_CARD_HINT_ID, text=RED_CARD_HINT_TEXT,
+            )
+        else:
+            self.tutorial_dismissed_this_round.add(RED_CARD_HINT_ID)
+
     def _maybe_show_logo_tutorial(self):
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
@@ -8119,6 +8182,7 @@ class GameplayPage:
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
             or self.Day != self.LastTurn - 1 or self.win_lose_state is not None
+            or self._has_played_side_card(110)
             or SELL_HINT_ID in self.tutorial_dismissed_this_round
             or self.pause_menu_active or self.deck_view_active
             or self._is_turn_resolution_active() or self._is_hand_transition_active()
@@ -8139,8 +8203,10 @@ class GameplayPage:
                 self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
             )
         while True:
+            self._maybe_show_red_card_tutorial()
             self._maybe_show_sell_tutorial()
             self._maybe_show_logo_tutorial()
+            self._maybe_show_late_end_turn_tutorial()
             result = self.handle_input()
             
             if result == "quit":

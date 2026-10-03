@@ -108,7 +108,7 @@ class GoldenStakeTests(unittest.TestCase):
         self.assertEqual(LICENSE_EFFECT_DESCRIPTIONS[205], description)
         for language in localization.SUPPORTED_LANGUAGES:
             catalog, _, _ = localization._catalog(language)
-            self.assertIn("Shareholder", catalog[description])
+            self.assertIn("Actionnaire" if language == "FR" else "Shareholder", catalog[description])
             if language != "RU":
                 self.assertNotEqual(catalog[description], description)
 
@@ -176,6 +176,6 @@ class GoldenStakeTests(unittest.TestCase):
         self.assertEqual(CARD_TOOLTIPS[436], ("Golden Stake", description))
         for language in localization.SUPPORTED_LANGUAGES:
             catalog, _, _ = localization._catalog(language)
-            self.assertIn("Shareholder", catalog[description])
+            self.assertIn("Actionnaire" if language == "FR" else "Shareholder", catalog[description])
             if language != "RU":
                 self.assertNotEqual(catalog[description], description)

@@ -13,11 +13,43 @@ from gameplay_page import GameplayPage
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import FIRST_HINT_TEXT
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
+from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT
+from boss_page import BossPage
 from localization import SUPPORTED_LANGUAGES, get_language, set_language, translate
 from asset_loaders import find_font_path_or_exit
 
 
 class TutorialTests(unittest.TestCase):
+    def test_boss_choice_hint_level_gate_and_profile_suppression(self):
+        page = BossPage.__new__(BossPage)
+        page.profile_slot = 1
+        page.test_mode = False
+        page.tutorial_hint = None
+        page.screen = mock.Mock()
+        page.font_path = None
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ), mock.patch("boss_page.load_scaled_image"), mock.patch("boss_page.TutorialHint") as factory:
+            for level in (1, 3, 4, 5):
+                page.level_number = level
+                page._prepare_tutorial()
+                factory.assert_not_called()
+            page.level_number = 2
+            page._prepare_tutorial()
+            factory.assert_called_once()
+            hint = factory.return_value
+            hint.ready_to_close.return_value = True
+            hint.dont_show_again = True
+            with mock.patch.object(pygame.event, "get", return_value=[]):
+                page.handle_input()
+            self.assertFalse(profile_manager.is_tutorial_pending(1, BOSS_CHOICE_HINT_ID))
+            factory.reset_mock()
+            page._prepare_tutorial()
+            factory.assert_not_called()
+            page.profile_slot = 2
+            page._prepare_tutorial()
+            factory.assert_called_once()
+
     def test_all_hint_texts_follow_selected_language_and_fit_the_panel(self):
         original_language = get_language()
         pygame.font.init()
@@ -25,7 +57,7 @@ class TutorialTests(unittest.TestCase):
             for language in SUPPORTED_LANGUAGES:
                 set_language(language)
                 for hint_id, text in ((FIRST_HINT_ID, FIRST_HINT_TEXT), (SELL_HINT_ID, SELL_HINT_TEXT),
-                                      (LOGO_HINT_ID, LOGO_HINT_TEXT)):
+                                      (LOGO_HINT_ID, LOGO_HINT_TEXT), (BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT)):
                     with self.subTest(language=language, hint=hint_id):
                         translated = translate(text)
                         label = translate("Больше не показывать")
@@ -82,6 +114,10 @@ class TutorialTests(unittest.TestCase):
                 pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE),
             ]), mock.patch.object(profile_manager, "mark_tutorial_seen") as mark:
                 self.assertIsNone(page.handle_input())
+                self.assertTrue(page.tutorial_hint.pressing)
+                mark.assert_not_called()
+                page.tutorial_hint.press_until = 0
+                self.assertIsNone(page.handle_input())
                 mark.assert_called_once_with(1, FIRST_HINT_ID)
                 self.assertIsNone(page.tutorial_hint)
         finally:
@@ -89,6 +125,7 @@ class TutorialTests(unittest.TestCase):
 
     def test_sell_hint_waits_for_penultimate_turn_in_any_round_or_level(self):
         page = GameplayPage.__new__(GameplayPage)
+        page.side_cards_top = []
         page.test_mode = False
         page.profile_slot = 1
         page.tutorial_hint = None
@@ -117,6 +154,16 @@ class TutorialTests(unittest.TestCase):
             page._maybe_show_sell_tutorial()
             hint.assert_not_called()
             page._is_hand_transition_active.return_value = False
+            page.side_cards_top = [None, 110, None]
+            with mock.patch.object(profile_manager, "mark_tutorial_seen") as mark:
+                page._maybe_show_sell_tutorial()
+                hint.assert_not_called()
+                mark.assert_not_called()
+            self.assertNotIn(SELL_HINT_ID, page.tutorial_dismissed_this_round)
+            # Only a played Rebate suppresses the reminder; removal restores it.
+            page.side_cards_top = [None, 116, None]
+            page.hand_cards = [110]
+            page.deck = [110]
             page._maybe_show_sell_tutorial()
             hint.assert_called_once()
             self.assertEqual(hint.call_args.kwargs["hint_id"], SELL_HINT_ID)
@@ -204,9 +251,31 @@ class TutorialTests(unittest.TestCase):
                     pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN),
                 ]), mock.patch.object(profile_manager, "mark_tutorial_seen") as mark:
                     page.handle_input()
+                    self.assertTrue(page.tutorial_hint.pressing)
+                    page.tutorial_hint.press_until = 0
+                    page.handle_input()
                     self.assertEqual(mark.call_count, int(checked))
                     self.assertIn(SELL_HINT_ID, page.tutorial_dismissed_this_round)
                     page._save_active_game.assert_called_once()
                 self.assertFalse(TutorialHint((1680, 1050), None, None).has_checkbox)
         finally:
             pygame.quit()
+
+    def test_ok_press_is_visible_before_close_and_plays_sound_once(self):
+        pygame.font.init()
+        try:
+            hint = TutorialHint((1680, 1050), None, None)
+            sound = mock.Mock()
+            with mock.patch.object(pygame.time, "get_ticks", return_value=100):
+                hint.start_press(sound)
+                hint.start_press(sound)
+                self.assertFalse(hint.ready_to_close())
+                hint.draw(pygame.Surface((1680, 1050)))
+                self.assertEqual(hint.press_until, 210)
+                self.assertFalse(hint.ready_to_close())
+            with mock.patch.object(pygame.time, "get_ticks", return_value=210):
+                self.assertTrue(hint.ready_to_close())
+            sound.play.assert_called_once()
+            self.assertLess(hint.pressed_image.get_width(), hint.ok_image.get_width())
+        finally:
+            pygame.font.quit()

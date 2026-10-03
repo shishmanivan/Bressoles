@@ -21,3 +21,6 @@ output/
 
 # Codex local attachments
 .codex-remote-attachments/
+
+# Local archive of unused project assets
+/gitignore/

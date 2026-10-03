@@ -1,11 +1,13 @@
 """Empire language picker. Region contours use the reference map's 1254px grid."""
 import pygame
 from adaptive_ui import cover_geometry
+from translation_notice import TranslationNotice, NOTICES
 from start_page import MASTER_BACKGROUND_PATH, MENU_FONT_PATH
+from sound_assets import load_card_hover_sound, play_action_click
 
 MAP_PATH = 'UI/Languages Map.png'
 COMPASS_PATH = 'UI/Languages Compass.png'
-EMPIRE_NAMES = {'ENG': 'British Empire', 'DE': 'Deutsches Reich', 'RU': 'Российская империя', 'HU': 'Osztrák–Magyar Monarchia'}
+EMPIRE_NAMES = {'ENG': 'British Empire', 'FR': 'République française', 'DE': 'Deutsches Reich', 'RU': 'Российская империя', 'HU': 'Osztrák–Magyar Monarchia'}
 MAP_SHIFT_X = 216
 # Only render the framed map; the surrounding parchment belongs to the master.
 MAP_FRAME = pygame.Rect(584, 18, 912, 896)
@@ -35,8 +37,24 @@ AUSTRIA_HUNGARY_OUTLINE = [
     (1005,638),(1012,633),(1025,634),(1036,623),(1043,620),(1040,613),
     (1050,607),(1040,604),(1029,605),(1034,595),(1030,590),
 ]
+# Mainland France and Corsica, traced in native artwork coordinates.
+FRANCE_OUTLINES = [
+    [(774,581),(787,579),(799,581),(799,586),(816,585),(820,571),
+     (833,569),(834,580),(846,576),(855,579),(863,578),(873,570),
+     (879,572),(886,568),(896,573),(909,565),(921,581),(934,581),
+     (944,589),(947,600),(951,612),(946,627),(940,634),(943,641),
+     (937,648),(935,658),(926,664),(920,663),(918,674),(916,680),
+     (923,689),(914,696),(914,710),(902,713),(895,709),(888,713),
+     (879,719),(873,733),(861,730),(849,720),(837,718),(826,711),
+     (816,704),(805,704),(804,693),(805,679),(805,669),(810,652),
+     (809,641),(816,637),(812,629),(815,621),(809,618),(800,614),
+     (798,605),(787,605),(783,598),(774,593)],
+    [(977,730),(978,741),(976,750),(972,760),(968,755),
+     (967,745),(970,736),(973,738)],
+]
 # Traced coastlines and borders; the Russian region includes Finland and Poland.
 REGIONS = {
+    'FR': [],
     'HU': [],
     'ENG': [
         [(268,735),(290,721),(318,713),(329,697),(302,690),(293,680),(310,665),(324,652),(329,629),(317,612),(329,587),(320,571),(339,550),(344,530),(357,516),(388,521),(381,539),(365,559),(380,575),(378,599),(386,622),(390,649),(405,673),(420,681),(418,699),(403,712),(405,730),(375,739),(350,729),(328,738),(311,730),(289,739)],
@@ -76,6 +94,9 @@ class LanguagesPage:
         self.art = pygame.image.load(MAP_PATH).convert()
         self.compass = pygame.image.load(COMPASS_PATH).convert_alpha()
         self.hovered = None
+        self.hover_sound = load_card_hover_sound()
+        self._hover_target = None
+        self.notice = None
         self.focus = None
         self._size = None
         self.masks = {}
@@ -85,6 +106,9 @@ class LanguagesPage:
             for polygon in polygons:
                 points = [(round(355 + MAP_SHIFT_X + x * .749), round(y * .742)) for x, y in polygon]
                 pygame.draw.polygon(overlay, (47, 29, 12, 90), points)
+            if code == 'FR':
+                for polygon in FRANCE_OUTLINES:
+                    pygame.draw.polygon(overlay, (47, 29, 12, 90), polygon)
             if code == 'HU':
                 pygame.draw.polygon(overlay, (47, 29, 12, 90), AUSTRIA_HUNGARY_OUTLINE)
             if code == 'RU':
@@ -113,7 +137,7 @@ class LanguagesPage:
         self.scaled_compass = pygame.transform.smoothscale(self.compass, compass_size)
         self.compass_rect = self.scaled_compass.get_rect(center=(
             self.map_rect.left + round(280 * scale),
-            self.map_rect.top + round(615 * scale),
+            self.map_rect.top + round(700 * scale),
         ))
         self.scaled_art = pygame.transform.smoothscale(self.art, self.map_rect.size)
         self.scaled_overlays = {k: pygame.transform.smoothscale(v, self.map_rect.size) for k,v in self.overlays.items()}
@@ -150,6 +174,13 @@ class LanguagesPage:
                 return code
         return None
 
+    def _set_hover_target(self, target):
+        previous = getattr(self, '_hover_target', None)
+        self._hover_target = target
+        sound = getattr(self, 'hover_sound', None)
+        if target is not None and target != previous and sound is not None:
+            sound.play()
+
     def handle_input(self):
         self._layout()
         for event in pygame.event.get():
@@ -161,14 +192,19 @@ class LanguagesPage:
             if event.type == pygame.MOUSEMOTION:
                 self.focus = None
                 self.hovered = self.region_at(event.pos)
+                target = "back" if self.back_rect.collidepoint(event.pos) else self.hovered
+                self._set_hover_target(target)
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.back_rect.collidepoint(event.pos):
+                    play_action_click()
                     return 'back'
                 code = self.region_at(event.pos)
                 if code:
+                    play_action_click()
                     return code
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    play_action_click()
                     return 'back'
                 if event.key in (pygame.K_TAB, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
                     codes = tuple(EMPIRE_NAMES)
@@ -176,7 +212,9 @@ class LanguagesPage:
                     index = codes.index(self.focus) if self.focus in codes else (-1 if direction > 0 else 0)
                     self.focus = codes[(index + direction) % len(codes)]
                     self.hovered = self.focus
+                    self._set_hover_target(self.focus)
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.focus:
+                    play_action_click()
                     return self.focus
         return None
 
@@ -200,12 +238,37 @@ class LanguagesPage:
         pygame.draw.rect(self.screen, (220,197,153), self.back_rect, border_radius=5)
         label = self.font.render(self.lang.get('SettingsBack','Назад'), True, (57,39,24))
         self.screen.blit(label, label.get_rect(center=self.back_rect.center))
+        if self.notice is not None:
+            self.notice.screen = self.screen
+            self.notice.draw()
         pygame.display.flip()
 
     def run(self):
         while True:
-            result = self.handle_input()
-            if result:
-                return result
+            if self.notice is not None:
+                decision = self.notice.poll_decision()
+                if decision == 'accept':
+                    return self.notice.language
+                if decision == 'decline':
+                    self.notice = None
+                    self.draw()
+                    self.clock.tick(60)
+                    continue
+                for event in pygame.event.get():
+                    decision = self.notice.handle_event(event)
+                    self.screen = self.notice.screen
+                    if decision == 'quit':
+                        return 'quit'
+                    if decision == 'accept':
+                        return self.notice.language
+                    if decision == 'decline':
+                        self.notice = None
+                        break
+            else:
+                result = self.handle_input()
+                if result in NOTICES:
+                    self.notice = TranslationNotice(self.screen, result)
+                elif result:
+                    return result
             self.draw()
             self.clock.tick(60)

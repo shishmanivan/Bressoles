@@ -689,7 +689,7 @@ class GameScreen:
         rect = self.balance_rollback_rect
         pygame.draw.rect(self.screen, (239, 224, 187) if level is not None else (174, 167, 150), rect, border_radius=7)
         pygame.draw.rect(self.screen, PAPER_COLOR, rect, width=2, border_radius=7)
-        text = self.balance_font.render(label, True, PAPER_COLOR)
+        text = self.balance_font.render(_tr(label), True, PAPER_COLOR)
         self.screen.blit(text, text.get_rect(center=rect.center))
 
     def _start_page_animation(self, target):

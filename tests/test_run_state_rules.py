@@ -475,6 +475,17 @@ class RewardLifecycleRulesTests(GameStateTestCase):
         self.assertNotIn(112, hand)
         self.assertIn(112, remaining)
 
+    def test_fulton_always_awards_the_one_turn_drop_card(self):
+        gameplay = mock.Mock()
+        gameplay.level_number = 2
+        gameplay.last_earned_cards = []
+        game_state.earned_reward_cards = {}
+
+        apply_boss_reward("DropCard", gameplay)
+
+        self.assertEqual(game_state.earned_reward_cards, {2: [15]})
+        self.assertEqual(gameplay.last_earned_cards, [15])
+
     def test_boss_silver_reward_stays_out_of_the_level_deck(self):
         gameplay = mock.Mock()
         gameplay.level_number = 3

@@ -131,3 +131,65 @@ Hungarian validation result: 33 focused tests passed. Full suite: 728 tests,
 727 passed; the pre-existing end_button_press_until initialization error remains
 in test_bot_turn_finishes_before_market_resolution_starts. No new failures.
 Menu, shop and highlighted empire picker were rendered and visually checked.
+
+## French / République française (2026-10-01)
+
+Added FR as the fifth selectable and saved language. The native plaque title is
+République française. Hovering its plaque, mainland France or Corsica uses the
+same dark overlay as the other countries; clicking selects French. The compass
+was moved down to clear the fifth plaque. Map artwork is unchanged.
+
+French covers 198 keyed entries and 414 runtime catalog entries, including current
+settings, card effects, boss rules, rewards, errors and dynamic messages. Display
+names of cards and shop offers are translated without changing their internal IDs.
+Terminology: tour = turn, manche = round, partie = run, liquidités = cash,
+objectif = goal, napoléons d’or = Napoleondors. Address uses vous. Long shop labels
+fit their available width. Two debug rollback labels now use the shared translator.
+
+GameplayPage/End Turn FR.png was generated with imagegen from the English button:
+replace End Turn with Fin du tour, preserving the ornate frame, parchment palette,
+antique serif lettering and transparent background. Other interface buttons use
+the French catalog. Text baked into existing card illustrations and map labels
+remains part of the original images; those illustrations were not redrawn.
+
+Validation: 78 focused tests passed, including all five languages, French catalog
+coverage and placeholders, saved selection, card/offer names, accent glyphs,
+button cache separation, map hit regions and three viewport sizes. The 14 main-flow
+tests pass when run separately. Visual previews in output/french cover the language
+picker, menu, settings, shop, gameplay and pause menu.
+
+The initial full run executed 856 tests. Five French-specific assertions expected
+English card names or English percentage spacing; corrected assertions pass in the
+focused run. Remaining full-suite issues: level-5 reward expectations omit card 304
+for every locale; deferred end_button_press_until initialization; and cached sounds
+accessed after the mixer shuts down in the combined main-flow run. No unrelated
+production changes were made to address those issues. Full-run log: output/french/tests.log;
+final focused results: output/french/focused-tests.log and main-flow-tests.log.
+
+## Electric translator notice (2026-10-01)
+
+Selecting DE, HU or FR now opens TranslationNotice before LanguagesPage.run returns
+that locale to Main. Only OK permits saving/switching. Decline or Escape dismisses
+the modal and retains the prior language. The notice uses the target language
+without changing global localization. RU and ENG remain direct selections.
+Every selection of DE/HU/FR shows the notice, including reselecting the same locale.
+Mouse, keyboard focus, Enter/Space, Escape, window close and resize are handled.
+UI/Translator.png appears above the two paragraphs.
+
+Electric (not electronic) is preserved as machine électrique, elektrische Maschine,
+and elektromos gép. Formal phrasing and the deliberately elevated philological
+sense of beauty retain the mock nineteenth-century tone. Comic effect naturally
+varies by reader; no native-speaker review has been performed.
+
+UI/Ornate Button Blank.png was produced with the built-in imagegen tool, using
+GameplayPage/End Turn FR.png as the reference. Prompt: remove only Fin du tour,
+fill the lettering area with matching parchment; preserve ornate gold/ivory frame,
+flourishes, horizontal rules, proportions and palette; blank center and genuine
+transparency outside. Runtime labels provide reusable OK and localized decline
+buttons (Renoncer, Verzichten, Elutasítás). The alpha mask's largest opaque component
+provides the frame bounds, excluding stray transparent-margin pixels.
+
+Validation: 25 focused notice/localization tests passed; the three notice tests were
+rerun successfully after frame crop and text-size refinement. Includes acceptance,
+refusal, unchanged locale before acceptance, RU/ENG bypass, mouse/keyboard controls,
+and fitting all three texts at four viewport sizes. Previews: output/french/notice-*.png.

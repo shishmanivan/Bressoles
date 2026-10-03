@@ -101,8 +101,8 @@ class EfficiencyTests(unittest.TestCase):
         for language in localization.SUPPORTED_LANGUAGES:
             catalog, _, _ = localization._catalog(language)
             translated = catalog[description]
-            self.assertIn("4%", translated)
-            self.assertIn("2%", translated)
-            self.assertIn("Rebate", translated)
+            self.assertRegex(translated, r"4\s*%")
+            self.assertRegex(translated, r"2\s*%")
+            self.assertIn("Prime de cession" if language == "FR" else "Rebate", translated)
             if language != "RU":
                 self.assertNotEqual(translated, description)

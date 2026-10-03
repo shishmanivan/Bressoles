@@ -55,7 +55,7 @@ class LanguageParityTests(unittest.TestCase):
                     if not isinstance(parents.get(node), (ast.JoinedStr, ast.Expr)):
                         text = node.value
                 if text and CYRILLIC.search(text):
-                    for code in ('ENG', 'DE', 'HU'):
+                    for code in ('ENG', 'DE', 'HU', 'FR'):
                         set_language(code)
                         with self.subTest(file=path.name, line=node.lineno, language=code):
                             self.assertNotRegex(translate(text), CYRILLIC)
@@ -75,7 +75,7 @@ class LanguageParityTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'missing DE translation'):
                 load_language('DE')
         with self.assertRaises(ValueError):
-            load_language('FR')
+            load_language('XX')
     def test_long_reward_layout_and_boss_popups_in_every_locale(self):
         import os
         os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')

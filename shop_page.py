@@ -111,6 +111,7 @@ CARD_DESCRIPTIONS = {
     221: "Никто не знает, что эта карта делает.",
     438: "Никто не знает, что эта карта делает.",
     439: "Даёт по 2$ за каждую сыгранную карту Shareholder",
+    440: "Все акции растут и падают на 4 доллара.",
     437: "Начисляет 20% на остаток наличных денег.",
     205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
     118: "Устанавливает цены всех акций на 10.",
@@ -258,6 +259,7 @@ CARD_NAMES.update(
         437: "Cash Yield",
         438: "25%",
         439: "Shareholder Value",
+        440: "Standardization",
     }
 )
 
@@ -444,10 +446,13 @@ class ShopPage:
         cached = self._offer_label_surface_cache.get(cache_key)
         if cached is not None:
             return cached
-        for size in range(30, 17, -2):
+        for size in range(30, 11, -2):
             font = self.small_font if size == 30 else pygame.font.Font(self.font_path, size)
             surface = font.render(_tr(str(text)), True, PAPER_COLOR)
-            if surface.get_width() <= max_width or size == 18:
+            if size == 12 and surface.get_width() > max_width:
+                ratio = max_width / surface.get_width()
+                surface = pygame.transform.smoothscale(surface, (max(1, int(max_width)), max(1, round(surface.get_height() * ratio))))
+            if surface.get_width() <= max_width or size == 12:
                 self._offer_label_surface_cache[cache_key] = surface
                 return surface
 

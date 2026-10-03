@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 
-SUPPORTED_LANGUAGES = ('RU', 'ENG', 'DE', 'HU')
+SUPPORTED_LANGUAGES = ('RU', 'ENG', 'DE', 'HU', 'FR')
 _active_language = 'RU'
 
 

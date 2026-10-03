@@ -7,7 +7,7 @@ from app_settings import (RESOLUTIONS, load_settings, save_settings,
 from display_runtime import apply_display_settings
 from localization import translate as tr, get_language
 from game_data import load_language
-from sound_assets import set_effects_volume, play_action_click
+from sound_assets import load_card_hover_sound, set_effects_volume, play_action_click
 from start_page import MASTER_BACKGROUND_PATH, MENU_FONT_PATH
 
 INK = (77, 63, 50)
@@ -21,6 +21,7 @@ class SettingsPage:
                  music_volume=1.0, on_volume_change=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
+        self.menu_sound = load_card_hover_sound()
         self.lang = lang_dict or load_language(get_language())
         russian = load_language("RU")
         self.text_keys = {value: key for key, value in russian.items()}
@@ -202,7 +203,13 @@ class SettingsPage:
         self.video_previewed = False
         return 'back'
 
+    def _play_menu_sound(self):
+        sound = getattr(self, 'menu_sound', None)
+        if sound is not None:
+            sound.play()
+
     def _activate(self, name):
+        self._play_menu_sound()
         if name == 'test_mode':
             return 'test_mode' if self._cancel() else None
         if name == 'back':
@@ -259,6 +266,7 @@ class SettingsPage:
                     for index, resolution in enumerate(RESOLUTIONS):
                         row = pygame.Rect(316, 372+index*44, 230, 44)
                         if row.collidepoint(pos):
+                            self._play_menu_sound()
                             self.values['resolution'] = resolution
                             self._preview_video()
                             break

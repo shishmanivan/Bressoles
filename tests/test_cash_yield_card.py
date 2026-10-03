@@ -83,6 +83,6 @@ class CashYieldTests(unittest.TestCase):
         self.assertEqual(CARD_TOOLTIPS[437], ("Cash Yield", description))
         for language in localization.SUPPORTED_LANGUAGES:
             catalog, _, _ = localization._catalog(language)
-            self.assertIn("20%", catalog[description])
+            self.assertRegex(catalog[description], r"20\s*%")
             if language != "RU":
                 self.assertNotEqual(catalog[description], description)

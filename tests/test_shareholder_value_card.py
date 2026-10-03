@@ -74,6 +74,6 @@ class ShareholderValueTests(unittest.TestCase):
         self.assertEqual(CARD_TOOLTIPS[439], ("Shareholder Value", description))
         for language in localization.SUPPORTED_LANGUAGES:
             catalog, _, _ = localization._catalog(language)
-            self.assertIn("Shareholder", catalog[description])
+            self.assertIn("Actionnaire" if language == "FR" else "Shareholder", catalog[description])
             if language != "RU":
                 self.assertNotEqual(catalog[description], description)

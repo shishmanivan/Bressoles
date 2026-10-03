@@ -114,6 +114,14 @@ class SettingsPageTests(unittest.TestCase):
         self.assertTrue(page.values['fullscreen'])
         save.assert_not_called()
 
+    def test_settings_button_uses_soft_card_sound(self):
+        page = self.page()
+        page.menu_sound = Mock()
+
+        page._activate('info')
+
+        page.menu_sound.play.assert_called_once_with()
+
     def test_window_mode_and_escape_restore_original_display(self):
         page = self.page()
         original = dict(page.original_display)
