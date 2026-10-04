@@ -6,6 +6,10 @@ import sys
 import pygame
 
 import game_state
+import profile_manager
+from asset_loaders import load_scaled_image
+from sound_assets import load_button_sound
+from gameplay_tutorial import GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT, TutorialHint
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from gameplay_card_rendering import (
     draw_bear_modifier_text,
@@ -111,7 +115,7 @@ CARD_DESCRIPTIONS = {
     221: "Никто не знает, что эта карта делает.",
     438: "Никто не знает, что эта карта делает.",
     439: "Даёт по 2$ за каждую сыгранную карту Shareholder",
-    440: "Все акции растут и падают на 4 доллара.",
+    440: "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
     437: "Начисляет 20% на остаток наличных денег.",
     205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
     118: "Устанавливает цены всех акций на 10.",
@@ -127,6 +131,8 @@ CARD_DESCRIPTIONS = {
     20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
     21: "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
     22: "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке.",
+    23: "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
+    24: "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
@@ -182,6 +188,8 @@ CARD_NAMES = {
     20: "Regulation",
     21: "Regulation",
     22: "Blue Chips",
+    23: "Copy Left",
+    24: "Copy Right",
     117: "Крах",
     401: "Медведь",
     402: "Форвардная торговля",
@@ -328,8 +336,11 @@ class ShopPage:
         defeated_count=0,
         bosses_required=None,
         rounds_remaining=None,
+        profile_slot=None,
     ):
         self.screen = screen
+        self.profile_slot = profile_slot
+        self.tutorial_hint = None
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.level_number = int(level_number or 1)
@@ -343,12 +354,17 @@ class ShopPage:
         self.lang_dict = lang_dict or {}
         self.napoleondors = float(napoleondors or 0)
         self.discount_percent = max(0, min(100, int(discount_percent or 0)))
+        self.first_level3_shop = bool(
+            self.level_number == 3 and profile_slot
+            and not profile_manager.load_profile(profile_slot).get("level3_shop_visited", False)
+        )
         self.offers = game_state.generate_shop_offers(
             level_number=self.level_number,
             discount_percent=self.discount_percent,
             defeated_count=self.defeated_count,
             bosses_required=self.bosses_required,
             rounds_remaining=self.rounds_remaining,
+            guarantee_gold=self.first_level3_shop,
         )
         if stats_enabled:
             record_card_offers(self.offers)
@@ -1130,14 +1146,34 @@ class ShopPage:
         pygame.draw.rect(self.screen, PAPER_COLOR, self.button_rect, 3, border_radius=8)
         self._draw_centered_text("Дальше", self.button_font, self.button_rect.center)
 
+        if getattr(self, "tutorial_hint", None) is not None:
+            self.tutorial_hint.draw(self.screen)
         pygame.display.flip()
 
     def run(self):
+        if self.first_level3_shop and profile_manager.is_tutorial_pending(self.profile_slot, GOLD_SHOP_HINT_ID):
+            frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), frame, self.font_path,
+                hint_id=GOLD_SHOP_HINT_ID, text=GOLD_SHOP_HINT_TEXT,
+            )
+        visit_recorded = not self.first_level3_shop
         while True:
+            closing_hint = self.tutorial_hint is not None and self.tutorial_hint.ready_to_close()
+            if closing_hint:
+                if self.tutorial_hint.dont_show_again:
+                    profile_manager.mark_tutorial_seen(self.profile_slot, GOLD_SHOP_HINT_ID)
+                self.tutorial_hint = None
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if closing_hint:
+                    continue
+                if self.tutorial_hint is not None:
+                    if self.tutorial_hint.accepts(event):
+                        self.tutorial_hint.start_press(load_button_sound())
+                    continue
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                         return "next"
@@ -1151,6 +1187,11 @@ class ShopPage:
                         self._buy_offer(offer_index)
 
             self.draw()
+            if not visit_recorded:
+                profile = profile_manager.load_profile(self.profile_slot)
+                profile["level3_shop_visited"] = True
+                profile_manager.save_profile(profile)
+                visit_recorded = True
             self.clock.tick(FPS)
 
 

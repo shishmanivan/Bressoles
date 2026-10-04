@@ -6,6 +6,10 @@ import sys
 import pygame
 
 import game_state
+import profile_manager
+from asset_loaders import load_scaled_image
+from gameplay_tutorial import STORAGE_HINT_ID, STORAGE_HINT_TEXT, TutorialHint
+from sound_assets import load_button_sound
 from card_catalog import MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 from gameplay_card_rendering import (
@@ -298,7 +302,7 @@ CARD_TOOLTIPS.update(
         ),
         440: (
             "Standardization",
-            "Все акции растут и падают на 4 доллара.",
+            "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
         ),
         438: (
             "25%",
@@ -340,8 +344,11 @@ class SilverBlackPage:
         is_boss_fight=False,
         round_number=None,
         lang_dict=None,
+        profile_slot=None,
     ):
         self.screen = screen
+        self.profile_slot = profile_slot
+        self.tutorial_hint = None
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.silver_cards = list(silver_cards or [])[:CARD_ROW_SLOTS]
@@ -887,15 +894,29 @@ class SilverBlackPage:
             self._draw_card(self.drag_card_id, pygame.Rect(draw_x, draw_y, self.card_width, self.card_height))
 
         self._draw_card_tooltip()
+        if getattr(self, "tutorial_hint", None) is not None:
+            self.tutorial_hint.draw(self.screen)
         pygame.display.flip()
 
     def run(self):
+        self._prepare_tutorial()
         pending_start = None
         while True:
+            closing_hint = self.tutorial_hint is not None and self.tutorial_hint.ready_to_close()
+            if closing_hint:
+                if self.tutorial_hint.dont_show_again:
+                    profile_manager.mark_tutorial_seen(self.profile_slot, STORAGE_HINT_ID)
+                self.tutorial_hint = None
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if closing_hint:
+                    continue
+                if self.tutorial_hint is not None:
+                    if self.tutorial_hint.accepts(event):
+                        self.tutorial_hint.start_press(load_button_sound())
+                    continue
                 if pending_start is not None:
                     continue
                 if event.type == pygame.KEYDOWN:
@@ -922,6 +943,14 @@ class SilverBlackPage:
             if pending_start is not None and pygame.time.get_ticks() >= self.start_press_until:
                 return pending_start
             self.clock.tick(FPS)
+
+    def _prepare_tutorial(self):
+        if profile_manager.is_tutorial_pending(self.profile_slot, STORAGE_HINT_ID):
+            frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), frame, self.font_path,
+                hint_id=STORAGE_HINT_ID, text=STORAGE_HINT_TEXT,
+            )
 
 
 class PositioningPage(SilverBlackPage):

@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 from card_acquisition_stats import record_card_acquisitions
 
-from card_catalog import GOLDEN_STAKE_CARD_ID, PRICE_CARD_IDS, get_price_card_spec
+from card_catalog import GOLDEN_STAKE_CARD_ID, MARKET_COPY_CARD_IDS, MARKET_COPY_MIN_LEVEL, PRICE_CARD_IDS, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
 from level_routes import get_campaign_content_level
 
@@ -179,6 +179,8 @@ SHOP_CARD_COSTS = {
     20: 4,
     21: 6,
     22: 4,
+    23: 5,
+    24: 5,
     17: 10,
     18: 15,
     117: 7,
@@ -908,6 +910,8 @@ def add_shop_card_to_level(level_number, card_id):
     except (TypeError, ValueError):
         level = 0
     if level <= 0:
+        return None
+    if normalized in MARKET_COPY_CARD_IDS and level < MARKET_COPY_MIN_LEVEL:
         return None
     shop_deck_cards.append(normalized)
     print(f"Bought shop card {normalized}; persistent shop deck={shop_deck_cards}")
@@ -2854,6 +2858,13 @@ def build_shop_card_offer_pool(level_number=1):
         if card_id not in bought_cards and random.randint(1, 100) <= boosted_chance:
             pool.append(card_id)
 
+    if level >= MARKET_COPY_MIN_LEVEL:
+        config = load_cards_config() or {}
+        for card_id in sorted(MARKET_COPY_CARD_IDS):
+            chance = int(config.get(card_id, {}).get("Variable", 10))
+            if card_id not in bought_cards and random.randint(1, 100) <= get_rare_card_pool_chance(chance):
+                pool.append(card_id)
+
     for card_id in build_gold_cards_pool(level):
         if card_id not in bought_cards and card_id not in pool:
             pool.append(card_id)
@@ -2871,6 +2882,8 @@ def build_all_available_shop_cards(level_number=1):
 
     bought_cards = get_bought_shop_card_ids()
     cards = [17, 18, 20, 21, 22, 117]
+    if level >= MARKET_COPY_MIN_LEVEL:
+        cards.extend(sorted(MARKET_COPY_CARD_IDS))
     cfg = load_cards_config() or {}
     for card_id, row in cfg.items():
         try:
@@ -3299,6 +3312,7 @@ def generate_shop_offers(
     defeated_count=None,
     bosses_required=None,
     rounds_remaining=None,
+    guarantee_gold=False,
 ):
     global correction_shop_cooldown
     try:
@@ -3319,6 +3333,14 @@ def generate_shop_offers(
 
     card_offers = []
     selected_card_ids = random.sample(card_pool, min(card_slots, len(card_pool)))
+    if guarantee_gold and level == 3 and card_slots > 0 and not any(is_gold_card(card) for card in selected_card_ids):
+        gold_pool = [card for card in build_all_available_shop_cards(level) if is_gold_card(card)]
+        if gold_pool:
+            gold = random.choice(gold_pool)
+            if selected_card_ids:
+                selected_card_ids[0] = gold
+            else:
+                selected_card_ids.append(gold)
     for card_id in selected_card_ids:
         normalized = int(card_id)
         card_offers.append({"kind": "card", "card_id": normalized, "cost": SHOP_CARD_COSTS.get(normalized, 1)})

@@ -23,6 +23,8 @@ from boss_logic import (
 from card_catalog import (
     BID_CARD_VALUES,
     BLUE_CHIPS_CARD_ID,
+    MARKET_COPY_OFFSETS,
+    MARKET_COPY_CARD_IDS,
     CATALYST_PERCENTAGE_POINTS,
     GOLD_CATALYST_PERCENTAGE_POINTS,
     GOLD_DISCLOSURE_PERCENTAGE_POINTS,
@@ -41,7 +43,6 @@ from card_catalog import (
     GOLD_SHAREHOLDER_VALUE_CARD_ID,
     GOLD_SHAREHOLDER_VALUE_REWARD,
     GOLD_STANDARDIZATION_CARD_ID,
-    GOLD_STANDARDIZATION_STEP,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -183,6 +184,8 @@ FIELD_CARD_TOOLTIPS = {
     20: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 2 ходов."),
     21: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 3 ходов."),
     22: ("Blue Chips", "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке."),
+    23: ("Copy Left", "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5."),
+    24: ("Copy Right", "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5."),
     100: ("Shareholder", "Это бесполезная карта. Она ничего не делает и только занимает место."),
     110: ("Rebate", "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости."),
     111: ("Deleverage", "Удаляет все карты, выложенные на трёх рынках."),
@@ -224,6 +227,98 @@ DISCLOSURE_CARD_TOOLTIPS = {
 
 
 class GameplayPage:
+    def _apply_market_copy_card(self, card_id, market, slot):
+        """Commit a one-shot snapshot as soon as a copy card leaves the hand."""
+        offset = MARKET_COPY_OFFSETS.get(card_id)
+        if offset is None or market + offset not in (0, 1, 2):
+            return False
+        if self.market_cards_locked[market].get(slot):
+            return False
+        source = market + offset
+        probabilities = self._stock_bot_probabilities()[source]
+        snapshots = getattr(self, "market_copy_snapshots", {}).copy()
+        snapshots[market] = {
+            "probabilities": dict(probabilities),
+            "through_slot": slot,
+            "shakeout_count": self._get_shakeout_count() if market in self._get_shakeout_markets() else 0,
+        }
+        self.market_copy_snapshots = snapshots
+        # Immediate effects cannot be undone/replayed by dragging back to hand.
+        self.market_cards_locked[market][slot] = True
+        if getattr(self, "boss_limit_red_gain_drop_per_turn", False):
+            self.accumulation_stephenson_card_played_this_turn = True
+        turn_state = getattr(self, "market_copy_turn_state", {})
+        self.c_price_fell_this_resolution = bool(turn_state.get("c_fell", False))
+        self.short_seller_counted_markets_this_resolution = set(turn_state.get("short_seller_markets", []))
+        prices = (self.Aprice, self.BPrice, self.CPrice)
+        self._apply_price_change(market, prices[source] - prices[market])
+        self.market_copy_turn_state = {
+            "plays": turn_state.get("plays", 0) + 1,
+            "c_fell": self.c_price_fell_this_resolution,
+            "short_seller_markets": sorted(self.short_seller_counted_markets_this_resolution),
+        }
+        self._start_card_jump_animation(self.card_jump_animations[market], slot)
+        return True
+
+    def _restore_market_copy_state(self, state):
+        self.market_copy_turn_state = dict(state.get("market_copy_turn_state") or {})
+        self.market_copy_snapshots = {
+            int(market): {
+                "probabilities": dict(snapshot["probabilities"]),
+                "through_slot": int(snapshot.get("through_slot", -1)),
+                "shakeout_count": int(snapshot.get("shakeout_count", 0)),
+            }
+            for market, snapshot in (state.get("market_copy_snapshots") or {}).items()
+            if str(market) in ("0", "1", "2")
+        }
+
+    def _is_standardization_active(self):
+        return GOLD_STANDARDIZATION_CARD_ID in getattr(self, "active_gold_cards", ())
+
+    def _apply_standardization_start(self, refresh=False):
+        """Take one independent snapshot at round start, before players act."""
+        if not self._is_standardization_active() or (
+            getattr(self, "standardization_probabilities", None) and not refresh
+        ):
+            return False
+        probabilities = self._stock_bot_probabilities()[0]
+        self.standardization_probabilities = {
+            market: dict(probabilities) for market in (1, 2)
+        }
+        self.BPrice = self.CPrice = self.Aprice
+        return True
+
+    def _apply_starting_market_effects(self):
+        """Resolve start-of-round price effects once, in visible slot order."""
+        if getattr(self, "_initial_saved_state", None) is not None or getattr(
+            self, "_starting_market_effects_applied", False
+        ):
+            return False
+        for card_id in self._active_lifecycle_cards():
+            if card_id == 421:
+                self._apply_issue_price_start()
+            elif card_id == GOLD_STANDARDIZATION_CARD_ID:
+                # Each equipped copy resolves at its own position in the row.
+                self._apply_standardization_start(refresh=True)
+        self._starting_market_effects_applied = True
+        return True
+
+    def _restore_standardization_state(self, state):
+        snapshot = state.get("standardization_probabilities")
+        self.standardization_probabilities = None
+        if self._is_standardization_active():
+            if isinstance(snapshot, dict):
+                self.standardization_probabilities = {
+                    int(market): dict(probabilities) for market, probabilities in snapshot.items()
+                }
+            else:
+                # Legacy saves have no snapshot; retain their prices and use
+                # the natural starting A distribution for future B/C rolls.
+                probabilities = build_market_probabilities()[0]
+                self.standardization_probabilities = {
+                    market: dict(probabilities) for market in (1, 2)
+                }
+
     def __init__(
         self,
         screen,
@@ -429,7 +524,6 @@ class GameplayPage:
         self.Aprice = 2
         self.BPrice = 2
         self.CPrice = 2
-        self._apply_issue_price_start()
 
         # Initialize step variables (price change steps)
         self.StepA = 2
@@ -782,6 +876,10 @@ class GameplayPage:
         # Cache for WinLose window reward card images
         self.winlose_card_images = {}
         self.winlose_scaled_card_images = {}
+        self.standardization_probabilities = None
+        self.market_copy_snapshots = {}
+        self.market_copy_turn_state = {}
+        self._apply_starting_market_effects()
         self._restore_saved_state(self._initial_saved_state)
         if not isinstance(self._initial_saved_state, dict) or "shareholder_blocked_market" not in self._initial_saved_state:
             self._roll_shareholder_market_shutdown()
@@ -1672,6 +1770,8 @@ class GameplayPage:
             double_fall_markets=self._get_shakeout_markets(),
             double_fall_bonus=self._get_probability_amplifier_bonus(),
             double_fall_count=self._get_shakeout_count(),
+            base_probabilities=getattr(self, "standardization_probabilities", None),
+            copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
 
     def _run_stock_bot_turn(self):
@@ -1816,6 +1916,9 @@ class GameplayPage:
 
     def _serialize_gameplay_state(self):
         return {
+            "market_copy_snapshots": getattr(self, "market_copy_snapshots", {}),
+            "market_copy_turn_state": getattr(self, "market_copy_turn_state", {}),
+            "standardization_probabilities": getattr(self, "standardization_probabilities", None),
             "tutorial_dismissed_this_round": sorted(getattr(self, "tutorial_dismissed_this_round", set())),
             "Goal": self.Goal,
             "Money": self.Money,
@@ -2057,6 +2160,12 @@ class GameplayPage:
             self.active_lifecycle_card_order = []
         else:
             game_state.set_active_gold_cards(self.active_gold_cards)
+        self._restore_standardization_state(state)
+        self._restore_market_copy_state(state)
+        if self._is_standardization_active():
+            # Rebuild steps instead of restoring the old card's fixed $4 effect.
+            self.StepA, self.StepB, self.StepC = 2, 4, 6
+            self._apply_volatility_steps()
         raw_waterloo_preview = state.get("waterloo_preview_movements")
         self.waterloo_preview_movements = (
             [dict(movement) for movement in raw_waterloo_preview if isinstance(movement, dict)]
@@ -2209,9 +2318,13 @@ class GameplayPage:
             game_state.is_gain_drop_card(normalized_card_id)
             or normalized_card_id in REGULATION_CARD_IDS
             or normalized_card_id == BLUE_CHIPS_CARD_ID
+            or normalized_card_id in MARKET_COPY_CARD_IDS
         )
 
-    def _can_play_dragged_hand_card_on_market(self, card_id):
+    def _can_play_dragged_hand_card_on_market(self, card_id, market=None):
+        if card_id in MARKET_COPY_OFFSETS and market is not None:
+            if market + MARKET_COPY_OFFSETS[card_id] not in (0, 1, 2):
+                return False
         return not self._is_gain_drop_play_limit_reached(card_id)
 
     def _can_play_dragged_hand_card_on_side_top(self, card_id):
@@ -2912,7 +3025,7 @@ class GameplayPage:
                                     if self.dragged_card_index < len(self.hand_cards):
                                         card_id = self.hand_cards[self.dragged_card_index]
                                         if card_id is not None:
-                                            if not self._can_play_dragged_hand_card_on_market(card_id):
+                                            if not self._can_play_dragged_hand_card_on_market(card_id, market):
                                                 continue
                                             self.market_cards[market][slot] = card_id
                                             # Remember original hand slot for this market card
@@ -2930,6 +3043,8 @@ class GameplayPage:
                                             self.hand_cards[self.dragged_card_index] = None
                                             # Mark pending draw for empty slot
                                             self.pending_draws += 1
+                                            if self._apply_market_copy_card(card_id, market, slot):
+                                                self._save_active_game()
                                             if self._apply_full_deployment_reward_if_needed():
                                                 self._save_active_game()
                                             dropped = True
@@ -2954,6 +3069,8 @@ class GameplayPage:
                                         continue
                                     card_id = self.market_cards[src_market].get(src_slot)
                                     if card_id is not None:
+                                        if card_id in MARKET_COPY_CARD_IDS:
+                                            continue
                                         self.market_cards[market][slot] = card_id
                                         self.market_cards[src_market][src_slot] = None
                                         # Move origin info along with the card
@@ -3476,10 +3593,6 @@ class GameplayPage:
         return True
 
     def _apply_volatility_steps(self):
-        # Standardization fixes the final market step, including with Volatility.
-        if self._count_active_card_safely(GOLD_STANDARDIZATION_CARD_ID):
-            self.StepA = self.StepB = self.StepC = GOLD_STANDARDIZATION_STEP
-            return 0
         volatility_count = self._count_active_card_safely(424)
         volatility_plus_count = self._count_active_card_safely(425)
         pair_count = min(volatility_count, volatility_plus_count)
@@ -3730,6 +3843,7 @@ class GameplayPage:
             for market, cards in getattr(self, "market_cards", {}).items()
             for slot, card_id in cards.items()
         )
+        played += getattr(self, "market_copy_turn_state", {}).get("plays", 0)
         side_locks = getattr(self, "side_cards_locked_top", {})
         played += sum(
             card_id is not None and not side_locks.get(slot)
@@ -4792,6 +4906,8 @@ class GameplayPage:
             double_fall_bonus=self._get_probability_amplifier_bonus() if shakeout_markets else 0,
             double_fall_count=self._get_shakeout_count(),
             random_rolls=random_rolls,
+            base_probabilities=getattr(self, "standardization_probabilities", None),
+            copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
         recorder = getattr(self, "market_roll_stats", None)
         if recorder is not None:
@@ -5129,7 +5245,6 @@ class GameplayPage:
         next_anim, current_animation = start_next_price_animation(self.price_animation_queue, now)
         if not next_anim:
             return False
-
         target_markets = next_anim["market"]
         if not isinstance(target_markets, (list, tuple, set)):
             target_markets = (target_markets,)
@@ -5232,9 +5347,11 @@ class GameplayPage:
         self.sideway_applied_this_resolution = False
         self.continuation_applied_this_resolution = False
         self.continuation_animation_phase = False
-        self.c_price_fell_this_resolution = False
+        self.c_price_fell_this_resolution = bool(getattr(self, "market_copy_turn_state", {}).get("c_fell", False))
         self.manipulation_applied_this_resolution = False
-        self.short_seller_counted_markets_this_resolution = set()
+        self.short_seller_counted_markets_this_resolution = set(
+            getattr(self, "market_copy_turn_state", {}).get("short_seller_markets", [])
+        )
         self._hold_hand_negative_overlays_until_next_turn()
         quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
         self.continuation_held_markets_this_turn = {
@@ -6051,6 +6168,7 @@ class GameplayPage:
     def _lock_market_cards(self):
         """Помечает все текущие карты на рынке как сыгранные и заблокированные до конца игры."""
         lock_market_cards(self.market_cards, self.market_cards_locked)
+        self.market_copy_turn_state = {}
         self.accumulation_stephenson_card_played_this_turn = False
 
     def _lock_side_cards(self):
@@ -6570,6 +6688,10 @@ class GameplayPage:
             self.market_card_turns[market].clear()
             self.market_card_actions[market].clear()
             self.card_jump_animations[market].clear()
+            snapshot = getattr(self, "market_copy_snapshots", {}).get(market)
+            if snapshot is not None:
+                # Keep the one-shot copy, but newly played slots apply normally.
+                snapshot["through_slot"] = -1
 
         self.price_card_queue = []
         self.current_card_processing = None
@@ -7110,7 +7232,11 @@ class GameplayPage:
             if rect.collidepoint(mouse_pos):
                 if not hasattr(self, "stock_description_font"):
                     self.stock_description_font = stock_tooltip_font(self.font_path)
-                draw_stock_tooltip(self.screen, market, mouse_pos, self.stock_description_font)
+                draw_stock_tooltip(
+                    self.screen, market, mouse_pos, self.stock_description_font,
+                    standardization=self._is_standardization_active(),
+                    copied=market in getattr(self, "market_copy_snapshots", {}),
+                )
                 if not self.test_mode and self.profile_slot and not getattr(self, "_stock_logo_discovered", False):
                     profile_manager.mark_tutorial_seen(self.profile_slot, LOGO_HINT_ID)
                     self._stock_logo_discovered = True
@@ -7181,16 +7307,7 @@ class GameplayPage:
     def _draw_market_probability_debug(self, market, x, y):
         if not game_state.is_disclosure_active():
             return
-        probs = build_market_probabilities(
-            self.market_cards,
-            probability_card_bonus=self._get_probability_card_bonus(),
-            force_flat=self._is_flat_random_active(),
-            force_flat_markets=self._get_regulation_flat_markets(),
-            prevent_fall_markets=self._get_blue_chip_markets(),
-            double_fall_markets=self._get_shakeout_markets(),
-            double_fall_bonus=self._get_probability_amplifier_bonus(),
-            double_fall_count=self._get_shakeout_count(),
-        ).get(market)
+        probs = self._stock_bot_probabilities().get(market)
         if not probs:
             return
 
@@ -7671,7 +7788,7 @@ class GameplayPage:
                         if (
                             self.dragged_card_source == "hand"
                             and dragged_hand_card_type != 2
-                            and self._can_play_dragged_hand_card_on_market(dragged_hand_card_id)
+                            and self._can_play_dragged_hand_card_on_market(dragged_hand_card_id, i)
                         ):
                             # find first free slot for this market
                             first_free = None

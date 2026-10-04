@@ -10,6 +10,20 @@ from shared_utils import wrap_text
 
 
 FIRST_HINT_ID = "stock_cards"
+STORAGE_HINT_ID = "card_storage"
+STORAGE_HINT_TEXT = (
+    "Это хранилище ваших карт. Здесь будут храниться серебряные, золотые и чёрные карты, "
+    "которые попадаются вам в игре. Перед началом раунда вы выкладываете карты. "
+    "Подбирайте комбинации, которые соответствуют вашему стилю игры. "
+    "Набор чёрных, золотых и серебряных карт можно будет менять в конце каждого раунда."
+)
+GOLD_SHOP_HINT_ID = "gold_shop"
+GOLD_SHOP_HINT_TEXT = (
+    "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. "
+    "Это как джокеры в балатро, если вы понимаете, о чём я.\n\n"
+    "Также вам теперь доступен раздел лицензий, где вы можете купить лицензию. "
+    "Купить лицензию значит сделать так, чтобы карта появлялась в игре."
+)
 LATE_END_TURN_HINT_ID = "late_end_turn"
 LATE_END_TURN_HINT_TEXT = (
     "Для того чтобы закончить ход, нажмите кнопку закончить ход. "
@@ -53,6 +67,8 @@ class TutorialHint:
         self.has_checkbox = hint_id != FIRST_HINT_ID
         self.dont_show_again = False
         self.panel = pygame.Rect(0, 0, 760, 470 if self.has_checkbox else 340)
+        if hint_id in (GOLD_SHOP_HINT_ID, STORAGE_HINT_ID):
+            self.panel.size = (900, 650)
         self.panel.center = (screen_size[0] // 2, screen_size[1] // 2)
         if placement == "right":
             self.panel.right = screen_size[0] - 60
@@ -61,7 +77,9 @@ class TutorialHint:
         if get_language() == "HU":
             font_path = str(Path(__file__).parent / "Fonts" / "OldStandard-Bold.ttf")
         self.font = pygame.font.Font(font_path, 32)
-        self.lines = wrap_text(translate(text), self.font, self.panel.width - 120)
+        self.lines = []
+        for paragraph in translate(text).split("\n"):
+            self.lines.extend(wrap_text(paragraph, self.font, self.panel.width - 120) if paragraph else [""])
         artwork = pygame.image.load(str(Path(__file__).parent / "UI" / "Ornate Button Blank.png"))
         bounds = max(pygame.mask.from_surface(artwork, 127).get_bounding_rects(),
                      key=lambda rect: rect.width * rect.height)

@@ -1,5 +1,45 @@
 [
   {
+    "Source": "Рынок один раз скопировал цену и вероятности соседнего рынка. Теперь он изменяется независимо; новые карты действуют на скопированные вероятности.",
+    "RU": "Рынок один раз скопировал цену и вероятности соседнего рынка. Теперь он изменяется независимо; новые карты действуют на скопированные вероятности.",
+    "ENG": "This market copied a neighboring market's price and probabilities once. It now changes independently; new cards modify the copied probabilities.",
+    "DE": "Dieser Markt hat den Kurs und die Wahrscheinlichkeiten eines Nachbarmarktes einmalig kopiert. Er entwickelt sich nun unabhängig; neue Karten verändern die kopierten Wahrscheinlichkeiten.",
+    "HU": "Ez a piac egyszer lemásolta a szomszédos piac árfolyamát és valószínűségeit. Most függetlenül változik; az új kártyák a másolt valószínűségeket módosítják.",
+    "FR": "Ce marché a copié une fois le cours et les probabilités d'un marché voisin. Il évolue désormais indépendamment ; les nouvelles cartes modifient les probabilités copiées."
+  },
+  {
+    "Source": "Copy Left",
+    "RU": "Копия слева",
+    "ENG": "Copy Left",
+    "DE": "Kopie von links",
+    "HU": "Másolás balról",
+    "FR": "Copie de gauche"
+  },
+  {
+    "Source": "Copy Right",
+    "RU": "Копия справа",
+    "ENG": "Copy Right",
+    "DE": "Kopie von rechts",
+    "HU": "Másolás jobbról",
+    "FR": "Copie de droite"
+  },
+  {
+    "Source": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
+    "RU": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
+    "ENG": "On placement, copies the left market's price and fall, rise and flat probabilities once. Play on B or C. Shop only, from level 5.",
+    "DE": "Kopiert beim Ausspielen einmalig den Kurs und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des linken Marktes. Auf B oder C spielbar. Nur im Laden ab Stufe 5.",
+    "HU": "Kijátszáskor egyszer lemásolja a bal oldali piac árfolyamát, valamint az esés, emelkedés és stagnálás valószínűségét. B vagy C piacra játszható. Csak a boltban, az 5. szinttől.",
+    "FR": "À la pose, copie une fois le cours et les probabilités de baisse, de hausse et de stabilité du marché de gauche. Se joue sur B ou C. En boutique uniquement, dès le niveau 5."
+  },
+  {
+    "Source": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
+    "RU": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
+    "ENG": "On placement, copies the right market's price and fall, rise and flat probabilities once. Play on A or B. Shop only, from level 5.",
+    "DE": "Kopiert beim Ausspielen einmalig den Kurs und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des rechten Marktes. Auf A oder B spielbar. Nur im Laden ab Stufe 5.",
+    "HU": "Kijátszáskor egyszer lemásolja a jobb oldali piac árfolyamát, valamint az esés, emelkedés és stagnálás valószínűségét. A vagy B piacra játszható. Csak a boltban, az 5. szinttől.",
+    "FR": "À la pose, copie une fois le cours et les probabilités de baisse, de hausse et de stabilité du marché de droite. Se joue sur A ou B. En boutique uniquement, dès le niveau 5."
+  },
+  {
     "Source": "Standardization",
     "RU": "Стандартизация",
     "ENG": "Standardization",
@@ -8,12 +48,12 @@
     "FR": "Standardisation"
   },
   {
-    "Source": "Все акции растут и падают на 4 доллара.",
-    "RU": "Все акции растут и падают на 4 доллара.",
-    "ENG": "All stocks rise and fall by $4.",
-    "DE": "Alle Aktien steigen und fallen um 4 Dollar.",
-    "HU": "Minden részvény árfolyama 4 dollárral emelkedik vagy esik.",
-    "FR": "Toutes les actions montent et baissent par paliers de 4 $."
+    "Source": "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
+    "RU": "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
+    "ENG": "At round start, markets B and C copy market A's price and probabilities once. Each market then changes independently.",
+    "DE": "Zu Rundenbeginn übernehmen die Märkte B und C einmalig den Kurs und die Wahrscheinlichkeiten von Markt A. Danach entwickelt sich jeder Markt unabhängig.",
+    "HU": "A kör elején a B és C piac egyszer lemásolja az A piac árfolyamát és valószínűségeit. Ezután mindegyik piac egymástól függetlenül változik.",
+    "FR": "Au début de la manche, les marchés B et C copient une seule fois le cours et les probabilités du marché A. Chaque marché évolue ensuite indépendamment."
   },
   {
     "Source": "Немного усиливает вероятность роста выбранной акции.",
@@ -3342,5 +3382,21 @@
     "DE": "Um deinen Zug zu beenden, drücke die Schaltfläche „Zug beenden“. Ja, dieser Tipp kommt spät, aber besser spät als nie.",
     "HU": "A kör befejezéséhez nyomd meg a kör befejezése gombot. Igen, ez a tipp megkésett, de jobb későn, mint soha.",
     "FR": "Pour terminer votre tour, appuyez sur le bouton de fin de tour. Oui, ce conseil arrive en retard, mais mieux vaut tard que jamais."
+  },
+  {
+    "Source": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
+    "RU": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
+    "ENG": "You can now buy gold cards. Gold cards remain active throughout the game. They are like Jokers in Balatro, if you know what I mean.\n\nThe licenses section is now available too, where you can buy a license. Buying a license makes a card available to appear in the game.",
+    "DE": "Du kannst jetzt goldene Karten kaufen. Goldene Karten wirken während des gesamten Spiels. Sie sind wie die Joker in Balatro, wenn du verstehst, was ich meine.\n\nAußerdem steht dir jetzt der Lizenzbereich zur Verfügung, in dem du eine Lizenz kaufen kannst. Mit einer Lizenz kann die entsprechende Karte im Spiel auftauchen.",
+    "HU": "Mostantól aranykártyákat vásárolhatsz. Az aranykártyák az egész játék során hatnak. Olyanok, mint a jokerek a Balatróban, ha érted, mire gondolok.\n\nMostantól a licencek részlege is elérhető, ahol licencet vásárolhatsz. A licenc megvásárlásával lehetővé teszed, hogy az adott kártya megjelenjen a játékban.",
+    "FR": "Vous pouvez maintenant acheter des cartes dorées. Elles restent actives pendant toute la partie. Ce sont comme les Jokers de Balatro, si vous voyez ce que je veux dire.\n\nLa section des licences est désormais accessible. Vous pouvez y acheter une licence pour permettre à une carte d’apparaître dans le jeu."
+  },
+  {
+    "Source": "Это хранилище ваших карт. Здесь будут храниться серебряные, золотые и чёрные карты, которые попадаются вам в игре. Перед началом раунда вы выкладываете карты. Подбирайте комбинации, которые соответствуют вашему стилю игры. Набор чёрных, золотых и серебряных карт можно будет менять в конце каждого раунда.",
+    "RU": "Это хранилище ваших карт. Здесь будут храниться серебряные, золотые и чёрные карты, которые попадаются вам в игре. Перед началом раунда вы выкладываете карты. Подбирайте комбинации, которые соответствуют вашему стилю игры. Набор чёрных, золотых и серебряных карт можно будет менять в конце каждого раунда.",
+    "ENG": "This is your card storage. Silver, gold and black cards that you obtain in the game are stored here. Before a round begins, you put your cards into play. Choose combinations that suit your play style. You can change your set of black, gold and silver cards at the end of each round.",
+    "DE": "Dies ist dein Kartenlager. Hier werden die silbernen, goldenen und schwarzen Karten aufbewahrt, die du im Spiel erhältst. Vor Beginn einer Runde legst du deine Karten aus. Wähle Kombinationen, die zu deinem Spielstil passen. Am Ende jeder Runde kannst du deine Zusammenstellung aus schwarzen, goldenen und silbernen Karten ändern.",
+    "HU": "Ez a kártyáid tárolója. Itt tároljuk a játék során megszerzett ezüst-, arany- és fekete kártyáidat. A kör kezdete előtt kijátszod a kártyáidat. Válassz a játékstílusodhoz illő kombinációkat. A fekete, arany- és ezüstkártyáid összeállítását minden kör végén megváltoztathatod.",
+    "FR": "Voici votre réserve de cartes. Les cartes argentées, dorées et noires que vous obtenez dans le jeu sont conservées ici. Avant le début d’une manche, vous mettez vos cartes en jeu. Choisissez des combinaisons adaptées à votre style de jeu. Vous pourrez modifier votre sélection de cartes noires, dorées et argentées à la fin de chaque manche."
   }
 ]

@@ -73,6 +73,8 @@ def build_market_probabilities(
     double_fall_markets=None,
     double_fall_bonus=0,
     double_fall_count=1,
+    base_probabilities=None,
+    copy_snapshots=None,
 ):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
@@ -82,9 +84,11 @@ def build_market_probabilities(
         }
 
     probabilities = {
-        market: dict(values)
+        market: dict((base_probabilities or {}).get(market, values))
         for market, values in BASE_MARKET_PROBABILITIES.items()
     }
+    for market, snapshot in (copy_snapshots or {}).items():
+        probabilities[market] = dict(snapshot["probabilities"])
     forced_flat = _normalize_market_set(force_flat_markets)
     prevented_fall = _normalize_market_set(prevent_fall_markets)
     doubled_fall = _normalize_market_set(double_fall_markets)
@@ -108,7 +112,10 @@ def build_market_probabilities(
             probabilities[market] = {"fall": 0.0, "flat": 100.0, "rise": 0.0}
             continue
         probs = probabilities[market]
+        copied_through_slot = (copy_snapshots or {}).get(market, {}).get("through_slot", -1)
         for slot in sorted((slots or {}).keys()):
+            if slot <= copied_through_slot:
+                continue
             card_id = slots.get(slot)
             if card_id in UPSIDE_CARD_BONUSES:
                 _apply_probability_shift(
@@ -129,7 +136,10 @@ def build_market_probabilities(
         if market not in probabilities or market in forced_flat:
             continue
         probs = probabilities[market]
-        for _ in range(double_fall_count):
+        # A one-shot copy replaces the destination's existing modifiers.
+        # Only newly added Shakeout copies modify that saved distribution.
+        copied_count = (copy_snapshots or {}).get(market, {}).get("shakeout_count", 0)
+        for _ in range(max(0, double_fall_count - copied_count)):
             _apply_probability_shift(
                 probs,
                 "fall",
@@ -208,6 +218,8 @@ def build_stock_price_animation_queue(
     double_fall_bonus=0,
     double_fall_count=1,
     random_rolls=None,
+    base_probabilities=None,
+    copy_snapshots=None,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -235,9 +247,12 @@ def build_stock_price_animation_queue(
         double_fall_markets=double_fall_markets,
         double_fall_bonus=double_fall_bonus,
         double_fall_count=double_fall_count,
+        base_probabilities=base_probabilities,
+        copy_snapshots=copy_snapshots,
     )
 
     forced_flat = _normalize_market_set(force_flat_markets)
+
     return [
         _roll_market_animation(
             market, step, probabilities, forced_rise_markets, forced_fall_markets,
