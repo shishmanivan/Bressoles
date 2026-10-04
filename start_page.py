@@ -1,10 +1,13 @@
 import os
+import math
+import random
 from dataclasses import dataclass
 
 import pygame
 
 from adaptive_ui import AnchoredElement, clamp, cover_geometry, proportional_size
 from sound_assets import load_card_hover_sound, load_sound
+from ribbon_letters import RibbonLetterHover
 
 
 FPS = 60
@@ -22,6 +25,103 @@ MASTER_BACKGROUND_PATH = os.path.join("UI", "Master Background.png")
 TITLE_PATH = os.path.join("UI", "Bressoles Title.png")
 MENU_IMAGE_PATH = os.path.join("UI", "Menu3_1.png")
 MENU_FONT_PATH = os.path.join("Fonts", "BressolesDisplay-Regular.ttf")
+
+
+@dataclass(frozen=True)
+class SmokeSource:
+    """Distances are pixels in Menu3's 1678 x 937 artwork; times are seconds.
+
+    Opacity is 0..1; scale multiplies a 64 px smoke sprite. A short fade-in
+    precedes start_opacity, then density falls toward end_opacity.
+    """
+
+    position: tuple
+    spawn_interval: float = 0.48
+    upward_speed: float = 14.0
+    horizontal_drift: float = 3.8
+    start_opacity: float = 0.60
+    end_opacity: float = 0.0
+    start_scale: float = 0.18
+    end_scale: float = 1.05
+    lifetime: float = 7.2
+    phase: float = 0.0
+
+
+# Add/remove entries to change the number of chimney emitters.
+SMOKE_SOURCES = (
+    SmokeSource((162, 660)),
+    SmokeSource((276, 691), spawn_interval=0.65, upward_speed=12.0,
+                horizontal_drift=3.0, start_opacity=0.48,
+                end_scale=0.80, lifetime=5.8, phase=0.31),
+)
+SMOKE_COLOR = (225, 219, 204)
+SMOKE_INTENSITY = 1.0
+SMOKE_REFERENCE_SIZE = (1678, 937)
+# Safety bounds around the chimneys, well clear of the menu and title.
+SMOKE_REGION = (85, 510, 285, 190)
+
+BEACON_CENTER = (115, 654)
+BEACON_PERIOD = 4.8
+BEACON_INTENSITY = 0.95
+CALCULATOR_POSITION = (587, 674)
+CALCULATOR_PAPER = (210, 184, 144)
+CALCULATOR_INK = (67, 52, 37)
+CALCULATOR_CHANGE_INTERVAL = 3.2
+CALCULATOR_ROLL_SECONDS = 0.65
+CALCULATOR_DIGITS = 6
+
+
+def _calculator_number(step):
+    """Stable random-looking drum positions, independent of rendering FPS."""
+    rng = random.Random(8137 + step)
+    return ''.join(str(rng.randrange(10)) for _ in range(CALCULATOR_DIGITS))
+
+
+def _make_smoke_sprites():
+    """Small reusable soft, irregular density textures; no extra PNG dependency."""
+    sprites = []
+    for variant in range(3):
+        rng = random.Random(71 + variant)
+        lobes = [(rng.uniform(-0.3, 0.3), rng.uniform(-0.35, 0.35),
+                  rng.uniform(0.22, 0.42)) for _ in range(5)]
+        sprite = pygame.Surface((64, 64), pygame.SRCALPHA)
+        for y in range(64):
+            for x in range(64):
+                nx, ny = (x - 31.5) / 31.5, (y - 31.5) / 31.5
+                density = sum(math.exp(-((nx - cx) ** 2 + (ny - cy) ** 2)
+                                       / radius ** 2) for cx, cy, radius in lobes)
+                edge = max(0.0, 1.0 - nx * nx - ny * ny)
+                grain = 0.90 + 0.10 * math.sin(x * 0.63 + math.sin(y * 0.41))
+                alpha = round(255 * min(1.0, density * 0.55) * edge * grain)
+                sprite.set_at((x, y), (*SMOKE_COLOR, alpha))
+        sprites.append(sprite)
+    return tuple(sprites)
+
+
+def _smoke_particles(source, seconds):
+    """Analytic births keep emission frame-rate independent and memory bounded."""
+    interval = max(0.05, source.spawn_interval)
+    lifetime = max(0.1, source.lifetime)
+    time = seconds + source.phase
+    latest = math.floor(time / interval)
+    oldest = math.floor((time - lifetime) / interval) + 1
+    for index in range(oldest, latest + 1):
+        age = time - index * interval
+        progress = age / lifetime
+        rng = random.Random(index + round(source.position[0] * 100))
+        variation = rng.uniform(0.80, 1.20)
+        bend = rng.uniform(-2.8, 2.8)
+        x = (source.position[0] + source.horizontal_drift * age * variation
+             + bend * math.sin(progress * math.pi * 2) * progress)
+        y = source.position[1] - source.upward_speed * age * variation
+        scale = source.start_scale + (source.end_scale - source.start_scale) * progress
+        opacity = source.start_opacity + (source.end_opacity - source.start_opacity) * progress
+        # Both ends are transparent, including when end_opacity is nonzero.
+        fade_in = min(1.0, age / 0.35)
+        fade_out = min(1.0, (lifetime - age) / 1.2)
+        opacity *= fade_in * fade_in * (3 - 2 * fade_in)
+        opacity *= fade_out * fade_out * (3 - 2 * fade_out)
+        yield x, y, scale, clamp(0.0, opacity * SMOKE_INTENSITY, 1.0), index % 3
 
 
 @dataclass(frozen=True)
@@ -118,6 +218,12 @@ class StartPage:
         self._keyboard_focus = False
         self._mouse_hovered_target = None
         self._layout = None
+        self._smoke_sprites = _make_smoke_sprites()
+        self._smoke_started_at = pygame.time.get_ticks()
+        self._detail_started_at = None
+        self._calculator_assets = None
+        self._beacon_sprite = self._make_beacon_sprite()
+        self._ribbon_letters = RibbonLetterHover(self.menu_image)
 
         self.menu_items = [
             self.lang.get("MenuStart", "Start Game"),
@@ -243,6 +349,100 @@ class StartPage:
         padding_y = round(layout.menu_rect.height * 0.012)
         return text_rect.inflate(padding_x * 2, padding_y * 2)
 
+    @staticmethod
+    def _make_beacon_sprite():
+        sprite = pygame.Surface((48, 48), pygame.SRCALPHA)
+        for y in range(48):
+            for x in range(48):
+                radius = math.hypot(x - 23.5, y - 23.5)
+                halo = max(0, 1 - radius / 23.5) ** 3 * 65
+                core = math.exp(-(radius / 3.2) ** 2) * 225
+                sprite.set_at((x, y), (255, 221, 151, min(255, round(halo + core))))
+        return sprite
+
+    def _draw_menu_details(self, layout):
+        if self.menu_image is None:
+            return
+        now = pygame.time.get_ticks()
+        if self._detail_started_at is None:
+            self._detail_started_at = now
+        seconds = (now - self._detail_started_at) / 1000.0
+        art = layout.menu_image_rect
+        sx, sy = art.width / 1678, art.height / 937
+        # A soft pulse with a dark pause, never an abrupt on/off flash.
+        pulse = max(0.0, math.sin(math.tau * seconds / BEACON_PERIOD)) ** 2
+        glow = pygame.transform.smoothscale(self._beacon_sprite,
+                  (max(1, round(24 * sx)), max(1, round(24 * sy))))
+        glow.set_alpha(round(255 * clamp(0, pulse * BEACON_INTENSITY, 1)))
+        self.screen.blit(glow, glow.get_rect(center=(art.left + round(BEACON_CENTER[0] * sx),
+                                                    art.top + round(BEACON_CENTER[1] * sy))))
+
+        # Build the inset at 3x resolution. It covers only the old inscription,
+        # retaining the original metal frame and the panel's perspective.
+        if self._calculator_assets is None:
+            plate = pygame.Surface((222, 45))
+            rng = random.Random(84)
+            for y in range(45):
+                for x in range(222):
+                    shade = rng.randrange(-2, 3) - round(abs(y - 22) / 12)
+                    plate.set_at((x, y), tuple(c + shade for c in CALCULATOR_PAPER))
+            font = self._get_font(51)
+            glyphs = []
+            for digit in '0123456789':
+                text = font.render(digit, True, CALCULATOR_INK)
+                text = text.subsurface(text.get_bounding_rect()).copy()
+                glyphs.append(pygame.transform.smoothscale(text, (20, 30)))
+            self._calculator_assets = plate, glyphs
+        plate, glyphs = self._calculator_assets
+        panel = plate.copy()
+        step = int(seconds / CALCULATOR_CHANGE_INTERVAL)
+        phase = seconds % CALCULATOR_CHANGE_INTERVAL
+        current = _calculator_number(step)
+        following = _calculator_number(step + 1)
+        for column, (old, new) in enumerate(zip(current, following)):
+            # Short stagger between drums; outgoing numbers move UP while the
+            # incoming row rises from BELOW, clipped by the physical window.
+            start = CALCULATOR_CHANGE_INTERVAL - CALCULATOR_ROLL_SECONDS - 0.055 * (CALCULATOR_DIGITS - 1 - column)
+            progress = clamp(0, (phase - start) / CALCULATOR_ROLL_SECONDS, 1)
+            progress = progress * progress * (3 - 2 * progress)
+            offset = round(progress * 45)
+            x = 13 + column * 34
+            panel.blit(glyphs[int(old)], (x, 7 - offset))
+            panel.blit(glyphs[int(new)], (x, 52 - offset))
+        skewed = pygame.Surface((243, 45), pygame.SRCALPHA)
+        for row in range(45):
+            skewed.blit(panel, (round(row * 21 / 44), row), (0, row, 222, 1))
+        inset = pygame.transform.rotate(skewed, 3.14)
+        inset = pygame.transform.smoothscale(inset, (max(1, round(inset.get_width() / 3 * sx)),
+                                                     max(1, round(inset.get_height() / 3 * sy))))
+        self.screen.blit(inset, (art.left + round(CALCULATOR_POSITION[0] * sx),
+                                 art.top + round(CALCULATOR_POSITION[1] * sy)))
+
+    def _draw_smoke(self, layout):
+        if self.menu_image is None:
+            return
+        artwork = layout.menu_image_rect
+        sx = artwork.width / SMOKE_REFERENCE_SIZE[0]
+        sy = artwork.height / SMOKE_REFERENCE_SIZE[1]
+        seconds = (pygame.time.get_ticks() - self._smoke_started_at) / 1000.0
+        # Pre-roll a mature stream so the main menu is alive immediately.
+        seconds += max((source.lifetime for source in SMOKE_SOURCES), default=0)
+        x, y, width, height = SMOKE_REGION
+        clip = pygame.Rect(artwork.left + round(x * sx), artwork.top + round(y * sy),
+                           round(width * sx), round(height * sy))
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(previous_clip.clip(clip))
+        try:
+            for source in SMOKE_SOURCES:
+                for px, py, scale, opacity, variant in _smoke_particles(source, seconds):
+                    size = (max(1, round(64 * scale * sx)), max(1, round(64 * scale * sy)))
+                    sprite = pygame.transform.smoothscale(self._smoke_sprites[variant], size)
+                    sprite.set_alpha(round(255 * opacity))
+                    center = (artwork.left + round(px * sx), artwork.top + round(py * sy))
+                    self.screen.blit(sprite, sprite.get_rect(center=center))
+        finally:
+            self.screen.set_clip(previous_clip)
+
     def _get_profile_label(self):
         profile_word = self.lang.get("Profile", "Profile")
         return f"{profile_word}: {self.profile_name}" if self.profile_name else profile_word
@@ -342,6 +542,12 @@ class StartPage:
         menu_image = self._scaled(self.menu_image, layout.menu_image_rect.size)
         if menu_image is not None:
             self.screen.blit(menu_image, layout.menu_image_rect)
+
+        self._draw_smoke(layout)
+        self._draw_menu_details(layout)
+        self._ribbon_letters.draw(self.screen, layout.menu_image_rect,
+                                  pygame.mouse.get_pos(), pygame.time.get_ticks(),
+                                  self._play_hover_sound)
 
         title = self._scaled(self.title_image, layout.title_rect.size)
         if title is not None:

@@ -65,6 +65,7 @@ class AdaptiveStartPageTests(unittest.TestCase):
         self.assertEqual(retained.get_size(), (50, 70))
         self.assertEqual(retained.get_at((0, 0)), (30, 70, 100, 140))
 
+    @mock.patch("pygame.time.get_ticks", new=lambda: 4000)
     def test_resized_menu_matches_fresh_render_and_preserves_source_images(self):
         pygame.init()
         try:
