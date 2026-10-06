@@ -5,7 +5,7 @@ import pygame
 
 
 LOGICAL_SCREEN_SIZE = (1680, 1050)
-MIN_WINDOW_SIZE = (1280, 800)
+MIN_WINDOW_SIZE = (640, 400)
 ADAPTIVE_DISPLAY_FLAGS = pygame.RESIZABLE | pygame.DOUBLEBUF
 FALLBACK_DISPLAY_FLAGS = pygame.HWSURFACE | pygame.DOUBLEBUF
 
@@ -85,7 +85,8 @@ def fit_window_size(requested_size, work_area):
     _, _, available_width, available_height = work_area
     scale = min(1.0, available_width * .9 / width,
                 max(1, available_height * .9 - 48) / height)
-    return max(MIN_WINDOW_SIZE[0], int(width * scale)), max(MIN_WINDOW_SIZE[1], int(height * scale))
+    # Available desktop space takes precedence even on a small/high-DPI monitor.
+    return max(1, int(width * scale)), max(1, int(height * scale))
 
 
 def create_game_display(logical_size=LOGICAL_SCREEN_SIZE):

@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 from localization import translate as _tr
 import sys
 
@@ -41,7 +42,7 @@ BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
 
 
-class RoundPage:
+class RoundPage(AdaptivePage):
     def __init__(
         self,
         screen,
@@ -66,7 +67,7 @@ class RoundPage:
         round_progress=None,
         profile_slot=None,
     ):
-        self.screen = screen
+        self.init_viewport(screen)
         self.profile_slot = profile_slot
         self.tutorial_hint = None
         self.clock = pygame.time.Clock()
@@ -543,11 +544,11 @@ class RoundPage:
                 if hint.dont_show_again:
                     profile_manager.mark_tutorial_seen(self.profile_slot, ROUND_CHOICE_HINT_ID)
                 self.tutorial_hint = None
-                for event in pygame.event.get():
+                for event in self.events():
                     if event.type == pygame.QUIT:
                         return "quit"
                 return None
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     return "quit"
                 if hint.accepts(event):
@@ -555,7 +556,7 @@ class RoundPage:
             return None
         self._refresh_button_rects()
         self._refresh_button_goals()
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
 
         current_active_round = self.get_current_active_round()
         all_rounds_completed = current_active_round is None
@@ -634,7 +635,7 @@ class RoundPage:
             if self.boss_hover_state is not None:
                 self.boss_hover_state = None
 
-        for event in pygame.event.get():
+        for event in self.events():
             if event.type == pygame.QUIT:
                 return "quit"
             if event.type == pygame.KEYDOWN:
@@ -709,11 +710,8 @@ class RoundPage:
                         return "boss_clicked"
         return None
 
+    @adaptive_draw
     def draw(self):
-        if self.background:
-            self.screen.blit(self.background, (0, 0))
-        else:
-            self.screen.fill(BLACK)
 
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
@@ -922,7 +920,7 @@ class RoundPage:
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
-        pygame.display.flip()
+        self.present()
 
     def run(self):
         self._prepare_tutorial()

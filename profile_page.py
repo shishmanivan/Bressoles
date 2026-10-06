@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 import os
 import sys
 
@@ -22,9 +23,10 @@ LIGHT_GOLD = (255, 235, 150)
 PAPER_COLOR = (83, 76, 70)
 
 
-class ProfilePage:
+class ProfilePage(AdaptivePage):
+    master_background_path = "UI/Master Background.png"
     def __init__(self, screen, background, font_path, lang_dict=None):
-        self.screen = screen
+        self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.background = background
         self.lang = lang_dict or {}
@@ -169,7 +171,7 @@ class ProfilePage:
         return {"slot": int(profile["slot"]), "name": profile.get("name", "")}
 
     def handle_input(self):
-        for event in pygame.event.get():
+        for event in self.events():
             if event.type == pygame.QUIT:
                 return "quit"
 
@@ -216,11 +218,8 @@ class ProfilePage:
 
         return None
 
+    @adaptive_draw
     def draw(self):
-        if self.background:
-            self.screen.blit(self.background, (0, 0))
-        else:
-            self.screen.fill(BLACK)
 
         dim = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         dim.fill((0, 0, 0, 90))
@@ -285,7 +284,7 @@ class ProfilePage:
 
         if self.deleting_slot is not None:
             self._draw_delete_confirmation()
-        pygame.display.flip()
+        self.present()
 
     def _draw_delete_confirmation(self):
         shade = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)

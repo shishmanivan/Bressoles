@@ -141,7 +141,7 @@ finally:
         self.assertAlmostEqual(width / height, 1680 / 1050, places=2)
 
     def test_small_requested_window_is_clamped_to_minimum(self):
-        self.assertEqual(fit_window_size((800,600), (-1920,0,1920,1040)), (1280,800))
+        self.assertEqual(fit_window_size((200,200), (-1920,0,1920,1040)), (640,400))
 
     def test_window_is_restored_decorated_and_centered_on_its_monitor(self):
         work = (-1920,0,1920,1040)
@@ -158,12 +158,16 @@ finally:
         self.assertIs(display_runtime._display_window, window)
 
     def test_minimum_width_and_height_are_independent(self):
-        self.assertEqual(fit_window_size((400,900), None), (1280,900))
-        self.assertEqual(fit_window_size((1400,200), None), (1400,800))
-        self.assertEqual(fit_window_size((200,200), None), (1280,800))
+        self.assertEqual(fit_window_size((400,900), None), (640,900))
+        self.assertEqual(fit_window_size((1400,200), None), (1400,400))
+        self.assertEqual(fit_window_size((200,200), None), (640,400))
 
-    def test_fitting_to_small_desktop_never_shrinks_below_supported_size(self):
-        self.assertEqual(fit_window_size((1680,1050),(0,0,1280,720)), (1280,800))
+    def test_fitting_to_laptop_and_high_dpi_desktop_leaves_room_for_decorations(self):
+        for work in ((0,0,1366,728), (0,0,1280,720), (0,0,911,480)):
+            width, height = fit_window_size((1680,1050), work)
+            self.assertLessEqual(width, work[2] * .9)
+            self.assertLessEqual(height + 48, work[3] * .9)
+            self.assertAlmostEqual(width / height, 1.6, places=2)
 
     def test_minimum_is_installed_when_returning_from_fullscreen(self):
         with mock.patch('display_runtime._set_minimum_window_size') as minimum:
