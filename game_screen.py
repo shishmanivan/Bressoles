@@ -286,7 +286,7 @@ class GameScreen:
             2: self._is_unlocked("level_1_boss_defeated"),
             3: self._is_unlocked("level_2_boss_defeated"),
             4: self._is_unlocked("level_3_boss_defeated"),
-            5: self._is_unlocked("level_3_boss_defeated"),
+            5: self._is_unlocked("level_4_boss_defeated"),
             6: self._is_unlocked("level_6_unlocked") or self._is_unlocked("level_5_boss_defeated"),
         }.get(int(level_num or 0), False)
 

@@ -43,6 +43,7 @@ from card_catalog import (
     GOLD_SHAREHOLDER_VALUE_CARD_ID,
     GOLD_SHAREHOLDER_VALUE_REWARD,
     GOLD_STANDARDIZATION_CARD_ID,
+    GOLD_OVERVALUATION_CARD_ID,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -227,6 +228,27 @@ DISCLOSURE_CARD_TOOLTIPS = {
 
 
 class GameplayPage:
+    @property
+    def Aprice(self):
+        return self._a_price
+
+    @Aprice.setter
+    def Aprice(self, value):
+        self._a_price = value
+        # Observe committed prices from every effect, including jumps past 100.
+        # Initialization and save restoration must not award progress.
+        if getattr(self, "_overvaluation_ready", False):
+            self._apply_overvaluation_threshold()
+
+    def _apply_overvaluation_threshold(self):
+        if (self.Aprice < 100
+                or getattr(self, "overvaluation_triggered_this_round", False)
+                or GOLD_OVERVALUATION_CARD_ID not in getattr(self, "active_gold_cards", ())):
+            return False
+        self.overvaluation_triggered_this_round = True
+        game_state.overvaluation_multiplier = game_state.get_overvaluation_multiplier() + 1
+        return True
+
     def _apply_market_copy_card(self, card_id, market, slot):
         """Commit a one-shot snapshot as soon as a copy card leaves the hand."""
         offset = MARKET_COPY_OFFSETS.get(card_id)
@@ -352,6 +374,8 @@ class GameplayPage:
         self.tutorial_dismissed_this_round = set()
         self.market_roll_stats = MarketRollStats()
         self._initial_saved_state = saved_state if isinstance(saved_state, dict) else None
+        self._overvaluation_ready = False
+        self.overvaluation_triggered_this_round = False
         self._stats_recorded = False
         ensure_stats_file()
         self.difficulty = difficulty  # "e", "m", or "h"
@@ -901,6 +925,8 @@ class GameplayPage:
             self._save_active_game()
         self._start_lifecycle_turn_reminder()
 
+        self._overvaluation_ready = True
+
     def _build_deck_toggle_rect(self):
         width = self.deck_toggle_card.get_width() if self.deck_toggle_card else 64
         height = self.deck_toggle_card.get_height() if self.deck_toggle_card else 104
@@ -1296,7 +1322,13 @@ class GameplayPage:
         remaining = entry.get("remaining")
         if remaining is not None:
             unit = "босс" if entry.get("remaining_kind") == "bosses" else "раундов"
+            if entry.get("remaining_kind") == "runs":
+                unit = "забегов"
             status = _tr(f" Осталось: {remaining} {unit}.")
+        if special_id == "moratorium" and entry.get("card_id") is not None:
+            card_content = LIFECYCLE_CARD_TOOLTIPS.get(entry.get("card_id"))
+            card_name = card_content[0] if card_content else str(entry.get("card_id"))
+            description = _tr(f"Карта под мораторием: {card_name}.")
         text = f"{label}. {description}{status}".strip()
         self._draw_boss_reward_tooltip(
             {"reward_text": text},
@@ -1916,6 +1948,7 @@ class GameplayPage:
 
     def _serialize_gameplay_state(self):
         return {
+            "overvaluation_triggered_this_round": getattr(self, "overvaluation_triggered_this_round", False),
             "market_copy_snapshots": getattr(self, "market_copy_snapshots", {}),
             "market_copy_turn_state": getattr(self, "market_copy_turn_state", {}),
             "standardization_probabilities": getattr(self, "standardization_probabilities", None),
@@ -2014,6 +2047,9 @@ class GameplayPage:
     def _restore_saved_state(self, state):
         if not state:
             return
+        overvaluation_was_ready = getattr(self, "_overvaluation_ready", False)
+        self._overvaluation_ready = False
+        self.overvaluation_triggered_this_round = bool(state.get("overvaluation_triggered_this_round", False))
 
         self.tutorial_dismissed_this_round = set(state.get("tutorial_dismissed_this_round", []))
 
@@ -2249,6 +2285,8 @@ class GameplayPage:
         self.market_clear_animations = []
         self._reset_drag_state()
         self._start_lifecycle_turn_reminder()
+
+        self._overvaluation_ready = overvaluation_was_ready
 
     def _save_active_game(self):
         if not self.profile_slot or self.test_mode:
@@ -3863,7 +3901,8 @@ class GameplayPage:
         # Keep bonus getters inactive when no base card enables auto-liquidation.
         if gold_rebate_count <= 0 and not full_price and not discounted:
             return None
-        if 305 in (getattr(self, "active_black_cards", []) or []):
+        if (305 in (getattr(self, "active_black_cards", []) or [])
+                or GOLD_OVERVALUATION_CARD_ID in (getattr(self, "active_gold_cards", []) or [])):
             return self._get_ordered_rebate_sale_percent(full_price, discounted, gold_rebate_count)
         return calculate_rebate_sale_percent(
             full_price=full_price,
@@ -3899,6 +3938,8 @@ class GameplayPage:
         for card in cards:
             if card == 305:
                 modifiers.append(("multiply", 3))
+            elif card == GOLD_OVERVALUATION_CARD_ID:
+                modifiers.append(("multiply", game_state.get_overvaluation_multiplier()))
             elif card in totals:
                 modifiers.append(("add", totals[card] // cards.count(card)))
             elif gold_rebate_count and card in (210, 414):
@@ -3934,7 +3975,7 @@ class GameplayPage:
 
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                is_rebate = int(card_id) in (201, 407, 305)
+                is_rebate = int(card_id) in (201, 407, 305, GOLD_OVERVALUATION_CARD_ID)
             except (TypeError, ValueError):
                 is_rebate = False
             if is_rebate:
@@ -7068,6 +7109,10 @@ class GameplayPage:
         except (TypeError, ValueError):
             return None
 
+        if normalized == GOLD_OVERVALUATION_CARD_ID:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            detail = f"Сейчас {game_state.get_overvaluation_multiplier()}"
+            return title, f"{description} {detail}"
         if normalized == 431:
             content = FIELD_CARD_TOOLTIPS.get(normalized)
             if content is None:

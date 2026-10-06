@@ -8,7 +8,9 @@ import pygame
 import game_state
 import profile_manager
 from asset_loaders import load_scaled_image
-from gameplay_tutorial import STORAGE_HINT_ID, STORAGE_HINT_TEXT, TutorialHint
+from gameplay_tutorial import (STORAGE_HINT_ID, STORAGE_HINT_TEXT,
+                               SILVER_STORAGE_HINT_ID, SILVER_STORAGE_HINT_TEXT,
+                               BLACK_STORAGE_HINT_ID, BLACK_STORAGE_HINT_TEXT, TutorialHint)
 from sound_assets import load_button_sound
 from card_catalog import MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
@@ -303,6 +305,10 @@ CARD_TOOLTIPS.update(
         440: (
             "Standardization",
             "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
+        ),
+        441: (
+            "Overvaluation",
+            "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
         ),
         438: (
             "25%",
@@ -905,8 +911,9 @@ class SilverBlackPage:
             closing_hint = self.tutorial_hint is not None and self.tutorial_hint.ready_to_close()
             if closing_hint:
                 if self.tutorial_hint.dont_show_again:
-                    profile_manager.mark_tutorial_seen(self.profile_slot, STORAGE_HINT_ID)
+                    profile_manager.mark_tutorial_seen(self.profile_slot, self.tutorial_hint.hint_id)
                 self.tutorial_hint = None
+                self._show_next_tutorial()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -945,11 +952,22 @@ class SilverBlackPage:
             self.clock.tick(FPS)
 
     def _prepare_tutorial(self):
-        if profile_manager.is_tutorial_pending(self.profile_slot, STORAGE_HINT_ID):
+        self._tutorial_queue = [
+            (hint_id, text) for cards, hint_id, text in (
+                (self.gold_cards, STORAGE_HINT_ID, STORAGE_HINT_TEXT),
+                (self.silver_cards, SILVER_STORAGE_HINT_ID, SILVER_STORAGE_HINT_TEXT),
+                (self.black_cards, BLACK_STORAGE_HINT_ID, BLACK_STORAGE_HINT_TEXT),
+            ) if cards and profile_manager.is_tutorial_pending(self.profile_slot, hint_id)
+        ]
+        self._show_next_tutorial()
+
+    def _show_next_tutorial(self):
+        if self._tutorial_queue:
+            hint_id, text = self._tutorial_queue.pop(0)
             frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
             self.tutorial_hint = TutorialHint(
                 self.screen.get_size(), frame, self.font_path,
-                hint_id=STORAGE_HINT_ID, text=STORAGE_HINT_TEXT,
+                hint_id=hint_id, text=text,
             )
 
 

@@ -68,6 +68,9 @@ boss_lifecycle_slot_bonus = 0
 boss_shop_offer_bonus = 0
 boss_rare_card_pool_bonus_percent = 0
 deal_flow_bonus_percent = 0
+seen_gold_card_ids = set()
+moratorium_expirations = {}
+moratorium_run_number = 0
 bank_bought = False
 bank_interest_base = None
 multibagger_bought = False
@@ -110,6 +113,7 @@ SHOP_SPECIAL_COSTS = {
     "mirroring": 4,
     "retention": 3,
     "deal_flow": 4,
+    "moratorium": 6,
 }
 
 DISCLOSURE_ROUNDS = 5
@@ -171,6 +175,7 @@ GOLD_CARD_MIN_LEVELS = {
     438: 6,
     439: 6,
     440: 5,
+    441: 5,
 }
 SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6}
 RED_CARD_MIN_LEVELS = {126: 6}
@@ -224,6 +229,7 @@ SHOP_CARD_COSTS = {
     438: 3,
     439: 5,
     440: 4,
+    441: 6,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
@@ -315,6 +321,7 @@ active_gold_cards = []
 active_lifecycle_card_order = []
 bear_goal_reduction_steps = 0
 windfall_boss_victories = 0
+overvaluation_multiplier = 1
 risk_premium_h_rounds = 0
 golden_stake_shareholder_parity = 0
 insurance_goal_debt = 0
@@ -349,6 +356,8 @@ def is_gold_card(card_id):
 def is_gold_card_available_for_level(card_id, level_number=None):
     """Return whether a gold card may enter pools at the given level."""
     normalized = _normalize_card_id(card_id)
+    if normalized in get_active_moratoriums():
+        return False
     if normalized is None or not is_gold_card(normalized):
         return False
     minimum_level = GOLD_CARD_MIN_LEVELS.get(normalized, 1)
@@ -606,9 +615,13 @@ def add_black_card(card_id):
 def add_gold_card(card_id, *, source="bonus"):
     """Add a gold card; count actual bonus grants separately from direct purchases."""
     normalized = _normalize_card_id(card_id)
+    if normalized in get_active_moratoriums():
+        return None
     if normalized is None or is_shop_card_already_bought(normalized):
         return None
     awarded = _add_card_to_inventory(gold_cards, MAX_GOLD_CARDS, normalized, "Gold")
+    if awarded is not None:
+        seen_gold_card_ids.add(awarded)
     if awarded is not None and source == "bonus":
         record_card_acquisitions("bonus", [awarded])
     return awarded
@@ -895,6 +908,27 @@ def is_level_completed(level_number):
     return False
 
 
+def is_level_unlocked(level_number):
+    """Return whether a campaign content level is available in linear progression."""
+    try:
+        level = int(level_number or 0)
+    except (TypeError, ValueError):
+        return False
+    if level == 1:
+        return True
+    if level == 2:
+        return bool(level_1_boss_defeated)
+    if level == 3:
+        return bool(level_2_boss_defeated)
+    if level == 4:
+        return bool(level_3_boss_defeated)
+    if level == 5:
+        return bool(level_4_boss_defeated)
+    if level in (6, 7, 8):
+        return bool(level_5_boss_defeated)
+    return False
+
+
 def add_shop_card_to_level(level_number, card_id):
     """Buy a card from the shop: gold cards go to inventory, regular cards persist for the run."""
     normalized = _normalize_card_id(card_id)
@@ -936,6 +970,8 @@ def has_selectable_lifecycle_cards():
 
 
 def clear_gold_cards(reason="defeat"):
+    global overvaluation_multiplier
+    overvaluation_multiplier = 1
     global bear_goal_reduction_steps, windfall_boss_victories, risk_premium_h_rounds
     global golden_stake_shareholder_parity
     if gold_cards:
@@ -977,6 +1013,8 @@ def consume_capital_preservation():
     global golden_stake_shareholder_parity
     if not capital_preservation_bought:
         return False
+    global overvaluation_multiplier
+    overvaluation_multiplier = 1
     capital_preservation_bought = False
     bear_goal_reduction_steps = 0
     windfall_boss_victories = 0
@@ -1170,6 +1208,13 @@ def record_bear_victory(active_cards=None):
     bear_goal_reduction_steps += 1
     print(f"Bear victory progress increased: next reduction step={bear_goal_reduction_steps + 1}")
     return True
+
+
+def get_overvaluation_multiplier():
+    try:
+        return max(1, int(overvaluation_multiplier or 1))
+    except (TypeError, ValueError):
+        return 1
 
 
 def get_windfall_boss_victories():
@@ -2665,6 +2710,11 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
         add("capital_preservation")
     if get_deal_flow_bonus() > 0:
         add("deal_flow")
+    for card_id, remaining in get_active_moratoriums().items():
+        entries.append({
+            "special_id": "moratorium", "card_id": card_id,
+            "remaining": remaining, "remaining_kind": "runs",
+        })
 
     return entries
 
@@ -2905,6 +2955,48 @@ def is_underwriter_offer_available(level_number):
     return level >= 3 and len(build_rare_silver_cards_pool(level)) >= 2
 
 
+def get_active_moratoriums():
+    return {
+        int(card_id): min(20, int(expires) - moratorium_run_number)
+        for card_id, expires in moratorium_expirations.items()
+        if int(expires) > moratorium_run_number
+    }
+
+
+def advance_moratorium_run():
+    global moratorium_run_number
+    moratorium_run_number += 1
+    for card_id in list(moratorium_expirations):
+        if moratorium_expirations[card_id] <= moratorium_run_number:
+            del moratorium_expirations[card_id]
+
+
+def get_moratorium_candidates():
+    configured = load_cards_config() or {}
+    blocked = get_active_moratoriums()
+    return sorted(
+        card_id for card_id in seen_gold_card_ids
+        if is_gold_card(card_id) and card_id in configured and card_id not in blocked
+    )
+
+
+def is_moratorium_offer_available(level_number):
+    return (
+        int(level_number or 0) >= 5
+        and len(get_active_moratoriums()) < 5
+        and bool(get_moratorium_candidates())
+    )
+
+
+def buy_moratorium(card_id, level_number):
+    card_id = _normalize_card_id(card_id)
+    if not is_moratorium_offer_available(level_number) or card_id not in get_moratorium_candidates():
+        return False
+    # The purchase run is extra: block all twenty subsequent runs as well.
+    moratorium_expirations[card_id] = moratorium_run_number + 21
+    return True
+
+
 def is_deal_flow_offer_available(level_number):
     try:
         level = int(level_number or 0)
@@ -2992,6 +3084,7 @@ def _available_screening_offer_ids(
         "mirroring": is_mirroring_offer_available(level),
         "retention": is_retention_offer_available(defeated_count, bosses_required),
         "deal_flow": is_deal_flow_offer_available(level),
+        "moratorium": is_moratorium_offer_available(level),
     }
     if level < 3:
         level_offers = {
@@ -3221,6 +3314,8 @@ def build_shop_special_offer_pool(
         rolled.append("retention")
     if deal_flow_hit:
         rolled.append("deal_flow")
+    if is_moratorium_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(10):
+        rolled.append("moratorium")
 
     try:
         offer_limit = max(0, int(max_offers or 0))
@@ -3376,6 +3471,9 @@ def generate_shop_offers(
     if is_investment_section_available(level):
         investment_offers.append({"kind": "investment", "cost": INVESTMENT_SECTION_COST})
     offers = card_offers + special_offers + license_offers + investment_offers
+    seen_gold_card_ids.update(
+        offer["card_id"] for offer in card_offers if is_gold_card(offer["card_id"])
+    )
     if get_effective_shop_discount_percent(discount_percent):
         for offer in offers:
             offer["cost"] = get_discounted_shop_price(offer.get("cost", 0), discount_percent)

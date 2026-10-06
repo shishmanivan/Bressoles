@@ -485,6 +485,7 @@ def main():
         if bp_state.get("run_stats_started"):
             return
         update_level_run_started(level_number)
+        game_state.advance_moratorium_run()
         bp_state["run_stats_started"] = True
         bp_state["run_stats_finished"] = False
 
@@ -1248,9 +1249,10 @@ def main():
                                     print("Level 2 completed! Unlocking level 3")
                                 elif boss_level == 3:
                                     game_state.level_3_boss_defeated = True
-                                    print("Level 3 completed! Unlocking levels 4 and 5")
+                                    print("Level 3 completed! Unlocking level 4")
                                 elif boss_level == 4:
                                     game_state.level_4_boss_defeated = True
+                                    print("Level 4 completed! Unlocking level 5")
                                 elif boss_level == 5:
                                     game_state.level_5_boss_defeated = True
                                 elif boss_level == 8:

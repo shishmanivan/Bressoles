@@ -9,7 +9,8 @@ import game_state
 import profile_manager
 from asset_loaders import load_scaled_image
 from sound_assets import load_button_sound
-from gameplay_tutorial import GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT, TutorialHint
+from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT,
+                               INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT, TutorialHint)
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from gameplay_card_rendering import (
     draw_bear_modifier_text,
@@ -39,6 +40,7 @@ PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]
 GAMEPLAY_CARD_SIZE = (142, 244)
 
 SPECIAL_ASSETS = {
+    "moratorium": ("Мораторий", os.path.join("Shop", "Moratorium.png")),
     "delisting": ("Делистинг", os.path.join("Shop", "Delisting.png")),
     "trader": ("Трейдер", os.path.join("Shop", "Trader.png")),
     "profit": ("Прибыль", os.path.join("Shop", "Profit.png")),
@@ -74,6 +76,7 @@ SPECIAL_ASSETS = {
 }
 
 SPECIAL_DESCRIPTIONS = {
+    "moratorium": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
     "delisting": "Удаляет одну выбранную карту из колоды.",
     "trader": "Позволяет продать одну карту из колоды.",
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
@@ -116,6 +119,7 @@ CARD_DESCRIPTIONS = {
     438: "Никто не знает, что эта карта делает.",
     439: "Даёт по 2$ за каждую сыгранную карту Shareholder",
     440: "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
+    441: "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
     437: "Начисляет 20% на остаток наличных денег.",
     205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
     118: "Устанавливает цены всех акций на 10.",
@@ -268,6 +272,7 @@ CARD_NAMES.update(
         438: "25%",
         439: "Shareholder Value",
         440: "Standardization",
+        441: "Overvaluation",
     }
 )
 
@@ -747,6 +752,29 @@ class ShopPage:
             return
 
         special_id = offer.get("special_id")
+        if special_id == "moratorium":
+            if not game_state.is_moratorium_offer_available(self.level_number):
+                self.message = "Мораторий недоступен"
+                return
+            if not hasattr(self, "moratorium_choices"):
+                self.moratorium_choices = {}
+            if index not in self.moratorium_choices:
+                available = game_state.get_moratorium_candidates()
+                self.moratorium_choices[index] = game_state.random.sample(available, min(10, len(available)))
+            candidates = self.moratorium_choices[index]
+            selected_card = MoratoriumDeckPage(
+                self.screen, self.font_path, self.level_number, deck=candidates,
+            ).run()
+            if selected_card is None:
+                return
+            if selected_card not in candidates or not game_state.buy_moratorium(selected_card, self.level_number):
+                self.message = "Мораторий недоступен"
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = f"Мораторий: {CARD_NAMES.get(selected_card, selected_card)}. Осталось: 20 забегов."
+            return
         if special_id == "delisting":
             selected_card = DelistingDeckPage(self.screen, self.font_path, self.level_number).run()
             if selected_card is None:
@@ -1150,20 +1178,35 @@ class ShopPage:
             self.tutorial_hint.draw(self.screen)
         pygame.display.flip()
 
-    def run(self):
-        if self.first_level3_shop and profile_manager.is_tutorial_pending(self.profile_slot, GOLD_SHOP_HINT_ID):
+    def _prepare_tutorial(self):
+        self._tutorial_queue = [
+            (hint_id, text) for available, hint_id, text in (
+                (self.first_level3_shop, GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT),
+                (any(offer.get("kind") == "investment" for offer in self.offers),
+                 INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT),
+            ) if available and profile_manager.is_tutorial_pending(self.profile_slot, hint_id)
+        ]
+        self._show_next_tutorial()
+
+    def _show_next_tutorial(self):
+        if self._tutorial_queue:
+            hint_id, text = self._tutorial_queue.pop(0)
             frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
             self.tutorial_hint = TutorialHint(
                 self.screen.get_size(), frame, self.font_path,
-                hint_id=GOLD_SHOP_HINT_ID, text=GOLD_SHOP_HINT_TEXT,
+                hint_id=hint_id, text=text,
             )
+
+    def run(self):
+        self._prepare_tutorial()
         visit_recorded = not self.first_level3_shop
         while True:
             closing_hint = self.tutorial_hint is not None and self.tutorial_hint.ready_to_close()
             if closing_hint:
                 if self.tutorial_hint.dont_show_again:
-                    profile_manager.mark_tutorial_seen(self.profile_slot, GOLD_SHOP_HINT_ID)
+                    profile_manager.mark_tutorial_seen(self.profile_slot, self.tutorial_hint.hint_id)
                 self.tutorial_hint = None
+                self._show_next_tutorial()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -1621,6 +1664,30 @@ class DelistingDeckPage(DeckCardPage):
 
     def confirm_message(self, card_id):
         return f"Удалить карту {card_id}?"
+
+
+class MoratoriumDeckPage(DeckCardPage):
+    title = "Мораторий"
+    prompt = "Выберите золотую карту"
+    empty_text = "Нет доступных карт"
+    confirm_text = "Выбрать"
+    card_size_override = (116, 200)
+
+    def _build_card_rects(self):
+        rects = []
+        for start in range(0, len(self.deck), 5):
+            count = min(5, len(self.deck) - start)
+            width = count * self.card_size[0] + (count - 1) * 34
+            left = self.panel_rect.centerx - width // 2
+            top = self.panel_rect.y + 210 + (start // 5) * (self.card_size[1] + 34)
+            rects.extend(
+                pygame.Rect(left + i * (self.card_size[0] + 34), top, *self.card_size)
+                for i in range(count)
+            )
+        return rects
+
+    def confirm_message(self, card_id):
+        return f"Исключить {CARD_NAMES.get(card_id, card_id)} на 20 забегов?"
 
 
 class MirroringDeckPage(DeckCardPage):

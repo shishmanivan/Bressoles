@@ -19,6 +19,9 @@ from shop_page import (
 
 
 SHOP_STATE_FIELDS = (
+    "seen_gold_card_ids",
+    "moratorium_expirations",
+    "moratorium_run_number",
     "level_1_boss_defeated",
     "level_2_boss_defeated",
     "level_3_boss_defeated",
@@ -79,6 +82,9 @@ class ShopEconomyTestCase(unittest.TestCase):
             for field in SHOP_STATE_FIELDS
         }
         game_state.napoleondors = 0
+        game_state.seen_gold_card_ids = set()
+        game_state.moratorium_expirations = {}
+        game_state.moratorium_run_number = 0
         game_state.napoleondor_level = 5
         game_state.level_4_boss_defeated = False
         game_state.boss_progress = {5: game_state.new_boss_progress_state()}

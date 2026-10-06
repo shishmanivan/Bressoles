@@ -274,6 +274,22 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         self.assertIsNone(self.click(page, point))
         self.assertIsNone(page._pending_level)
 
+    def test_fifth_level_requires_fourth_level_completion(self):
+        page = self.make_page(
+            progress_flags={
+                "level_1_boss_defeated": True,
+                "level_2_boss_defeated": True,
+                "level_3_boss_defeated": True,
+                "level_4_boss_defeated": False,
+            }
+        )
+
+        self.assertTrue(page._is_level_unlocked(4))
+        self.assertFalse(page._is_level_unlocked(5))
+
+        page.progress_flags["level_4_boss_defeated"] = True
+        self.assertTrue(page._is_level_unlocked(5))
+
 
 if __name__ == "__main__":
     unittest.main()

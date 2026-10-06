@@ -39,9 +39,15 @@ class LevelCompletionReportTests(unittest.TestCase):
         )
         return page
 
+    def setUp(self):
+        # Check first-time rewards independently of other tests' puzzle progress.
+        inventory = patch.object(game_state, "black_cards", [])
+        inventory.start()
+        self.addCleanup(inventory.stop)
+
     def test_final_reports_use_level_specific_text_and_include_awarded_cards(self):
         for language in SUPPORTED_LANGUAGES:
-            for level, cards in {1: [15], 2: [13], 3: [110, 301], 4: [302], 5: [303]}.items():
+            for level, cards in {1: [15], 2: [13], 3: [110, 301], 4: [302], 5: [303, 304]}.items():
                 with self.subTest(language=language, level=level):
                     page = self.make_page(language, level)
                     self.assertEqual(page._get_card_report_boss_description(),

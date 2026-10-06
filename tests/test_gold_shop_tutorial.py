@@ -9,11 +9,33 @@ import pygame
 import game_state
 import profile_manager
 from shop_page import ShopPage
-from gameplay_tutorial import GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT, TutorialHint
+from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT, TutorialHint,
+                               INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT)
 from localization import SUPPORTED_LANGUAGES, get_language, set_language
 
 
 class GoldShopTutorialTests(unittest.TestCase):
+    def test_investment_hint_requires_visible_section_and_respects_seen_flag(self):
+        for offers, seen, gold, expected in (
+            ([], False, False, []),
+            ([{"kind": "license"}], False, False, []),
+            ([{"kind": "investment"}], False, False, [INVESTMENT_HINT_ID]),
+            ([{"kind": "investment"}], True, False, []),
+            ([{"kind": "investment"}], False, True, [GOLD_SHOP_HINT_ID, INVESTMENT_HINT_ID]),
+        ):
+            with self.subTest(offers=offers, seen=seen, gold=gold):
+                page = ShopPage.__new__(ShopPage)
+                page.offers, page.first_level3_shop, page.profile_slot = offers, gold, 1
+                page.screen, page.font_path = mock.Mock(), "unused"
+                with mock.patch("shop_page.profile_manager.is_tutorial_pending",
+                                return_value=not seen), mock.patch(
+                    "shop_page.load_scaled_image"
+                ), mock.patch("shop_page.TutorialHint") as hint:
+                    page._prepare_tutorial()
+                    while page._tutorial_queue:
+                        page._show_next_tutorial()
+                    self.assertEqual([call.kwargs["hint_id"] for call in hint.call_args_list], expected)
+
     def test_guarantee_replaces_red_card_and_preserves_price_rules(self):
         with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[117]), mock.patch.object(
             game_state, "build_all_available_shop_cards", return_value=[117, 401]

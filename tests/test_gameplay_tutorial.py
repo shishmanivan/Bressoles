@@ -12,6 +12,7 @@ import profile_manager
 from gameplay_page import GameplayPage
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import FIRST_HINT_TEXT
+from gameplay_tutorial import SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
 from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT
 from boss_page import BossPage
@@ -20,10 +21,42 @@ from asset_loaders import find_font_path_or_exit
 
 
 class TutorialTests(unittest.TestCase):
+    def test_shareholder_hint_on_first_level_four_boss_selection(self):
+        page = BossPage.__new__(BossPage)
+        page.profile_slot = 1
+        page.screen = mock.Mock()
+        page.font_path = None
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ), mock.patch("boss_page.load_scaled_image"), mock.patch("boss_page.TutorialHint") as factory:
+            for level, defeated, test_mode, expected in (
+                (3, 0, False, False), (4, 1, False, False),
+                (4, 0, True, False), (4, 0, False, True),
+            ):
+                page.level_number, page.defeated_count, page.test_mode = level, defeated, test_mode
+                factory.reset_mock()
+                page._prepare_tutorial()
+                self.assertEqual(factory.called, expected)
+            self.assertEqual(factory.call_args.kwargs["hint_id"], SHAREHOLDER_HINT_ID)
+            hint = factory.return_value
+            hint.hint_id = SHAREHOLDER_HINT_ID
+            hint.ready_to_close.return_value = True
+            hint.dont_show_again = True
+            with mock.patch.object(pygame.event, "get", return_value=[]):
+                page.handle_input()
+            self.assertFalse(profile_manager.is_tutorial_pending(1, SHAREHOLDER_HINT_ID))
+            factory.reset_mock()
+            page._prepare_tutorial()
+            factory.assert_not_called()
+            page.profile_slot = 2
+            page._prepare_tutorial()
+            factory.assert_called_once()
+
     def test_boss_choice_hint_level_gate_and_profile_suppression(self):
         page = BossPage.__new__(BossPage)
         page.profile_slot = 1
         page.test_mode = False
+        page.defeated_count = 1
         page.tutorial_hint = None
         page.screen = mock.Mock()
         page.font_path = None
@@ -38,6 +71,7 @@ class TutorialTests(unittest.TestCase):
             page._prepare_tutorial()
             factory.assert_called_once()
             hint = factory.return_value
+            hint.hint_id = BOSS_CHOICE_HINT_ID
             hint.ready_to_close.return_value = True
             hint.dont_show_again = True
             with mock.patch.object(pygame.event, "get", return_value=[]):
@@ -57,7 +91,8 @@ class TutorialTests(unittest.TestCase):
             for language in SUPPORTED_LANGUAGES:
                 set_language(language)
                 for hint_id, text in ((FIRST_HINT_ID, FIRST_HINT_TEXT), (SELL_HINT_ID, SELL_HINT_TEXT),
-                                      (LOGO_HINT_ID, LOGO_HINT_TEXT), (BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT)):
+                                      (LOGO_HINT_ID, LOGO_HINT_TEXT), (BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT),
+                                      (SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT)):
                     with self.subTest(language=language, hint=hint_id):
                         translated = translate(text)
                         label = translate("Больше не показывать")

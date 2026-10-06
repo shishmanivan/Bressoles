@@ -8,6 +8,7 @@ import tempfile
 import pygame
 
 import game_state
+from card_acquisition_stats import get_encountered_card_ids
 from gameplay_deck import restore_card_instance, serialize_card_instance
 
 
@@ -233,6 +234,9 @@ def _empty_progress():
         "boss_shop_offer_bonus": 0,
         "boss_rare_card_pool_bonus_percent": 0,
         "deal_flow_bonus_percent": 0,
+        "seen_gold_card_ids": [],
+        "moratorium_expirations": {},
+        "moratorium_run_number": 0,
         "bank_bought": False,
         "bank_interest_base": None,
         "multibagger_bought": False,
@@ -273,6 +277,7 @@ def _empty_progress():
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "windfall_boss_victories": 0,
+        "overvaluation_multiplier": 1,
         "risk_premium_h_rounds": 0,
         "golden_stake_shareholder_parity": 0,
         "insurance_goal_debt": 0,
@@ -477,6 +482,24 @@ def apply_profile_to_game_state(profile_or_slot):
     profile = load_profile(profile_or_slot) if isinstance(profile_or_slot, int) else profile_or_slot
     _migrate_completed_black_rewards(profile)
     progress = profile.get("progress") or {}
+    game_state.seen_gold_card_ids = {
+        int(value) for value in progress.get("seen_gold_card_ids", [])
+        if str(value).isdigit() and game_state.is_gold_card(int(value))
+    }
+    game_state.seen_gold_card_ids.update(
+        int(value) for value in progress.get("gold_cards", [])
+        if str(value).isdigit() and game_state.is_gold_card(int(value))
+    )
+    game_state.seen_gold_card_ids.update(
+        value for value in get_encountered_card_ids(profile.get("slot"))
+        if game_state.is_gold_card(value)
+    )
+    game_state.moratorium_run_number = max(0, int(progress.get("moratorium_run_number", 0)))
+    game_state.moratorium_expirations = {
+        int(key): int(value)
+        for key, value in progress.get("moratorium_expirations", {}).items()
+        if str(key).isdigit() and str(value).isdigit() and game_state.is_gold_card(int(key))
+    }
 
     game_state.level_1_boss_defeated = bool(progress.get("level_1_boss_defeated", False))
     game_state.level_2_boss_defeated = bool(progress.get("level_2_boss_defeated", False))
@@ -676,6 +699,10 @@ def apply_profile_to_game_state(profile_or_slot):
     except (TypeError, ValueError):
         game_state.bear_goal_reduction_steps = 0
     try:
+        game_state.overvaluation_multiplier = max(1, int(progress.get("overvaluation_multiplier", 1) or 1))
+    except (TypeError, ValueError):
+        game_state.overvaluation_multiplier = 1
+    try:
         game_state.windfall_boss_victories = max(
             0,
             int(progress.get("windfall_boss_victories", 0) or 0),
@@ -816,6 +843,9 @@ def _capture_progress():
         "boss_shop_offer_bonus": game_state.get_boss_shop_offer_bonus(),
         "boss_rare_card_pool_bonus_percent": game_state.get_boss_rare_card_pool_bonus(),
         "deal_flow_bonus_percent": game_state.get_deal_flow_bonus(),
+        "seen_gold_card_ids": sorted(game_state.seen_gold_card_ids),
+        "moratorium_expirations": dict(game_state.moratorium_expirations),
+        "moratorium_run_number": game_state.moratorium_run_number,
         "bank_bought": bool(game_state.bank_bought),
         "bank_interest_base": game_state.bank_interest_base,
         "multibagger_bought": bool(game_state.multibagger_bought),
@@ -867,6 +897,7 @@ def _capture_progress():
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "windfall_boss_victories": game_state.get_windfall_boss_victories(),
+        "overvaluation_multiplier": game_state.get_overvaluation_multiplier(),
         "risk_premium_h_rounds": game_state.get_risk_premium_h_rounds(),
         "golden_stake_shareholder_parity": game_state.get_golden_stake_shareholder_parity(),
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),

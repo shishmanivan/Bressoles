@@ -8,6 +8,7 @@ import pygame
 from asset_loaders import load_scaled_image
 import profile_manager
 from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT, TutorialHint
+from gameplay_tutorial import SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
 from sound_assets import load_button_sound
 from sound_assets import play_action_click
 from round_page_assets import GRAPH_INK_COLOR, ROUND_GRAPH_ORIGIN, load_round_page_static_assets
@@ -476,7 +477,7 @@ class BossPage:
         if hint is not None:
             if hint.ready_to_close():
                 if hint.dont_show_again:
-                    profile_manager.mark_tutorial_seen(self.profile_slot, BOSS_CHOICE_HINT_ID)
+                    profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
                 self.tutorial_hint = None
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -666,11 +667,18 @@ class BossPage:
             self.clock.tick(FPS)
 
     def _prepare_tutorial(self):
-        if (self.level_number == 2 and not self.test_mode
-                and profile_manager.is_tutorial_pending(self.profile_slot, BOSS_CHOICE_HINT_ID)):
+        if self.test_mode:
+            return
+        if self.level_number == 2:
+            hint_id, text = BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT
+        elif self.level_number == 4 and self.defeated_count == 0:
+            hint_id, text = SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
+        else:
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, hint_id):
             frame = load_scaled_image(os.path.join("GameplayPage", "Frame.png"), target_size=(378, 548))
             self.tutorial_hint = TutorialHint(
                 self.screen.get_size(), frame, self.font_path,
-                hint_id=BOSS_CHOICE_HINT_ID, text=BOSS_CHOICE_HINT_TEXT,
+                hint_id=hint_id, text=text,
                 placement="right",
             )

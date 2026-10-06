@@ -68,6 +68,23 @@ def record_card_acquisitions(event, card_ids):
         _tracker.record(event, card_ids)
 
 
+def get_encountered_card_ids(profile_slot, path=STATS_FILE):
+    """Recover encounters recorded before profile encounter history was added."""
+    if profile_slot is None or not os.path.exists(path):
+        return set()
+    result = set()
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as source:
+            for row in csv.DictReader(source, delimiter=";"):
+                if row.get("Профиль") != str(profile_slot):
+                    continue
+                if any(int(row.get(field, 0) or 0) > 0 for field in COUNTERS.values()):
+                    result.add(int(row["КартаНомер"]))
+    except (OSError, ValueError, KeyError, csv.Error):
+        logging.getLogger(__name__).exception("Не удалось загрузить историю получения карт")
+    return result
+
+
 def record_card_offers(offers):
     # Licenses unlock availability; specials are services, not card offers.
     record_card_acquisitions("offered", [

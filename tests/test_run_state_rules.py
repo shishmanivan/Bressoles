@@ -258,6 +258,23 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertEqual(game_state.get_starting_napoleondors_for_level(7), 9)
         self.assertEqual(game_state.get_starting_napoleondors_for_level(8), 9)
 
+    def test_campaign_levels_unlock_strictly_in_order(self):
+        game_state.level_1_boss_defeated = True
+        game_state.level_2_boss_defeated = True
+        game_state.level_3_boss_defeated = True
+        game_state.level_4_boss_defeated = False
+        game_state.level_5_boss_defeated = False
+
+        self.assertTrue(game_state.is_level_unlocked(4))
+        self.assertFalse(game_state.is_level_unlocked(5))
+
+        game_state.level_4_boss_defeated = True
+        self.assertTrue(game_state.is_level_unlocked(5))
+        self.assertFalse(game_state.is_level_unlocked(8))
+
+        game_state.level_5_boss_defeated = True
+        self.assertTrue(game_state.is_level_unlocked(8))
+
     def test_victory_napoleondors_start_on_level_two_and_scale_by_difficulty(self):
         for difficulty in ("e", "m", "h"):
             with self.subTest(level=1, difficulty=difficulty):

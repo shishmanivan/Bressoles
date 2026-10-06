@@ -1,5 +1,101 @@
 [
   {
+    "Source": "Нет доступных карт",
+    "RU": "Нет доступных карт",
+    "ENG": "No cards available",
+    "DE": "Keine Karten verfügbar",
+    "HU": "Nincs elérhető kártya",
+    "FR": "Aucune carte disponible"
+  },
+  {
+    "Source": "Мораторий",
+    "RU": "Мораторий",
+    "ENG": "Moratorium",
+    "DE": "Moratorium",
+    "HU": "Moratórium",
+    "FR": "Moratoire"
+  },
+  {
+    "Source": "Мораторий недоступен",
+    "RU": "Мораторий недоступен",
+    "ENG": "Moratorium unavailable",
+    "DE": "Moratorium nicht verfügbar",
+    "HU": "A moratórium nem érhető el",
+    "FR": "Moratoire indisponible"
+  },
+  {
+    "Source": "забегов",
+    "RU": "забегов",
+    "ENG": "runs",
+    "DE": "Durchläufe",
+    "HU": "menet",
+    "FR": "parties"
+  },
+  {
+    "Source": "Карта под мораторием: {v0}.",
+    "RU": "Карта под мораторием: {v0}.",
+    "ENG": "Card under moratorium: {v0}.",
+    "DE": "Karte unter Moratorium: {v0}.",
+    "HU": "Moratórium alatti kártya: {v0}.",
+    "FR": "Carte sous moratoire : {v0}."
+  },
+  {
+    "Source": "Мораторий: {v0}. Осталось: 20 забегов.",
+    "RU": "Мораторий: {v0}. Осталось: 20 забегов.",
+    "ENG": "Moratorium: {v0}. Remaining: 20 runs.",
+    "DE": "Moratorium: {v0}. Verbleibend: 20 Durchläufe.",
+    "HU": "Moratórium: {v0}. Hátralévő idő: 20 menet.",
+    "FR": "Moratoire : {v0}. Durée restante : 20 parties."
+  },
+  {
+    "Source": "Исключить {v0} на 20 забегов?",
+    "RU": "Исключить {v0} на 20 забегов?",
+    "ENG": "Exclude {v0} for 20 runs?",
+    "DE": "{v0} für 20 Durchläufe ausschließen?",
+    "HU": "Kizárod ezt 20 menetre: {v0}?",
+    "FR": "Exclure {v0} pendant 20 parties ?"
+  },
+  {
+    "Source": "Выберите золотую карту",
+    "RU": "Выберите золотую карту",
+    "ENG": "Choose a gold card",
+    "DE": "Wähle eine goldene Karte",
+    "HU": "Válassz egy aranykártyát",
+    "FR": "Choisissez une carte dorée"
+  },
+  {
+    "Source": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
+    "RU": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
+    "ENG": "Temporarily exclude one gold card you dislike. It will not appear in the game for the next 20 runs.",
+    "DE": "Schließe vorübergehend eine goldene Karte aus, die dir nicht gefällt. Sie erscheint in den nächsten 20 Durchläufen nicht im Spiel.",
+    "HU": "Ideiglenesen kizárhatsz egy aranykártyát, amelyet nem kedvelsz. A következő 20 menetben nem jelenik meg a játékban.",
+    "FR": "Permet d'exclure temporairement une carte dorée qui ne vous plaît pas. Elle n'apparaîtra pas dans le jeu pendant les 20 prochaines parties."
+  },
+  {
+    "Source": "Overvaluation",
+    "RU": "Переоценка",
+    "ENG": "Overvaluation",
+    "DE": "Überbewertung",
+    "HU": "Túlértékeltség",
+    "FR": "Surévaluation"
+  },
+  {
+    "Source": "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
+    "RU": "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
+    "ENG": "Each time stock A reaches a price of 100, adds 1 to the multiplier of the total Rebate effect. The multiplier can increase only once per round.",
+    "DE": "Jedes Mal, wenn Aktie A einen Kurs von 100 erreicht, erhöht sich der Multiplikator des gesamten Rebate-Effekts um 1. Der Multiplikator kann nur einmal pro Runde steigen.",
+    "HU": "Amikor az A részvény árfolyama eléri a 100-at, a teljes Rebate-hatás szorzója 1-gyel nő. A szorzó körönként csak egyszer növelhető.",
+    "FR": "Chaque fois que l’action A atteint un cours de 100, le multiplicateur de l’effet total de Rebate augmente de 1. Il ne peut augmenter qu’une fois par manche."
+  },
+  {
+    "Source": "Сейчас {v0}",
+    "RU": "Сейчас {v0}",
+    "ENG": "Currently {v0}",
+    "DE": "Aktuell {v0}",
+    "HU": "Jelenleg {v0}",
+    "FR": "Actuellement {v0}"
+  },
+  {
     "Source": "Рынок один раз скопировал цену и вероятности соседнего рынка. Теперь он изменяется независимо; новые карты действуют на скопированные вероятности.",
     "RU": "Рынок один раз скопировал цену и вероятности соседнего рынка. Теперь он изменяется независимо; новые карты действуют на скопированные вероятности.",
     "ENG": "This market copied a neighboring market's price and probabilities once. It now changes independently; new cards modify the copied probabilities.",
@@ -3392,11 +3488,43 @@
     "FR": "Vous pouvez maintenant acheter des cartes dorées. Elles restent actives pendant toute la partie. Ce sont comme les Jokers de Balatro, si vous voyez ce que je veux dire.\n\nLa section des licences est désormais accessible. Vous pouvez y acheter une licence pour permettre à une carte d’apparaître dans le jeu."
   },
   {
-    "Source": "Это хранилище ваших карт. Здесь будут храниться серебряные, золотые и чёрные карты, которые попадаются вам в игре. Перед началом раунда вы выкладываете карты. Подбирайте комбинации, которые соответствуют вашему стилю игры. Набор чёрных, золотых и серебряных карт можно будет менять в конце каждого раунда.",
-    "RU": "Это хранилище ваших карт. Здесь будут храниться серебряные, золотые и чёрные карты, которые попадаются вам в игре. Перед началом раунда вы выкладываете карты. Подбирайте комбинации, которые соответствуют вашему стилю игры. Набор чёрных, золотых и серебряных карт можно будет менять в конце каждого раунда.",
-    "ENG": "This is your card storage. Silver, gold and black cards that you obtain in the game are stored here. Before a round begins, you put your cards into play. Choose combinations that suit your play style. You can change your set of black, gold and silver cards at the end of each round.",
-    "DE": "Dies ist dein Kartenlager. Hier werden die silbernen, goldenen und schwarzen Karten aufbewahrt, die du im Spiel erhältst. Vor Beginn einer Runde legst du deine Karten aus. Wähle Kombinationen, die zu deinem Spielstil passen. Am Ende jeder Runde kannst du deine Zusammenstellung aus schwarzen, goldenen und silbernen Karten ändern.",
-    "HU": "Ez a kártyáid tárolója. Itt tároljuk a játék során megszerzett ezüst-, arany- és fekete kártyáidat. A kör kezdete előtt kijátszod a kártyáidat. Válassz a játékstílusodhoz illő kombinációkat. A fekete, arany- és ezüstkártyáid összeállítását minden kör végén megváltoztathatod.",
-    "FR": "Voici votre réserve de cartes. Les cartes argentées, dorées et noires que vous obtenez dans le jeu sont conservées ici. Avant le début d’une manche, vous mettez vos cartes en jeu. Choisissez des combinaisons adaptées à votre style de jeu. Vous pourrez modifier votre sélection de cartes noires, dorées et argentées à la fin de chaque manche."
+    "Source": "Это хранилище ваших золотых, чёрных и серебряных карт. Эти карты оказывают сильное влияние на ход игры. Подбирайте комбинации, которые соответствуют вашему стилю игры. Перед началом следующего раунда вы сможете поменять комбинацию. Полученные золотые карты пропадут после поражения",
+    "RU": "Это хранилище ваших золотых, чёрных и серебряных карт. Эти карты оказывают сильное влияние на ход игры. Подбирайте комбинации, которые соответствуют вашему стилю игры. Перед началом следующего раунда вы сможете поменять комбинацию. Полученные золотые карты пропадут после поражения",
+    "ENG": "This is the storage for your gold, black and silver cards. These cards have a powerful impact on the game. Choose combinations that suit your play style. You can change your combination before the next round begins. The gold cards you obtain will disappear after a defeat.",
+    "DE": "Hier werden deine goldenen, schwarzen und silbernen Karten aufbewahrt. Diese Karten haben großen Einfluss auf den Spielverlauf. Wähle Kombinationen, die zu deinem Spielstil passen. Vor Beginn der nächsten Runde kannst du deine Kombination ändern. Erhaltene goldene Karten verschwinden nach einer Niederlage.",
+    "HU": "Itt tárolod az arany-, fekete és ezüstkártyáidat. Ezek a kártyák jelentősen befolyásolják a játék menetét. Válassz a játékstílusodhoz illő kombinációkat. A következő kör kezdete előtt megváltoztathatod az összeállítást. A megszerzett aranykártyák vereség után eltűnnek.",
+    "FR": "Voici la réserve de vos cartes dorées, noires et argentées. Ces cartes ont une grande influence sur le déroulement du jeu. Choisissez des combinaisons adaptées à votre style de jeu. Vous pourrez changer votre combinaison avant le début de la prochaine manche. Les cartes dorées obtenues disparaîtront après une défaite."
+  },
+  {
+    "Source": "В хранилище появилась ваша первая серебряная карта. Серебряные карты действуют один раунд и исчезают после использования. Но неиспользованные серебряные карты не пропадают после поражения. Даже когда вы проиграете, все собранные серебряные карты сохранятся.",
+    "RU": "В хранилище появилась ваша первая серебряная карта. Серебряные карты действуют один раунд и исчезают после использования. Но неиспользованные серебряные карты не пропадают после поражения. Даже когда вы проиграете, все собранные серебряные карты сохранятся.",
+    "ENG": "Your first silver card has appeared in storage. Silver cards last for one round and disappear after use. However, unused silver cards do not disappear after a defeat. Even when you lose, all the silver cards you have collected will be kept.",
+    "DE": "Deine erste silberne Karte ist im Lager angekommen. Silberne Karten wirken eine Runde lang und verschwinden nach ihrer Verwendung. Unbenutzte silberne Karten verschwinden jedoch nicht nach einer Niederlage. Selbst wenn du verlierst, bleiben alle gesammelten silbernen Karten erhalten.",
+    "HU": "Megjelent az első ezüstkártyád a tárolóban. Az ezüstkártyák egy körig hatnak, és használat után eltűnnek. A fel nem használt ezüstkártyák azonban vereség után sem tűnnek el. Még ha veszítesz is, az összes összegyűjtött ezüstkártyád megmarad.",
+    "FR": "Votre première carte argentée est arrivée dans la réserve. Les cartes argentées durent une manche et disparaissent après utilisation. Mais les cartes argentées inutilisées ne disparaissent pas après une défaite. Même si vous perdez, toutes les cartes argentées que vous avez accumulées seront conservées."
+  },
+  {
+    "Source": "Вы получили свою первую чёрную карту. Эти карты не пропадают после поражения или после использования - вы получаете их раз и навсегда",
+    "RU": "Вы получили свою первую чёрную карту. Эти карты не пропадают после поражения или после использования - вы получаете их раз и навсегда",
+    "ENG": "You have received your first black card. These cards do not disappear after a defeat or after use - they are yours forever.",
+    "DE": "Du hast deine erste schwarze Karte erhalten. Diese Karten verschwinden weder nach einer Niederlage noch nach ihrer Verwendung - sie gehören dir für immer.",
+    "HU": "Megkaptad az első fekete kártyádat. Ezek a kártyák sem vereség, sem használat után nem tűnnek el - örökre a tieid maradnak.",
+    "FR": "Vous avez reçu votre première carte noire. Ces cartes ne disparaissent ni après une défaite ni après utilisation - elles vous appartiennent pour toujours."
+  },
+  {
+    "Source": "Теперь вам доступен раздел инвестиций. В нём вы можете усиливать Gain и Drop карты, чтобы они оказывали большее влияние на цену акций",
+    "RU": "Теперь вам доступен раздел инвестиций. В нём вы можете усиливать Gain и Drop карты, чтобы они оказывали большее влияние на цену акций",
+    "ENG": "The investment section is now available. Here you can upgrade Gain and Drop cards so that they have a greater effect on stock prices.",
+    "DE": "Der Bereich Investitionen ist jetzt verfügbar. Hier kannst du Gain- und Drop-Karten verstärken, damit sie einen größeren Einfluss auf die Aktienkurse haben.",
+    "HU": "Mostantól elérhető a befektetések részlege. Itt megerősítheted a Gain és Drop kártyákat, hogy nagyobb hatást gyakoroljanak a részvényárakra.",
+    "FR": "La section des investissements est désormais accessible. Vous pouvez y améliorer les cartes Gain et Drop pour qu’elles aient davantage d’effet sur le cours des actions."
+  },
+  {
+    "Source": "На 4-ом уровне действует эффект акционеров. Если у вас в колоде есть 3 карты Shareholder, есть 20% шанс того, что они запретят вам торговать на каком-то одном рынке. Запрет действует один ход. Чем больше карт Shareholder у вас в колоде, тем больше вероятность того, что они будут запрещать торговать. Но в игре можно встретить карты, которые отключают этот эффект.",
+    "RU": "На 4-ом уровне действует эффект акционеров. Если у вас в колоде есть 3 карты Shareholder, есть 20% шанс того, что они запретят вам торговать на каком-то одном рынке. Запрет действует один ход. Чем больше карт Shareholder у вас в колоде, тем больше вероятность того, что они будут запрещать торговать. Но в игре можно встретить карты, которые отключают этот эффект.",
+    "ENG": "The Shareholder effect is active on level 4. If you have 3 Shareholder cards in your deck, there is a 20% chance that they will prevent you from trading on one market. The ban lasts one turn. The more Shareholder cards you have in your deck, the more likely they are to prevent trading. However, you can find cards in the game that disable this effect.",
+    "DE": "Auf Level 4 ist der Shareholder-Effekt aktiv. Mit 3 Shareholder-Karten im Deck besteht eine Chance von 20%, dass sie dir den Handel an einem Markt verbieten. Das Verbot gilt für einen Zug. Je mehr Shareholder-Karten du im Deck hast, desto wahrscheinlicher wird ein Handelsverbot. Im Spiel gibt es jedoch Karten, die diesen Effekt ausschalten.",
+    "HU": "A 4. szinten érvényesül a részvényesek hatása. Ha 3 Shareholder kártya van a paklidban, 20% az esélye, hogy megtiltják a kereskedést az egyik piacon. A tilalom egy lépésig tart. Minél több Shareholder kártya van a paklidban, annál valószínűbb a kereskedési tilalom. A játékban azonban találhatsz olyan kártyákat, amelyek kikapcsolják ezt a hatást.",
+    "FR": "L’effet des actionnaires est actif au niveau 4. Si votre paquet contient 3 cartes Shareholder, il y a 20 % de chances qu’elles vous interdisent de négocier sur un marché. Cette interdiction dure un tour. Plus votre paquet contient de cartes Shareholder, plus cette interdiction est probable. Mais vous pouvez trouver des cartes qui désactivent cet effet."
   }
 ]
