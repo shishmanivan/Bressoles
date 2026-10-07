@@ -1012,6 +1012,19 @@ def main():
 
                         if boss_result == "back":
                             break
+                        if boss_result == "restart_level":
+                            reset_level_attempt(level_num)
+                            if selected_slot and not test_mode:
+                                profile_manager.clear_active_game(selected_slot)
+                                profile_manager.save_progress_from_game_state(selected_slot)
+                            queued_level_number = level_num
+                            result = "restart_level"
+                            break
+                        if boss_result == "main_menu":
+                            if selected_slot and not test_mode:
+                                profile_manager.save_progress_from_game_state(selected_slot)
+                            result = "main_menu"
+                            break
                         if boss_result == "quit":
                             result = "quit"
                             break

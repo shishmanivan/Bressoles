@@ -10,6 +10,7 @@ from asset_loaders import load_scaled_image
 import profile_manager
 from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT, TutorialHint
 from gameplay_tutorial import SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
+from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from sound_assets import load_button_sound
 from sound_assets import play_action_click
 from round_page_assets import GRAPH_INK_COLOR, ROUND_GRAPH_ORIGIN, load_round_page_static_assets
@@ -297,6 +298,8 @@ class BossPage(AdaptivePage):
         self.saved_lines = list(saved_lines) if saved_lines else []
         self.defeated_bosses = list(defeated_bosses) if defeated_bosses else []
         self.clicked_boss_filename = None
+        self.pause_menu_active = False
+        self.pause_restart_confirmation = False
         self.boss_image_cache = {}
         self.clicked_boss_rect = None
         self.lang = lang_dict or {}
@@ -341,6 +344,9 @@ class BossPage(AdaptivePage):
         self.popup_boss_index = None
 
         self.popup_font = pygame.font.Font(font_path, 24)
+        self.pause_title_font = pygame.font.Font(font_path, 54)
+        self.pause_button_font = pygame.font.Font(font_path, 34)
+        self.pause_small_font = pygame.font.Font(font_path, 24)
         self.popup_reward_header = self._get_text("PopUpReward", "PopUpReward")
 
         rounds_config = self._load_rounds_config() if self._load_rounds_config else {}
@@ -473,6 +479,69 @@ class BossPage(AdaptivePage):
             default = key
         return self.lang.get(key, default)
 
+    def _pause_menu_texts(self):
+        return {
+            "title": self._get_text("PauseTitle", "Пауза"),
+            "continue": self._get_text("PauseContinue", "Продолжить"),
+            "save_exit": self._get_text("PauseSaveExit", "Сохранить и выйти"),
+            "restart": self._get_text("PauseRestartLevel", "Начать заново"),
+            "restart_confirm": self._get_text("PauseRestartConfirm", "Начать уровень заново?"),
+            "restart_warning": self._get_text(
+                "PauseRestartWarning",
+                "Прогресс текущей попытки будет потерян.",
+            ),
+            "cancel": self._get_text("PauseCancel", "Отмена"),
+        }
+
+    def _close_pause_menu(self):
+        self.pause_menu_active = False
+        self.pause_restart_confirmation = False
+
+    def _handle_pause_menu_action(self, action):
+        if action == "continue":
+            self._close_pause_menu()
+        elif action == "save_exit":
+            self._close_pause_menu()
+            return "main_menu"
+        elif action == "restart":
+            self.pause_restart_confirmation = True
+        elif action == "cancel":
+            self.pause_restart_confirmation = False
+        elif action == "restart_confirm":
+            self._close_pause_menu()
+            return "restart_level"
+        return None
+
+    def _handle_pause_menu_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if self.pause_restart_confirmation:
+                self.pause_restart_confirmation = False
+            else:
+                self._close_pause_menu()
+            return None
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            layout = build_pause_menu_layout(
+                self.screen.get_size(),
+                confirmation=self.pause_restart_confirmation,
+            )
+            return self._handle_pause_menu_action(get_pause_menu_action(layout, event.pos))
+        return None
+
+    def _draw_pause_menu(self):
+        layout = build_pause_menu_layout(
+            self.screen.get_size(),
+            confirmation=self.pause_restart_confirmation,
+        )
+        draw_pause_menu(
+            self.screen,
+            layout,
+            self._pause_menu_texts(),
+            self.pause_title_font,
+            self.pause_button_font,
+            self.pause_small_font,
+            self.mouse_pos(),
+        )
+
     def handle_input(self):
         hint = getattr(self, "tutorial_hint", None)
         if hint is not None:
@@ -489,6 +558,15 @@ class BossPage(AdaptivePage):
                     return "quit"
                 if hint.accepts(event):
                     hint.start_press(load_button_sound())
+            return None
+
+        if self.pause_menu_active:
+            for event in self.events():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                result = self._handle_pause_menu_event(event)
+                if result is not None:
+                    return result
             return None
         mouse_pos = self.mouse_pos()
 
@@ -538,7 +616,9 @@ class BossPage(AdaptivePage):
                 return "quit"
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                return "back"
+                self.pause_menu_active = True
+                self.pause_restart_confirmation = False
+                return None
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for i, boss_rect in enumerate(self.boss_rects):
@@ -644,6 +724,8 @@ class BossPage(AdaptivePage):
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
+        if self.pause_menu_active:
+            self._draw_pause_menu()
         self.present()
 
     def run(self):
@@ -655,8 +737,8 @@ class BossPage(AdaptivePage):
                 pygame.quit()
                 sys.exit()
 
-            if result == "back":
-                return "back"
+            if result in ("back", "restart_level", "main_menu"):
+                return result
 
             if result and result.startswith("boss_"):
                 return result

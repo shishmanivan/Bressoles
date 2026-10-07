@@ -856,6 +856,38 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(game_state.gold_cards, [])
         self.assertIsNone(profile_manager.get_active_game(1))
 
+    def test_restart_from_boss_selection_resets_attempt_and_rerolls_boss_screen(self):
+        game_state.round_reward_cards[1] = [11]
+        game_state.shop_deck_cards[:] = [12]
+        game_state.boss_progress[1] = game_state.new_boss_progress_state()
+        game_state.boss_progress[1]["roster"] = ["old_boss.png"]
+        boss_results = deque(["restart_level", "quit"])
+        boss_rosters = []
+
+        class RestartingBossPage:
+            def __init__(self, *args, **kwargs):
+                boss_rosters.append(game_state.boss_progress[1].get("roster"))
+
+            def run(self):
+                result = boss_results.popleft()
+                if result == "restart_level":
+                    game_state.boss_progress[1]["roster"] = ["first_roll.png"]
+                return result
+
+        start_page = self._sequenced_page(["start"])
+        level_page = self._sequenced_page(["level_1"])
+        with (
+            patch.object(Main, "StartPage", start_page),
+            patch.object(Main, "GameScreen", level_page),
+            patch.object(Main, "BossPage", RestartingBossPage),
+        ):
+            Main.main()
+
+        self.assertEqual(boss_rosters, [None, None])
+        self.assertEqual(game_state.round_reward_cards.get(1, []), [])
+        self.assertEqual(game_state.shop_deck_cards, [])
+        self.assertIsNone(profile_manager.get_active_game(1))
+
 
 if __name__ == "__main__":
     unittest.main()
