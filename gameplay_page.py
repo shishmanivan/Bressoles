@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
 from localization import translate as _tr
 import pygame
@@ -227,7 +228,8 @@ DISCLOSURE_CARD_TOOLTIPS = {
 }
 
 
-class GameplayPage:
+class GameplayPage(AdaptivePage):
+    master_background_path = "GameplayPage/Master Background.png"
     @property
     def Aprice(self):
         return self._a_price
@@ -365,7 +367,7 @@ class GameplayPage:
         insurance_goal_debt=0,
         rounds_required=None,
     ):
-        self.screen = screen
+        self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.lang_dict = lang_dict or {}
         self.test_mode = test_mode
@@ -1225,7 +1227,7 @@ class GameplayPage:
         self._draw_deck_view_button(self.hedger_add_button_rect, "Добавить в руку")
 
     def _draw_deck_view_button(self, rect, text):
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         color = (248, 239, 216) if rect.collidepoint(mouse_pos) else (238, 228, 205)
         pygame.draw.rect(self.screen, color, rect, border_radius=7)
         pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2, border_radius=7)
@@ -1289,7 +1291,7 @@ class GameplayPage:
         )
         rects = self._build_active_shop_offer_rects(panel, len(active_entries))
         self.deck_view_offer_entries = []
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         hovered = None
 
         for entry, rect in zip(active_entries, rects):
@@ -1381,7 +1383,7 @@ class GameplayPage:
             gap = max(12, (available_width - visible_count * icon_size) // (visible_count - 1))
         start_x = panel.x + side_padding
         y = panel.bottom - 150
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         hovered = None
 
         for index, entry in enumerate(entries[:max_boss_icons]):
@@ -1444,7 +1446,7 @@ class GameplayPage:
 
         self._draw_boss_round_label(rect)
 
-        if rect.collidepoint(pygame.mouse.get_pos()):
+        if rect.collidepoint(self.mouse_pos()):
             self._draw_current_boss_condition_tooltip(entry, rect)
 
     def _draw_boss_round_label(self, boss_rect):
@@ -1629,7 +1631,7 @@ class GameplayPage:
             self.pause_title_font,
             self.pause_button_font,
             self.pause_small_font,
-            pygame.mouse.get_pos(),
+            self.mouse_pos(),
         )
 
     def _get_final_boss_reward_text(self):
@@ -2801,17 +2803,17 @@ class GameplayPage:
         if hint is not None and hint.ready_to_close():
             self._dismiss_tutorial_hint()
             # Consume queued clicks/keys so the closing press cannot affect play.
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     return "quit"
             return None
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         if getattr(self, "result_transition_ready", None):
             result = self.result_transition_ready
             self.result_transition_ready = None
             return result
         
-        for event in pygame.event.get():
+        for event in self.events():
             if event.type == pygame.QUIT:
                 return "quit"
 
@@ -4635,7 +4637,7 @@ class GameplayPage:
             )
             self.screen.blit(notice_surface, notice_rect.topleft)
         hovered_card = None
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         for index, row in enumerate(rows):
             slot_top = content_top + index * slot_height
             card_y = slot_top + max(0, (slot_height - card_height) // 2)
@@ -7274,7 +7276,7 @@ class GameplayPage:
                 or self.deck_view_active or self.win_lose_state is not None
                 or (hint is not None and hint.hint_id != LOGO_HINT_ID)):
             return
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         for market, rect in getattr(self, "stock_logo_rects", {}).items():
             if rect.collidepoint(mouse_pos):
                 if not hasattr(self, "stock_description_font"):
@@ -7299,7 +7301,7 @@ class GameplayPage:
         ):
             return
 
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         hovered_card = self._get_hovered_field_card(mouse_pos)
         self._draw_card_tooltip(hovered_card, mouse_pos)
 
@@ -7470,6 +7472,7 @@ class GameplayPage:
         surface = self.font_small.render(_tr(text), True, PAPER_COLOR)
         self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
     
+    @adaptive_draw
     def draw(self):
         self.stock_logo_rects = {}
         # Clear market placeholders list at start of draw
@@ -7486,15 +7489,7 @@ class GameplayPage:
             dragged_hand_card_id = self.hand_cards[self.dragged_card_index]
             dragged_hand_card_type = self.get_card_type(dragged_hand_card_id)
         
-        # Draw background
-        if self.background:
-            viewport_size = self.screen.get_size()
-            if self.background.get_size() != viewport_size:
-                self.background = load_gameplay_background(viewport_size)
-        if self.background:
-            self.screen.blit(self.background, (0, 0))
-        else:
-            self.screen.fill(PAPER_COLOR)
+        # The master background is drawn separately by AdaptivePage.
         
         # Draw three top frames (for columns A, B, C)
         if self.frame:
@@ -7964,7 +7959,7 @@ class GameplayPage:
                 active_bottom_cards = self._active_lifecycle_cards()
                 lifecycle_hover = self._get_lifecycle_hover()
                 lifecycle_hover.update(
-                    pygame.mouse.get_pos(),
+                    self.mouse_pos(),
                     [entry["rect"].topleft for entry in self.side_placeholders_bottom],
                     self.card_size_side,
                     enabled=(
@@ -8041,7 +8036,7 @@ class GameplayPage:
                 ph_h = hand_layout["placeholder_height"]
                 hover = self._get_hand_hover()
                 hover.update(
-                    pygame.mouse.get_pos(),
+                    self.mouse_pos(),
                     [entry["rect"].topleft for entry in self.bottom_placeholders],
                     self.card_size_bottom,
                     enabled=(
@@ -8285,7 +8280,7 @@ class GameplayPage:
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
         
-        pygame.display.flip()
+        self.present()
     
     def _maybe_show_late_end_turn_tutorial(self):
         if (
@@ -8413,7 +8408,7 @@ class GameplayPage:
             # Update dragged card position every frame for maximum smoothness
             # This ensures position is updated even if MOUSEMOTION events are missed
             if self.dragged_card_source is not None:
-                self.dragged_card_pos = pygame.mouse.get_pos()
+                self.dragged_card_pos = self.mouse_pos()
             
             # Update arrow animation timing
             self.update_arrow_animation()

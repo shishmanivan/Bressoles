@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
 from localization import get_language, translate as _tr
 import os
@@ -327,7 +328,7 @@ def format_napoleondors(value):
     return f"{amount:.1f}".rstrip("0").rstrip(".")
 
 
-class ShopPage:
+class ShopPage(AdaptivePage):
     """Intermediate shop screen shown after a completed round."""
 
     def __init__(
@@ -344,7 +345,7 @@ class ShopPage:
         rounds_remaining=None,
         profile_slot=None,
     ):
-        self.screen = screen
+        self.init_viewport(screen)
         self.profile_slot = profile_slot
         self.tutorial_hint = None
         self.clock = pygame.time.Clock()
@@ -579,7 +580,7 @@ class ShopPage:
         return SPECIAL_DESCRIPTIONS.get(offer.get("special_id"), "")
 
     def _draw_hover_description(self):
-        offer_index = self._offer_at(pygame.mouse.get_pos())
+        offer_index = self._offer_at(self.mouse_pos())
         text = ""
         if offer_index is not None and offer_index not in self.sold_offer_indexes:
             text = self._offer_description(self.offers[offer_index])
@@ -740,7 +741,7 @@ class ShopPage:
             return
 
         if offer.get("kind") == "investment":
-            selected_card = InvestmentDeckPage(self.screen, self.font_path, self.level_number).run()
+            selected_card = InvestmentDeckPage(getattr(self, "viewport", self.screen), self.font_path, self.level_number).run()
             if selected_card is None:
                 self.message = ""
                 return
@@ -764,7 +765,7 @@ class ShopPage:
                 self.moratorium_choices[index] = game_state.random.sample(available, min(10, len(available)))
             candidates = self.moratorium_choices[index]
             selected_card = MoratoriumDeckPage(
-                self.screen, self.font_path, self.level_number, deck=candidates,
+                getattr(self, "viewport", self.screen), self.font_path, self.level_number, deck=candidates,
             ).run()
             if selected_card is None:
                 return
@@ -777,7 +778,7 @@ class ShopPage:
             self.message = f"Мораторий: {CARD_NAMES.get(selected_card, selected_card)}. Осталось: 20 забегов."
             return
         if special_id == "delisting":
-            selected_card = DelistingDeckPage(self.screen, self.font_path, self.level_number).run()
+            selected_card = DelistingDeckPage(getattr(self, "viewport", self.screen), self.font_path, self.level_number).run()
             if selected_card is None:
                 self.message = ""
                 return
@@ -789,7 +790,7 @@ class ShopPage:
             return
 
         if special_id == "trader":
-            selected_card = TraderDeckPage(self.screen, self.font_path, self.level_number).run()
+            selected_card = TraderDeckPage(getattr(self, "viewport", self.screen), self.font_path, self.level_number).run()
             if selected_card is None:
                 self.message = ""
                 return
@@ -977,7 +978,7 @@ class ShopPage:
                 self.message = "Нет серебряной карты или свободного места"
                 return
             selected_card = ReplicationSilverPage(
-                self.screen,
+                getattr(self, "viewport", self.screen),
                 self.font_path,
                 game_state.silver_cards,
                 lang_dict=getattr(self, "lang_dict", None),
@@ -1000,7 +1001,7 @@ class ShopPage:
                 self.message = "Нет золотой карты или свободного места"
                 return
             selected_card = ReplicationGoldPage(
-                self.screen,
+                getattr(self, "viewport", self.screen),
                 self.font_path,
                 game_state.gold_cards,
                 lang_dict=getattr(self, "lang_dict", None),
@@ -1023,7 +1024,7 @@ class ShopPage:
                 self.message = "Зеркалирование больше недоступно"
                 return
             selected_card = MirroringDeckPage(
-                self.screen,
+                getattr(self, "viewport", self.screen),
                 self.font_path,
                 self.level_number,
             ).run()
@@ -1066,7 +1067,7 @@ class ShopPage:
                 self.message = "Недостаточно доступных предложений"
                 return
             selected_offer = ScreeningOfferPage(
-                self.screen,
+                getattr(self, "viewport", self.screen),
                 self.font_path,
                 self.level_number,
                 choices,
@@ -1103,7 +1104,7 @@ class ShopPage:
             return
 
         if special_id == "correction":
-            selected_cards = CorrectionDeckPage(self.screen, self.font_path, self.level_number).run()
+            selected_cards = CorrectionDeckPage(getattr(self, "viewport", self.screen), self.font_path, self.level_number).run()
             if not selected_cards:
                 self.message = ""
                 return
@@ -1139,11 +1140,8 @@ class ShopPage:
 
         self.message = "Скоро"
 
+    @adaptive_draw
     def draw(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
 
@@ -1169,7 +1167,7 @@ class ShopPage:
             self._draw_offer(index, offer, self.offer_rects[index])
         self._draw_hover_description()
 
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         button_color = BUTTON_HOVER_COLOR if self.button_rect.collidepoint(mouse_pos) else BUTTON_COLOR
         pygame.draw.rect(self.screen, button_color, self.button_rect, border_radius=8)
         pygame.draw.rect(self.screen, PAPER_COLOR, self.button_rect, 3, border_radius=8)
@@ -1177,7 +1175,7 @@ class ShopPage:
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
-        pygame.display.flip()
+        self.present()
 
     def _prepare_tutorial(self):
         self._tutorial_queue = [
@@ -1208,7 +1206,7 @@ class ShopPage:
                     profile_manager.mark_tutorial_seen(self.profile_slot, self.tutorial_hint.hint_id)
                 self.tutorial_hint = None
                 self._show_next_tutorial()
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
@@ -1243,7 +1241,7 @@ class ScreeningOfferPage(ShopPage):
     """Five-offer choice screen opened after buying Screening."""
 
     def __init__(self, screen, font_path, level_number, special_ids):
-        self.screen = screen
+        self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.level_number = int(level_number or 1)
@@ -1294,10 +1292,6 @@ class ScreeningOfferPage(ShopPage):
         )
 
     def _draw_background(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
         if self.background:
@@ -1307,7 +1301,7 @@ class ScreeningOfferPage(ShopPage):
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
     def _draw_button(self, rect, label, enabled=True):
-        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        hovered = enabled and rect.collidepoint(self.mouse_pos())
         color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
         if not enabled:
             color = (218, 210, 194)
@@ -1346,6 +1340,7 @@ class ScreeningOfferPage(ShopPage):
             self.selected_index = selected_index
         return None
 
+    @adaptive_draw
     def draw(self):
         self._draw_background()
         self._draw_centered_text(
@@ -1361,7 +1356,7 @@ class ScreeningOfferPage(ShopPage):
         for index, offer in enumerate(self.offers):
             self._draw_choice(index, offer, self.offer_rects[index])
 
-        hover_index = self._offer_at(pygame.mouse.get_pos())
+        hover_index = self._offer_at(self.mouse_pos())
         description_index = hover_index if hover_index is not None else self.selected_index
         if description_index is not None:
             description = self._offer_description(self.offers[description_index])
@@ -1382,11 +1377,11 @@ class ScreeningOfferPage(ShopPage):
             enabled=self.selected_index is not None,
         )
         self._draw_button(self.back_rect, "Назад")
-        pygame.display.flip()
+        self.present()
 
     def run(self):
         while True:
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
@@ -1409,7 +1404,7 @@ class ScreeningOfferPage(ShopPage):
             self.clock.tick(FPS)
 
 
-class DeckCardPage:
+class DeckCardPage(AdaptivePage):
     title = ""
     prompt = ""
     empty_text = ""
@@ -1419,7 +1414,7 @@ class DeckCardPage:
     allow_back = True
 
     def __init__(self, screen, font_path, level_number, deck=None):
-        self.screen = screen
+        self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.font_path = font_path
         self.level_number = int(level_number or 1)
@@ -1427,7 +1422,7 @@ class DeckCardPage:
         assets = load_round_page_static_assets()
         self.round_background = assets["background"]
         self.round_koordinates = assets["koordinates"]
-        self.panel_rect = panel_rect(screen.get_size())
+        self.panel_rect = panel_rect(self.screen.get_size())
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), self.panel_rect.size)
         self.title_font = pygame.font.Font(font_path, 32)
         self.button_font = pygame.font.Font(font_path, 26)
@@ -1473,7 +1468,7 @@ class DeckCardPage:
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, text):
-        color = BUTTON_HOVER_COLOR if rect.collidepoint(pygame.mouse.get_pos()) else BUTTON_COLOR
+        color = BUTTON_HOVER_COLOR if rect.collidepoint(self.mouse_pos()) else BUTTON_COLOR
         pygame.draw.rect(self.screen, color, rect, border_radius=8)
         pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=8)
         self._draw_centered_text(text, self.button_font, rect.center)
@@ -1555,7 +1550,7 @@ class DeckCardPage:
     def _draw_card_tooltip(self):
         if not card_information_enabled():
             return
-        card_index = self._card_at(pygame.mouse.get_pos())
+        card_index = self._card_at(self.mouse_pos())
         if card_index is None:
             return
 
@@ -1567,7 +1562,7 @@ class DeckCardPage:
         title_height = self.button_font.get_height()
         line_height = self.small_font.get_height() + 4
         height = padding * 2 + title_height + 8 + len(lines) * line_height
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_x, mouse_y = self.mouse_pos()
         x = max(8, min(mouse_x + 20, SCREEN_WIDTH - width - 8))
         y = mouse_y + 20
         if y + height > SCREEN_HEIGHT - 8:
@@ -1585,10 +1580,6 @@ class DeckCardPage:
         self.screen.blit(tooltip, (x, y))
 
     def _draw_background(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
         draw_panel(self.screen, self.panel_rect, self.background)
@@ -1613,6 +1604,7 @@ class DeckCardPage:
             return self.confirm_message(self.deck[self.selected_index])
         return None
 
+    @adaptive_draw
     def draw(self):
         self._draw_background()
         self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 52))
@@ -1636,7 +1628,7 @@ class DeckCardPage:
         elif self.allow_back:
             self._draw_button(self.cancel_rect, self.back_text)
         self._draw_card_tooltip()
-        pygame.display.flip()
+        self.present()
 
     def confirm_message(self, card_id):
         return f"Карта {card_id}?"
@@ -1690,7 +1682,7 @@ class DeckCardPage:
 
     def run(self):
         while True:
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()

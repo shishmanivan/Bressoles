@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
 from localization import translate as _tr
 import os
@@ -335,7 +336,7 @@ CARD_TOOLTIPS.update(
 )
 
 
-class SilverBlackPage:
+class SilverBlackPage(AdaptivePage):
     """Intermediate card-selection screen before a round starts."""
 
     def __init__(
@@ -353,7 +354,7 @@ class SilverBlackPage:
         lang_dict=None,
         profile_slot=None,
     ):
-        self.screen = screen
+        self.init_viewport(screen)
         self.profile_slot = profile_slot
         self.tutorial_hint = None
         self.clock = pygame.time.Clock()
@@ -815,7 +816,7 @@ class SilverBlackPage:
         if self.drag_source is not None:
             return
 
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         card_id, kind = self._hovered_card(mouse_pos)
         if card_id is None:
             return
@@ -855,11 +856,8 @@ class SilverBlackPage:
 
         self.screen.blit(tooltip, (x, y))
 
+    @adaptive_draw
     def draw(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
 
@@ -888,7 +886,7 @@ class SilverBlackPage:
             if rect:
                 self.screen.blit(surface, rect)
 
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
         if pygame.time.get_ticks() < self.start_press_until:
             image = self.continue_button_pressed_image
             self.screen.blit(image, image.get_rect(center=self.continue_button_rect.center))
@@ -903,7 +901,7 @@ class SilverBlackPage:
         self._draw_card_tooltip()
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
-        pygame.display.flip()
+        self.present()
 
     def run(self):
         self._prepare_tutorial()
@@ -915,7 +913,7 @@ class SilverBlackPage:
                     profile_manager.mark_tutorial_seen(self.profile_slot, self.tutorial_hint.hint_id)
                 self.tutorial_hint = None
                 self._show_next_tutorial()
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
@@ -998,7 +996,7 @@ class PositioningPage(SilverBlackPage):
         self.positioning_turns_font_cache = {}
         self.positioning_card_turns = dict(MARKET_CARD_TURNS)
 
-        self.panel_rect = panel_rect(screen.get_size())
+        self.panel_rect = panel_rect(self.screen.get_size())
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), self.panel_rect.size)
         self.card_width, self.card_height = CARD_SIZE
         self.placeholder = self._load_placeholder()
@@ -1071,7 +1069,7 @@ class PositioningPage(SilverBlackPage):
         return [self.deck_cards[index] for index in self.selected_card_indices]
 
     def _draw_positioning_button(self, rect, label, enabled=True):
-        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        hovered = enabled and rect.collidepoint(self.mouse_pos())
         color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
         if not enabled:
             color = (218, 210, 194)
@@ -1082,10 +1080,6 @@ class PositioningPage(SilverBlackPage):
         self.screen.blit(surface, surface.get_rect(center=rect.center))
 
     def _draw_positioning_background(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
         draw_panel(self.screen, self.panel_rect, self.background)
@@ -1136,6 +1130,7 @@ class PositioningPage(SilverBlackPage):
             self.font_path,
         )
 
+    @adaptive_draw
     def draw(self):
         self._draw_positioning_background()
         title = self.title_font.render(_tr("Positioning"), True, PAPER_COLOR)
@@ -1190,7 +1185,7 @@ class PositioningPage(SilverBlackPage):
                 page_text.get_rect(center=(self.panel_rect.centerx, self.positioning_prev_button_rect.centery)),
             )
         self._draw_card_tooltip()
-        pygame.display.flip()
+        self.present()
 
     def _handle_positioning_mouse_down(self, position):
         if self.positioning_back_button_rect.collidepoint(position):
@@ -1215,7 +1210,7 @@ class PositioningPage(SilverBlackPage):
 
     def run(self):
         while True:
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
@@ -1317,10 +1312,6 @@ class ReplicationSilverPage(SilverBlackPage):
         return self.replication_cards[index], self.replication_kind
 
     def _draw_background(self):
-        if self.round_background:
-            self.screen.blit(self.round_background, (0, 0))
-        else:
-            self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
         if self.background:
@@ -1334,7 +1325,7 @@ class ReplicationSilverPage(SilverBlackPage):
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, label, enabled=True):
-        hovered = enabled and rect.collidepoint(pygame.mouse.get_pos())
+        hovered = enabled and rect.collidepoint(self.mouse_pos())
         color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
         if not enabled:
             color = (218, 210, 194)
@@ -1343,6 +1334,7 @@ class ReplicationSilverPage(SilverBlackPage):
         text_color = PAPER_COLOR if enabled else (145, 138, 130)
         self._draw_centered_text(label, self.continue_button_font, rect.center, text_color)
 
+    @adaptive_draw
     def draw(self):
         self._draw_background()
         self._draw_centered_text(
@@ -1377,11 +1369,11 @@ class ReplicationSilverPage(SilverBlackPage):
         )
         self._draw_button(self.back_button_rect, "Назад")
         self._draw_card_tooltip()
-        pygame.display.flip()
+        self.present()
 
     def run(self):
         while True:
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()

@@ -1,3 +1,4 @@
+from adaptive_page import AdaptivePage, adaptive_draw
 from sound_assets import load_sound
 from localization import translate as _tr
 import os
@@ -266,7 +267,7 @@ def _load_boss_animation_frames(boss_filename):
     return list(cached_frames)
 
 
-class BossPage:
+class BossPage(AdaptivePage):
     def __init__(
         self,
         screen,
@@ -284,7 +285,7 @@ class BossPage:
         profile_slot=None,
         test_mode=False,
     ):
-        self.screen = screen
+        self.init_viewport(screen)
         self.profile_slot = profile_slot
         self.test_mode = test_mode
         self.font_path = font_path
@@ -479,17 +480,17 @@ class BossPage:
                 if hint.dont_show_again:
                     profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
                 self.tutorial_hint = None
-                for event in pygame.event.get():
+                for event in self.events():
                     if event.type == pygame.QUIT:
                         return "quit"
                 return None
-            for event in pygame.event.get():
+            for event in self.events():
                 if event.type == pygame.QUIT:
                     return "quit"
                 if hint.accepts(event):
                     hint.start_press(load_button_sound())
             return None
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = self.mouse_pos()
 
         hovered_boss = None
         for i, boss_rect in enumerate(self.boss_rects):
@@ -532,7 +533,7 @@ class BossPage:
                 if i in self.boss_hover_states:
                     del self.boss_hover_states[i]
 
-        for event in pygame.event.get():
+        for event in self.events():
             if event.type == pygame.QUIT:
                 return "quit"
 
@@ -552,11 +553,8 @@ class BossPage:
 
         return None
 
+    @adaptive_draw
     def draw(self):
-        if self.background:
-            self.screen.blit(self.background, (0, 0))
-        else:
-            self.screen.fill(BLACK)
 
         if self.koordinates:
             self.screen.blit(self.koordinates, (0, 0))
@@ -646,7 +644,7 @@ class BossPage:
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
-        pygame.display.flip()
+        self.present()
 
     def run(self):
         self._prepare_tutorial()

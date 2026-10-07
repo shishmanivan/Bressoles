@@ -69,7 +69,7 @@ def draw_navigation(page):
     for mode, rect in navigation_rects(page).items():
         icon = page.collection_icons.get(mode)
         if icon is not None:
-            if rect.collidepoint(pygame.mouse.get_pos()):
+            if rect.collidepoint(page.mouse_pos()):
                 icon = pygame.transform.smoothscale(icon, (106, 106))
             page.screen.blit(icon, icon.get_rect(center=(rect.centerx, rect.y + 48)))
         key, fallback = VIEW_LABELS[mode]
@@ -162,7 +162,7 @@ def draw_offers(page, content, panel):
     old_clip = page.screen.get_clip()
     page.screen.set_clip(content.clip(old_clip))
     hovered = None
-    mouse = pygame.mouse.get_pos()
+    mouse = page.mouse_pos()
     try:
         for group, key, fallback, top in sections:
             heading_y = content.y + top - offset
@@ -238,7 +238,7 @@ def draw_collection_view(page):
         )):
             rect = pygame.Rect(panel.centerx - 330 + index * 340, panel.top + 34, 320, 44)
             page.deck_scope_rects[scope] = rect
-            if rect.collidepoint(pygame.mouse.get_pos()):
+            if rect.collidepoint(page.mouse_pos()):
                 pygame.draw.rect(page.screen, (226, 214, 190), rect, border_radius=4)
             label = page.collection_font.render(_tr(page._get_text(label_key, label_fallback)), True, INK)
             page.screen.blit(label, label.get_rect(center=rect.center))
