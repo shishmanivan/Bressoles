@@ -6,6 +6,7 @@ import math
 import pygame
 
 import game_state
+from deck_view import deck_layout, draw_grid, draw_panel, draw_scrollbar as draw_deck_scrollbar
 from shared_utils import wrap_text
 from shop_page import SPECIAL_ASSETS
 
@@ -95,11 +96,7 @@ def draw_scrollbar(page, panel):
     if not maximum:
         return
     content = page.collection_content_rect
-    track = pygame.Rect(panel.right - 19, content.top, 5, content.height)
-    pygame.draw.rect(page.screen, (204, 191, 168), track, border_radius=2)
-    thumb_h = max(30, round(track.height * content.height / (content.height + maximum)))
-    top = track.top + round((track.height - thumb_h) * page.collection_scroll[mode] / maximum)
-    pygame.draw.rect(page.screen, ACCENT, (track.x, top, track.width, thumb_h), border_radius=2)
+    draw_deck_scrollbar(page.screen, panel, content, page.collection_scroll[mode], maximum)
 
 
 def draw_empty(page, rect, key="CollectionEmpty", fallback="Пока пусто"):
@@ -115,42 +112,23 @@ def draw_deck(page, content, panel):
         content.height -= 100
     card_h = 150
     card_w = round(card_h * page.card_size_market[0] / page.card_size_market[1])
-    step_x, step_y = card_w + 22, card_h + 18
-    columns = max(1, (content.width + 22) // step_x)
     groups = group_deck_cards(cards)
-    sections = []
-    total_height = 0
-    for group, key, fallback in DECK_GROUPS:
-        if not groups[group]:
-            continue
-        sections.append((group, key, fallback, total_height))
-        total_height += 36 + math.ceil(len(groups[group]) / columns) * step_y
+    sections = [(_tr(page._get_text(key, fallback)), list(enumerate(groups[group])))
+                for group, key, fallback in DECK_GROUPS]
+    headers, entries, total_height = deck_layout(content, sections, (card_w, card_h))
     offset = scroll_offset(page, content, total_height)
-    start_x = content.centerx - (columns * step_x - 22) // 2
-    old_clip = page.screen.get_clip()
-    page.screen.set_clip(content.clip(old_clip))
-    try:
-        positioned_cards = []
-        for group, key, fallback, top in sections:
-            y = content.y + top - offset
-            label = page.collection_font.render(_tr(page._get_text(key, fallback)), True, INK)
-            page.screen.blit(label, (start_x, y))
-            positioned_cards.extend((index, card, y + 36) for index, card in enumerate(groups[group]))
-        for index, card_id, y in positioned_cards:
-            rect = pygame.Rect(start_x + index % columns * step_x,
-                               y + index // columns * step_y, card_w, card_h)
-            if not rect.colliderect(content):
-                continue
-            image = page.card_images_market.get(card_id) or page.card_images_bottom.get(card_id)
-            if image:
-                page.screen.blit(pygame.transform.smoothscale(image, rect.size), rect)
-                page.draw_card_action(card_id, rect.x, rect.y, rect.size)
-                page.draw_card_turns(card_id, rect.x, rect.y, rect.size)
-            page.deck_view_card_entries.append({"card_id": card_id, "rect": rect.clip(content)})
-            if not full and page._is_hedger_available() and page.hedger_selected_card_id is card_id:
-                pygame.draw.rect(page.screen, ACCENT, rect.inflate(8, 8), 3, border_radius=4)
-    finally:
-        page.screen.set_clip(old_clip)
+
+    def draw_card(index, card_id, rect):
+        image = page.card_images_market.get(card_id) or page.card_images_bottom.get(card_id)
+        if image:
+            page.screen.blit(pygame.transform.smoothscale(image, rect.size), rect)
+            page.draw_card_action(card_id, rect.x, rect.y, rect.size)
+            page.draw_card_turns(card_id, rect.x, rect.y, rect.size)
+        if not full and page._is_hedger_available() and page.hedger_selected_card_id is card_id:
+            pygame.draw.rect(page.screen, ACCENT, rect.inflate(8, 8), 3, border_radius=4)
+
+    visible = draw_grid(page.screen, content, headers, entries, offset, page.collection_font, draw_card)
+    page.deck_view_card_entries.extend({"card_id": card, "rect": rect} for _, card, rect in visible)
     if has_hedger and cards:
         page._draw_hedger_deck_controls(panel)
 
@@ -248,15 +226,8 @@ def draw_bosses(page, content, panel):
 
 
 def draw_collection_view(page):
-    dim = pygame.Surface(page.screen.get_size(), pygame.SRCALPHA)
-    dim.fill((0, 0, 0, 85))
-    page.screen.blit(dim, (0, 0))
     panel = page.deck_view_panel_rect
-    if page.deck_view_panel_background:
-        page.screen.blit(page.deck_view_panel_background, panel)
-    else:
-        pygame.draw.rect(page.screen, (241, 232, 210), panel)
-    pygame.draw.rect(page.screen, INK, panel, 3)
+    draw_panel(page.screen, panel, page.deck_view_panel_background)
     mode = page.collection_view
     key, fallback = VIEW_LABELS[mode]
     page.deck_scope_rects = {}

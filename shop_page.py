@@ -6,6 +6,7 @@ import sys
 import pygame
 
 import game_state
+from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, draw_scrollbar, panel_rect
 import profile_manager
 from asset_loaders import load_scaled_image
 from sound_assets import load_button_sound
@@ -1426,15 +1427,22 @@ class DeckCardPage:
         assets = load_round_page_static_assets()
         self.round_background = assets["background"]
         self.round_koordinates = assets["koordinates"]
-        self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
-        self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
-        self.title_font = pygame.font.Font(font_path, 58)
-        self.button_font = pygame.font.Font(font_path, 34)
+        self.panel_rect = panel_rect(screen.get_size())
+        self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), self.panel_rect.size)
+        self.title_font = pygame.font.Font(font_path, 32)
+        self.button_font = pygame.font.Font(font_path, 26)
         self.small_font = pygame.font.Font(font_path, 26)
-        self.card_size = getattr(self, "card_size_override", GAMEPLAY_CARD_SIZE)
+        self.card_size = CARD_SIZE
         self.card_image_cache = {}
         self.selected_index = None
         self.confirming = False
+        self.scroll_y = 0
+        self.scroll_max = 0
+        self.drag_start = None
+        self.dragged = False
+        self.content_rect = pygame.Rect(self.panel_rect.x + 40, self.panel_rect.y + 125,
+                                        self.panel_rect.width - 80, self.panel_rect.height - 315)
+        self.close_rect = pygame.Rect(self.panel_rect.right - 64, self.panel_rect.top + 34, 40, 40)
         self.card_rects = self._build_card_rects()
         self.confirm_rect = pygame.Rect(self.panel_rect.centerx - 220, self.panel_rect.bottom - 130, 190, 70)
         self.cancel_rect = pygame.Rect(self.panel_rect.centerx + 30, self.panel_rect.bottom - 130, 190, 70)
@@ -1449,24 +1457,16 @@ class DeckCardPage:
         return image
 
     def _build_card_rects(self):
-        columns = 8
-        gap_x = 34
-        gap_y = 34
-        total_width = columns * self.card_size[0] + (columns - 1) * gap_x
-        start_x = self.panel_rect.centerx - total_width // 2
-        start_y = self.panel_rect.y + 210
-        rects = []
-        for index, _card_id in enumerate(self.deck):
-            row = index // columns
-            col = index % columns
-            rects.append(
-                pygame.Rect(
-                    start_x + col * (self.card_size[0] + gap_x),
-                    start_y + row * (self.card_size[1] + gap_y),
-                    *self.card_size,
-                )
-            )
-        return rects
+        sections = [("", list(enumerate(self.deck)))]
+        self.grid_headers, self.grid_entries, height = deck_layout(
+            self.content_rect, sections, self.card_size, getattr(self, "sale_label_height", 0))
+        self.scroll_max = max(0, height - self.content_rect.height)
+        self.scroll_y = min(self.scroll_y, self.scroll_max)
+        return [rect.move(0, -self.scroll_y) for _, _, rect in self.grid_entries]
+
+    def _scroll(self, amount):
+        self.scroll_y = max(0, min(self.scroll_max, self.scroll_y + amount))
+        self.card_rects = [rect.move(0, -self.scroll_y) for _, _, rect in self.grid_entries]
 
     def _draw_centered_text(self, text, font, center, color=PAPER_COLOR):
         surface = font.render(_tr(str(text)), True, color)
@@ -1524,8 +1524,12 @@ class DeckCardPage:
         return image
 
     def _card_at(self, pos):
+        if not self.content_rect.collidepoint(pos):
+            return None
         for index, rect in enumerate(self.card_rects):
-            if index < len(self.deck) and rect.collidepoint(pos):
+            hit_rect = rect.copy()
+            hit_rect.height += getattr(self, "sale_label_height", 0) + 2
+            if hit_rect.collidepoint(pos):
                 return index
         return None
 
@@ -1587,47 +1591,102 @@ class DeckCardPage:
             self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
-        if self.background:
-            self.screen.blit(self.background, self.panel_rect.topleft)
+        draw_panel(self.screen, self.panel_rect, self.background)
+
+    def _draw_grid_card(self, index, card_id, rect):
+        image = self._card_image(card_id)
+        if image:
+            self.screen.blit(image, rect)
         else:
-            pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
-            pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
+            pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
+            pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
+        self._draw_card_decoration(card_id, rect)
+        selected = index in self.selected_indices if hasattr(self, "selected_indices") else index == self.selected_index
+        if selected:
+            pygame.draw.rect(self.screen, (170, 130, 66), rect.inflate(8, 8), 3, border_radius=4)
+
+    def _draw_card_decoration(self, card_id, rect):
+        pass
+
+    def _selection_message(self):
+        if self.confirming and self.selected_index is not None:
+            return self.confirm_message(self.deck[self.selected_index])
+        return None
 
     def draw(self):
         self._draw_background()
-        self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 120))
-        self._draw_centered_text(self.prompt, self.button_font, (self.panel_rect.centerx, self.panel_rect.y + 175))
+        self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 52))
+        self._draw_centered_text(self.prompt, self.small_font, (self.panel_rect.centerx, self.panel_rect.y + 93))
+        if self.allow_back:
+            close = self.close_rect
+            pygame.draw.line(self.screen, PAPER_COLOR, (close.x + 12, close.y + 12), (close.right - 12, close.bottom - 12), 2)
+            pygame.draw.line(self.screen, PAPER_COLOR, (close.right - 12, close.y + 12), (close.x + 12, close.bottom - 12), 2)
         if not self.deck:
-            self._draw_centered_text(self.empty_text, self.button_font, (self.panel_rect.centerx, self.panel_rect.centery))
-
-        for index, card_id in enumerate(self.deck):
-            rect = self.card_rects[index]
-            image = self._card_image(card_id)
-            if image:
-                self.screen.blit(image, rect.topleft)
-            else:
-                pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
-                pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
-            if index == self.selected_index:
-                pygame.draw.rect(self.screen, (184, 134, 11), rect.inflate(10, 10), 4, border_radius=4)
-
-        if self.confirming and self.selected_index is not None:
-            selected_card = self.deck[self.selected_index]
-            self._draw_centered_text(
-                self.confirm_message(selected_card),
-                self.button_font,
-                (self.panel_rect.centerx, self.panel_rect.bottom - 185),
-            )
+            self._draw_centered_text(self.empty_text, self.button_font, self.content_rect.center)
+        draw_grid(self.screen, self.content_rect, self.grid_headers, self.grid_entries,
+                  self.scroll_y, self.small_font, self._draw_grid_card,
+                  extra_height=getattr(self, "sale_label_height", 0) + 2)
+        draw_scrollbar(self.screen, self.panel_rect, self.content_rect, self.scroll_y, self.scroll_max)
+        message = self._selection_message()
+        if message:
+            self._draw_centered_text(message, self.button_font,
+                                     (self.panel_rect.centerx, self.panel_rect.bottom - 165))
             self._draw_button(self.confirm_rect, self.confirm_text)
             self._draw_button(self.cancel_rect, self.cancel_text)
         elif self.allow_back:
             self._draw_button(self.cancel_rect, self.back_text)
-
         self._draw_card_tooltip()
         pygame.display.flip()
 
     def confirm_message(self, card_id):
         return f"Карта {card_id}?"
+
+    def _is_selectable(self, card):
+        return True
+
+    def _handle_click(self, pos):
+        if self.allow_back and self.close_rect.collidepoint(pos):
+            return "back"
+        if self.confirming:
+            if self.confirm_rect.collidepoint(pos) and self.selected_index is not None:
+                return self.deck[self.selected_index]
+            if self.cancel_rect.collidepoint(pos):
+                self.selected_index = None
+                self.confirming = False
+                return None
+        elif self.allow_back and self.cancel_rect.collidepoint(pos):
+            return "back"
+        index = self._card_at(pos)
+        if index is not None and self._is_selectable(self.deck[index]):
+            self.selected_index = index
+            self.confirming = True
+        return None
+
+    def _handle_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and self.allow_back:
+            return "back"
+        if event.type == pygame.MOUSEWHEEL:
+            self._scroll(-event.y * 60)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (4, 5):
+            self._scroll(-60 if event.button == 4 else 60)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.content_rect.collidepoint(event.pos):
+                self.drag_start = event.pos
+                self.drag_scroll_start = self.scroll_y
+                self.dragged = False
+            else:
+                return self._handle_click(event.pos)
+        elif event.type == pygame.MOUSEMOTION and self.drag_start is not None:
+            delta = event.pos[1] - self.drag_start[1]
+            if abs(delta) > 7:
+                self.dragged = True
+            if self.dragged:
+                self._scroll(self.drag_scroll_start - delta - self.scroll_y)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.drag_start is not None:
+            self.drag_start = None
+            if not self.dragged:
+                return self._handle_click(event.pos)
+        return None
 
     def run(self):
         while True:
@@ -1635,23 +1694,9 @@ class DeckCardPage:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and self.allow_back:
-                    return None
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.confirming:
-                        if self.confirm_rect.collidepoint(event.pos) and self.selected_index is not None:
-                            return self.deck[self.selected_index]
-                        if self.cancel_rect.collidepoint(event.pos):
-                            self.confirming = False
-                            continue
-                    elif self.allow_back and self.cancel_rect.collidepoint(event.pos):
-                        return None
-
-                    card_index = self._card_at(event.pos)
-                    if card_index is not None:
-                        self.selected_index = card_index
-                        self.confirming = True
-
+                result = self._handle_event(event)
+                if result is not None:
+                    return None if result == "back" else result
             self.draw()
             self.clock.tick(FPS)
 
@@ -1671,21 +1716,6 @@ class MoratoriumDeckPage(DeckCardPage):
     prompt = "Выберите золотую карту"
     empty_text = "Нет доступных карт"
     confirm_text = "Выбрать"
-    card_size_override = (116, 200)
-
-    def _build_card_rects(self):
-        rects = []
-        for start in range(0, len(self.deck), 5):
-            count = min(5, len(self.deck) - start)
-            width = count * self.card_size[0] + (count - 1) * 34
-            left = self.panel_rect.centerx - width // 2
-            top = self.panel_rect.y + 210 + (start // 5) * (self.card_size[1] + 34)
-            rects.extend(
-                pygame.Rect(left + i * (self.card_size[0] + 34), top, *self.card_size)
-                for i in range(count)
-            )
-        return rects
-
     def confirm_message(self, card_id):
         return f"Исключить {CARD_NAMES.get(card_id, card_id)} на 20 забегов?"
 
@@ -1717,8 +1747,6 @@ class RetentionDeckPage(DeckCardPage):
     allow_back = False
 
     def __init__(self, screen, font_path, cards):
-        if len(cards) > 8:
-            self.card_size_override = (116, 200)
         super().__init__(screen, font_path, level_number=1, deck=cards)
 
     def confirm_message(self, card_id):
@@ -1739,16 +1767,11 @@ class InvestmentDeckPage(DeckCardPage):
             deck=game_state.get_current_gain_drop_deck_cards(level_number),
         )
 
-    def draw(self):
-        super().draw()
-        for index, card_id in enumerate(self.deck):
-            bonus = game_state.get_investment_bonus(card_id)
-            if bonus <= 0 or index >= len(self.card_rects):
-                continue
-            rect = self.card_rects[index]
-            bonus_surface = self.button_font.render(_tr(f"+{bonus}"), True, (184, 134, 11))
-            self.screen.blit(bonus_surface, bonus_surface.get_rect(center=(rect.right - 22, rect.y + 24)))
-        pygame.display.flip()
+    def _draw_card_decoration(self, card_id, rect):
+        bonus = game_state.get_investment_bonus(card_id)
+        if bonus > 0:
+            surface = self.small_font.render(_tr(f"+{bonus}"), True, (184, 134, 11))
+            self.screen.blit(surface, surface.get_rect(center=(rect.right - 18, rect.y + 20)))
 
     def confirm_message(self, card_id):
         return f"Усилить карту {card_id}?"
@@ -1756,7 +1779,6 @@ class InvestmentDeckPage(DeckCardPage):
 
 class TraderDeckPage(DeckCardPage):
     title = "Трейдер"
-    card_size_override = (122, 211)
     sale_label_height = 30
     prompt = "Выберите одну карту для продажи"
     empty_text = "В колоде нет карт для продажи"
@@ -1768,89 +1790,23 @@ class TraderDeckPage(DeckCardPage):
     def _is_sellable(self, card_id):
         return self._sale_value(card_id) is not None
 
-    def _card_at(self, pos):
-        for index, rect in enumerate(self.card_rects):
-            if index >= len(self.deck):
-                continue
-            hit_rect = rect.copy()
-            hit_rect.height += self.sale_label_height + 2
-            if hit_rect.collidepoint(pos):
-                return index
-        return None
+    def _is_selectable(self, card):
+        return self._is_sellable(card)
 
-    def draw(self):
-        self._draw_background()
-        self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 120))
-        self._draw_centered_text(self.prompt, self.button_font, (self.panel_rect.centerx, self.panel_rect.y + 175))
-
-        for index, card_id in enumerate(self.deck):
-            rect = self.card_rects[index]
-            image = self._card_image(card_id)
-            if image:
-                self.screen.blit(image, rect.topleft)
-            else:
-                pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
-                pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
-
-            sale_value = self._sale_value(card_id)
-            if sale_value is None:
-                overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
-                overlay.fill(DISABLED_OVERLAY)
-                self.screen.blit(overlay, rect.topleft)
-                locked = self.small_font.render(_tr("Нельзя"), True, PAPER_COLOR)
-                self.screen.blit(locked, locked.get_rect(center=rect.center))
-            else:
-                price = self.small_font.render(_tr(format_napoleondors(sale_value)), True, PAPER_COLOR)
-                label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
-                pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
-                self.screen.blit(price, price.get_rect(center=label_rect.center))
-
-            if index == self.selected_index:
-                selected_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height + self.sale_label_height + 2)
-                pygame.draw.rect(self.screen, (184, 134, 11), selected_rect.inflate(10, 10), 4, border_radius=4)
-
-        if self.confirming and self.selected_index is not None:
-            sale_value = self._sale_value(self.deck[self.selected_index])
-            self._draw_centered_text(
-                f"Продать карту за {format_napoleondors(sale_value)}?",
-                self.button_font,
-                (self.panel_rect.centerx, self.panel_rect.bottom - 185),
-            )
-            self._draw_button(self.confirm_rect, self.confirm_text)
-            self._draw_button(self.cancel_rect, self.cancel_text)
+    def _draw_card_decoration(self, card_id, rect):
+        sale_value = self._sale_value(card_id)
+        if sale_value is None:
+            overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+            overlay.fill(DISABLED_OVERLAY)
+            self.screen.blit(overlay, rect)
+            self._draw_centered_text("Нельзя", self.small_font, rect.center)
         else:
-            self._draw_button(self.cancel_rect, self.back_text)
+            label = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
+            pygame.draw.rect(self.screen, BUTTON_COLOR, label)
+            self._draw_centered_text(format_napoleondors(sale_value), self.small_font, label.center)
 
-        self._draw_card_tooltip()
-        pygame.display.flip()
-
-    def run(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return None
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.confirming:
-                        if self.confirm_rect.collidepoint(event.pos) and self.selected_index is not None:
-                            return self.deck[self.selected_index]
-                        if self.cancel_rect.collidepoint(event.pos):
-                            self.selected_index = None
-                            self.confirming = False
-                            continue
-                    elif self.cancel_rect.collidepoint(event.pos):
-                        return None
-
-                    card_index = self._card_at(event.pos)
-                    if card_index is None or not self._is_sellable(self.deck[card_index]):
-                        continue
-                    self.selected_index = card_index
-                    self.confirming = True
-
-            self.draw()
-            self.clock.tick(FPS)
+    def confirm_message(self, card_id):
+        return f"Продать карту за {format_napoleondors(self._sale_value(card_id))}?"
 
 
 class CorrectionDeckPage(TraderDeckPage):
@@ -1880,75 +1836,28 @@ class CorrectionDeckPage(TraderDeckPage):
     def _selected_sale_value(self):
         return sum(self._sale_value(self.deck[index]) or 0 for index in self.selected_indices)
 
-    def draw(self):
-        self._draw_background()
-        self._draw_centered_text(self.title, self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 120))
-        self._draw_centered_text(self.prompt, self.button_font, (self.panel_rect.centerx, self.panel_rect.y + 175))
-        if not self.deck:
-            self._draw_centered_text(self.empty_text, self.button_font, (self.panel_rect.centerx, self.panel_rect.centery))
-
-        for index, entry in enumerate(self.deck):
-            rect = self.card_rects[index]
-            image = self._card_image(entry)
-            if image:
-                self.screen.blit(image, rect.topleft)
-            else:
-                pygame.draw.rect(self.screen, BUTTON_COLOR, rect)
-                pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2)
-
-            sale_value = self._sale_value(entry)
-            price = self.small_font.render(_tr(format_napoleondors(sale_value)), True, PAPER_COLOR)
-            label_rect = pygame.Rect(rect.x, rect.bottom + 2, rect.width, self.sale_label_height)
-            pygame.draw.rect(self.screen, BUTTON_COLOR, label_rect)
-            self.screen.blit(price, price.get_rect(center=label_rect.center))
-
-            if index in self.selected_indices:
-                selected_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height + self.sale_label_height + 2)
-                pygame.draw.rect(self.screen, (184, 134, 11), selected_rect.inflate(10, 10), 4, border_radius=4)
-
+    def _selection_message(self):
         if self.selected_indices:
             count = len(self.selected_indices)
             total = format_napoleondors(self._selected_sale_value())
-            self._draw_centered_text(
-                f"Выбрано: {count} из {game_state.CORRECTION_MAX_CARDS}. Получите: {total}",
-                self.button_font,
-                (self.panel_rect.centerx, self.panel_rect.bottom - 185),
-            )
-            self._draw_button(self.confirm_rect, self.confirm_text)
-            self._draw_button(self.cancel_rect, self.cancel_text)
-        else:
-            self._draw_button(self.cancel_rect, self.back_text)
+            return f"Выбрано: {count} из {game_state.CORRECTION_MAX_CARDS}. Получите: {total}"
+        return None
 
-        self._draw_card_tooltip()
-        pygame.display.flip()
-
-    def run(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return None
-                if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
-                    continue
-
-                if self.selected_indices and self.confirm_rect.collidepoint(event.pos):
-                    return [self.deck[index] for index in self.selected_indices]
-                if self.cancel_rect.collidepoint(event.pos):
-                    if self.selected_indices:
-                        self.selected_indices.clear()
-                    else:
-                        return None
-                    continue
-
-                card_index = self._card_at(event.pos)
-                if card_index is None:
-                    continue
-                if card_index in self.selected_indices:
-                    self.selected_indices.remove(card_index)
-                elif len(self.selected_indices) < game_state.CORRECTION_MAX_CARDS:
-                    self.selected_indices.append(card_index)
-
-            self.draw()
-            self.clock.tick(FPS)
+    def _handle_click(self, pos):
+        if self.close_rect.collidepoint(pos):
+            return "back"
+        if self.selected_indices and self.confirm_rect.collidepoint(pos):
+            return [self.deck[index] for index in self.selected_indices]
+        if self.cancel_rect.collidepoint(pos):
+            if self.selected_indices:
+                self.selected_indices.clear()
+            else:
+                return "back"
+            return None
+        index = self._card_at(pos)
+        if index is not None:
+            if index in self.selected_indices:
+                self.selected_indices.remove(index)
+            elif len(self.selected_indices) < game_state.CORRECTION_MAX_CARDS:
+                self.selected_indices.append(index)
+        return None

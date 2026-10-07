@@ -6,6 +6,7 @@ import sys
 import pygame
 
 import game_state
+from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, panel_rect
 import profile_manager
 from asset_loaders import load_scaled_image
 from gameplay_tutorial import (STORAGE_HINT_ID, STORAGE_HINT_TEXT,
@@ -991,35 +992,23 @@ class PositioningPage(SilverBlackPage):
         self.selection_target = min(requested_limit, len(self.deck_cards))
         self.selected_card_indices = []
         self.positioning_page_index = 0
-        self.title_font = pygame.font.Font(self.font_path, 54)
         self.prompt_font = pygame.font.Font(self.font_path, 27)
         self.selection_badge_font = pygame.font.Font(self.font_path, 21)
         self.positioning_action_font_cache = {}
         self.positioning_turns_font_cache = {}
         self.positioning_card_turns = dict(MARKET_CARD_TURNS)
 
-        grid_gap_x = 34
-        grid_gap_y = 20
-        self.positioning_grid_gap_x = grid_gap_x
-        self.positioning_grid_gap_y = grid_gap_y
-        total_width = (
-            POSITIONING_GRID_COLUMNS * self.card_width
-            + (POSITIONING_GRID_COLUMNS - 1) * grid_gap_x
-        )
-        start_x = self.panel_rect.centerx - total_width // 2
-        start_y = self.panel_rect.y + 205
-        self.positioning_grid_start_y = start_y
-        self.positioning_card_rects = []
-        for local_index in range(POSITIONING_CARDS_PER_PAGE):
-            row, column = divmod(local_index, POSITIONING_GRID_COLUMNS)
-            self.positioning_card_rects.append(
-                pygame.Rect(
-                    start_x + column * (self.card_width + grid_gap_x),
-                    start_y + row * (self.card_height + grid_gap_y),
-                    self.card_width,
-                    self.card_height,
-                )
-            )
+        self.panel_rect = panel_rect(screen.get_size())
+        self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), self.panel_rect.size)
+        self.card_width, self.card_height = CARD_SIZE
+        self.placeholder = self._load_placeholder()
+        self.negative_card_overlay = self._load_image(os.path.join("Cards", "Arts", "Negative.png"), CARD_SIZE)
+        self.title_font = pygame.font.Font(self.font_path, 32)
+        self.positioning_content = pygame.Rect(self.panel_rect.x + 40, self.panel_rect.y + 170,
+                                               self.panel_rect.width - 80, self.panel_rect.height - 270)
+        _, slots, _ = deck_layout(self.positioning_content,
+                                 [("", list(enumerate(range(POSITIONING_CARDS_PER_PAGE))))])
+        self.positioning_card_rects = [rect for _, _, rect in slots]
 
         button_y = self.panel_rect.bottom - 82
         self.positioning_back_button_rect = pygame.Rect(self.panel_rect.x + 42, button_y, 210, 54)
@@ -1043,27 +1032,8 @@ class PositioningPage(SilverBlackPage):
     def _visible_positioning_entries(self):
         start = self.positioning_page_index * POSITIONING_CARDS_PER_PAGE
         visible_count = min(POSITIONING_CARDS_PER_PAGE, max(0, len(self.deck_cards) - start))
-        entries = []
-        for local_index in range(visible_count):
-            deck_index = start + local_index
-            row, column = divmod(local_index, POSITIONING_GRID_COLUMNS)
-            cards_in_row = min(
-                POSITIONING_GRID_COLUMNS,
-                visible_count - row * POSITIONING_GRID_COLUMNS,
-            )
-            row_width = (
-                cards_in_row * self.card_width
-                + (cards_in_row - 1) * self.positioning_grid_gap_x
-            )
-            row_start_x = self.panel_rect.centerx - row_width // 2
-            rect = pygame.Rect(
-                row_start_x + column * (self.card_width + self.positioning_grid_gap_x),
-                self.positioning_grid_start_y
-                + row * (self.card_height + self.positioning_grid_gap_y),
-                self.card_width,
-                self.card_height,
-            )
-            entries.append((deck_index, self.deck_cards[deck_index], rect))
+        entries = [(start + index, self.deck_cards[start + index], self.positioning_card_rects[index])
+                   for index in range(visible_count)]
         return entries
 
     def _hovered_card(self, pos):
@@ -1118,11 +1088,7 @@ class PositioningPage(SilverBlackPage):
             self.screen.fill((235, 220, 190))
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
-        if self.background:
-            self.screen.blit(self.background, self.panel_rect.topleft)
-        else:
-            pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
-            pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
+        draw_panel(self.screen, self.panel_rect, self.background)
 
     def _draw_positioning_card_values(self, card_id, rect):
         try:
@@ -1187,18 +1153,21 @@ class PositioningPage(SilverBlackPage):
             prompt_surface.get_rect(center=(self.panel_rect.centerx, self.panel_rect.y + 142)),
         )
 
-        for deck_index, card_id, rect in self._visible_positioning_entries():
+        def draw_card(deck_index, card_id, rect):
             self._draw_placeholder(rect, PAPER_COLOR)
             self._draw_card(card_id, rect)
             self._draw_positioning_card_values(card_id, rect)
             if deck_index not in self.selected_card_indices:
-                continue
+                return
             pygame.draw.rect(self.screen, GOLD, rect.inflate(10, 10), 5, border_radius=4)
             selection_number = self.selected_card_indices.index(deck_index) + 1
             badge_center = (rect.right - 5, rect.top + 5)
             pygame.draw.circle(self.screen, GOLD, badge_center, 18)
             badge = self.selection_badge_font.render(_tr(str(selection_number)), True, (255, 250, 230))
             self.screen.blit(badge, badge.get_rect(center=badge_center))
+
+        draw_grid(self.screen, self.positioning_content, [], self._visible_positioning_entries(),
+                  0, self.prompt_font, draw_card)
 
         self._draw_positioning_button(self.positioning_back_button_rect, "Назад")
         self._draw_positioning_button(

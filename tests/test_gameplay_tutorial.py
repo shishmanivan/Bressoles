@@ -193,9 +193,10 @@ class TutorialTests(unittest.TestCase):
             with mock.patch.object(profile_manager, "mark_tutorial_seen") as mark:
                 page._maybe_show_sell_tutorial()
                 hint.assert_not_called()
-                mark.assert_not_called()
-            self.assertNotIn(SELL_HINT_ID, page.tutorial_dismissed_this_round)
-            # Only a played Rebate suppresses the reminder; removal restores it.
+                mark.assert_called_once_with(1, SELL_HINT_ID)
+            self.assertIn(SELL_HINT_ID, page.tutorial_dismissed_this_round)
+            # A different, inexperienced profile holding Rebate still needs the hint.
+            page.tutorial_dismissed_this_round.clear()
             page.side_cards_top = [None, 116, None]
             page.hand_cards = [110]
             page.deck = [110]
@@ -217,6 +218,30 @@ class TutorialTests(unittest.TestCase):
             with mock.patch.object(profile_manager, "is_tutorial_pending", return_value=False):
                 page._maybe_show_sell_tutorial()
             hint.assert_not_called()
+
+    def test_rebate_permanently_suppresses_sell_hint_for_its_profile(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.test_mode = False
+        page.profile_slot = 1
+        # The player previously closed the reminder without ticking its checkbox.
+        page.tutorial_dismissed_this_round = {SELL_HINT_ID}
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ):
+            page._disable_sell_tutorial_after_rebate()
+            profile_manager.save_progress_from_game_state(1)
+            self.assertFalse(profile_manager.is_tutorial_pending(1, SELL_HINT_ID))
+            self.assertTrue(profile_manager.is_tutorial_pending(2, SELL_HINT_ID))
+            page.tutorial_dismissed_this_round.clear()
+            page.side_cards_top = []
+            page.Day, page.LastTurn = 7, 8
+            page.tutorial_hint = page.win_lose_state = None
+            page.pause_menu_active = page.deck_view_active = False
+            page._is_turn_resolution_active = mock.Mock(return_value=False)
+            page._is_hand_transition_active = mock.Mock(return_value=False)
+            with mock.patch("gameplay_page.TutorialHint") as hint:
+                page._maybe_show_sell_tutorial()
+                hint.assert_not_called()
 
     def test_logo_reminder_third_turn_and_discovery_persist_across_rounds(self):
         page = GameplayPage.__new__(GameplayPage)

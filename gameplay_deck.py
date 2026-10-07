@@ -11,10 +11,11 @@ CONCENTRATION_REMOVED_CARD_IDS = frozenset({1, 2, 3, 4})
 class InvestedCard(int):
     """A single deck card carrying an instance-specific Investment bonus."""
 
-    def __new__(cls, card_id, investment_bonus=0, deck_origin=None):
+    def __new__(cls, card_id, investment_bonus=0, deck_origin=None, shop_purchase=None):
         instance = int.__new__(cls, int(card_id))
         instance.investment_bonus = max(0, int(investment_bonus or 0))
         instance.deck_origin = deck_origin or getattr(card_id, "deck_origin", None)
+        instance.shop_purchase = bool(getattr(card_id, "shop_purchase", False) if shop_purchase is None else shop_purchase)
         return instance
 
 
@@ -30,7 +31,8 @@ def serialize_card_instance(card_id):
         return None
     bonus = get_card_investment_bonus(card_id)
     origin = getattr(card_id, "deck_origin", None)
-    if bonus <= 0 and not origin:
+    shop_purchase = getattr(card_id, "shop_purchase", False)
+    if bonus <= 0 and not origin and not shop_purchase:
         return int(card_id)
     result = {
         "card_id": int(card_id),
@@ -38,6 +40,8 @@ def serialize_card_instance(card_id):
     }
     if origin:
         result["deck_origin"] = origin
+    if shop_purchase:
+        result["shop_purchase"] = True
     return result
 
 
@@ -51,7 +55,8 @@ def restore_card_instance(value):
         origin = value.get("deck_origin")
         if origin not in ("permanent", "temporary", "purchased"):
             origin = None
-        return InvestedCard(normalize_card_id(card_id), bonus, origin) if bonus > 0 or origin else normalize_card_id(card_id)
+        shop_purchase = bool(value.get("shop_purchase", False))
+        return InvestedCard(normalize_card_id(card_id), bonus, origin, shop_purchase) if bonus > 0 or origin or shop_purchase else normalize_card_id(card_id)
     if value is None:
         return None
     try:
@@ -146,8 +151,8 @@ def build_initial_deck(
     concentration_removes_starting_shareholder=True,
 ):
     """Build initial deck composition for a given level."""
-    def tagged(cards, origin):
-        return [InvestedCard(card, get_card_investment_bonus(card), origin) for card in cards]
+    def tagged(cards, origin, shop_purchase=False):
+        return [InvestedCard(card, get_card_investment_bonus(card), origin, shop_purchase) for card in cards]
 
     base_deck = tagged(BASE_STARTING_DECK, "permanent")
     if concentration_active and concentration_removes_starting_shareholder:
@@ -169,7 +174,7 @@ def build_initial_deck(
         card_id for card_id in (shop_deck_cards or []) if not is_silver_reward_card(card_id)
     )
     if bought_cards:
-        base_deck.extend(tagged(bought_cards, "purchased"))
+        base_deck.extend(tagged(bought_cards, "purchased", shop_purchase=True))
         print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
 
     # Delisting and Investment operate only on permanent cards. Apply both

@@ -3020,6 +3020,8 @@ class GameplayPage:
                                 if not self._can_play_dragged_hand_card_on_side_top(card_id):
                                     continue
                                 self.side_cards_top[slot] = card_id
+                                if card_id == 110:
+                                    self._disable_sell_tutorial_after_rebate()
                                 # Remember original hand slot and mark as not locked for this turn
                                 self.side_card_origins_top[slot] = self.dragged_card_index
                                 self.side_cards_locked_top[slot] = False
@@ -8341,6 +8343,9 @@ class GameplayPage:
             self._stock_logo_discovered = True
 
     def _maybe_show_sell_tutorial(self):
+        if self._has_played_side_card(110):
+            self._disable_sell_tutorial_after_rebate()
+            return
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
             or self.Day != self.LastTurn - 1 or self.win_lose_state is not None
@@ -8357,6 +8362,14 @@ class GameplayPage:
             )
         else:
             self.tutorial_dismissed_this_round.add(SELL_HINT_ID)
+
+    def _disable_sell_tutorial_after_rebate(self):
+        if self.test_mode or not self.profile_slot or getattr(self, "_rebate_tutorial_recorded", False):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, SELL_HINT_ID):
+            profile_manager.mark_tutorial_seen(self.profile_slot, SELL_HINT_ID)
+        self._rebate_tutorial_recorded = True
+        self.tutorial_dismissed_this_round.add(SELL_HINT_ID)
 
     def run(self):
         self.tutorial_hint = None

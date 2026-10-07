@@ -2261,6 +2261,55 @@ class TimedShopEffectTests(ShopEconomyTestCase):
 
 
 class ShopPersistenceTests(ShopEconomyTestCase):
+    def test_trader_sells_every_shop_deck_card_for_three(self):
+        # Includes the previously blocked Regulation, Blue Chips, and market copies.
+        for card_id in (1, 11, 17, 18, 20, 21, 22, 23, 24, 100, 117):
+            with self.subTest(card_id=card_id), mock.patch.object(game_state, "earned_reward_cards", {}):
+                game_state.shop_deck_cards = [card_id]
+                game_state.removed_deck_cards_by_level = {}
+                game_state.napoleondors = 0
+                purchased = next(card for card in game_state.build_permanent_level_deck(5)
+                                 if card.shop_purchase)
+                self.assertEqual(game_state.get_card_sale_value(purchased), 3)
+                self.assertEqual(game_state.get_card_sale_value(card_id), 3)
+                self.assertEqual(game_state.sell_cards_from_level_deck(5, [purchased]), (3, [card_id]))
+                self.assertEqual(game_state.napoleondors, 3)
+                self.assertEqual(game_state.shop_deck_cards, [])
+                self.assertFalse(any(card.shop_purchase for card in game_state.build_permanent_level_deck(5)))
+                self.assertEqual(game_state.sell_cards_from_level_deck(5, [purchased]), (0, []))
+
+    def test_trader_keeps_base_copy_and_its_price_when_selling_purchased_copy(self):
+        with mock.patch.object(game_state, "earned_reward_cards", {}):
+            game_state.shop_deck_cards = [11]
+            copies = [card for card in game_state.build_permanent_level_deck(5) if card == 11]
+            base, purchased = copies
+            self.assertEqual(game_state.get_card_sale_value(base), 2)
+            self.assertEqual(game_state.get_card_sale_value(purchased), 3)
+            self.assertEqual(game_state.sell_cards_from_level_deck(5, [purchased]), (3, [11]))
+            remaining = [card for card in game_state.build_permanent_level_deck(5) if card == 11]
+            self.assertEqual(len(remaining), 1)
+            self.assertEqual(remaining[0].deck_origin, "permanent")
+            self.assertEqual(game_state.sell_cards_from_level_deck(5, [remaining[0]]), (2, [11]))
+
+    def test_reward_copy_is_not_mistaken_for_shop_purchase(self):
+        with mock.patch.object(game_state, "earned_reward_cards", {5: [11]}):
+            game_state.shop_deck_cards = [11]
+            cards = game_state.build_permanent_level_deck(5)
+            reward = next(card for card in cards if card == 11 and card.deck_origin == "purchased" and not card.shop_purchase)
+            bought = next(card for card in cards if card.shop_purchase)
+            self.assertEqual(game_state.get_card_sale_value(reward), 2)
+            self.assertEqual(game_state.get_card_sale_value(bought), 3)
+
+    def test_shop_purchase_marker_survives_card_save_and_investment(self):
+        from gameplay_deck import InvestedCard, serialize_card_instance, restore_card_instance
+        game_state.shop_deck_cards = [20]
+        bought = next(card for card in game_state.build_permanent_level_deck(5) if card.shop_purchase)
+        restored = restore_card_instance(serialize_card_instance(InvestedCard(bought, 2)))
+        self.assertTrue(restored.shop_purchase)
+        self.assertEqual(restored.investment_bonus, 2)
+        self.assertEqual(game_state.get_card_sale_value(restored), 3)
+        self.assertEqual(game_state.sell_cards_from_level_deck(5, [restored]), (3, [20]))
+
     def test_trader_sells_only_one_copy_and_supports_half_coins(self):
         game_state.napoleondors = 0
 

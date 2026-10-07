@@ -831,7 +831,7 @@ class UiLayoutTests(unittest.TestCase):
         self.assertTrue(all(page.panel_rect.contains(rect) for rect in page.card_rects))
 
         crowded_page = RetentionDeckPage(self.screen, self.font_path, list(range(11, 20)))
-        self.assertEqual(crowded_page.card_size, (116, 200))
+        self.assertEqual(crowded_page.card_size, (87, 150))
         self.assertLess(crowded_page.card_rects[-1].bottom, crowded_page.confirm_rect.top)
 
     def test_active_shop_offers_fit_above_the_silver_card_pool(self):

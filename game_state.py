@@ -2836,6 +2836,10 @@ def get_card_sale_value(card_id):
         cid = int(card_id)
     except (TypeError, ValueError):
         return None
+    if getattr(card_id, "shop_purchase", False) or (
+        not getattr(card_id, "deck_origin", None) and cid in shop_deck_cards
+    ):
+        return 3
     if cid == 100:
         return None
     if 1 <= cid <= 4:
@@ -2862,14 +2866,24 @@ def sell_cards_from_level_deck(level_number, card_ids):
             normalized = int(card_id)
         except (TypeError, ValueError):
             continue
-        value = get_card_sale_value(normalized)
+        # Resolve the selected instance before pricing it: equal IDs can come
+        # from the starting deck, a reward, or a shop purchase.
+        origin = getattr(card_id, "deck_origin", None)
+        selected = next((card for card in available_deck
+                         if int(card) == normalized
+                         and (not origin or (card.deck_origin == origin
+                              and card.shop_purchase == getattr(card_id, "shop_purchase", False)))), None)
+        if selected is None:
+            continue
+        value = get_card_sale_value(selected)
         if value is None:
             continue
-        try:
-            available_deck.remove(normalized)
-        except ValueError:
-            continue
-        removed_deck_cards_by_level.setdefault(level, []).append(normalized)
+        if selected.shop_purchase:
+            # Remove the purchased copy from its source, so a base copy with
+            # the same ID is preserved and the sold card cannot return later.
+            shop_deck_cards.remove(normalized)
+        else:
+            removed_deck_cards_by_level.setdefault(level, []).append(normalized)
         _remove_start_hand_guarantee(level, normalized)
         sold_cards.append(normalized)
         total_value += float(value)
