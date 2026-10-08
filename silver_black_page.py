@@ -1154,12 +1154,7 @@ class PositioningPage(SilverBlackPage):
             self._draw_positioning_card_values(card_id, rect)
             if deck_index not in self.selected_card_indices:
                 return
-            pygame.draw.rect(self.screen, GOLD, rect.inflate(10, 10), 5, border_radius=4)
-            selection_number = self.selected_card_indices.index(deck_index) + 1
-            badge_center = (rect.right - 5, rect.top + 5)
-            pygame.draw.circle(self.screen, GOLD, badge_center, 18)
-            badge = self.selection_badge_font.render(_tr(str(selection_number)), True, (255, 250, 230))
-            self.screen.blit(badge, badge.get_rect(center=badge_center))
+            pygame.draw.rect(self.screen, GOLD, rect, 4, border_radius=4)
 
         draw_grid(self.screen, self.positioning_content, [], self._visible_positioning_entries(),
                   0, self.prompt_font, draw_card)

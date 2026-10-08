@@ -82,8 +82,14 @@ class ProfilePage(AdaptivePage):
         self.input_rect = pygame.Rect(
             self.window_rect.centerx - 310,
             self.window_rect.bottom - 145,
-            620,
+            400,
             62,
+        )
+        self.select_rect = pygame.Rect(
+            self.input_rect.right + 20,
+            self.input_rect.y,
+            200,
+            self.input_rect.height,
         )
         self.delete_rects = [pygame.Rect(rect.right + 8, rect.centery - 17, 34, 34)
                              for rect in self.button_rects]
@@ -205,6 +211,8 @@ class ProfilePage(AdaptivePage):
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = event.pos
+                if self.editing_slot is not None and self.select_rect.collidepoint(mouse_pos):
+                    return self._confirm_selection()
                 for index, rect in enumerate(self.delete_rects):
                     if index + 1 in self.occupied_slots and rect.collidepoint(mouse_pos):
                         self.deleting_slot = index + 1
@@ -274,9 +282,21 @@ class ProfilePage(AdaptivePage):
             text = self.input_text
             if (pygame.time.get_ticks() // 450) % 2 == 0:
                 text += "|"
+            max_input_width = self.input_rect.width - 36
+            while text and self.font_medium.size(text)[0] > max_input_width:
+                text = text[1:]
             input_surface = self._render_text_cached(self.font_medium, text, PAPER_COLOR)
             input_rect = input_surface.get_rect(midleft=(self.input_rect.x + 18, self.input_rect.centery))
             self.screen.blit(input_surface, input_rect)
+
+            pygame.draw.rect(self.screen, (228, 213, 176), self.select_rect, border_radius=6)
+            pygame.draw.rect(self.screen, PAPER_COLOR, self.select_rect, 3, border_radius=6)
+            select_surface = self._render_text_cached(
+                self.font_small,
+                translate("Выбрать"),
+                PAPER_COLOR,
+            )
+            self.screen.blit(select_surface, select_surface.get_rect(center=self.select_rect.center))
 
         for index, line in enumerate(wrap_text(self.status_message, self.status_font, self.window_rect.width - 60)):
             surface = self._render_text_cached(self.status_font, line, PAPER_COLOR)

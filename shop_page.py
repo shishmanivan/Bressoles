@@ -1759,12 +1759,6 @@ class InvestmentDeckPage(DeckCardPage):
             deck=game_state.get_current_gain_drop_deck_cards(level_number),
         )
 
-    def _draw_card_decoration(self, card_id, rect):
-        bonus = game_state.get_investment_bonus(card_id)
-        if bonus > 0:
-            surface = self.small_font.render(_tr(f"+{bonus}"), True, (184, 134, 11))
-            self.screen.blit(surface, surface.get_rect(center=(rect.right - 18, rect.y + 20)))
-
     def confirm_message(self, card_id):
         return f"Усилить карту {card_id}?"
 

@@ -100,6 +100,32 @@ class ProfileDeletionTests(unittest.TestCase):
         click(page.button_rects[0])
         self.assertEqual(page.editing_slot, 1)
 
+    def test_existing_profile_can_be_confirmed_with_select_button(self):
+        second = pm._default_profile(2)
+        second["name"] = "Second"
+        pm.save_profile(second)
+        pygame.init()
+        self.addCleanup(pygame.quit)
+        page = ProfilePage(
+            pygame.display.set_mode((1680, 1050)),
+            None,
+            "egyptiennemncyr_condensedbold.ttf",
+        )
+
+        def click(rect):
+            with mock.patch.object(pygame.event, "get", return_value=[
+                pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center)
+            ]):
+                return page.handle_input()
+
+        self.assertIsNone(click(page.button_rects[1]))
+        self.assertEqual(page.editing_slot, 2)
+        with mock.patch.object(pm, "apply_profile_to_game_state"):
+            result = click(page.select_rect)
+
+        self.assertEqual(result, {"slot": 2, "name": "Second"})
+        self.assertEqual(pm.get_selected_slot(), 2)
+
     def test_confirmation_is_localized(self):
         original = get_language()
         self.addCleanup(set_language, original)

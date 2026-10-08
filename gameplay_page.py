@@ -6104,7 +6104,8 @@ class GameplayPage(AdaptivePage):
         animation_map[key] = {
             'offset_y': 0.0,
             'velocity': -8.7,
-            'start_time': pygame.time.get_ticks() + int(delay_ms or 0)
+            'start_time': pygame.time.get_ticks() + int(delay_ms or 0),
+            'steps_applied': 0,
         }
 
     def _start_lifecycle_card_scale_animation(self, slot, now=None):
@@ -6146,16 +6147,21 @@ class GameplayPage(AdaptivePage):
         now = pygame.time.get_ticks()
         slots_to_remove = []
         for key, anim in list(animation_map.items()):
-            if now < anim.get('start_time', now):
+            start_time = int(anim.get('start_time', now))
+            if now < start_time:
                 continue
 
-            anim['velocity'] += gravity
-            anim['offset_y'] += anim['velocity']
+            target_steps = int((now - start_time) * FPS / 1000) + 1
+            steps_due = max(0, target_steps - int(anim.get('steps_applied', 0)))
+            for _ in range(steps_due):
+                anim['velocity'] += gravity
+                anim['offset_y'] += anim['velocity']
+                anim['steps_applied'] = int(anim.get('steps_applied', 0)) + 1
 
-            if anim['offset_y'] >= 0 and anim['velocity'] > 0:
-                slots_to_remove.append(key)
-            if anim['offset_y'] > 0:
-                anim['offset_y'] = 0
+                if anim['offset_y'] >= 0 and anim['velocity'] > 0:
+                    anim['offset_y'] = 0
+                    slots_to_remove.append(key)
+                    break
 
         for key in slots_to_remove:
             animation_map.pop(key, None)

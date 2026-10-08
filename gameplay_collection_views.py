@@ -217,9 +217,12 @@ def draw_bosses(page, content, panel):
             icon = page._load_defeated_boss_icon(entry.get("filename"))
             if icon:
                 page.screen.blit(icon, rect)
-            for index, line in enumerate(lines):
-                text = page.collection_font.render(_tr(line), True, INK)
-                page.screen.blit(text, (content.x + 132, y + 12 + index * 27))
+            rendered_lines = [page.collection_font.render(_tr(line), True, INK) for line in lines]
+            text_height = sum(text.get_height() for text in rendered_lines) + max(0, len(lines) - 1) * 3
+            text_y = rect.centery - text_height // 2
+            for text in rendered_lines:
+                page.screen.blit(text, (content.x + 132, text_y))
+                text_y += text.get_height() + 3
             y += height
     finally:
         page.screen.set_clip(old_clip)
@@ -245,6 +248,8 @@ def draw_collection_view(page):
             if getattr(page, "deck_view_scope", "remaining") == scope:
                 pygame.draw.line(page.screen, ACCENT, (rect.left + 12, rect.bottom), (rect.right - 12, rect.bottom), 2)
     else:
+        if mode == "bosses":
+            key, fallback = "CollectionDefeatedBoss", "Побеждённый босс"
         title = page.font_small.render(_tr(page._get_text(key, fallback)), True, INK)
         page.screen.blit(title, title.get_rect(midtop=(panel.centerx, panel.top + 38)))
     page.collection_close_rect = pygame.Rect(panel.right - 64, panel.top + 34, 40, 40)

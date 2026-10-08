@@ -2000,6 +2000,14 @@
     "FR": "Choisir"
   },
   {
+    "Source": "Побеждённый босс",
+    "RU": "Побеждённый босс",
+    "ENG": "Defeated Boss",
+    "DE": "Besiegter Boss",
+    "HU": "Legyőzött főellenfél",
+    "FR": "Boss vaincu"
+  },
+  {
     "Source": "Добавляет эту карту в пул будущих забегов.",
     "RU": "Добавляет эту карту в пул будущих забегов.",
     "ENG": "Adds this card to the pool for future runs.",

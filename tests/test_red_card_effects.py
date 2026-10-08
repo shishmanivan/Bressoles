@@ -20,6 +20,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.active_gold_cards = []
         page.active_lifecycle_card_order = []
         page.side_card_jump_animations = {}
+        page.lifecycle_card_jump_animations = {}
         page.card_jump_animations = {0: {}, 1: {}, 2: {}}
         page.market_cards = {0: {}, 1: {}, 2: {}}
         page.market_card_origins = {0: {}, 1: {}, 2: {}}
@@ -139,6 +140,36 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertEqual(page.market_card_origins[0][0], 3)
         self.assertTrue(page.market_cards_locked[0][0])
         self.assertEqual(page.market_card_turns[0][0], 0)
+
+    def test_card_jump_uses_elapsed_time_when_rendering_is_slow(self):
+        page = self._page()
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1000):
+            page._start_card_jump_animation(page.side_card_jump_animations, 0)
+
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1100):
+            page.update_side_card_jump_animations()
+
+        animation = page.side_card_jump_animations[0]
+        self.assertEqual(animation["steps_applied"], 7)
+        self.assertLess(animation["offset_y"], -30)
+
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1350):
+            page.update_side_card_jump_animations()
+
+        self.assertNotIn(0, page.side_card_jump_animations)
+
+    def test_delayed_card_jump_waits_before_advancing(self):
+        page = self._page()
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1000):
+            page._start_card_jump_animation(page.side_card_jump_animations, 0, delay_ms=500)
+
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1499):
+            page.update_side_card_jump_animations()
+        self.assertEqual(page.side_card_jump_animations[0]["steps_applied"], 0)
+
+        with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=1500):
+            page.update_side_card_jump_animations()
+        self.assertEqual(page.side_card_jump_animations[0]["steps_applied"], 1)
 
     def test_zero_turn_card_stays_in_place_and_is_not_queued(self):
         page = self._page()
