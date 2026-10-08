@@ -1,6 +1,6 @@
 import os
 
-import pygame
+import native_render as pygame
 
 
 _scaled_background_cache = {}

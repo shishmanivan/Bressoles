@@ -3,7 +3,7 @@ from localization import translate as _tr
 
 import math
 
-import pygame
+import native_render as pygame
 
 import game_state
 from deck_view import deck_layout, draw_grid, draw_panel, draw_scrollbar as draw_deck_scrollbar

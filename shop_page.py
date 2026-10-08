@@ -4,7 +4,7 @@ from localization import get_language, translate as _tr
 import os
 import sys
 
-import pygame
+import native_render as pygame
 
 import game_state
 from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, draw_scrollbar, panel_rect

@@ -6,6 +6,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import pygame
+from native_render import draw as native_draw
 import game_data
 import boss_logic
 from adaptive_page import AdaptivePage, adaptive_draw, content_rect
@@ -34,7 +35,7 @@ class AdaptivePagesTests(unittest.TestCase):
         class Page(AdaptivePage):
             @adaptive_draw
             def draw(self):
-                pygame.draw.rect(self.screen, "red", (1640, 1010, 40, 40))
+                native_draw.rect(self.screen, "red", (1640, 1010, 40, 40))
 
         page = Page()
         page.init_viewport(pygame.Surface((1366, 768)))
@@ -97,6 +98,7 @@ class AdaptivePagesTests(unittest.TestCase):
                         page.draw()
                         flip.assert_called_once()
                     self.assertEqual(page.screen.get_size(), (1680, 1050))
+                    self.assertEqual(page.screen.pixels.get_size(), content_rect(size).size)
                     self.assertTrue(page.viewport.get_rect().contains(content_rect(size)))
                     self.assertNotEqual(page.viewport.get_at((0, 0))[:3], (0, 0, 0))
                     if isinstance(page, BossPage):

@@ -1,7 +1,7 @@
 """Descriptions of the three stocks' natural price movements."""
 from pathlib import Path
 
-import pygame
+import native_render as pygame
 
 from localization import get_language, translate
 from shared_utils import wrap_text

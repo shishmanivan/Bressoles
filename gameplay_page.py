@@ -1,7 +1,7 @@
 from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
 from localization import translate as _tr
-import pygame
+import native_render as pygame
 import random
 import math
 import re

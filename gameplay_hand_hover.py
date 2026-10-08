@@ -1,6 +1,6 @@
 """Shared geometry and stacking for hand and lifecycle card hover effects."""
 
-import pygame
+import native_render as pygame
 
 
 HAND_HOVER_SCALE = 1.10

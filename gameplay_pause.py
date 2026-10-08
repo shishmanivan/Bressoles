@@ -1,5 +1,6 @@
 from localization import translate as _tr
-import pygame
+import native_render as pygame
+from adaptive_page import draw_modal_shade
 
 
 INK = (66, 57, 48)
@@ -52,9 +53,7 @@ def _draw_centered_text(surface, font, text, color, center_x, y):
 
 
 def draw_pause_menu(surface, layout, texts, title_font, button_font, small_font, mouse_pos):
-    overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 142))
-    surface.blit(overlay, (0, 0))
+    draw_modal_shade(surface, (0, 0, 0, 142))
 
     panel = layout["panel"]
     shadow_rect = panel.move(10, 12)

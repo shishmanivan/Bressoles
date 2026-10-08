@@ -1,6 +1,6 @@
 import random
 
-import pygame
+import native_render as pygame
 
 import game_state
 from game_data import REWARD_TOKEN_RANDOM_SILVER

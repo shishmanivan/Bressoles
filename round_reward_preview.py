@@ -1,6 +1,6 @@
 import os
 
-import pygame
+import native_render as pygame
 
 from card_catalog import CARD_IMAGE_BASE_IDS, PRICE_CARD_ACTIONS, PRICE_CARD_TURNS
 from game_data import REWARD_TOKEN_RANDOM_SILVER

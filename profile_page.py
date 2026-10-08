@@ -2,7 +2,7 @@ from adaptive_page import AdaptivePage, adaptive_draw
 import os
 import sys
 
-import pygame
+import native_render as pygame
 from pathlib import Path
 
 import profile_manager

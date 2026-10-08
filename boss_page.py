@@ -4,7 +4,7 @@ from localization import translate as _tr
 import os
 import sys
 
-import pygame
+import native_render as pygame
 
 from asset_loaders import load_scaled_image
 import profile_manager

@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-import pygame
+import native_render as pygame
+from adaptive_page import draw_modal_shade
 
 from gameplay_assets import build_hand_frame
 from localization import get_language, translate
@@ -155,9 +156,7 @@ class TutorialHint:
         return self.press_until is not None and pygame.time.get_ticks() >= self.press_until
 
     def draw(self, screen):
-        shade = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        shade.fill((0, 0, 0, 110))
-        screen.blit(shade, (0, 0))
+        draw_modal_shade(screen, (0, 0, 0, 110))
         pygame.draw.rect(screen, (236, 226, 201), self.panel.inflate(-18, -18))
         if self.frame is not None:
             screen.blit(self.frame, self.panel)

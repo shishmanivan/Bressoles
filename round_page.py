@@ -2,7 +2,7 @@ from adaptive_page import AdaptivePage, adaptive_draw
 from localization import translate as _tr
 import sys
 
-import pygame
+import native_render as pygame
 
 import game_state
 import profile_manager

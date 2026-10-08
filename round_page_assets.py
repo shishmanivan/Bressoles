@@ -1,7 +1,7 @@
 from sound_assets import load_sound
 import os
 
-import pygame
+import native_render as pygame
 
 from asset_loaders import load_scaled_background, load_scaled_image
 from adaptive_ui import cover_geometry, proportional_size

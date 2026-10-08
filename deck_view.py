@@ -1,6 +1,7 @@
 """Shared collection window and compact, clipped deck grid."""
 import math
-import pygame
+import native_render as pygame
+from adaptive_page import draw_modal_shade
 
 INK = (85, 73, 55)
 ACCENT = (170, 130, 66)
@@ -13,9 +14,7 @@ def panel_rect(size):
 
 
 def draw_panel(screen, panel, background):
-    dim = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-    dim.fill((0, 0, 0, 85))
-    screen.blit(dim, (0, 0))
+    draw_modal_shade(screen, (0, 0, 0, 85))
     if background is not None:
         screen.blit(background, panel)
     else:
