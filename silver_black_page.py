@@ -715,8 +715,17 @@ class SilverBlackPage(AdaptivePage):
         return False
 
     def _draw_tint(self, rect, color):
-        tint = pygame.Surface(rect.size, pygame.SRCALPHA)
-        tint.fill(color)
+        key = (rect.size, tuple(color))
+        cache = getattr(self, '_tint_cache', None)
+        if cache is None:
+            cache = self._tint_cache = {}
+        tint = cache.get(key)
+        if tint is None:
+            tint = pygame.Surface(rect.size, pygame.SRCALPHA)
+            tint.fill(color)
+            if len(cache) >= 8:
+                cache.clear()
+            cache[key] = tint
         self.screen.blit(tint, rect.topleft)
 
     def _is_card_disabled(self, card_id):

@@ -1,0 +1,4 @@
+Generated with the built-in image_gen tool.
+Style references: Deck.png, Offers.png, Bosses.png.
+
+Use case: stylized-concept. Create one new game footer icon for the category Conditions, matching the three supplied reference icons (style references only). A large upright antique parchment scroll of rules with a prominent dark brass padlock in front and a small embossed wax seal, surrounded at bottom and sides by laurel leaves and a flowing blank ribbon. Victorian 19th century financial board-game copperplate engraving, fine dark brown crosshatching, warm ivory parchment, sepia monochrome, same visual weight and silhouette as references. Simple strong central silhouette readable at 96x96. Centered square composition, entire object visible with 7% padding. Genuine transparent background. No lettering, no words, no numbers, no modern warning signs, no colored accents. This is a separate fourth icon, not a collage or sheet.

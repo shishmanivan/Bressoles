@@ -485,7 +485,8 @@ def load_deck_view_assets(screen_width, screen_height):
 
     icons = {
         mode: load_scaled_image(os.path.join("GameplayPage", filename), target_size=(96, 96))
-        for mode, filename in (("deck", "Deck.png"), ("offers", "Offers.png"), ("bosses", "Bosses.png"))
+        for mode, filename in (("deck", "Deck.png"), ("offers", "Offers.png"),
+                               ("bosses", "Bosses.png"), ("conditions", "Conditions.png"))
     }
 
     assets = {

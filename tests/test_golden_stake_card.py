@@ -147,7 +147,7 @@ class GoldenStakeTests(unittest.TestCase):
                 page = GameplayPage.__new__(GameplayPage)
                 page.active_silver_cards = silver
                 page.active_gold_cards = gold
-                page.level_number = 5
+                page.level_number = 4
                 page.Day = 1
                 page.win_lose_state = None
                 page.shareholder_effect_count = 10

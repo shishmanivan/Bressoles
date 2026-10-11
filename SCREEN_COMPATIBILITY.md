@@ -19,7 +19,10 @@ maps coordinates and clip rectangles onto `screen.pixels`, a surface at the
 final display size. Font glyphs are freshly rasterized at the scaled font size;
 image variants are sampled from original pixels rather than smaller variants.
 Adjacent tile endpoints share rounded pixel boundaries to prevent frame seams.
-The native image/text cache is bounded to 64 MiB and 512 entries. Glyph recipes
+The native image/text cache is bounded to 64 MiB and 512 entries. Scale aliases
+share one native entry. A separate logical transform cache is capped at 8 MiB /
+64 entries; it prevents repeated hover scaling and returns editable copies.
+Glyph recipes
 are cached per font (64 strings); no SDL font handles survive via a global cache.
 
 Use facade drawing, loading, and scaling helpers for this path. Keep input and
@@ -67,3 +70,70 @@ and presentation without any framebuffer scaling. `test_modal_composition.py`
 checks that full-viewport shading remains independent of artwork alpha.
 
 Visual checks cover gameplay and tutorial frames at 1920×1080 and 1366×768.
+
+## Gameplay composition and invalidation
+
+`GameplayPage.draw` delegates to table/panels, hand, moving cards, controls,
+and overlays, in that order. `update_gameplay` owns effect progression. Drawing
+may refresh hit rectangles and hover presentation; it must not apply card
+effects, advance RNG, or save a profile. Tests compare serialized gameplay and
+RNG state around actual drawing.
+
+Gameplay alone opts into `GameplayComposition`. It retains a native RGBA table
+and compares the small ordered paint keys: immutable recipe/version, final
+destination, source area, clip, color and blend flags. This covers card/slot,
+price, Turns, money, localization, highlights and animation position without
+hashing saves. Unchanged commands do not repaint. Changed old/new rectangles
+are merged, cleared and repainted with every intersecting layer in original
+order. Above 45% damaged area (or on first frame/resize), repaint the whole
+table. This preserves overlaps, transparent edges, and moving card labels.
+Final presentation remains a full native frame unless a measured experiment
+explicitly selects a different display path; no completed frame is scaled.
+
+The immediate reference path remains available by setting
+`page.screen.composition = None`. Use it for pixel comparisons and debugging.
+New artwork must use the facade; direct writes to `screen.pixels` bypass damage
+tracking. Flush the composition before reading its pixels mid-frame. Primitive
+rectangles/ellipses use conservative bounds; other primitives conservatively
+invalidate their clip. Native fonts use actual hinted bounds.
+
+Facade Surfaces own immutable pixel sources and publish a new recipe after
+recorded edits. Never cache plain mutable pygame Surfaces by `id`; those are
+snapshotted per use. `Surface.wrap(raw)` takes ownership of a pixel copy. After
+raw PixelArray/surfarray writes to a facade Surface, call `invalidate_pixels()`;
+`fill`, `blit`, drawing, `set_at`, alpha and colorkey edits invalidate normally.
+Keep loaded resources and Font objects on their page or in the existing asset
+loaders. `Font.render` still returns an editable copy for pygame compatibility.
+Position-dependent rounding retains the existing tile geometry; native size
+variants are bounded by the cache, not by the number of positions.
+
+Resize and page activation clear shared native/transform variants. The retained
+table holds one current command list and one fitted native Surface, replaced on
+resize and released with the page. Account for this memory separately from the
+64 MiB cache, together with the background, Canvas, source asset caches and
+optional modal surfaces. A single modal borrows the retained table and caches
+its opaque shaded background; nested modals use reusable native snapshots.
+Dialogs stay bright and shade is applied after background composition.
+
+Animation time stops during pause, tutorial, deck view and lost keyboard focus.
+The explicit timestamp registry is in `gameplay_animation_clock.py`; register
+new animation clocks there. A long active stall advances at most 250 ms per
+loop, retaining the existing sequential effect order. Jump/scatter trajectories
+use the original 60 Hz recurrence, price/arrow frames catch up by elapsed time,
+and hand/scale/shake/result animations retain their existing time-based paths.
+
+Run `python benchmarks/render_rebuild.py --output benchmarks/render_after.json
+--screenshots` in a real desktop session for six sizes and three runs per scene.
+`--dummy` is only a correctness check. `--profile` writes cProfile data;
+`--present update` compares dirty display updates with the normal full flip;
+`--scenes end_turn --frames 600 --tick 60` measures a real sequential turn.
+PNG output is under `output/render_rebuild/`. Machine-readable timings include
+first draw and warm percentiles, stage timing, CPU, memory, cache counters and
+frame hashes. See `benchmarks/RENDER_REBUILD_REPORT.md` for measured scope and
+limitations; these numbers do not certify a different laptop or DPI setting.
+`--scenes lifecycle --frames 120 --collect` exercises repeated modal/resize
+cycles and records process memory after each cycle. `--realtime-jumps --tick 60`
+records observed jump durations and output cadence instead of fixed trajectory
+samples. Longer runs and their limitations are in
+`benchmarks/RENDER_REBUILD_RUNTIME.md`; the 1080p p95 target is not consistently
+met across sessions on the current machine, despite the large improvement.

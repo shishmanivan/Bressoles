@@ -52,8 +52,9 @@ def advance_price_animation_frame(current_price_animation, frame_count, interval
     if now - current_price_animation["last_update"] < interval_ms:
         return False
 
-    current_price_animation["last_update"] = now
-    current_price_animation["frame_idx"] += 1
+    steps = int((now - current_price_animation["last_update"]) / max(1, interval_ms))
+    current_price_animation["last_update"] += steps * max(1, interval_ms)
+    current_price_animation["frame_idx"] += steps
     return current_price_animation["frame_idx"] >= frame_count
 
 

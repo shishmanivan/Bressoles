@@ -68,8 +68,8 @@ class CollectionViewTests(unittest.TestCase):
         self.addCleanup(offers_patch.stop)
         page.deck_view_active = False
         page.collection_view = "deck"
-        page.collection_scroll = dict.fromkeys(("deck", "offers", "bosses"), 0)
-        page.collection_scroll_max = dict.fromkeys(("deck", "offers", "bosses"), 0)
+        page.collection_scroll = dict.fromkeys(("deck", "offers", "bosses", "conditions"), 0)
+        page.collection_scroll_max = dict.fromkeys(("deck", "offers", "bosses", "conditions"), 0)
         page.collection_close_rect = pygame.Rect(1454, 119, 40, 40)
         page._play_deck_toggle_sound = mock.Mock()
         page._reset_drag_state = mock.Mock()
@@ -83,12 +83,12 @@ class CollectionViewTests(unittest.TestCase):
             self.assertEqual(rect.centerx, page.bottom_placeholders[index]["rect"].centerx)
         page.test_offers.return_value = []
         page._collect_defeated_boss_rewards.return_value = []
-        self.assertEqual(list(page._collection_navigation_rects()), ["deck"])
-        self.assertFalse(page._handle_collection_navigation(rects["offers"].center))
+        self.assertEqual(list(page._collection_navigation_rects()), ["deck", "conditions"])
+        self.assertNotIn("offers", page._collection_navigation_rects())
         self.assertFalse(page._handle_collection_navigation(rects["bosses"].center))
         page._collect_defeated_boss_rewards.return_value = [{"filename": "1_Watt.png"}]
         visible = page._collection_navigation_rects()
-        self.assertEqual(list(visible), ["deck", "bosses"])
+        self.assertEqual(list(visible), ["deck", "bosses", "conditions"])
         self.assertEqual(visible["bosses"].centerx, page.bottom_placeholders[1]["rect"].centerx)
 
     def test_offer_categories_preserve_duplicate_pending_investments_and_timers(self):
@@ -108,24 +108,24 @@ class CollectionViewTests(unittest.TestCase):
     def test_icons_open_distinct_views_switch_and_close(self):
         page = self.make_page()
         rects = page._collection_navigation_rects()
-        self.assertEqual(len(rects), 3)
+        self.assertEqual(len(rects), 4)
         self.assertFalse(rects["deck"].colliderect(rects["offers"]))
-        for mode in ("deck", "offers", "bosses"):
+        for mode in ("deck", "offers", "bosses", "conditions"):
             page.deck_view_card_entries = [{"card_id": 11}]
             self.assertTrue(page._handle_collection_navigation(rects[mode].center))
             self.assertTrue(page.deck_view_active)
             self.assertEqual(page.collection_view, mode)
             self.assertEqual(page.deck_view_card_entries, [])
-        page._handle_collection_navigation(rects["bosses"].center)
+        page._handle_collection_navigation(rects["conditions"].center)
         self.assertFalse(page.deck_view_active)
-        self.assertEqual(page._play_deck_toggle_sound.call_count, 4)
+        self.assertEqual(page._play_deck_toggle_sound.call_count, 5)
 
     def test_offers_and_bosses_cannot_trigger_deck_selection(self):
         page = self.make_page()
         page._is_hedger_available = mock.Mock(return_value=True)
         page._select_hedger_deck_card = mock.Mock()
         page.deck_view_active = True
-        for mode in ("offers", "bosses"):
+        for mode in ("offers", "bosses", "conditions"):
             page.collection_view = mode
             page._handle_deck_view_event(pygame.event.Event(
                 pygame.MOUSEBUTTONDOWN, button=1, pos=(600, 300),
@@ -144,7 +144,7 @@ class CollectionViewTests(unittest.TestCase):
         self.assertEqual(page.collection_scroll["offers"], 0)
 
     def test_escape_and_close_button_close_every_view(self):
-        for mode in ("deck", "offers", "bosses"):
+        for mode in ("deck", "offers", "bosses", "conditions"):
             page = self.make_page()
             page.collection_view = mode
             for event in (

@@ -6,6 +6,7 @@ pixels and font descriptions through intermediate sizes and composite widgets.
 This is a scoped pygame facade; the pygame module itself is never patched.
 """
 from collections import OrderedDict
+from copy import deepcopy
 import pygame as _pg
 
 
@@ -16,6 +17,36 @@ def __getattr__(name):
 _cache = OrderedDict()
 _cache_bytes = 0
 _CACHE_LIMIT = 64 * 1024 * 1024
+_variants = OrderedDict()
+_variant_bytes = 0
+_VARIANT_LIMIT = 8 * 1024 * 1024
+_stats = dict(hits=0, misses=0, evictions=0, snapshots=0, scales=0, text_rasters=0)
+
+
+def clear_cache():
+    """Release native variants on page activation / viewport size changes."""
+    global _cache_bytes, _variant_bytes
+    _cache.clear()
+    _cache_bytes = 0
+    _variants.clear()
+    _variant_bytes = 0
+
+
+def cache_info():
+    return dict(_stats, bytes=_cache_bytes, entries=len(_cache),
+                logical_variant_bytes=_variant_bytes, logical_variants=len(_variants))
+
+
+def _remember_variant(key, result):
+    global _variant_bytes
+    cost = result.get_pitch() * result.get_height()
+    if cost <= _VARIANT_LIMIT:
+        _variants[key] = result
+        _variant_bytes += cost
+        while _variant_bytes > _VARIANT_LIMIT or len(_variants) > 64:
+            _, old = _variants.popitem(last=False)
+            _variant_bytes -= old.get_pitch() * old.get_height()
+    return result.copy()
 
 
 class Recipe:
@@ -23,9 +54,23 @@ class Recipe:
         self.size, self.kind, self.data = tuple(size), kind, data
 
 
+def _pixel_snapshot(source):
+    """Owned plain pygame pixels, without a partially initialized subclass."""
+    pixels = _pg.Surface(source.get_size(), source.get_flags() & _pg.SRCALPHA,
+                         source.get_bitsize(), source.get_masks())
+    if source.get_bitsize() == 8:
+        pixels.set_palette(source.get_palette())
+    with _pg.PixelArray(pixels) as dest, _pg.PixelArray(source) as src:
+        dest[:] = src
+    pixels.set_alpha(source.get_alpha())
+    pixels.set_colorkey(source.get_colorkey())
+    return pixels
+
+
 def _snapshot(surface):
     if isinstance(surface, Surface):
         return surface.recipe()
+    _stats['snapshots'] += 1
     return Recipe(surface.get_size(), 'pixels', _pg.Surface.copy(surface))
 
 
@@ -81,18 +126,24 @@ def _font_at(path, size, styles):
 def render(recipe, size):
     global _cache_bytes
     size = tuple(max(1, round(v)) for v in size)
+    # A scale recipe points at the same native pixels as its source. Do not
+    # charge the identical Surface twice or evict it through an alias.
+    while recipe.kind == 'scale':
+        recipe = recipe.data
     key = (recipe, size)
     cached = _cache.get(key)
     if cached is not None:
+        _stats['hits'] += 1
         _cache.move_to_end(key)
         return cached
+    _stats['misses'] += 1
     sx, sy = size[0] / max(1, recipe.size[0]), size[1] / max(1, recipe.size[1])
     kind, data = recipe.kind, recipe.data
     if kind == 'pixels':
+        _stats['scales'] += data.get_size() != size
         result = data.copy() if data.get_size() == size else _pg.transform.smoothscale(data, size)
-    elif kind == 'scale':
-        result = render(data, size)
     elif kind == 'font':
+        _stats['text_rasters'] += 1
         path, point_size, styles, text, antialias, color, background = data
         # Keep native glyph rasterization. Never resample rendered letters to
         # compensate for font-hinting differences in their final dimensions.
@@ -148,6 +199,7 @@ def render(recipe, size):
         _cache[key] = result
         _cache_bytes += cost
         while _cache_bytes > _CACHE_LIMIT or len(_cache) > 512:
+            _stats['evictions'] += 1
             _, old = _cache.popitem(last=False)
             _cache_bytes -= old.get_pitch() * old.get_height()
     return result
@@ -168,12 +220,17 @@ class Surface(_pg.Surface):
         else:
             result = cls(pixels.get_size(), pixels.get_flags() & _pg.SRCALPHA)
             _pg.Surface.blit(result, pixels, (0, 0))
-        result._base = recipe or Recipe(pixels.get_size(), 'pixels', pixels)
+        # Own the immutable source: callers may continue editing plain pixels.
+        result._base = recipe or Recipe(pixels.get_size(), 'pixels', _pixel_snapshot(pixels))
         result._operations = []
         result._recipe = None
+        result._pixels_dirty = False
         return result
 
     def recipe(self):
+        if getattr(self, '_pixels_dirty', False):
+            self._base = Recipe(self.get_size(), 'pixels', _pixel_snapshot(self))
+            self._pixels_dirty = False
         if self._recipe is None:
             base = self._base
             if self._operations or base is None:
@@ -182,7 +239,20 @@ class Surface(_pg.Surface):
             self._recipe = Recipe(self.get_size(), 'state', (base, self.get_alpha(), self.get_colorkey())) if self.get_alpha() != 255 or self.get_colorkey() else base
         return self._recipe
 
+    def invalidate_pixels(self):
+        """Call after raw PixelArray/surfarray writes; native source becomes pixels."""
+        self._base, self._operations, self._recipe = None, [], None
+        self._pixels_dirty = True
+
+    def set_at(self, position, color):
+        super().set_at(position, color)
+        self.invalidate_pixels()
+
     def record(self, name, values):
+        if getattr(self, '_pixels_dirty', False):
+            # The operation already changed logical pixels. Snapshot them once.
+            self.invalidate_pixels()
+            return
         self._operations.append((name, values, self.get_clip().copy()))
         self._recipe = None
 
@@ -190,7 +260,7 @@ class Surface(_pg.Surface):
         result = super().fill(color, rect, special_flags)
         if rect is None and special_flags == 0 and self.get_clip() == self.get_rect():
             self._base, self._operations = None, []
-        self.record('fill', (color, _pg.Rect(rect) if rect is not None else self.get_rect(), special_flags))
+        self.record('fill', (tuple(_pg.Color(color)), _pg.Rect(rect) if rect is not None else self.get_rect(), special_flags))
         return result
 
     def blit(self, source, dest, area=None, special_flags=0):
@@ -215,10 +285,14 @@ class Surface(_pg.Surface):
         return Surface.wrap(_pg.Surface.copy(_pg.Surface.subsurface(self, crop)), Recipe(crop.size, 'crop', (self.recipe(), crop)))
 
     def set_alpha(self, value, flags=0):
+        if value == self.get_alpha() and not flags:
+            return
         super().set_alpha(value, flags)
         self._recipe = None
 
     def set_colorkey(self, value=None, flags=0):
+        if (tuple(_pg.Color(value)) if value is not None else None) == self.get_colorkey() and not flags:
+            return
         super().set_colorkey(value, flags)
         self._recipe = None
 
@@ -232,19 +306,51 @@ class Canvas(_pg.Surface):
 
     def configure(self, size):
         if not hasattr(self, 'pixels') or self.pixels.get_size() != tuple(size):
+            clear_cache()
+            self._modal_pool = []
             self.pixels = _pg.Surface(size, _pg.SRCALPHA)
         self.sx, self.sy = size[0] / self.get_width(), size[1] / self.get_height()
         self.set_clip(None)
 
     def fill(self, color, rect=None, special_flags=0):
         logical = self.get_rect() if rect is None else _pg.Rect(rect)
+        composition = getattr(self, 'composition', None)
+        if composition is not None and composition.active:
+            clip = self.pixels.get_clip().copy()
+            target = _rect(logical, self.sx, self.sy)
+            color = tuple(_pg.Color(color))
+            def paint(pixels, dirty):
+                pixels.set_clip(clip.clip(dirty))
+                pixels.fill(color, target, special_flags)
+            composition.add(('fill', color, tuple(target), tuple(clip), special_flags), target.clip(clip), paint)
+            return logical.clip(self.get_clip())
         self.pixels.fill(color, _rect(logical, self.sx, self.sy), special_flags)
         return logical.clip(self.get_clip())
 
     def blit(self, source, dest, area=None, special_flags=0):
         position = dest.topleft if hasattr(dest, 'topleft') else tuple(dest[:2])
         target = _rect(_pg.Rect(position, source.get_size()), self.sx, self.sy)
-        pixels = render(_snapshot(source), target.size)
+        recipe = _snapshot(source)
+        composition = getattr(self, 'composition', None)
+        if composition is not None and composition.active:
+            clip = self.pixels.get_clip().copy()
+            source_area = _rect(area, self.sx, self.sy) if area is not None else None
+            point = _point(position, self.sx, self.sy)
+            # Hinting and rotation can exceed the requested logical dimensions.
+            root = recipe
+            while root.kind in ('state', 'scale'):
+                root = root.data[0] if root.kind == 'state' else root.data
+            bounds = target.copy()
+            if root.kind in ('font', 'rotate'):
+                bounds.size = render(recipe, target.size).get_size()
+            bounds = bounds.clip(clip)
+            def paint(pixels, dirty):
+                pixels.set_clip(clip.clip(dirty))
+                pixels.blit(render(recipe, target.size), point, source_area, special_flags)
+            composition.add(('blit', recipe, tuple(target), tuple(clip),
+                             tuple(source_area) if source_area is not None else None, special_flags), bounds, paint)
+            return _pg.Rect(position, _pg.Rect(area).size if area is not None else source.get_size()).clip(self.get_clip())
+        pixels = render(recipe, target.size)
         self.pixels.blit(pixels, _point(position, self.sx, self.sy),
                          _rect(area, self.sx, self.sy) if area is not None else None, special_flags)
         return _pg.Rect(position, _pg.Rect(area).size if area is not None else source.get_size()).clip(self.get_clip())
@@ -272,7 +378,7 @@ class Font(_pg.font.Font):
         if result is None:
             pixels = super().render(text, antialias, color, background)
             result = Surface.wrap(pixels, Recipe(pixels.get_size(), 'font',
-                                  (self.path, self.point_size, styles, text, antialias, color, background)))
+                                  (self.path, self.point_size, styles, text, antialias, key[2], key[3])))
             self._renders[key] = result
             if len(self._renders) > 64:
                 self._renders.popitem(last=False)
@@ -292,14 +398,20 @@ def _load(*args, **kwargs):
 
 
 def _smoothscale(source, size, dest_surface=None):
+    recipe = _snapshot(source)
+    key = ('scale', recipe, tuple(size))
+    while recipe.kind == 'scale':
+        recipe = recipe.data
+    if dest_surface is None and key in _variants:
+        _variants.move_to_end(key)
+        return _variants[key].copy()
     pixels = (_pg.transform.smoothscale(source, size) if dest_surface is None
               else _pg.transform.smoothscale(source, size, dest_surface))
     if dest_surface is not None:
+        if isinstance(dest_surface, Surface):
+            dest_surface.invalidate_pixels()
         return pixels
-    recipe = _snapshot(source)
-    while recipe.kind == 'scale':
-        recipe = recipe.data
-    return Surface.wrap(pixels, Recipe(size, 'scale', recipe))
+    return _remember_variant(key, Surface.wrap(pixels, Recipe(size, 'scale', recipe)))
 
 
 def _rotate(source, angle):
@@ -310,11 +422,25 @@ def _rotate(source, angle):
 def _drawing(name):
     def draw(target, *args, **kwargs):
         if isinstance(target, Canvas):
+            composition = getattr(target, 'composition', None)
+            if composition is not None and composition.active:
+                clip = target.pixels.get_clip().copy()
+                sx, sy = target.sx, target.sy
+                # Capture mutable Rects / point lists by value.
+                saved_args, saved_kwargs = deepcopy(args), deepcopy(kwargs)
+                def paint(pixels, dirty):
+                    pixels.set_clip(clip.clip(dirty))
+                    _draw_scaled(name, pixels, saved_args, saved_kwargs, sx, sy)
+                bounds = clip
+                if name in ('rect', 'ellipse'):
+                    bounds = _rect(args[1], sx, sy).inflate(2, 2).clip(clip)
+                composition.add((name, saved_args, saved_kwargs, tuple(clip)), bounds, paint)
+                return target.get_clip()
             result = _draw_scaled(name, target.pixels, args, kwargs, target.sx, target.sy)
             return _rect(result, 1 / target.sx, 1 / target.sy)
         result = getattr(_pg.draw, name)(target, *args, **kwargs)
         if isinstance(target, Surface):
-            target.record(name, (args, kwargs))
+            target.record(name, (deepcopy(args), deepcopy(kwargs)))
         return result
     return draw
 

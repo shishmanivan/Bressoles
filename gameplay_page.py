@@ -104,6 +104,7 @@ from gameplay_draw_helpers import (
 )
 from gameplay_hand_hover import HandHover, hand_card_rect
 from gameplay_collection_views import draw_collection_view, draw_navigation, navigation_rects
+from gameplay_conditions import SHAREHOLDERS, has_condition
 from gameplay_layout import (
     build_bottom_placeholders,
     build_market_placeholders,
@@ -229,6 +230,8 @@ DISCLOSURE_CARD_TOOLTIPS = {
 
 
 class GameplayPage(AdaptivePage):
+    retain_gameplay_composition = True
+
     master_background_path = "GameplayPage/Master Background.png"
     @property
     def Aprice(self):
@@ -624,8 +627,8 @@ class GameplayPage(AdaptivePage):
         self.collection_font = pygame.font.Font(self.font_path, 22)
         self.collection_icons = deck_view_assets["collection_icons"]
         self.collection_view = "deck"
-        self.collection_scroll = {"deck": 0, "offers": 0, "bosses": 0}
-        self.collection_scroll_max = {"deck": 0, "offers": 0, "bosses": 0}
+        self.collection_scroll = {"deck": 0, "offers": 0, "bosses": 0, "conditions": 0}
+        self.collection_scroll_max = {"deck": 0, "offers": 0, "bosses": 0, "conditions": 0}
         self.collection_close_rect = None
         self.deck_view_active = False
         self.deck_toggle_rect = self._build_deck_toggle_rect()
@@ -2240,7 +2243,10 @@ class GameplayPage(AdaptivePage):
         if self._is_level6_alternating_battle():
             self.shareholder_effect_count = 0
         blocked_market = state.get("shareholder_blocked_market", self.shareholder_blocked_market)
-        self.shareholder_blocked_market = blocked_market if blocked_market in (0, 1, 2) else None
+        self.shareholder_blocked_market = (
+            blocked_market if blocked_market in (0, 1, 2)
+            and has_condition(self.level_number, SHAREHOLDERS) else None
+        )
         self.stock_bot_enabled = bool(state.get("stock_bot_enabled", self.stock_bot_enabled))
         self.stock_bot_type = state.get("stock_bot_type", self.stock_bot_type) or "simple"
         self._stock_bot_saved_state = state.get("stock_bot")
@@ -2515,7 +2521,7 @@ class GameplayPage(AdaptivePage):
         """Choose one market whose buy/sell arrows are disabled for this turn."""
         self.shareholder_blocked_market = None
         try:
-            if int(self.level_number or 0) not in (4, 5, 8) or self.win_lose_state is not None:
+            if not has_condition(self.level_number, SHAREHOLDERS) or self.win_lose_state is not None:
                 return None
         except (TypeError, ValueError):
             return None
@@ -2565,7 +2571,8 @@ class GameplayPage(AdaptivePage):
     def _is_arrow_disabled(self, frame_idx, arrow_type):
         try:
             shareholder_blocked = (
-                not self._has_controlling_stake()
+                has_condition(getattr(self, "level_number", None), SHAREHOLDERS)
+                and not self._has_controlling_stake()
                 and int(frame_idx) == getattr(self, "shareholder_blocked_market", None)
             )
         except (TypeError, ValueError):
@@ -6758,10 +6765,14 @@ class GameplayPage(AdaptivePage):
             elapsed = now - anim.get("start", now)
             if elapsed >= self.market_clear_animation_duration:
                 continue
-            anim["vy"] += 0.38
-            anim["x"] += anim["vx"]
-            anim["y"] += anim["vy"]
-            anim["rotation"] += anim["spin"]
+            target_steps = int(max(0, elapsed) * FPS / 1000) + 1
+            steps = max(0, target_steps - anim.get("steps_applied", 0))
+            # Closed form of the original 60 Hz recurrence, including gravity.
+            anim["x"] += anim["vx"] * steps
+            anim["y"] += anim["vy"] * steps + .38 * steps * (steps + 1) / 2
+            anim["vy"] += .38 * steps
+            anim["rotation"] += anim["spin"] * steps
+            anim["steps_applied"] = target_steps
             active.append(anim)
         self.market_clear_animations = active
 
@@ -7480,6 +7491,14 @@ class GameplayPage(AdaptivePage):
     
     @adaptive_draw
     def draw(self):
+        """Render current presentation; effect resolution belongs to update_gameplay."""
+        self._draw_gameplay_table()
+        self._draw_gameplay_hand()
+        self._draw_gameplay_moving_cards()
+        self._draw_gameplay_controls()
+        self._draw_gameplay_overlays()
+
+    def _draw_gameplay_table(self):
         self.stock_logo_rects = {}
         # Clear market placeholders list at start of draw
         self.market_placeholders = []
@@ -8027,6 +8046,7 @@ class GameplayPage(AdaptivePage):
                                     drawn_size,
                                 )
 
+    def _draw_gameplay_hand(self):
         # Draw bottom frame (strategy cards area)
         if self.bottom_frame and not self._is_level6_alternating_battle():
             hand_layout = compute_bottom_hand_layout(self.bottom_frame, self.hand, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -8124,7 +8144,8 @@ class GameplayPage(AdaptivePage):
                         if origin_slot is not None and i == origin_slot and self.hand_cards[i] is None:
                             ph_rect = pygame.Rect(slot_x, slot_y, ph_w, ph_h)
                             pygame.draw.rect(self.screen, DROP_TARGET_COLOR, ph_rect, 4)
-        
+
+    def _draw_gameplay_moving_cards(self):
         # Draw dragged card on top of everything
         draw_dragged_cards(
             self.screen,
@@ -8184,7 +8205,8 @@ class GameplayPage(AdaptivePage):
                 self.draw_card_action,
                 self.draw_card_turns,
             )
-        
+
+    def _draw_gameplay_controls(self):
         # Draw Day counter and End Turn button in bottom-right corner
         if self.end_button and self.end_button_rect:
             end_button_image, end_button_draw_rect = self._get_end_button_draw_state()
@@ -8234,7 +8256,8 @@ class GameplayPage(AdaptivePage):
         self._draw_deck_toggle()
         self._draw_current_boss_marker()
         self._draw_waterloo_forecast()
-        
+
+    def _draw_gameplay_overlays(self):
         # Victory reports are shown one after another: finances, then earned cards.
         if (
             self._has_result_report()
@@ -8285,9 +8308,7 @@ class GameplayPage(AdaptivePage):
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
-        
-        self.present()
-    
+
     def _maybe_show_late_end_turn_tutorial(self):
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
@@ -8372,6 +8393,47 @@ class GameplayPage(AdaptivePage):
         self._rebate_tutorial_recorded = True
         self.tutorial_dismissed_this_round.add(SELL_HINT_ID)
 
+    def update_gameplay(self):
+        """Advance effects once in the established order, independently of drawing."""
+        # Update dragged card position every frame for maximum smoothness
+        # This ensures position is updated even if MOUSEMOTION events are missed
+        if self.dragged_card_source is not None:
+            self.dragged_card_pos = self.mouse_pos()
+
+        # Update arrow animation timing
+        self.update_arrow_animation()
+
+        # Update price animation timing
+        self.update_price_animation()
+        self.update_level6_bot_turn()
+
+        # Update card jump animations
+        self.update_card_jump_animations()
+        self.update_side_card_jump_animations()
+        self.update_lifecycle_card_scale_animations()
+        self.update_lifecycle_card_shake_animations()
+        self.update_market_clear_animations()
+        self.update_final_auto_liquidation_animation()
+        self.update_astor_cash_burn_animation()
+        self.update_arkwright_share_theft_animation()
+
+        # Update sequential processing of persistent price-effect cards.
+        self.update_price_card_processing()
+        self._maybe_finalize_after_effect_animations()
+
+        # Update hand compaction animation after end turn
+        self.update_hand_compact_animation()
+
+        # Update hand draw animation (cards flying in from bottom)
+        self.update_hand_draw_animation()
+
+        # Update win/lose screen animation
+        self.update_win_lose_animation()
+
+        if self.pause_menu_requested and self._can_open_pause_menu():
+            self._open_pause_menu()
+
+
     def run(self):
         self.tutorial_hint = None
         if not self.test_mode and profile_manager.is_tutorial_pending(self.profile_slot, FIRST_HINT_ID):
@@ -8404,50 +8466,19 @@ class GameplayPage(AdaptivePage):
             if result == "restart_level":
                 return "restart_level"
 
-            self._update_boss_turn_timer()
+            from gameplay_animation_clock import sync_animation_clock
+            animations_paused = sync_animation_clock(
+                self, pygame.time.get_ticks(), focused=pygame.key.get_focused(),
+            )
+            if not animations_paused:
+                self._update_boss_turn_timer()
 
-            if self.deck_view_active or self.pause_menu_active or self.tutorial_hint is not None:
+            if animations_paused:
                 self.draw()
                 self.clock.tick(FPS)
                 continue
             
-            # Update dragged card position every frame for maximum smoothness
-            # This ensures position is updated even if MOUSEMOTION events are missed
-            if self.dragged_card_source is not None:
-                self.dragged_card_pos = self.mouse_pos()
-            
-            # Update arrow animation timing
-            self.update_arrow_animation()
-            
-            # Update price animation timing
-            self.update_price_animation()
-            self.update_level6_bot_turn()
-
-            # Update card jump animations
-            self.update_card_jump_animations()
-            self.update_side_card_jump_animations()
-            self.update_lifecycle_card_scale_animations()
-            self.update_lifecycle_card_shake_animations()
-            self.update_market_clear_animations()
-            self.update_final_auto_liquidation_animation()
-            self.update_astor_cash_burn_animation()
-            self.update_arkwright_share_theft_animation()
-            
-            # Update sequential processing of persistent price-effect cards.
-            self.update_price_card_processing()
-            self._maybe_finalize_after_effect_animations()
-
-            # Update hand compaction animation after end turn
-            self.update_hand_compact_animation()
-            
-            # Update hand draw animation (cards flying in from bottom)
-            self.update_hand_draw_animation()
-            
-            # Update win/lose screen animation
-            self.update_win_lose_animation()
-
-            if self.pause_menu_requested and self._can_open_pause_menu():
-                self._open_pause_menu()
+            self.update_gameplay()
 
             self.draw()
             self.clock.tick(FPS)

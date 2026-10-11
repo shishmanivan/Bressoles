@@ -77,9 +77,11 @@ class Level6AlternatingTurnTests(unittest.TestCase):
             self.assertTrue(page.update_level6_bot_turn())
 
         self.assertEqual(page.level6_bot_turn_phase, "ending")
+        # The press duration starts at first presentation (introduced before
+        # the render rebuild), so an update-only test observes a pending press.
         self.assertEqual(
-            page.end_button_press_until,
-            100 + LEVEL6_BOT_THINK_MS + LEVEL6_BOT_ACTION_MS * 2 + LEVEL6_BOT_END_PRESS_MS,
+            page.end_button_pending_press_ms,
+            LEVEL6_BOT_END_PRESS_MS,
         )
         page._start_market_resolution_after_actions.assert_not_called()
 

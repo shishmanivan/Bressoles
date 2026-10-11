@@ -6,6 +6,7 @@ import math
 import native_render as pygame
 
 import game_state
+from gameplay_conditions import CONDITIONS, conditions_for_level
 from deck_view import deck_layout, draw_grid, draw_panel, draw_scrollbar as draw_deck_scrollbar
 from shared_utils import wrap_text
 from shop_page import SPECIAL_ASSETS
@@ -14,7 +15,8 @@ from shop_page import SPECIAL_ASSETS
 INK = (85, 73, 55)
 ACCENT = (170, 130, 66)
 VIEW_LABELS = {"deck": ("CollectionDeck", "Колода"), "offers": ("CollectionOffers", "Офферы"),
-               "bosses": ("CollectionBosses", "Боссы")}
+               "bosses": ("CollectionBosses", "Боссы"),
+               "conditions": ("CollectionConditions", "Условия")}
 OFFER_GROUPS = (
     ("permanent", "OffersPermanent", "До конца забега"),
     ("temporary", "OffersTemporary", "Временные эффекты"),
@@ -55,6 +57,7 @@ def navigation_rects(page):
         modes.append("offers")
     if page._collect_defeated_boss_rewards():
         modes.append("bosses")
+    modes.append("conditions")
     slots = sorted(page.bottom_placeholders or [], key=lambda entry: entry["slot"])
     rects = {}
     for index, mode in enumerate(modes):
@@ -228,6 +231,29 @@ def draw_bosses(page, content, panel):
         page.screen.set_clip(old_clip)
 
 
+def draw_conditions(page, content, panel):
+    rows = []
+    line_height = page.collection_font.get_linesize() + 5
+    for condition_id in conditions_for_level(page.level_number):
+        condition = CONDITIONS[condition_id]
+        rows.append((_tr(condition["title"]), True))
+        for paragraph in condition["paragraphs"]:
+            rows.extend((line, False) for line in wrap_text(
+                _tr(paragraph), page.collection_font, content.width - 32))
+            rows.append(("", False))
+    offset = scroll_offset(page, content, len(rows) * line_height)
+    old_clip = page.screen.get_clip()
+    page.screen.set_clip(content.clip(old_clip))
+    try:
+        if not rows:
+            draw_empty(page, content, "ConditionsEmpty", "Нет активных условий")
+        for index, (line, heading) in enumerate(rows):
+            text = page.collection_font.render(line, True, ACCENT if heading else INK)
+            page.screen.blit(text, (content.x + 16, content.y - offset + index * line_height))
+    finally:
+        page.screen.set_clip(old_clip)
+
+
 def draw_collection_view(page):
     panel = page.deck_view_panel_rect
     draw_panel(page.screen, panel, page.deck_view_panel_background)
@@ -260,6 +286,7 @@ def draw_collection_view(page):
     page.deck_view_offer_entries = []
     page.hedger_add_button_rect = page.hedger_yes_button_rect = page.hedger_no_button_rect = None
     content = pygame.Rect(panel.x + 40, panel.y + 100, panel.width - 80, panel.height - 148)
-    {"deck": draw_deck, "offers": draw_offers, "bosses": draw_bosses}[mode](page, content, panel)
+    {"deck": draw_deck, "offers": draw_offers, "bosses": draw_bosses,
+     "conditions": draw_conditions}[mode](page, content, panel)
     draw_scrollbar(page, panel)
     draw_navigation(page)

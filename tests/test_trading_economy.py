@@ -391,6 +391,7 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
 
     def test_disabled_shareholder_market_uses_dimmed_arrow_images(self):
         page = GameplayPage.__new__(GameplayPage)
+        page.level_number = 4
         page.shareholder_blocked_market = 1
         page.boss_odd_turn_trading_only = False
         page.boss_forbid_price_2_buys = False
@@ -404,7 +405,7 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         self.assertIs(page._get_trade_arrow_image(2, 3, original), original)
         self.assertEqual(page._get_dimmed_arrow.call_count, 4)
 
-    def test_level5_uses_shareholder_market_shutdown_rule(self):
+    def test_level5_has_no_shareholder_market_shutdown_rule(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 5
         page.win_lose_state = None
@@ -423,7 +424,7 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
             mock.patch("gameplay_page.random.random", return_value=0.19),
             mock.patch("gameplay_page.random.choice", return_value=1),
         ):
-            self.assertEqual(page._roll_shareholder_market_shutdown(), 1)
+            self.assertIsNone(page._roll_shareholder_market_shutdown())
 
     def test_effect_never_runs_outside_supported_levels(self):
         page = GameplayPage.__new__(GameplayPage)
@@ -438,7 +439,7 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         roll.assert_not_called()
         self.assertIsNone(page.shareholder_blocked_market)
 
-    def test_level8_uses_the_moved_shareholder_market_shutdown_rule(self):
+    def test_level8_has_no_shareholder_market_shutdown_rule(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 8
         page.win_lose_state = None
@@ -457,7 +458,7 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
             mock.patch("gameplay_page.random.random", return_value=0.19),
             mock.patch("gameplay_page.random.choice", return_value=2),
         ):
-            self.assertEqual(page._roll_shareholder_market_shutdown(), 2)
+            self.assertIsNone(page._roll_shareholder_market_shutdown())
 
     def test_controlling_stake_prevents_and_clears_shareholder_button_lockout(self):
         page = GameplayPage.__new__(GameplayPage)

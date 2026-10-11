@@ -6,7 +6,7 @@ import pygame
 from adaptive_ui import cover_geometry
 from asset_loaders import load_scaled_image
 from display_runtime import LOGICAL_SCREEN_SIZE
-from native_render import Canvas
+from native_render import Canvas, clear_cache
 
 
 ContentSurface = Canvas
@@ -20,7 +20,26 @@ def draw_modal_shade(screen, color):
         shade.fill(color)
         screen.blit(shade, (0, 0))
         return
-    layers.append((screen.pixels.copy(), color))
+    composition = getattr(screen, 'composition', None)
+    if composition is not None and composition.active:
+        composition.flush(screen.pixels)
+        # The retained table owns a separate native surface; clearing the modal
+        # foreground cannot change it. No full-table snapshot is necessary.
+        layers.append((composition.pixels, color))
+        screen.fill((0, 0, 0, 0))
+        return
+    # Reuse storage across frames; the modal still snapshots exact native RGBA.
+    pool = getattr(screen, '_modal_pool', [])
+    index = len(layers)
+    while len(pool) <= index:
+        pool.append(None)
+    if pool[index] is None or pool[index].get_size() != screen.pixels.get_size():
+        pool[index] = pygame.Surface(screen.pixels.get_size(), pygame.SRCALPHA)
+    snapshot = pool[index]
+    with pygame.PixelArray(snapshot) as dest, pygame.PixelArray(screen.pixels) as source:
+        dest[:] = source
+    screen._modal_pool = pool
+    layers.append((snapshot, color))
     screen.fill((0, 0, 0, 0))
 
 
@@ -45,11 +64,16 @@ def adaptive_draw(draw):
             self.screen.configure(content_rect(self.viewport.get_size()).size)
             self.screen.modal_layers.clear()
             self.screen.fill((0, 0, 0, 0))
+            composition = getattr(self.screen, 'composition', None)
+            if composition is not None:
+                composition.begin(self.screen.pixels.get_size())
         try:
             result = draw(self, *args, **kwargs)
         finally:
             self._draw_depth = depth
         if depth == 0:
+            if composition is not None:
+                composition.flush(self.screen.pixels)
             self.present()
         return result
     return wrapped
@@ -59,8 +83,12 @@ class AdaptivePage:
     master_background_path = "RoundPage/Master background.png"
 
     def init_viewport(self, viewport):
+        clear_cache()
         self.viewport = viewport
         self.screen = ContentSurface(LOGICAL_SCREEN_SIZE)
+        if getattr(self, 'retain_gameplay_composition', False):
+            from gameplay_composition import GameplayComposition
+            self.screen.composition = GameplayComposition()
         self.screen.modal_layers = []
         self._background_size = None
         self._master_background = load_scaled_image(self.master_background_path)
@@ -95,6 +123,8 @@ class AdaptivePage:
             return
         size = self.viewport.get_size()
         if size != self._background_size:
+            self._shade = self._shade_key = None
+            self._shaded_table = self._shaded_table_key = None
             self._background = pygame.Surface(size)
             self._background.fill((235, 220, 190))
             if self._master_background is not None:
@@ -102,15 +132,38 @@ class AdaptivePage:
                 self._background.blit(pygame.transform.smoothscale(
                     self._master_background, scaled_size), position)
             self._background_size = size
-        self.viewport.blit(self._background, (0, 0))
         rect = content_rect(size)
+        composition = getattr(self.screen, 'composition', None)
+        layers = self.screen.modal_layers
+        if (composition is not None and len(layers) == 1
+                and layers[0][0] is composition.pixels):
+            color = layers[0][1]
+            key = (size, tuple(color), composition.generation)
+            if getattr(self, '_shaded_table_key', None) != key:
+                self._shaded_table = self._background.copy()
+                self._shaded_table.blit(composition.pixels, rect)
+                shade = pygame.Surface(size, pygame.SRCALPHA)
+                shade.fill(color)
+                self._shaded_table.blit(shade, (0, 0))
+                self._shaded_table_key = key
+            self.viewport.blit(self._shaded_table, (0, 0))
+            self.viewport.blit(self.screen.pixels, rect)
+            pygame.display.flip()
+            return
+        self._shaded_table = None
+        self._shaded_table_key = None
+        self.viewport.blit(self._background, (0, 0))
         # Composite artwork onto the opaque background before applying each
         # shade. Dimming an RGBA layer directly changes its alpha as well,
         # revealing light halos once that layer is placed over the background.
         for layer, color in [*self.screen.modal_layers, (self.screen.pixels, None)]:
             self.viewport.blit(layer, rect)
             if color is not None:
-                shade = pygame.Surface(size, pygame.SRCALPHA)
-                shade.fill(color)
+                shade_key = (size, tuple(color))
+                if getattr(self, '_shade_key', None) != shade_key:
+                    shade = pygame.Surface(size, pygame.SRCALPHA)
+                    shade.fill(color)
+                    self._shade, self._shade_key = shade, shade_key
+                shade = self._shade
                 self.viewport.blit(shade, (0, 0))
         pygame.display.flip()

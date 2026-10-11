@@ -57,8 +57,11 @@ def draw_pause_menu(surface, layout, texts, title_font, button_font, small_font,
 
     panel = layout["panel"]
     shadow_rect = panel.move(10, 12)
-    shadow = pygame.Surface(shadow_rect.size, pygame.SRCALPHA)
-    shadow.fill(SHADOW)
+    shadow = getattr(surface, '_pause_shadow', None)
+    if shadow is None or shadow.get_size() != shadow_rect.size:
+        shadow = pygame.Surface(shadow_rect.size, pygame.SRCALPHA)
+        shadow.fill(SHADOW)
+        surface._pause_shadow = shadow
     surface.blit(shadow, shadow_rect)
 
     pygame.draw.rect(surface, PAPER, panel)

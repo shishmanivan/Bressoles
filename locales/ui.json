@@ -1,5 +1,69 @@
 [
   {
+    "Source": "Условия",
+    "RU": "Условия",
+    "ENG": "Conditions",
+    "DE": "Bedingungen",
+    "HU": "Feltételek",
+    "FR": "Conditions"
+  },
+  {
+    "Source": "Нет активных условий",
+    "RU": "Нет активных условий",
+    "ENG": "No active conditions",
+    "DE": "Keine aktiven Bedingungen",
+    "HU": "Nincsenek aktív feltételek",
+    "FR": "Aucune condition active"
+  },
+  {
+    "Source": "Шейрхолдеры",
+    "RU": "Шейрхолдеры",
+    "ENG": "Shareholders",
+    "DE": "Aktionäre",
+    "HU": "Részvényesek",
+    "FR": "Actionnaires"
+  },
+  {
+    "Source": "Акционеры могут на один ход закрыть один случайный рынок. На закрытом рынке нельзя ни покупать, ни продавать. Остальные рынки работают как обычно.",
+    "RU": "Акционеры могут на один ход закрыть один случайный рынок. На закрытом рынке нельзя ни покупать, ни продавать. Остальные рынки работают как обычно.",
+    "ENG": "Shareholders can close one random market for one turn. Neither buying nor selling is possible on that market. Other markets operate normally.",
+    "DE": "Aktionäre können einen zufälligen Markt für einen Zug schließen. Dort sind weder Käufe noch Verkäufe möglich. Die anderen Märkte funktionieren wie gewohnt.",
+    "HU": "A részvényesek egy körre bezárhatnak egy véletlenszerű piacot. Ezen a piacon sem vásárolni, sem eladni nem lehet. A többi piac a szokásos módon működik.",
+    "FR": "Les actionnaires peuvent fermer un marché aléatoire pendant un tour. Aucun achat ni aucune vente n’y est possible. Les autres marchés fonctionnent normalement."
+  },
+  {
+    "Source": "Эффект зависит от числа карт Shareholder в колоде на начало раунда, а не от числа карт в руке. При 0-2 картах блокировки нет. При 3 картах шанс составляет 20% на ход.",
+    "RU": "Эффект зависит от числа карт Shareholder в колоде на начало раунда, а не от числа карт в руке. При 0-2 картах блокировки нет. При 3 картах шанс составляет 20% на ход.",
+    "ENG": "The effect depends on the number of Shareholder cards in your deck at the start of the round, not in your hand. With 0-2 cards, no market is blocked. With 3 cards, the chance is 20% per turn.",
+    "DE": "Der Effekt hängt von der Anzahl der Shareholder-Karten im Deck zu Rundenbeginn ab, nicht von den Handkarten. Bei 0-2 Karten gibt es keine Sperre. Bei 3 Karten beträgt die Chance 20% pro Zug.",
+    "HU": "A hatás a forduló elején a pakliban lévő Shareholder kártyák számától függ, nem a kézben lévőktől. 0-2 kártyánál nincs lezárás. 3 kártyánál körönként 20% az esély.",
+    "FR": "L’effet dépend du nombre de cartes Shareholder dans le deck au début de la manche, et non en main. Avec 0-2 cartes, aucun blocage. Avec 3 cartes, la probabilité est de 20% par tour."
+  },
+  {
+    "Source": "Каждая следующая карта Shareholder добавляет 5 процентных пунктов: 4 карты — 25%, 5 карт — 30%, 6 карт — 35%. Максимальный шанс — 100%.",
+    "RU": "Каждая следующая карта Shareholder добавляет 5 процентных пунктов: 4 карты — 25%, 5 карт — 30%, 6 карт — 35%. Максимальный шанс — 100%.",
+    "ENG": "Each additional Shareholder card adds 5 percentage points: 4 cards — 25%, 5 cards — 30%, 6 cards — 35%. The maximum chance is 100%.",
+    "DE": "Jede weitere Shareholder-Karte erhöht die Chance um 5 Prozentpunkte: 4 Karten — 25%, 5 Karten — 30%, 6 Karten — 35%. Die maximale Chance beträgt 100%.",
+    "HU": "Minden további Shareholder kártya 5 százalékponttal növeli az esélyt: 4 kártya — 25%, 5 kártya — 30%, 6 kártya — 35%. A maximális esély 100%.",
+    "FR": "Chaque carte Shareholder supplémentaire ajoute 5 points de pourcentage : 4 cartes — 25%, 5 cartes — 30%, 6 cartes — 35%. La probabilité maximale est de 100%."
+  },
+  {
+    "Source": "В начале каждого хода проводится новая проверка. Предыдущая блокировка снимается; при новом срабатывании снова выбирается один из трёх рынков. Один и тот же рынок может закрыться несколько ходов подряд.",
+    "RU": "В начале каждого хода проводится новая проверка. Предыдущая блокировка снимается; при новом срабатывании снова выбирается один из трёх рынков. Один и тот же рынок может закрыться несколько ходов подряд.",
+    "ENG": "A new check is made at the start of each turn. The previous block expires; if the effect triggers again, one of the three markets is selected again. The same market may close for several consecutive turns.",
+    "DE": "Zu Beginn jedes Zuges wird erneut geprüft. Die bisherige Sperre endet; bei erneutem Auslösen wird wieder einer der drei Märkte ausgewählt. Derselbe Markt kann mehrere Züge hintereinander geschlossen sein.",
+    "HU": "Minden kör elején új ellenőrzés történik. Az előző lezárás megszűnik; újabb aktiválódáskor a három piac egyikét ismét kiválasztja a játék. Ugyanaz a piac több egymást követő körben is bezárhat.",
+    "FR": "Une nouvelle vérification a lieu au début de chaque tour. Le blocage précédent prend fin ; si l’effet se déclenche à nouveau, l’un des trois marchés est de nouveau choisi. Le même marché peut fermer plusieurs tours de suite."
+  },
+  {
+    "Source": "Активная карта «Контрольный пакет» или Golden Stake полностью отключает блокировку рынков шейрхолдерами на время своего действия.",
+    "RU": "Активная карта «Контрольный пакет» или Golden Stake полностью отключает блокировку рынков шейрхолдерами на время своего действия.",
+    "ENG": "An active Controlling Stake or Golden Stake card completely prevents Shareholders from blocking markets for as long as that card remains active.",
+    "DE": "Eine aktive Karte Controlling Stake oder Golden Stake verhindert während ihrer gesamten Wirkungsdauer, dass Aktionäre Märkte sperren.",
+    "HU": "Az aktív Controlling Stake vagy Golden Stake kártya teljesen megakadályozza, hogy a részvényesek piacokat zárjanak le, amíg a kártya aktív marad.",
+    "FR": "Une carte Controlling Stake ou Golden Stake active empêche complètement les actionnaires de bloquer les marchés pendant toute sa durée d’activité."
+  },
+  {
     "Source": "Нет доступных карт",
     "RU": "Нет доступных карт",
     "ENG": "No cards available",

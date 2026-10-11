@@ -308,8 +308,9 @@ def update_arrow_animation_entries(arrow_entries, arrow_anim_sequence, arrow_ani
         if not entry["animating"]:
             continue
         if now - entry["last"] >= arrow_anim_interval:
-            entry["last"] = now
-            entry["idx"] += 1
+            steps = int((now - entry["last"]) / max(1, arrow_anim_interval))
+            entry["last"] += steps * max(1, arrow_anim_interval)
+            entry["idx"] += steps
             if entry["idx"] >= len(arrow_anim_sequence):
                 entry["animating"] = False
                 entry["idx"] = 0
