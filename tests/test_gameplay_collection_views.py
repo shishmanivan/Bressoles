@@ -83,12 +83,12 @@ class CollectionViewTests(unittest.TestCase):
             self.assertEqual(rect.centerx, page.bottom_placeholders[index]["rect"].centerx)
         page.test_offers.return_value = []
         page._collect_defeated_boss_rewards.return_value = []
-        self.assertEqual(list(page._collection_navigation_rects()), ["deck", "conditions"])
+        self.assertEqual(list(page._collection_navigation_rects()), ["deck"])
         self.assertNotIn("offers", page._collection_navigation_rects())
         self.assertFalse(page._handle_collection_navigation(rects["bosses"].center))
         page._collect_defeated_boss_rewards.return_value = [{"filename": "1_Watt.png"}]
         visible = page._collection_navigation_rects()
-        self.assertEqual(list(visible), ["deck", "bosses", "conditions"])
+        self.assertEqual(list(visible), ["deck", "bosses"])
         self.assertEqual(visible["bosses"].centerx, page.bottom_placeholders[1]["rect"].centerx)
 
     def test_offer_categories_preserve_duplicate_pending_investments_and_timers(self):
@@ -107,6 +107,7 @@ class CollectionViewTests(unittest.TestCase):
 
     def test_icons_open_distinct_views_switch_and_close(self):
         page = self.make_page()
+        page.level_number = 4
         rects = page._collection_navigation_rects()
         self.assertEqual(len(rects), 4)
         self.assertFalse(rects["deck"].colliderect(rects["offers"]))

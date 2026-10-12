@@ -57,7 +57,8 @@ def navigation_rects(page):
         modes.append("offers")
     if page._collect_defeated_boss_rewards():
         modes.append("bosses")
-    modes.append("conditions")
+    if conditions_for_level(page.level_number):
+        modes.append("conditions")
     slots = sorted(page.bottom_placeholders or [], key=lambda entry: entry["slot"])
     rects = {}
     for index, mode in enumerate(modes):
