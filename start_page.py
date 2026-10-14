@@ -213,6 +213,10 @@ class StartPage:
         self.menu_image = self._load_image(MENU_IMAGE_PATH, alpha=True)
         self.button_sound = load_sound(os.path.join("Sounds", "Cliack3.wav"))
         self.hover_sound = load_card_hover_sound()
+        self.coin_sounds = [sound for index in (1, 3, 4)
+                            if (sound := load_sound(os.path.join("Sounds", f"Coin{index}.wav"))) is not None]
+        self._coin_sound_random = random.Random()
+        self._last_coin_sound = None
 
         self._scaled_image_cache = {}
         self._font_cache = {}
@@ -479,6 +483,15 @@ class StartPage:
         if sound:
             sound.play()
 
+    def _play_coin_sound(self):
+        choices = [sound for sound in self.coin_sounds if sound is not self._last_coin_sound]
+        if not choices:
+            choices = self.coin_sounds
+        if choices:
+            sound = self._coin_sound_random.choice(choices)
+            sound.play()
+            self._last_coin_sound = sound
+
     def _play_hover_sound(self):
         sound = getattr(self, "hover_sound", None)
         if sound:
@@ -574,7 +587,7 @@ class StartPage:
         self._draw_smoke(layout)
         self._draw_menu_details(layout)
         self._coin_hover.draw(self.screen, layout.menu_image_rect,
-                              pygame.mouse.get_pos(), pygame.time.get_ticks())
+                              pygame.mouse.get_pos(), pygame.time.get_ticks(), self._play_coin_sound)
         self._ribbon_letters.draw(self.screen, layout.menu_image_rect,
                                   pygame.mouse.get_pos(), pygame.time.get_ticks(),
                                   self._play_hover_sound)

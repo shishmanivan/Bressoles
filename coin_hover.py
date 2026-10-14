@@ -79,8 +79,11 @@ class CoinHover:
                 nearest, distance = index, radius
         return nearest
 
-    def draw(self, screen, artwork, position, ticks):
-        self.hovered = self.hit_test(position, artwork)
+    def draw(self, screen, artwork, position, ticks, play_sound=None):
+        hovered = self.hit_test(position, artwork)
+        if hovered is not None and hovered != self.hovered and play_sound is not None:
+            play_sound()
+        self.hovered = hovered
         dt = min(0.05, max(0, (ticks - self.last_ticks) / 1000)) if self.last_ticks is not None else 1 / 60
         self.last_ticks = ticks
         sx, sy = artwork.width / 1678, artwork.height / 937

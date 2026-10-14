@@ -82,7 +82,24 @@ class PriceCardProcessingTests(unittest.TestCase):
         page._record_short_seller_falls = mock.Mock(return_value=False)
         page._start_card_jump_animation = mock.Mock()
         page._begin_effect_finalize_or_wait = mock.Mock()
+        page.gain_sound = mock.Mock()
+        page.drop_sound = mock.Mock()
         return page
+
+    def test_gain_drop_sounds_play_once_when_effect_resolves(self):
+        for card_id in range(11, 19):
+            with self.subTest(card_id=card_id):
+                drop = card_id in (15, 16)
+                page = self._page(card_id=card_id, action=-2 if drop else 2)
+                with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=149):
+                    page.update_price_card_processing()
+                page.gain_sound.play.assert_not_called()
+                page.drop_sound.play.assert_not_called()
+                with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=150):
+                    page.update_price_card_processing()
+                    page.update_price_card_processing()
+                (page.drop_sound if drop else page.gain_sound).play.assert_called_once_with()
+                (page.gain_sound if drop else page.drop_sound).play.assert_not_called()
 
     def test_delay_and_slot_action_override_including_zero(self):
         for override, expected in ((None, 8), (-6, 4), (0, 10)):
@@ -100,6 +117,7 @@ class PriceCardProcessingTests(unittest.TestCase):
                 self.assertEqual(page.Aprice, expected)
                 self.assertEqual(page.market_card_turns[0][0], 1)
                 self.assertEqual(page._start_card_jump_animation.call_count, int(expected != 10))
+                self.assertEqual(page.drop_sound.play.call_count, int(expected != 10))
                 page._begin_effect_finalize_or_wait.assert_called_once_with()
 
     def test_reactions_observe_final_price_before_animation_and_duration_decrement(self):
@@ -127,6 +145,7 @@ class PriceCardProcessingTests(unittest.TestCase):
                 with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=150):
                     page.update_price_card_processing()
                 price = 10 if protected else 8
+                self.assertEqual(page.drop_sound.play.call_count, int(not protected))
                 expected = [(name, price, 2) for name in ("rebate", "c_fall", "short_seller")]
                 if not protected:
                     expected.append(("jump", price, 2))

@@ -1,8 +1,11 @@
 import unittest
+from unittest.mock import Mock
+import random
 
 import pygame
 
 from coin_hover import CoinHover
+from start_page import StartPage
 
 
 class CoinHoverTests(unittest.TestCase):
@@ -34,6 +37,28 @@ class CoinHoverTests(unittest.TestCase):
                           art.y + rect.centery * art.height / 937)
                 self.assertEqual(effect.hit_test(center, art), index)
         self.assertIsNone(effect.hit_test((0, 0), art))
+
+    def test_sound_only_on_entry_or_change_of_coin(self):
+        effect = CoinHover(self.original)
+        screen = self.original.copy()
+        play = Mock()
+        first, second = (effect.coins[index][0].center for index in (0, 2))
+        for ticks, position in enumerate((first, first, second, second, (0, 0), second)):
+            effect.draw(screen, screen.get_rect(), position, ticks * 16, play)
+        self.assertEqual(play.call_count, 3)
+
+    def test_random_coin_sounds_do_not_repeat_immediately(self):
+        page = StartPage.__new__(StartPage)
+        page.coin_sounds = [Mock() for _ in range(4)]
+        page._coin_sound_random = random.Random(7)
+        page._last_coin_sound = None
+        for _ in range(40):
+            previous = page._last_coin_sound
+            page._play_coin_sound()
+            self.assertIsNot(page._last_coin_sound, previous)
+        self.assertTrue(all(sound.play.called for sound in page.coin_sounds))
+        page.coin_sounds = []
+        page._play_coin_sound()
 
 
 if __name__ == '__main__':

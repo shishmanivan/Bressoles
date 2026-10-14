@@ -523,6 +523,8 @@ class GameplayPage(AdaptivePage):
         self.card_placing_sound = gameplay_assets.get("card_placing_sound")
         self.card_hover_sound = gameplay_assets.get("card_hover_sound")
         self.percent_reveal_sound = gameplay_assets.get("percent_reveal_sound")
+        self.gain_sound = gameplay_assets.get("gain_sound")
+        self.drop_sound = gameplay_assets.get("drop_sound")
         self.card_taking_sound = gameplay_assets.get("card_taking_sound")
         self.animation_width = gameplay_assets["animation_width"]
         self.animation_height = gameplay_assets["animation_height"]
@@ -6186,6 +6188,10 @@ class GameplayPage(AdaptivePage):
                     self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
                         previous_prices, (self.Aprice, self.BPrice, self.CPrice)
                     )
+                    if (self.Aprice, self.BPrice, self.CPrice) != previous_prices:
+                        sound = getattr(self, "drop_sound" if card_id in (15, 16) else "gain_sound", None)
+                        if sound is not None:
+                            sound.play()
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                     self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
                     if self._record_short_seller_falls(previous_prices, f"card {card_id}"):
