@@ -1,5 +1,45 @@
 [
   {
+    "Source": "Protective Put",
+    "RU": "Protective Put",
+    "ENG": "Protective Put",
+    "DE": "Schutz-Put",
+    "HU": "Védelmi put",
+    "FR": "Put de protection"
+  },
+  {
+    "Source": "Один раз спасёт ваши акции от падения. Одновременно можно купить не более трёх таких предложений",
+    "RU": "Один раз спасёт ваши акции от падения. Одновременно можно купить не более трёх таких предложений",
+    "ENG": "Protects your shares from one price fall. You can hold up to three of these offers at once.",
+    "DE": "Schützt deine Aktien einmal vor einem Kursverlust. Du kannst bis zu drei dieser Angebote gleichzeitig besitzen.",
+    "HU": "Egyszer megvédi a részvényeidet az árfolyameséstől. Egyszerre legfeljebb három ilyen ajánlatod lehet.",
+    "FR": "Protège une fois vos actions d’une baisse. Vous pouvez détenir jusqu’à trois de ces offres simultanément."
+  },
+  {
+    "Source": "Protective Put спасло вас от падения акций. Предложение израсходовано.",
+    "RU": "Protective Put спасло вас от падения акций. Предложение израсходовано.",
+    "ENG": "Protective Put saved you from a stock price fall. The offer has been consumed.",
+    "DE": "Schutz-Put hat dich vor einem Kursverlust bewahrt. Das Angebot wurde verbraucht.",
+    "HU": "A védelmi put megóvott az árfolyameséstől. Az ajánlat felhasználva.",
+    "FR": "Le put de protection vous a protégé d’une baisse des actions. L’offre a été consommée."
+  },
+  {
+    "Source": "Price Support",
+    "RU": "Поддержка цены",
+    "ENG": "Price Support",
+    "DE": "Kursstützung",
+    "HU": "Árfolyamtámasz",
+    "FR": "Soutien des cours"
+  },
+  {
+    "Source": "Немного увеличивает вероятность роста тех акций, в которые вы вложились. Действует 5 раундов. Можно иметь не более трёх таких предложений одновременно",
+    "RU": "Немного увеличивает вероятность роста тех акций, в которые вы вложились. Действует 5 раундов. Можно иметь не более трёх таких предложений одновременно",
+    "ENG": "Slightly increases the rise probability of stocks you own. Lasts 5 rounds. Up to three of these offers can be active at once.",
+    "DE": "Erhöht leicht die Anstiegswahrscheinlichkeit deiner Aktien. Wirkt 5 Runden. Bis zu drei dieser Angebote können gleichzeitig aktiv sein.",
+    "HU": "Kissé növeli a birtokolt részvények emelkedési esélyét. 5 körig tart. Egyszerre legfeljebb három ilyen ajánlat lehet aktív.",
+    "FR": "Augmente légèrement la probabilité de hausse des actions que vous détenez. Dure 5 manches. Jusqu’à trois de ces offres peuvent être actives simultanément."
+  },
+  {
     "Source": "Условия",
     "RU": "Условия",
     "ENG": "Conditions",
@@ -184,20 +224,20 @@
     "FR": "Copie de droite"
   },
   {
-    "Source": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
-    "RU": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
-    "ENG": "On placement, copies the left market's price and fall, rise and flat probabilities once. Play on B or C. Shop only, from level 5.",
-    "DE": "Kopiert beim Ausspielen einmalig den Kurs und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des linken Marktes. Auf B oder C spielbar. Nur im Laden ab Stufe 5.",
-    "HU": "Kijátszáskor egyszer lemásolja a bal oldali piac árfolyamát, valamint az esés, emelkedés és stagnálás valószínűségét. B vagy C piacra játszható. Csak a boltban, az 5. szinttől.",
-    "FR": "À la pose, copie une fois le cours et les probabilités de baisse, de hausse et de stabilité du marché de gauche. Se joue sur B ou C. En boutique uniquement, dès le niveau 5."
+    "Source": "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка слева. До конца хода можно перемещать. Играется на B или C.",
+    "RU": "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка слева. До конца хода можно перемещать. Играется на B или C.",
+    "ENG": "After End Turn, in card order, copies the left market's price, rise/fall step and fall, rise and flat probabilities once. Can be moved before ending the turn. Play on B or C.",
+    "DE": "Nach End Turn kopiert sie in Kartenreihenfolge einmalig den Kurs, die Schrittweite und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des linken Marktes. Vor Zugende verschiebbar. Auf B oder C spielbar.",
+    "HU": "Az End Turn után, a kártyák sorrendjében egyszer lemásolja a bal oldali piac árfolyamát, változási lépését és az esés, emelkedés, stagnálás valószínűségét. A kör lezárása előtt áthelyezhető. B vagy C piacra játszható.",
+    "FR": "Après End Turn, dans l'ordre des cartes, copie une fois le cours, le pas de variation et les probabilités de baisse, de hausse et de stabilité du marché de gauche. Déplaçable avant la fin du tour. Se joue sur B ou C."
   },
   {
-    "Source": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
-    "RU": "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
-    "ENG": "On placement, copies the right market's price and fall, rise and flat probabilities once. Play on A or B. Shop only, from level 5.",
-    "DE": "Kopiert beim Ausspielen einmalig den Kurs und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des rechten Marktes. Auf A oder B spielbar. Nur im Laden ab Stufe 5.",
-    "HU": "Kijátszáskor egyszer lemásolja a jobb oldali piac árfolyamát, valamint az esés, emelkedés és stagnálás valószínűségét. A vagy B piacra játszható. Csak a boltban, az 5. szinttől.",
-    "FR": "À la pose, copie une fois le cours et les probabilités de baisse, de hausse et de stabilité du marché de droite. Se joue sur A ou B. En boutique uniquement, dès le niveau 5."
+    "Source": "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка справа. До конца хода можно перемещать. Играется на A или B.",
+    "RU": "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка справа. До конца хода можно перемещать. Играется на A или B.",
+    "ENG": "After End Turn, in card order, copies the right market's price, rise/fall step and fall, rise and flat probabilities once. Can be moved before ending the turn. Play on A or B.",
+    "DE": "Nach End Turn kopiert sie in Kartenreihenfolge einmalig den Kurs, die Schrittweite und die Wahrscheinlichkeiten für Fallen, Steigen und Stillstand des rechten Marktes. Vor Zugende verschiebbar. Auf A oder B spielbar.",
+    "HU": "Az End Turn után, a kártyák sorrendjében egyszer lemásolja a jobb oldali piac árfolyamát, változási lépését és az esés, emelkedés, stagnálás valószínűségét. A kör lezárása előtt áthelyezhető. A vagy B piacra játszható.",
+    "FR": "Après End Turn, dans l'ordre des cartes, copie une fois le cours, le pas de variation et les probabilités de baisse, de hausse et de stabilité du marché de droite. Déplaçable avant la fin du tour. Se joue sur A ou B."
   },
   {
     "Source": "Standardization",

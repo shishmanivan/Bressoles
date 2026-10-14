@@ -1,4 +1,4 @@
-from card_catalog import MARKET_DURATION_CARD_IDS, PRICE_CARD_IDS, get_price_card_spec
+from card_catalog import MARKET_COPY_CARD_IDS, MARKET_DURATION_CARD_IDS, PRICE_CARD_IDS, get_price_card_spec
 from gameplay_price_helpers import protect_market_prices
 
 
@@ -58,12 +58,16 @@ def advance_price_animation_frame(current_price_animation, frame_count, interval
     return current_price_animation["frame_idx"] >= frame_count
 
 
-def build_price_cards_processing_queue(market_cards, market_card_turns):
+def build_price_cards_processing_queue(market_cards, market_card_turns, resolved_copy_slots=()):
     """Build the persistent market-effect queue in market/slot order."""
     queue = []
     for market in (0, 1, 2):
         for slot in (0, 1, 2):
             card_id = market_cards[market].get(slot)
+            if card_id in MARKET_COPY_CARD_IDS:
+                if (market, slot) not in resolved_copy_slots:
+                    queue.append((market, slot))
+                continue
             if card_id not in MARKET_DURATION_CARD_IDS:
                 continue
             turns_remaining = market_card_turns[market].get(slot)

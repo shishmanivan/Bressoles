@@ -58,6 +58,8 @@ pending_shop_discount_percent = 0
 correction_shop_cooldown = 0
 bailout_rounds_remaining = 0
 disclosure_rounds_remaining = 0
+active_price_support_rounds = []
+protective_put_charges = 0
 active_long_investments = []
 golden_stocks_chance_percent = 10
 golden_stocks_triggered = False
@@ -105,7 +107,9 @@ SHOP_SPECIAL_COSTS = {
     "expansion": 5,
     "bill_of_exchange": 4,
     "disclosure": 3,
-    "compounding": 7,
+    "price_support": 2,
+    "protective_put": 1,
+    "compounding": 5,
     "replication": 2,
     "replication_plus": 6,
     "screening": 1,
@@ -1407,6 +1411,62 @@ def clear_bailout_bonus():
     bailout_rounds_remaining = 0
 
 
+def get_active_price_support_rounds():
+    active = []
+    for value in active_price_support_rounds or []:
+        try:
+            remaining = min(5, int(value))
+        except (TypeError, ValueError):
+            continue
+        if remaining > 0:
+            active.append(remaining)
+    return active[:3]
+
+
+def get_protective_put_charges():
+    return max(0, min(3, int(protective_put_charges or 0)))
+
+
+def is_protective_put_offer_available(level_number):
+    return int(level_number or 0) >= 3 and get_protective_put_charges() < 3
+
+
+def buy_protective_put(level_number):
+    global protective_put_charges
+    if not is_protective_put_offer_available(level_number):
+        return False
+    protective_put_charges = get_protective_put_charges() + 1
+    return True
+
+
+def consume_protective_put():
+    global protective_put_charges
+    if not get_protective_put_charges():
+        return False
+    protective_put_charges -= 1
+    return True
+
+
+def clear_protective_put():
+    global protective_put_charges
+    protective_put_charges = 0
+
+
+def is_price_support_offer_available():
+    return len(get_active_price_support_rounds()) < 3
+
+
+def buy_price_support():
+    if not is_price_support_offer_available():
+        return False
+    active_price_support_rounds[:] = get_active_price_support_rounds() + [5]
+    return True
+
+
+def advance_price_support_round():
+    active_price_support_rounds[:] = [value - 1 for value in get_active_price_support_rounds() if value > 1]
+
+
 def get_disclosure_rounds_remaining():
     try:
         return max(0, int(disclosure_rounds_remaining or 0))
@@ -1962,6 +2022,8 @@ def reset_level_attempt(level_number):
     clear_frugality()
     clear_bailout_bonus()
     clear_disclosure()
+    active_price_support_rounds.clear()
+    clear_protective_put()
     clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
@@ -2023,6 +2085,8 @@ def complete_level_run(level_number):
     clear_frugality()
     clear_bailout_bonus()
     clear_disclosure()
+    active_price_support_rounds.clear()
+    clear_protective_put()
     clear_loan_offers()
     clear_long_investments()
     clear_bank_offer()
@@ -2676,6 +2740,11 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
     if bailout_remaining > 0:
         add("bailout", bailout_remaining, "rounds")
 
+    for remaining in get_active_price_support_rounds():
+        add("price_support", remaining, "rounds")
+    for _ in range(get_protective_put_charges()):
+        add("protective_put")
+
     disclosure_remaining = get_disclosure_rounds_remaining()
     if disclosure_remaining > 0:
         add("disclosure", disclosure_remaining, "rounds")
@@ -3091,6 +3160,8 @@ def _available_screening_offer_ids(
         "expansion": is_expansion_offer_available(level),
         "bill_of_exchange": is_bill_of_exchange_offer_available(level),
         "disclosure": is_disclosure_offer_available(),
+        "price_support": is_price_support_offer_available(),
+        "protective_put": is_protective_put_offer_available(level),
         "compounding": is_compounding_offer_available(level),
         "replication": is_replication_offer_available(),
         "replication_plus": is_replication_plus_offer_available(),
@@ -3102,6 +3173,7 @@ def _available_screening_offer_ids(
     }
     if level < 3:
         level_offers = {
+            "price_support",
             "bailout",
             "junk_bond",
             "trader",
@@ -3160,6 +3232,7 @@ def build_shop_special_offer_pool(
     # are available. The rest of the special shop assortment starts at level 3.
     if level < 3:
         allowed_offers = {
+            "price_support",
             "bailout",
             "junk_bond",
             "trader",
@@ -3278,6 +3351,10 @@ def build_shop_special_offer_pool(
 
     if multibagger_hit:
         rolled.append("multibagger")
+    if is_price_support_offer_available() and random.randint(1, 100) <= get_shop_special_offer_chance(20):
+        rolled.append("price_support")
+    if is_protective_put_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(20):
+        rolled.append("protective_put")
     if variance_hit:
         rolled.append("variance")
     if loan_hit:

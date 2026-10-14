@@ -1,4 +1,4 @@
-from adaptive_page import AdaptivePage, adaptive_draw
+from adaptive_page import AdaptivePage, adaptive_draw, draw_modal_shade
 from app_settings import card_information_enabled
 from localization import translate as _tr
 import native_render as pygame
@@ -187,8 +187,8 @@ FIELD_CARD_TOOLTIPS = {
     20: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 2 ходов."),
     21: ("Regulation", "Случайное движение выбранной акции будет Flat в течение 3 ходов."),
     22: ("Blue Chips", "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке."),
-    23: ("Copy Left", "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5."),
-    24: ("Copy Right", "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5."),
+    23: ("Copy Left", "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка слева. До конца хода можно перемещать. Играется на B или C."),
+    24: ("Copy Right", "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка справа. До конца хода можно перемещать. Играется на A или B."),
     100: ("Shareholder", "Это бесполезная карта. Она ничего не делает и только занимает место."),
     110: ("Rebate", "В последний ход автоматически продаёт все оставшиеся акции за 90% их стоимости."),
     111: ("Deleverage", "Удаляет все карты, выложенные на трёх рынках."),
@@ -255,49 +255,57 @@ class GameplayPage(AdaptivePage):
         return True
 
     def _apply_market_copy_card(self, card_id, market, slot):
-        """Commit a one-shot snapshot as soon as a copy card leaves the hand."""
+        """Resolve one queued copy using the neighbor's current market state."""
         offset = MARKET_COPY_OFFSETS.get(card_id)
         if offset is None or market + offset not in (0, 1, 2):
             return False
-        if self.market_cards_locked[market].get(slot):
+        resolved = getattr(self, "market_copy_resolved", set())
+        if (market, slot) in resolved:
             return False
         source = market + offset
-        probabilities = self._stock_bot_probabilities()[source]
+        # Ownership bonuses must stay dynamic, not become part of a copied market.
+        probabilities = self._stock_bot_probabilities(include_price_support=False)[source]
         snapshots = getattr(self, "market_copy_snapshots", {}).copy()
         snapshots[market] = {
             "probabilities": dict(probabilities),
             "through_slot": slot,
             "shakeout_count": self._get_shakeout_count() if market in self._get_shakeout_markets() else 0,
+            "step": (self.StepA, self.StepB, self.StepC)[source],
         }
         self.market_copy_snapshots = snapshots
-        # Immediate effects cannot be undone/replayed by dragging back to hand.
-        self.market_cards_locked[market][slot] = True
-        if getattr(self, "boss_limit_red_gain_drop_per_turn", False):
-            self.accumulation_stephenson_card_played_this_turn = True
-        turn_state = getattr(self, "market_copy_turn_state", {})
-        self.c_price_fell_this_resolution = bool(turn_state.get("c_fell", False))
-        self.short_seller_counted_markets_this_resolution = set(turn_state.get("short_seller_markets", []))
+        self.market_copy_resolved = resolved | {(market, slot)}
+        setattr(self, ("StepA", "StepB", "StepC")[market], snapshots[market]["step"])
         prices = (self.Aprice, self.BPrice, self.CPrice)
         self._apply_price_change(market, prices[source] - prices[market])
-        self.market_copy_turn_state = {
-            "plays": turn_state.get("plays", 0) + 1,
-            "c_fell": self.c_price_fell_this_resolution,
-            "short_seller_markets": sorted(self.short_seller_counted_markets_this_resolution),
-        }
         self._start_card_jump_animation(self.card_jump_animations[market], slot)
         return True
 
     def _restore_market_copy_state(self, state):
+        # Retain old immediate-play bookkeeping only when loading an old save.
         self.market_copy_turn_state = dict(state.get("market_copy_turn_state") or {})
+        if "market_copy_resolved" in state:
+            self.market_copy_resolved = {tuple(pair) for pair in state["market_copy_resolved"]}
+        else:
+            self.market_copy_resolved = {
+                (market, slot)
+                for market, slots in getattr(self, "market_cards", {}).items()
+                for slot, card_id in slots.items()
+                if card_id in MARKET_COPY_CARD_IDS
+                and self.market_cards_locked.get(market, {}).get(slot)
+            }
         self.market_copy_snapshots = {
             int(market): {
                 "probabilities": dict(snapshot["probabilities"]),
                 "through_slot": int(snapshot.get("through_slot", -1)),
                 "shakeout_count": int(snapshot.get("shakeout_count", 0)),
+                **({"step": snapshot["step"]} if "step" in snapshot else {}),
             }
             for market, snapshot in (state.get("market_copy_snapshots") or {}).items()
             if str(market) in ("0", "1", "2")
         }
+        for market, snapshot in self.market_copy_snapshots.items():
+            if "step" in snapshot:
+                setattr(self, ("StepA", "StepB", "StepC")[market], snapshot["step"])
 
     def _is_standardization_active(self):
         return GOLD_STANDARDIZATION_CARD_ID in getattr(self, "active_gold_cards", ())
@@ -308,7 +316,7 @@ class GameplayPage(AdaptivePage):
             getattr(self, "standardization_probabilities", None) and not refresh
         ):
             return False
-        probabilities = self._stock_bot_probabilities()[0]
+        probabilities = self._stock_bot_probabilities(include_price_support=False)[0]
         self.standardization_probabilities = {
             market: dict(probabilities) for market in (1, 2)
         }
@@ -514,6 +522,7 @@ class GameplayPage(AdaptivePage):
         self.alarm_sound = gameplay_assets.get("alarm_sound")
         self.card_placing_sound = gameplay_assets.get("card_placing_sound")
         self.card_hover_sound = gameplay_assets.get("card_hover_sound")
+        self.percent_reveal_sound = gameplay_assets.get("percent_reveal_sound")
         self.card_taking_sound = gameplay_assets.get("card_taking_sound")
         self.animation_width = gameplay_assets["animation_width"]
         self.animation_height = gameplay_assets["animation_height"]
@@ -907,6 +916,7 @@ class GameplayPage(AdaptivePage):
         self.winlose_scaled_card_images = {}
         self.standardization_probabilities = None
         self.market_copy_snapshots = {}
+        self.market_copy_resolved = set()
         self.market_copy_turn_state = {}
         self._apply_starting_market_effects()
         self._restore_saved_state(self._initial_saved_state)
@@ -1797,7 +1807,13 @@ class GameplayPage(AdaptivePage):
             print(f"ERROR activating stock bot: {exc}")
             self.stock_bot_enabled = False
 
-    def _stock_bot_probabilities(self):
+    def _price_support_markets(self):
+        return {
+            market for market, name in enumerate(("Aquantity", "Bquantity", "Cquantity"))
+            if getattr(self, name, 0) > 0
+        }
+
+    def _stock_bot_probabilities(self, include_price_support=True):
         return build_market_probabilities(
             self.market_cards,
             probability_card_bonus=self._get_probability_card_bonus(),
@@ -1809,6 +1825,8 @@ class GameplayPage(AdaptivePage):
             double_fall_count=self._get_shakeout_count(),
             base_probabilities=getattr(self, "standardization_probabilities", None),
             copy_snapshots=getattr(self, "market_copy_snapshots", None),
+            price_support_markets=self._price_support_markets() if include_price_support else (),
+            price_support_bonus=4 * len(game_state.get_active_price_support_rounds()),
         )
 
     def _run_stock_bot_turn(self):
@@ -1955,6 +1973,7 @@ class GameplayPage(AdaptivePage):
         return {
             "overvaluation_triggered_this_round": getattr(self, "overvaluation_triggered_this_round", False),
             "market_copy_snapshots": getattr(self, "market_copy_snapshots", {}),
+            "market_copy_resolved": sorted(getattr(self, "market_copy_resolved", set())),
             "market_copy_turn_state": getattr(self, "market_copy_turn_state", {}),
             "standardization_probabilities": getattr(self, "standardization_probabilities", None),
             "tutorial_dismissed_this_round": sorted(getattr(self, "tutorial_dismissed_this_round", set())),
@@ -2202,11 +2221,11 @@ class GameplayPage(AdaptivePage):
         else:
             game_state.set_active_gold_cards(self.active_gold_cards)
         self._restore_standardization_state(state)
-        self._restore_market_copy_state(state)
         if self._is_standardization_active():
             # Rebuild steps instead of restoring the old card's fixed $4 effect.
             self.StepA, self.StepB, self.StepC = 2, 4, 6
             self._apply_volatility_steps()
+        self._restore_market_copy_state(state)
         raw_waterloo_preview = state.get("waterloo_preview_movements")
         self.waterloo_preview_movements = (
             [dict(movement) for movement in raw_waterloo_preview if isinstance(movement, dict)]
@@ -2441,7 +2460,7 @@ class GameplayPage(AdaptivePage):
             occurrence = sum(
                 1
                 for previous in active_cards[: max(0, int(slot or 0))]
-                if int(previous) == normalized
+                if previous is not None and int(previous) == normalized
             )
             return occurrence < used_count
         return False
@@ -2824,6 +2843,16 @@ class GameplayPage(AdaptivePage):
             if event.type == pygame.QUIT:
                 return "quit"
 
+            if self._is_protective_put_animating():
+                rect = getattr(self, "protective_put_ok_rect", None)
+                if (
+                    event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and rect is not None and rect.collidepoint(event.pos)
+                ) or (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER)):
+                    self._acknowledge_protective_put()
+                    return None
+                continue
+
             if getattr(self, "tutorial_hint", None) is not None:
                 if self.tutorial_hint.accepts(event):
                     self.tutorial_hint.start_press(getattr(self, "end_turn_sound", None))
@@ -3092,8 +3121,6 @@ class GameplayPage(AdaptivePage):
                                             self.hand_cards[self.dragged_card_index] = None
                                             # Mark pending draw for empty slot
                                             self.pending_draws += 1
-                                            if self._apply_market_copy_card(card_id, market, slot):
-                                                self._save_active_game()
                                             if self._apply_full_deployment_reward_if_needed():
                                                 self._save_active_game()
                                             dropped = True
@@ -3118,7 +3145,8 @@ class GameplayPage(AdaptivePage):
                                         continue
                                     card_id = self.market_cards[src_market].get(src_slot)
                                     if card_id is not None:
-                                        if card_id in MARKET_COPY_CARD_IDS:
+                                        if (card_id in MARKET_COPY_OFFSETS
+                                                and market + MARKET_COPY_OFFSETS[card_id] not in (0, 1, 2)):
                                             continue
                                         self.market_cards[market][slot] = card_id
                                         self.market_cards[src_market][src_slot] = None
@@ -3261,6 +3289,7 @@ class GameplayPage(AdaptivePage):
             self._apply_bill_of_exchange_shop_discount()
             # Consume the completed round before granting rewards for future rounds.
             game_state.advance_disclosure_round()
+            game_state.advance_price_support_round()
             self._add_reward_card_to_deck()
             boss_reward_amount = max(
                 0.0,
@@ -3332,13 +3361,18 @@ class GameplayPage(AdaptivePage):
         self.side_cards_locked_top.pop(slot, None)
         self.side_card_jump_animations.pop(slot, None)
         self.active_silver_cards.remove(221)
-        self.active_black_cards.remove(304)
+        self.active_black_cards[self.active_black_cards.index(304)] = 305
         self.active_gold_cards.remove(438)
         remaining_order = []
         consumed = {221, 304, 438}
         for entry in self.active_lifecycle_card_order:
             if entry["card_id"] in consumed:
                 consumed.remove(entry["card_id"])
+                remaining_order.append(
+                    {"kind": "black", "card_id": 305}
+                    if entry["card_id"] == 304
+                    else {"kind": "empty", "card_id": None}
+                )
             else:
                 remaining_order.append(entry)
         self.active_lifecycle_card_order = self._normalize_active_lifecycle_card_order(remaining_order)
@@ -3347,6 +3381,9 @@ class GameplayPage(AdaptivePage):
         self.lifecycle_card_shake_animations = {}
         self.percent_puzzle_completed_day = self.Day
         self.last_earned_cards.append(305)
+        sound = getattr(self, "percent_reveal_sound", None)
+        if sound is not None:
+            sound.play()
         return True
 
     def _has_played_side_card(self, target_card_id):
@@ -3365,6 +3402,9 @@ class GameplayPage(AdaptivePage):
         }
         ordered = []
         for entry in selected_order or []:
+            if isinstance(entry, dict) and entry.get("kind") == "empty" and entry.get("card_id") is None:
+                ordered.append({"kind": "empty", "card_id": None})
+                continue
             if isinstance(entry, dict):
                 kind = str(entry.get("kind") or "").lower()
                 card_id = entry.get("card_id", entry.get("id"))
@@ -3480,11 +3520,56 @@ class GameplayPage(AdaptivePage):
 
     def _protect_blue_chip_prices(self, previous_prices, proposed_prices):
         """Keep protected markets unchanged when an effect proposes a lower price."""
-        return protect_market_prices(
+        prices = protect_market_prices(
             previous_prices,
             proposed_prices,
             self._get_blue_chip_markets(),
         )
+        return self._protect_put_prices(previous_prices, prices)
+
+    def _protect_put_prices(self, previous_prices, proposed_prices):
+        prices = list(proposed_prices)
+        owned = self._price_support_markets()
+        for market, previous in enumerate(previous_prices):
+            if market in owned and prices[market] < previous and game_state.consume_protective_put():
+                prices[market] = previous
+                self.protective_put_pending = getattr(self, "protective_put_pending", 0) + 1
+        return tuple(prices)
+
+    def _is_protective_put_animating(self):
+        return getattr(self, "protective_put_pending", 0) > 0
+
+    def _acknowledge_protective_put(self):
+        if not self._is_protective_put_animating():
+            return
+        self.protective_put_pending -= 1
+        self.protective_put_ok_rect = None
+        now = pygame.time.get_ticks()
+        if getattr(self, "current_price_animation", None):
+            self.current_price_animation["last_update"] = now
+        if getattr(self, "current_card_processing", None) is not None:
+            self.card_processing_start_time = now
+
+    def _draw_protective_put(self):
+        if not self._is_protective_put_animating():
+            return
+        width, height = self.screen.get_size()
+        draw_modal_shade(self.screen, (0, 0, 0, 150))
+        card_height = min(360, int(height * 0.52))
+        card_width = int(card_height * 600 / 887)
+        image = self._get_deck_view_offer_image("protective_put", (card_width, card_height))
+        if image is not None:
+            self.screen.blit(image, image.get_rect(center=(width // 2, int(height * 0.40))))
+        text = _tr("Protective Put спасло вас от падения акций. Предложение израсходовано.")
+        lines = wrap_text(text, self.font_small, int(width * 0.85))
+        for index, line in enumerate(lines):
+            label = self.font_small.render(line, True, (245, 240, 225))
+            self.screen.blit(label, label.get_rect(center=(width // 2, int(height * 0.76) + index * self.font_small.get_linesize())))
+        button = self.ok1_button
+        self.protective_put_ok_rect = button.get_rect(
+            midtop=(width // 2, int(height * 0.76) + len(lines) * self.font_small.get_linesize() + 12)
+        )
+        self.screen.blit(button, self.protective_put_ok_rect)
 
     def _record_rebate_a_fall(self, previous_price, current_price, source):
         rebate_count = self._count_active_card_safely(407)
@@ -3937,7 +4022,7 @@ class GameplayPage(AdaptivePage):
         )
         if base is None:
             return None
-        cards = [int(card) for card in self._active_lifecycle_cards()]
+        cards = [int(card) for card in self._active_lifecycle_cards() if card is not None]
         totals = {
             410: self._get_uptrend_rebate_bonus_percent(),
             423: self._get_stewardship_rebate_bonus_percent(),
@@ -4958,6 +5043,8 @@ class GameplayPage(AdaptivePage):
             double_fall_bonus=self._get_probability_amplifier_bonus() if shakeout_markets else 0,
             double_fall_count=self._get_shakeout_count(),
             random_rolls=random_rolls,
+            price_support_markets=self._price_support_markets(),
+            price_support_bonus=4 * len(game_state.get_active_price_support_rounds()),
             base_probabilities=getattr(self, "standardization_probabilities", None),
             copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
@@ -5327,9 +5414,12 @@ class GameplayPage(AdaptivePage):
                 f"markets={list(target_markets)}, A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
             )
         else:
+            protection_before = game_state.get_protective_put_charges()
             for market in target_markets:
                 if self._apply_price_change(market, next_anim["price_change"]):
                     return True
+            if protection_before - game_state.get_protective_put_charges() == len(target_markets):
+                current_animation["type"] = "unchanged"
         if next_anim.get("source") == "momentum":
             for slot, card_id in enumerate(self._active_lifecycle_cards()):
                 try:
@@ -5369,7 +5459,8 @@ class GameplayPage(AdaptivePage):
 
     def _is_turn_resolution_active(self):
         return (
-            self.turn_resolution_active
+            self._is_protective_put_animating()
+            or self.turn_resolution_active
             or self.effect_finalize_pending
             or self._is_final_auto_liquidation_animating()
             or self.current_price_animation is not None
@@ -6043,6 +6134,7 @@ class GameplayPage(AdaptivePage):
         self.price_card_queue = build_price_cards_processing_queue(
             self.market_cards,
             self.market_card_turns,
+            getattr(self, "market_copy_resolved", set()),
         )
         
         # Start processing first card if queue is not empty
@@ -6068,7 +6160,11 @@ class GameplayPage(AdaptivePage):
         market, slot = self.current_card_processing
         card_id = self.market_cards[market].get(slot)
         
-        if card_id is not None:
+        if card_id in MARKET_COPY_CARD_IDS:
+            self._apply_market_copy_card(card_id, market, slot)
+            if getattr(self, "win_lose_state", None) is not None:
+                return
+        elif card_id is not None:
             # Check CardTurns again (in case it changed)
             turns_remaining = self.market_card_turns[market].get(slot)
             if turns_remaining is not None and turns_remaining > 0:
@@ -6086,6 +6182,9 @@ class GameplayPage(AdaptivePage):
                         card_id,
                         card_action,
                         protected_markets=self._get_blue_chip_markets(),
+                    )
+                    self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
+                        previous_prices, (self.Aprice, self.BPrice, self.CPrice)
                     )
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
                     self._record_c_price_fall(previous_c_price, self.CPrice, f"card {card_id}")
@@ -6176,7 +6275,8 @@ class GameplayPage(AdaptivePage):
 
     def _has_effect_animations(self):
         return (
-            any(bool(slots) for slots in self.card_jump_animations.values())
+            self._is_protective_put_animating()
+            or any(bool(slots) for slots in self.card_jump_animations.values())
             or bool(self.side_card_jump_animations)
             or bool(self.lifecycle_card_jump_animations)
             or bool(self.market_clear_animations)
@@ -6561,6 +6661,9 @@ class GameplayPage(AdaptivePage):
                 card_id,
                 protected_markets=self._get_blue_chip_markets(),
             )
+            self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
+                previous_prices, (self.Aprice, self.BPrice, self.CPrice)
+            )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
             self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
             if self._record_short_seller_falls(previous_prices, f"BID {bid_value}"):
@@ -6598,6 +6701,9 @@ class GameplayPage(AdaptivePage):
                 previous_prices,
                 card_id,
                 protected_markets=self._get_blue_chip_markets(),
+            )
+            self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
+                previous_prices, (self.Aprice, self.BPrice, self.CPrice)
             )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Parity")
             self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")
@@ -6739,6 +6845,7 @@ class GameplayPage(AdaptivePage):
             return False
 
         self._start_market_clear_animation()
+        self.market_copy_resolved = set()
         for market in (0, 1, 2):
             self.market_cards[market].clear()
             self.market_card_origins[market].clear()
@@ -7874,7 +7981,9 @@ class GameplayPage(AdaptivePage):
                                 highlight = True
                             else:
                                 # 2) for other markets, highlight only their FIRST free placeholder
-                                if i != src_market:
+                                moving_card = self.market_cards[src_market].get(src_slot)
+                                if (i != src_market
+                                        and i + MARKET_COPY_OFFSETS.get(moving_card, 0) in (0, 1, 2)):
                                     first_free = None
                                     for s in range(len(market_placeholders)):
                                         if self.market_cards[i].get(s) is None:
@@ -8308,6 +8417,7 @@ class GameplayPage(AdaptivePage):
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
+        self._draw_protective_put()
 
     def _maybe_show_late_end_turn_tutorial(self):
         if (
@@ -8395,6 +8505,8 @@ class GameplayPage(AdaptivePage):
 
     def update_gameplay(self):
         """Advance effects once in the established order, independently of drawing."""
+        if self._is_protective_put_animating():
+            return
         # Update dragged card position every frame for maximum smoothness
         # This ensures position is updated even if MOUSEMOTION events are missed
         if self.dragged_card_source is not None:
@@ -8405,6 +8517,8 @@ class GameplayPage(AdaptivePage):
 
         # Update price animation timing
         self.update_price_animation()
+        if self._is_protective_put_animating():
+            return
         self.update_level6_bot_turn()
 
         # Update card jump animations
@@ -8419,6 +8533,8 @@ class GameplayPage(AdaptivePage):
 
         # Update sequential processing of persistent price-effect cards.
         self.update_price_card_processing()
+        if self._is_protective_put_animating():
+            return
         self._maybe_finalize_after_effect_animations()
 
         # Update hand compaction animation after end turn

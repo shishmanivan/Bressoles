@@ -264,6 +264,8 @@ def _empty_progress():
         "correction_shop_cooldown": 0,
         "bailout_rounds_remaining": 0,
         "disclosure_rounds_remaining": 0,
+        "active_price_support_rounds": [],
+        "protective_put_charges": 0,
         "active_long_investments": [],
         "golden_stocks_chance_percent": game_state.GOLDEN_STOCKS_BASE_CHANCE,
         "golden_stocks_triggered": False,
@@ -666,6 +668,13 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.disclosure_rounds_remaining = 0
+    game_state.active_price_support_rounds = [
+        min(5, value) for value in _restore_int_list(progress.get("active_price_support_rounds") or []) if value > 0
+    ][:3]
+    try:
+        game_state.protective_put_charges = max(0, min(3, int(progress.get("protective_put_charges", 0) or 0)))
+    except (TypeError, ValueError):
+        game_state.protective_put_charges = 0
     game_state.active_long_investments = _restore_int_list(progress.get("active_long_investments") or [])[
         : game_state.LONG_MAX_ACTIVE
     ]
@@ -884,6 +893,8 @@ def _capture_progress():
         "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
+        "active_price_support_rounds": game_state.get_active_price_support_rounds(),
+        "protective_put_charges": game_state.get_protective_put_charges(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),
         "golden_stocks_chance_percent": game_state.get_golden_stocks_chance_percent(),
         "golden_stocks_triggered": game_state.is_golden_stocks_triggered(),

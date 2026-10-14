@@ -14,6 +14,7 @@ from game_data import load_cards_config
 from gameplay_assets import load_gameplay_card_assets
 from gameplay_deck import build_initial_deck
 from gameplay_drag import find_market_drag_start
+from gameplay_turn import build_price_cards_processing_queue
 from tests import test_red_card_effects
 
 
@@ -34,6 +35,7 @@ class MarketCopyCardTests(unittest.TestCase):
         slot = next(s for s in range(3) if page.market_cards[market].get(s) is None)
         self.assertTrue(page._can_play_dragged_hand_card_on_market(card_id, market))
         page.market_cards[market][slot] = card_id
+        page._lock_market_cards()
         self.assertTrue(page._apply_market_copy_card(card_id, market, slot))
         return slot
 
@@ -51,7 +53,9 @@ class MarketCopyCardTests(unittest.TestCase):
                 self.assertEqual([page.Aprice, page.BPrice, page.CPrice], expected)
                 self.assertEqual(page._stock_bot_probabilities()[target], before[source])
                 self.assertEqual(page._stock_bot_probabilities()[source], before[source])
-                self.assertEqual((page.StepA, page.StepB, page.StepC), (2, 4, 6))
+                steps = [2, 4, 6]
+                steps[target] = steps[source]
+                self.assertEqual([page.StepA, page.StepB, page.StepC], steps)
 
     def test_edge_markets_reject_cards_without_mutation(self):
         for card_id, market in ((23, 0), (24, 2)):
@@ -161,37 +165,89 @@ class MarketCopyCardTests(unittest.TestCase):
         self.play(page, 24, 0)
         with mock.patch("gameplay_price_helpers.random.random", side_effect=[0.05, 0.9, 0.9]):
             queue = page.update_stock_prices()
-        self.assertEqual([entry["price_change"] for entry in queue], [-2, 4, 6])
+        self.assertEqual([entry["price_change"] for entry in queue], [-4, 4, 6])
 
-    def test_immediately_locked_copies_count_as_plays_for_efficiency(self):
+    def test_pending_copies_count_as_plays_for_efficiency(self):
         page = self.page()
         page.active_gold_cards = [435]
-        self.play(page, 23, 1)
-        self.play(page, 24, 0)
+        page.market_cards[1][0] = 23
+        page.market_cards[0][0] = 24
         self.assertEqual(page._record_efficiency_turn_bonus(), 2)
         page._lock_market_cards()
         page.Day += 1
         self.assertEqual(page._record_efficiency_turn_bonus(), 0)
 
-    def test_copy_c_fall_is_preserved_for_the_turn_and_across_save(self):
+    def test_copy_c_fall_is_recorded_during_resolution(self):
         page = self.page()
         self.play(page, 23, 2)
-        state = json.loads(json.dumps({"market_copy_turn_state": page.market_copy_turn_state}))
-        self.assertTrue(state["market_copy_turn_state"]["c_fell"])
-        resumed = self.page()
-        resumed._restore_market_copy_state(state)
-        self.assertEqual(resumed.market_copy_turn_state, page.market_copy_turn_state)
-        page._lock_market_cards()
-        self.assertEqual(page.market_copy_turn_state, {})
+        self.assertTrue(page.c_price_fell_this_resolution)
 
-    def test_stephenson_limit_counts_immediately_committed_copy(self):
+    def test_stephenson_limit_counts_pending_copy(self):
         page = self.page()
         page.boss_limit_red_gain_drop_per_turn = True
-        self.play(page, 23, 1)
+        page.market_cards[1][0] = 23
         self.assertFalse(page._can_play_dragged_hand_card_on_market(24, 0))
         self.assertFalse(page._can_play_dragged_hand_card_on_market(11, 0))
         page._lock_market_cards()
         self.assertTrue(page._can_play_dragged_hand_card_on_market(24, 0))
+
+    def test_pending_copy_can_be_dragged_and_has_no_effect_before_resolution(self):
+        page = self.page()
+        before = page._stock_bot_probabilities()
+        page.market_cards[1][0] = 23
+        self.assertIsNotNone(find_market_drag_start(
+            (10, 10), [{"market": 1, "slot": 0, "rect": pygame.Rect(0, 0, 30, 40)}],
+            page.market_cards, page.market_cards_locked,
+        ))
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (12, 24, 36))
+        self.assertEqual((page.StepA, page.StepB, page.StepC), (2, 4, 6))
+        self.assertEqual(page._stock_bot_probabilities(), before)
+
+    def test_queue_resolves_copy_between_other_cards_and_only_once(self):
+        page = self.page()
+        page.market_cards = {0: {0: 11}, 1: {0: 23, 1: 11}, 2: {0: 23}}
+        page.market_card_turns = {0: {0: 1}, 1: {1: 1}, 2: {}}
+        page.card_actions = {11: 2}
+        page.card_processing_delay = 0
+        page._begin_effect_finalize_or_wait = mock.Mock()
+        page._lock_market_cards()
+        self.assertEqual(build_price_cards_processing_queue(page.market_cards, page.market_card_turns),
+                         [(0, 0), (1, 0), (1, 1), (2, 0)])
+        page._queue_price_cards()
+        while page.current_card_processing is not None:
+            page.update_price_card_processing()
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (14, 16, 16))
+        self.assertEqual((page.StepA, page.StepB, page.StepC), (2, 2, 2))
+        page.Aprice = 80
+        page._queue_price_cards()
+        self.assertEqual(page.price_card_queue, [])
+        self.assertIsNone(page.current_card_processing)
+        self.assertEqual(page.BPrice, 16)
+
+    def test_save_restores_step_and_resolved_status_without_replaying(self):
+        page = self.page()
+        self.play(page, 24, 1)
+        state = json.loads(json.dumps({
+            "market_copy_snapshots": page.market_copy_snapshots,
+            "market_copy_resolved": sorted(page.market_copy_resolved),
+        }))
+        resumed = self.page()
+        resumed.market_cards = copy.deepcopy(page.market_cards)
+        resumed._restore_market_copy_state(state)
+        self.assertEqual(resumed.StepB, 6)
+        self.assertFalse(resumed._apply_market_copy_card(24, 1, 0))
+        self.assertEqual(build_price_cards_processing_queue(
+            resumed.market_cards, resumed.market_card_turns, resumed.market_copy_resolved), [])
+
+    def test_legacy_locked_copy_does_not_replay_and_pending_new_copy_does(self):
+        page = self.page()
+        page.market_cards[1][0] = 23
+        page.market_cards_locked[1][0] = True
+        page._restore_market_copy_state({})
+        self.assertFalse(page._apply_market_copy_card(23, 1, 0))
+        page.market_cards_locked[1][0] = False
+        page._restore_market_copy_state({"market_copy_resolved": []})
+        self.assertTrue(page._apply_market_copy_card(23, 1, 0))
 
 
 class MarketCopyShopTests(unittest.TestCase):

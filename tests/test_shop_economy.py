@@ -19,6 +19,8 @@ from shop_page import (
 
 
 SHOP_STATE_FIELDS = (
+    "protective_put_charges",
+    "active_price_support_rounds",
     "seen_gold_card_ids",
     "moratorium_expirations",
     "moratorium_run_number",
@@ -82,6 +84,8 @@ class ShopEconomyTestCase(unittest.TestCase):
             for field in SHOP_STATE_FIELDS
         }
         game_state.napoleondors = 0
+        game_state.protective_put_charges = 0
+        game_state.active_price_support_rounds = []
         game_state.seen_gold_card_ids = set()
         game_state.moratorium_expirations = {}
         game_state.moratorium_run_number = 0
@@ -461,6 +465,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(game_state, "is_loan_offer_available", return_value=False),
             mock.patch.object(game_state, "is_correction_offer_available", return_value=False),
             mock.patch.object(game_state, "is_disclosure_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_price_support_offer_available", return_value=False),
             mock.patch.object(
                 game_state.random,
                 "randint",
@@ -748,6 +753,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 self.assertEqual(len(set(cards)), expected)
                 self.assertIn(401, cards)
 
+    @mock.patch.object(game_state, "is_protective_put_offer_available", new=lambda level: False)
     def test_diversification_has_thirty_percent_pool_roll_and_then_disappears(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
@@ -1274,6 +1280,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertIn("variance", offers)
         self.assertEqual(game_state.get_shop_special_cost("variance", 3), 1)
 
+    @mock.patch.object(game_state, "is_protective_put_offer_available", new=lambda level: False)
     def test_screening_costs_one_and_has_ten_percent_pool_roll(self):
         with (
             mock.patch.object(game_state, "is_capital_preservation_offer_available", return_value=False),
@@ -1429,6 +1436,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         repeated._buy_offer(0)
         self.assertEqual(game_state.napoleondors, 7)
 
+    @mock.patch.object(game_state, "is_protective_put_offer_available", new=lambda level: False)
     def test_capital_preservation_has_five_percent_pool_roll(self):
         with (
             mock.patch.object(game_state, "is_mirroring_offer_available", return_value=False),
@@ -1613,23 +1621,25 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 "randint",
                 side_effect=[100, 100, 100, 100, 10, 100, 100],
             ),
+            mock.patch.object(game_state, "is_protective_put_offer_available", return_value=False),
+            mock.patch.object(game_state, "is_price_support_offer_available", return_value=False),
         ):
             offers = game_state.build_shop_special_offer_pool(5, max_offers=20)
 
         self.assertIn("compounding", offers)
-        self.assertEqual(game_state.get_shop_special_cost("compounding", 5), 7)
+        self.assertEqual(game_state.get_shop_special_cost("compounding", 5), 5)
 
     def test_compounding_makes_future_investments_add_two_and_is_one_time(self):
         game_state.level_4_boss_defeated = True
         game_state.napoleondors = 13
         game_state.shop_deck_cards = [15]
         compounding = self._shop(
-            {"kind": "special", "special_id": "compounding", "cost": 7}
+            {"kind": "special", "special_id": "compounding", "cost": 5}
         )
 
         compounding._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(game_state.napoleondors, 8)
         self.assertTrue(game_state.compounding_bought)
         self.assertFalse(game_state.is_compounding_offer_available(5))
         self.assertEqual(compounding.message, "Инвестиции теперь усиливают карты на 2")
@@ -1641,14 +1651,14 @@ class ShopTransactionTests(ShopEconomyTestCase):
             deck_page.return_value.run.return_value = 15
             investment._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 3)
+        self.assertEqual(game_state.napoleondors, 5)
         self.assertEqual(game_state.get_investment_bonus(15), 2)
         self.assertEqual(investment.message, "Карта усилена на 2")
         self.assertIn("на 2", investment._offer_description({"kind": "investment"}))
 
         game_state.napoleondors = 10
         repeated = self._shop(
-            {"kind": "special", "special_id": "compounding", "cost": 7}
+            {"kind": "special", "special_id": "compounding", "cost": 5}
         )
         repeated._buy_offer(0)
         self.assertEqual(game_state.napoleondors, 10)
@@ -1662,6 +1672,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_level2_shop_only_offers_short_level_specials(self):
         allowed = {
+            "price_support",
             "bailout",
             "junk_bond",
             "trader",

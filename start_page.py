@@ -8,6 +8,8 @@ import pygame
 from adaptive_ui import AnchoredElement, clamp, cover_geometry, proportional_size
 from sound_assets import load_card_hover_sound, load_sound
 from ribbon_letters import RibbonLetterHover
+from menu_chart import MenuChartReveal
+from coin_hover import CoinHover
 
 
 FPS = 60
@@ -69,6 +71,9 @@ CALCULATOR_INK = (67, 52, 37)
 CALCULATOR_CHANGE_INTERVAL = 3.2
 CALCULATOR_ROLL_SECONDS = 0.65
 CALCULATOR_DIGITS = 6
+RIGHT_CALCULATOR_POSITION = (1374, 782)
+RIGHT_CALCULATOR_PAPER_TINT = (10, 8, 9)
+RIGHT_CALCULATOR_PHASE = 0.9
 
 
 def _calculator_number(step):
@@ -224,6 +229,8 @@ class StartPage:
         self._calculator_assets = None
         self._beacon_sprite = self._make_beacon_sprite()
         self._ribbon_letters = RibbonLetterHover(self.menu_image)
+        self._chart_reveal = MenuChartReveal(self.menu_image)
+        self._coin_hover = CoinHover(self.menu_image)
 
         self.menu_items = [
             self.lang.get("MenuStart", "Start Game"),
@@ -377,8 +384,33 @@ class StartPage:
         self.screen.blit(glow, glow.get_rect(center=(art.left + round(BEACON_CENTER[0] * sx),
                                                     art.top + round(BEACON_CENTER[1] * sy))))
 
-        # Build the inset at 3x resolution. It covers only the old inscription,
-        # retaining the original metal frame and the panel's perspective.
+        panel = self._render_calculator_panel(seconds)
+        skewed = pygame.Surface((243, 45), pygame.SRCALPHA)
+        for row in range(45):
+            skewed.blit(panel, (round(row * 21 / 44), row), (0, row, 222, 1))
+        inset = pygame.transform.rotate(skewed, 3.14)
+        inset = pygame.transform.smoothscale(inset, (max(1, round(inset.get_width() / 3 * sx)),
+                                                     max(1, round(inset.get_height() / 3 * sy))))
+        self.screen.blit(inset, (art.left + round(CALCULATOR_POSITION[0] * sx),
+                                 art.top + round(CALCULATOR_POSITION[1] * sy)))
+
+        # The right-hand machine has a smaller display sloping the other way.
+        # Share the same mechanical drums, but give it its own numbers/phase.
+        panel = self._render_calculator_panel(seconds + RIGHT_CALCULATOR_PHASE,
+                                              sequence_offset=10000,
+                                              paper_tint=RIGHT_CALCULATOR_PAPER_TINT)
+        panel = pygame.transform.smoothscale(panel, (186, 36))
+        skewed = pygame.Surface((198, 36), pygame.SRCALPHA)
+        for row in range(36):
+            skewed.blit(panel, (round(12 * (1 - row / 35)), row), (0, row, 186, 1))
+        inset = pygame.transform.rotate(skewed, -5.0)
+        inset = pygame.transform.smoothscale(inset, (max(1, round(inset.get_width() / 3 * sx)),
+                                                     max(1, round(inset.get_height() / 3 * sy))))
+        self.screen.blit(inset, (art.left + round(RIGHT_CALCULATOR_POSITION[0] * sx),
+                                 art.top + round(RIGHT_CALCULATOR_POSITION[1] * sy)))
+
+    def _render_calculator_panel(self, seconds, sequence_offset=0, paper_tint=(0, 0, 0)):
+        """Shared clipped drum animation, before each machine's perspective."""
         if self._calculator_assets is None:
             plate = pygame.Surface((222, 45))
             rng = random.Random(84)
@@ -395,10 +427,12 @@ class StartPage:
             self._calculator_assets = plate, glyphs
         plate, glyphs = self._calculator_assets
         panel = plate.copy()
+        if any(paper_tint):
+            panel.fill(paper_tint, special_flags=pygame.BLEND_RGB_ADD)
         step = int(seconds / CALCULATOR_CHANGE_INTERVAL)
         phase = seconds % CALCULATOR_CHANGE_INTERVAL
-        current = _calculator_number(step)
-        following = _calculator_number(step + 1)
+        current = _calculator_number(step + sequence_offset)
+        following = _calculator_number(step + sequence_offset + 1)
         for column, (old, new) in enumerate(zip(current, following)):
             # Short stagger between drums; outgoing numbers move UP while the
             # incoming row rises from BELOW, clipped by the physical window.
@@ -409,14 +443,7 @@ class StartPage:
             x = 13 + column * 34
             panel.blit(glyphs[int(old)], (x, 7 - offset))
             panel.blit(glyphs[int(new)], (x, 52 - offset))
-        skewed = pygame.Surface((243, 45), pygame.SRCALPHA)
-        for row in range(45):
-            skewed.blit(panel, (round(row * 21 / 44), row), (0, row, 222, 1))
-        inset = pygame.transform.rotate(skewed, 3.14)
-        inset = pygame.transform.smoothscale(inset, (max(1, round(inset.get_width() / 3 * sx)),
-                                                     max(1, round(inset.get_height() / 3 * sy))))
-        self.screen.blit(inset, (art.left + round(CALCULATOR_POSITION[0] * sx),
-                                 art.top + round(CALCULATOR_POSITION[1] * sy)))
+        return panel
 
     def _draw_smoke(self, layout):
         if self.menu_image is None:
@@ -543,8 +570,11 @@ class StartPage:
         if menu_image is not None:
             self.screen.blit(menu_image, layout.menu_image_rect)
 
+        self._chart_reveal.draw(self.screen, layout.menu_image_rect, pygame.time.get_ticks())
         self._draw_smoke(layout)
         self._draw_menu_details(layout)
+        self._coin_hover.draw(self.screen, layout.menu_image_rect,
+                              pygame.mouse.get_pos(), pygame.time.get_ticks())
         self._ribbon_letters.draw(self.screen, layout.menu_image_rect,
                                   pygame.mouse.get_pos(), pygame.time.get_ticks(),
                                   self._play_hover_sound)

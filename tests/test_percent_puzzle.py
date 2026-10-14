@@ -51,12 +51,15 @@ class PercentPuzzleTests(unittest.TestCase):
         page.level_number = 6
         page.Day = 2
         page.pending_draws = 1
+        page.percent_reveal_sound = mock.Mock()
         return page
 
     def test_puzzle_consumes_equipped_pieces_and_replaces_black_inventory(self):
         page = self.page()
         self.assertTrue(page._try_complete_percent_puzzle())
-        self.assertEqual(page._active_lifecycle_cards(), [])
+        self.assertEqual(page._active_lifecycle_cards(), [None, 305, None])
+        self.assertEqual(page.active_black_cards, [305])
+        page.percent_reveal_sound.play.assert_called_once_with()
         self.assertEqual(page.side_cards_top, [None, None])
         self.assertEqual(game_state.black_cards, [301, 302, 303, 305])
         self.assertEqual(game_state.silver_cards, [])
@@ -65,6 +68,7 @@ class PercentPuzzleTests(unittest.TestCase):
         self.assertEqual(page.last_earned_cards, [305])
         self.assertEqual(page.pending_draws, 1)
         self.assertFalse(page._try_complete_percent_puzzle())
+        page.percent_reveal_sound.play.assert_called_once_with()
         self.assertEqual(page.last_earned_cards, [305])
         rows = page._get_card_report_rows()
         self.assertEqual(rows[0]["card_id"], 305)
@@ -85,7 +89,7 @@ class PercentPuzzleTests(unittest.TestCase):
         game_state.gold_cards = [438, 438, 413]
         page = self.page((438, 221, 413, 304, 221, 438))
         self.assertTrue(page._try_complete_percent_puzzle())
-        self.assertEqual(page._active_lifecycle_cards(), [413, 221, 438])
+        self.assertEqual(page._active_lifecycle_cards(), [None, None, 413, 305, 221, 438])
         self.assertEqual(game_state.silver_cards, [221])
         self.assertEqual(game_state.gold_cards, [438, 413])
 
@@ -181,4 +185,6 @@ class PercentPuzzleTests(unittest.TestCase):
         self.assertEqual(restored.last_earned_cards, [305])
         self.assertNotIn(126, restored.side_cards_top)
         self.assertNotIn(304, restored._active_lifecycle_cards())
+        self.assertEqual(restored._active_lifecycle_cards(), page._active_lifecycle_cards())
+        self.assertIn(305, restored.active_black_cards)
         self.assertFalse(restored._try_complete_percent_puzzle())

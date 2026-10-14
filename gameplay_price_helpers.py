@@ -75,6 +75,8 @@ def build_market_probabilities(
     double_fall_count=1,
     base_probabilities=None,
     copy_snapshots=None,
+    price_support_markets=(),
+    price_support_bonus=0,
 ):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
@@ -157,6 +159,10 @@ def build_market_probabilities(
         probs["flat"] += flat_share
         probs["rise"] += fall_probability - flat_share
 
+    for market in _normalize_market_set(price_support_markets) - forced_flat:
+        if market in probabilities:
+            _apply_probability_shift(probabilities[market], "rise", ("fall", "flat"), price_support_bonus)
+
     return probabilities
 
 
@@ -220,6 +226,8 @@ def build_stock_price_animation_queue(
     random_rolls=None,
     base_probabilities=None,
     copy_snapshots=None,
+    price_support_markets=(),
+    price_support_bonus=0,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -249,6 +257,8 @@ def build_stock_price_animation_queue(
         double_fall_count=double_fall_count,
         base_probabilities=base_probabilities,
         copy_snapshots=copy_snapshots,
+        price_support_markets=price_support_markets,
+        price_support_bonus=price_support_bonus,
     )
 
     forced_flat = _normalize_market_set(force_flat_markets)

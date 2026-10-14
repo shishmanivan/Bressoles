@@ -13,7 +13,7 @@ RIBBON_LETTER_BOUNDS = (
     (783, 823, 28, 40), (811, 816, 27, 40), (833, 811, 27, 35),
     (858, 805, 32, 36), (893, 800, 29, 40), (923, 798, 15, 39),
     (939, 794, 30, 41), (969, 791, 30, 41), (1000, 789, 15, 40),
-    (1015, 786, 30, 41), (1045, 785, 30, 41), (1083, 779, 14, 47),
+    (1015, 786, 30, 41), (1045, 785, 30, 41), (1087, 779, 15, 41),
 )
 
 
@@ -25,8 +25,8 @@ def _extract_letter(image, bounds, isolated_components=0):
               for y in range(height) for x in range(width)}
     ink = {point for point, color in colors.items() if sum(color) / 3 < 175}
     if isolated_components:
-        # Only É and the close O/R pair need precise isolation. Select their
-        # connected dark strokes (plus É's detached accent), not ribbon lines
+        # É, the close O/R pair and ! need precise isolation. Select their
+        # connected dark strokes (plus the accent/dot), not ribbon lines
         # or fragments of neighboring glyphs inside the rectangular crop.
         pending_ink = {point for point, color in colors.items() if sum(color) / 3 < 125}
         components = []
@@ -86,7 +86,7 @@ class RibbonLetterHover:
         self.letters = []
         if image is not None and image.get_size() == (1678, 937):
             for index, bounds in enumerate(RIBBON_LETTER_BOUNDS):
-                isolated = 2 if index == 0 else 1 if index in (12, 13) else 0
+                isolated = 2 if index in (0, 21) else 1 if index in (12, 13) else 0
                 glyph, patch = _extract_letter(image, pygame.Rect(bounds), isolated)
                 self.letters.append((pygame.Rect(bounds), glyph, patch))
         self.amounts = [0.0] * len(self.letters)

@@ -44,6 +44,21 @@ class RibbonLetterTests(unittest.TestCase):
                 self.assertEqual(effect.hit_test(point, artwork), index)
         self.assertIsNone(effect.hit_test((0, 0), artwork))
 
+    def test_exclamation_mask_contains_entire_stroke_and_dot(self):
+        effect = RibbonLetterHover(self.image)
+        bounds, glyph, patch = effect.letters[-1]
+        dark_pixels = 0
+        for y in range(779, 820):
+            for x in range(1087, 1102):
+                if sum(self.image.get_at((x, y))[:3]) / 3 >= 125:
+                    continue
+                dark_pixels += 1
+                self.assertTrue(bounds.collidepoint(x, y))
+                local = (x - bounds.x, y - bounds.y)
+                self.assertEqual(patch.get_at(local).a, 255)
+                self.assertGreater(glyph.get_at(local).a, 30)
+        self.assertGreater(dark_pixels, 180)
+
 
 if __name__ == '__main__':
     unittest.main()

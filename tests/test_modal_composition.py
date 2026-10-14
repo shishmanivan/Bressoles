@@ -10,6 +10,45 @@ from adaptive_page import AdaptivePage, adaptive_draw, content_rect, draw_modal_
 
 
 class ModalCompositionTests(unittest.TestCase):
+    def test_protective_put_dims_actual_stock_logos_after_composition(self):
+        from gameplay_page import GameplayPage
+        from gameplay_assets import _load_logo, _load_ok_button
+
+        pygame.init()
+        self.addCleanup(pygame.quit)
+        pygame.display.set_mode((1, 1))
+
+        class Page(GameplayPage):
+            @adaptive_draw
+            def draw(self):
+                for index, logo in enumerate(self.logos):
+                    self.screen.blit(logo, (60 + index * 160, 60))
+                self._draw_protective_put()
+
+        page = Page.__new__(Page)
+        page.init_viewport(pygame.Surface((1280, 800)))
+        page.logos = [_load_logo(path) for path in (
+            "GameplayPage/A logo New.png", "GameplayPage/B Logo New.png", "GameplayPage/C Logo New.png"
+        )]
+        page.font_small = pygame.font.Font("egyptiennemncyr_condensedbold.ttf", 28)
+        page.deck_view_offer_image_cache = {}
+        page.ok1_button, _ = _load_ok_button("GameplayPage/Ok1.png", "Missing OK")
+        page.protective_put_pending = 0
+        page.draw()
+        expected = page.viewport.copy()
+        shade = pygame.Surface(expected.get_size(), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 150))
+        expected.blit(shade, (0, 0))
+        page.protective_put_pending = 1
+        page.draw()
+        # This region includes all three logos and their translucent edges.
+        region = pygame.Rect(30, 30, 380, 125)
+        self.assertEqual(
+            pygame.image.tobytes(page.viewport.subsurface(region), "RGB"),
+            pygame.image.tobytes(expected.subsurface(region), "RGB"),
+        )
+        self.assertTrue(page.screen.get_rect().contains(page.protective_put_ok_rect))
+
     def test_shade_covers_viewport_and_dims_composed_alpha_artwork(self):
         pygame.init()
         self.addCleanup(pygame.quit)

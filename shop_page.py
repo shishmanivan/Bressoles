@@ -64,6 +64,8 @@ SPECIAL_ASSETS = {
         os.path.join("Shop", "Bill of Exchange.png"),
     ),
     "disclosure": ("Disclousure", os.path.join("Shop", "Disclousure.png")),
+    "price_support": ("Price Support", os.path.join("Shop", "Price Support.png")),
+    "protective_put": ("Protective Put", os.path.join("Shop", "Protective Put.png")),
     "compounding": ("Compounding", os.path.join("Shop", "Compouding.png")),
     "replication": ("Репликация", os.path.join("Shop", "Replication.png")),
     "replication_plus": ("Репликация Плюс", os.path.join("Shop", "Replication+.png")),
@@ -97,6 +99,8 @@ SPECIAL_DESCRIPTIONS = {
     "expansion": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
     "bill_of_exchange": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
+    "price_support": "Немного увеличивает вероятность роста тех акций, в которые вы вложились. Действует 5 раундов. Можно иметь не более трёх таких предложений одновременно",
+    "protective_put": "Один раз спасёт ваши акции от падения. Одновременно можно купить не более трёх таких предложений",
     "compounding": "Увеличивает каждое следующее усиление в разделе инвестиций с 1 до 2.",
     "replication": "Позволяет выбрать и скопировать одну имеющуюся серебряную карту, если в хранилище есть свободное место.",
     "replication_plus": "Позволяет выбрать и скопировать одну имеющуюся золотую карту, если в хранилище есть свободное место.",
@@ -137,8 +141,8 @@ CARD_DESCRIPTIONS = {
     20: "Regulation: случайный рыночный бросок выбранной акции будет Flat 2 хода.",
     21: "Regulation: случайный рыночный бросок выбранной акции будет Flat 3 хода.",
     22: "Выбранные акции никогда не будут падать. Никакие карты не смогут опустить их цену. Всегда приходит в стартовой руке.",
-    23: "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка слева. Играется на B или C. Только в магазине с уровня 5.",
-    24: "При выкладывании один раз копирует цену и вероятности падения, роста и флэта рынка справа. Играется на A или B. Только в магазине с уровня 5.",
+    23: "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка слева. До конца хода можно перемещать. Играется на B или C.",
+    24: "После End Turn, в порядке очереди карт, один раз копирует цену, шаг роста/падения и вероятности падения, роста и флэта рынка справа. До конца хода можно перемещать. Играется на A или B.",
     117: "Крах: после розыгрыша устанавливает цены всех акций на 2.",
     401: "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     402: "Форвардная торговля: каждый сыгранный Shareholder добавляет один ход.",
@@ -961,6 +965,24 @@ class ShopPage(AdaptivePage):
             self.message = "Вероятности открыты на 5 раундов"
             return
 
+        if special_id == "price_support":
+            if not game_state.buy_price_support():
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["price_support"]
+            return
+
+        if special_id == "protective_put":
+            if not game_state.buy_protective_put(self.level_number):
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["protective_put"]
+            return
+
         if special_id == "compounding":
             if not game_state.buy_compounding(self.level_number):
                 self.sold_offer_indexes.add(index)
@@ -1594,7 +1616,7 @@ class DeckCardPage(AdaptivePage):
         self._draw_card_decoration(card_id, rect)
         selected = index in self.selected_indices if hasattr(self, "selected_indices") else index == self.selected_index
         if selected:
-            pygame.draw.rect(self.screen, (170, 130, 66), rect.inflate(8, 8), 3, border_radius=4)
+            pygame.draw.rect(self.screen, (170, 130, 66), rect, 3, border_radius=4)
 
     def _draw_card_decoration(self, card_id, rect):
         pass

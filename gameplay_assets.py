@@ -163,6 +163,7 @@ def load_gameplay_core_assets(screen_width, screen_height):
     assets["card_placing_sound"] = load_card_placing_sound()
     assets["card_hover_sound"] = load_card_hover_sound()
     assets["card_taking_sound"] = load_card_taking_sound()
+    assets["percent_reveal_sound"] = load_sound(os.path.join("Sounds", "100Reveal.wav"))
 
     assets["animation_width"] = 118
     assets["animation_height"] = 101
