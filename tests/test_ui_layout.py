@@ -575,8 +575,9 @@ class UiLayoutTests(unittest.TestCase):
         self.assertLessEqual(report_width / (99 / 171.0), expanded_slot_height)
         self.assertEqual(hover_width, round(report_width * 1.20))
 
-    def test_finance_report_closes_into_card_report_before_round_selection(self):
+    def test_finance_report_closes_back_into_newspaper(self):
         page = GameplayPage.__new__(GameplayPage)
+        page.screen = pygame.Surface((1680, 1050))
         report = pygame.Surface((500, 700))
         page.win_lose_state = "win"
         page.result_report_stage = "finance"
@@ -589,19 +590,16 @@ class UiLayoutTests(unittest.TestCase):
         page.report_rustle_sound = mock.Mock()
         page.win_lose_speed_pps = 2400
         page._winlose_last_tick = pygame.time.get_ticks()
+        page._save_active_game = mock.Mock()
 
         page.update_win_lose_animation()
 
-        self.assertEqual(page.result_report_stage, "card_report")
+        self.assertEqual(page.result_report_stage, "newspaper")
         self.assertEqual(page.finance_stamp_state, "idle")
         self.assertIsNone(page.finance_stamp_rect)
-        page.report_rustle_sound.play.assert_called_once_with()
-
-        page.finance_report_y = float(-report.get_height() - 30)
-        page.finance_stamp_state = "closing"
-        page.update_win_lose_animation()
-
-        self.assertEqual(page.result_transition_ready, "round_select")
+        page._save_active_game.assert_called_once_with()
+        page.report_rustle_sound.play.assert_not_called()
+        self.assertEqual(page.newspaper_y, 12)
 
     def test_all_localized_boss_popup_text_fits_the_newspaper_card(self):
         popup_height = 375

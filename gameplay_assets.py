@@ -444,6 +444,7 @@ def load_winlose_assets(screen_width, screen_height):
     finance_height = max(1, int(screen_height * 0.84))
     finance_width = max(1, int(finance_height * 1086 / 1448))
     finance_specs = (
+        ("newspaper_report_image", "BressolesNewspaperTemplate-v3.png", (int((screen_height - 82) * 1056 / 1488), screen_height - 82)),
         ("finance_report_image", "FinanceReport.png", (finance_width, finance_height)),
         ("card_report_image", "CardReport.png", (finance_width, finance_height)),
         ("approve_stamp_image", "ApproveStamp.png", (230, 96)),
@@ -462,6 +463,13 @@ def load_winlose_assets(screen_width, screen_height):
         os.path.join("Sounds", "Stamp.wav"),
         "WARNING: Stamp.wav not found at",
     )
+    assets['market_report_icons'] = {}
+    for outcome, folder, frame in (('rise', 'GraphRise', '10.png'),
+                                    ('fall', 'GraphDown', '13.png'),
+                                    ('flat', 'Graph=', '14.png')):
+        path = os.path.join('GameplayPage', folder, frame)
+        if os.path.exists(path):
+            assets['market_report_icons'][outcome] = pygame.image.load(path).convert_alpha()
     assets["report_rustle_sound"] = _load_sound(
         os.path.join("Sounds", "Pen.mp3"),
         "WARNING: Pen.mp3 not found at",

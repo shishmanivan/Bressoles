@@ -1,6 +1,7 @@
 from adaptive_page import AdaptivePage, adaptive_draw, draw_modal_shade
 from app_settings import card_information_enabled
 from localization import translate as _tr
+from newspaper_report import NewspaperReportMixin
 import native_render as pygame
 import random
 import math
@@ -229,7 +230,7 @@ DISCLOSURE_CARD_TOOLTIPS = {
 }
 
 
-class GameplayPage(AdaptivePage):
+class GameplayPage(NewspaperReportMixin, AdaptivePage):
     retain_gameplay_composition = True
 
     master_background_path = "GameplayPage/Master Background.png"
@@ -395,6 +396,11 @@ class GameplayPage(AdaptivePage):
         self.Goal = goal  # Goal for this round
         self.level_number = level_number  # Level number for deck initialization
         self.round_start_napoleondors = float(game_state.napoleondors or 0)
+        self.newspaper_events = []
+        self.newspaper_opening = {'coins': self.round_start_napoleondors,
+                                  'income_sources': {e['source']: float(e.get('amount', 0))
+                                                     for e in game_state.pending_finance_report_entries}}
+        self._newspaper_surface_cache = None
         self.is_boss_fight = is_boss_fight
         self.boss_index = boss_index  # Boss index (0-based) for applying boss modifiers
         self.boss_filename = boss_filename
@@ -766,6 +772,9 @@ class GameplayPage(AdaptivePage):
         if self._is_level6_alternating_battle():
             self.deck = []
             self.hand_cards = []
+        for card_id in self.hand_cards:
+            if card_id is not None:
+                self._newspaper_event('deal', card_id=card_id)
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
         )
@@ -852,6 +861,11 @@ class GameplayPage(AdaptivePage):
         self.ok2_button = winlose_assets["ok2_button"]
         self.ok_button_base_size = winlose_assets["ok_button_base_size"]
         self.finance_report_image = winlose_assets.get("finance_report_image")
+        self.newspaper_report_image = winlose_assets.get("newspaper_report_image")
+        self.market_report_icons = winlose_assets.get('market_report_icons', {})
+        self.newspaper_y = float(-SCREEN_HEIGHT)
+        self.newspaper_closing = False
+        self.newspaper_opening['prices'] = [self.Aprice, self.BPrice, self.CPrice]
         self.card_report_image = winlose_assets.get("card_report_image")
         self.approve_stamp_image = winlose_assets.get("approve_stamp_image")
         self.stamp_on_paper_image = winlose_assets.get("stamp_on_paper_image")
@@ -2029,6 +2043,10 @@ class GameplayPage(AdaptivePage):
             "result_report_stage": self.result_report_stage,
             "finance_report_y": float(self.finance_report_y),
             "finance_report_entries": [dict(entry) for entry in self.finance_report_entries],
+            "newspaper_events": list(getattr(self, 'newspaper_events', [])),
+            "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
+            "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
+            "newspaper_closing": bool(getattr(self, 'newspaper_closing', False)),
             "finance_stamp_state": self.finance_stamp_state,
             "round_start_napoleondors": float(self.round_start_napoleondors or 0),
             "boss_turn_timer_remaining_ms": int(self.boss_turn_timer_remaining_ms or 0),
@@ -2175,22 +2193,26 @@ class GameplayPage(AdaptivePage):
             int(state.get("frugality_bonus_turns", self.frugality_bonus_turns) or 0),
         )
         self.result_report_stage = state.get("result_report_stage", self.result_report_stage)
+        if self.win_lose_state is not None and 'newspaper_events' not in state:
+            self.result_report_stage = 'newspaper'
+        self.newspaper_events = list(state.get('newspaper_events') or [])
+        self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
+        self.newspaper_y = float(state.get('newspaper_y', -SCREEN_HEIGHT))
+        self.newspaper_closing = bool(state.get('newspaper_closing', False))
+        self._newspaper_surface_cache = None
         self.finance_report_y = float(state.get("finance_report_y", self.finance_report_y) or 0)
         self.finance_report_entries = [
             dict(entry) for entry in state.get("finance_report_entries") or []
             if isinstance(entry, dict)
         ]
         self.finance_stamp_state = state.get("finance_stamp_state", self.finance_stamp_state)
+        self.finance_stamp_started_at = pygame.time.get_ticks()
+        self.finance_stamp_rect = None
         if (
-            self.win_lose_state == "win"
-            and self.result_report_stage not in ("finance", "card_report")
+            self.win_lose_state in ("win", "lose")
+            and self.result_report_stage not in ("newspaper", "finance", "card_report", "market_report")
         ):
-            self.result_report_stage = (
-                "finance"
-                if getattr(self, "finance_report_image", None)
-                and self._should_show_finance_report()
-                else "card_report"
-            )
+            self.result_report_stage = "newspaper"
             self.finance_report_y = float(SCREEN_HEIGHT + 30)
             self.finance_stamp_state = "idle"
             self.finance_stamp_started_at = 0
@@ -2812,11 +2834,7 @@ class GameplayPage(AdaptivePage):
         return None
     
     def _has_result_report(self):
-        return self.win_lose_state == "win" or (
-            self.win_lose_state == "lose"
-            and getattr(self, "percent_puzzle_completed_day", None) is not None
-            and getattr(self, "result_report_stage", "cards") == "card_report"
-        )
+        return self.win_lose_state in ("win", "lose")
 
     def _dismiss_tutorial_hint(self):
         hint = self.tutorial_hint
@@ -2872,62 +2890,11 @@ class GameplayPage(AdaptivePage):
                 self._handle_deck_view_event(event)
                 continue
             
-            # Handle Ok button click if WinLose screen is shown
-            if (
-                self._has_result_report()
-                and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
-                and self._get_active_result_report_image()
-            ):
-                if (
-                    event.type == pygame.MOUSEBUTTONDOWN
-                    and event.button == 1
-                    and self.finance_stamp_state == "idle"
-                    and self.finance_stamp_rect
-                    and self.finance_stamp_rect.collidepoint(event.pos)
-                ):
-                    if self.stamp_sound:
-                        self.stamp_sound.play()
-                    self.finance_stamp_state = "pressing"
-                    self.finance_stamp_started_at = pygame.time.get_ticks()
+            if self._has_result_report():
+                result = self._handle_newspaper_input(event)
+                if result:
+                    return result
                 continue
-
-            if self.win_lose_state == "lose" and self.win_lose_image:
-                # Determine which button to show based on win/lose state
-                ok_button = None
-                if self.ok2_button:
-                    ok_button = self.ok2_button
-                
-                if ok_button:
-                    # Use ok_button_rect from draw method (calculated there)
-                    # If not set yet, calculate it (same calculation as in draw method)
-                    if not hasattr(self, 'ok_button_rect') or self.ok_button_rect is None:
-                        winlose_width = self.win_lose_image.get_width()
-                        winlose_height = self.win_lose_image.get_height()
-                        ok_margin_right = 30
-                        ok_margin_bottom = 30
-                        ok_x = self.win_lose_x + winlose_width - self.ok_button_base_size[0] - ok_margin_right
-                        win_lose_y_draw = int(round(self.win_lose_y))
-                        ok_y = win_lose_y_draw + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
-                        self.ok_button_rect = pygame.Rect(int(ok_x), int(ok_y), self.ok_button_base_size[0], self.ok_button_base_size[1])
-                    
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if event.button == 1:  # Left click
-                            # Check if click is on Ok button
-                            if self.ok_button_rect.collidepoint(event.pos):
-                                if getattr(self, "percent_puzzle_completed_day", None) is not None:
-                                    self.result_report_stage = "card_report"
-                                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
-                                    self.finance_stamp_state = "idle"
-                                    self.finance_stamp_started_at = 0
-                                    self.finance_stamp_rect = None
-                                    self._play_result_report_rustle()
-                                    self._save_active_game()
-                                    continue
-                                # Lost: return to level selection screen
-                                return "level_select"
-                    
-                    # The result window owns all input until its button is pressed.
-                    continue
 
             if self.win_lose_state is not None:
                 continue
@@ -3257,6 +3224,7 @@ class GameplayPage(AdaptivePage):
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
+        self._capture_newspaper_turn(final=True)
         self.win_lose_state = next_state
         self.frugality_bonus_turns = self._settle_frugality_for_finished_round()
         self._record_stats_result(next_state == "win")
@@ -3333,11 +3301,7 @@ class GameplayPage(AdaptivePage):
                 **finance_report_args,
                 nabob_amount=nabob_amount,
             )
-            self.result_report_stage = (
-                "finance"
-                if self.finance_report_image and self._should_show_finance_report()
-                else "card_report"
-            )
+            self.result_report_stage = "newspaper"
             self.finance_report_y = float(SCREEN_HEIGHT + 30)
             self.finance_stamp_state = "idle"
             self.finance_stamp_started_at = 0
@@ -3346,6 +3310,13 @@ class GameplayPage(AdaptivePage):
         else:
             self.win_lose_y = get_win_lose_start_y(self.win_lose_image) or self.win_lose_y
             print(f"LOSE on LastTurn: Money={self.Money}, Goal={self.Goal}, Day={self.Day}, LastTurn={self.LastTurn}")
+            self.finance_report_entries = [
+                {'source': 'account_balance', 'label': self._get_text('FinanceAccountBalance', 'Остаток на счету'),
+                 'amount': float(game_state.napoleondors or 0)},
+            ]
+        self.result_report_stage = 'newspaper'
+        self._start_newspaper_entrance()
+        self._newspaper_surface_cache = None
 
     def _try_complete_percent_puzzle(self):
         """Consume one equipped quarter of each colour when red 126 is placed."""
@@ -4345,6 +4316,8 @@ class GameplayPage(AdaptivePage):
 
     def _get_active_result_report_image(self):
         stage = getattr(self, "result_report_stage", "cards")
+        if stage in ('newspaper', 'market_report'):
+            return getattr(self, 'newspaper_report_image', None) or getattr(self, 'finance_report_image', None)
         if stage == "finance":
             return getattr(self, "finance_report_image", None)
         if stage == "card_report":
@@ -4801,7 +4774,9 @@ class GameplayPage(AdaptivePage):
         report_rect = report_image.get_rect(topleft=(report_x, report_y))
         self.screen.blit(report_image, report_rect.topleft)
 
-        if self.result_report_stage == "card_report":
+        if self.result_report_stage == 'market_report':
+            self._draw_market_report_rows(report_rect)
+        elif self.result_report_stage == "card_report":
             self._draw_card_report_rows(report_rect)
         else:
             self._draw_finance_report_rows(report_rect)
@@ -4810,24 +4785,41 @@ class GameplayPage(AdaptivePage):
             report_x + int(report_rect.width * 0.80),
             report_y + int(report_rect.height * 0.93),
         )
-        if self.finance_stamp_state in ("flying", "stamped", "closing") and self.stamp_on_paper_image:
-            mark_rect = self.stamp_on_paper_image.get_rect(center=stamp_center)
-            self.screen.blit(self.stamp_on_paper_image, mark_rect.topleft)
+        self._draw_result_stamp(stamp_center)
+        if self.result_report_stage == "card_report" and self.card_report_tooltip:
+            card_id, mouse_pos = self.card_report_tooltip
+            self._draw_card_tooltip(card_id, mouse_pos)
 
-        if self.finance_stamp_state in ("idle", "pressing", "flying") and self.approve_stamp_rotated:
-            stamp_image = self.approve_stamp_rotated
+    def _draw_result_stamp(self, stamp_center, approve_image=None):
+        now = pygame.time.get_ticks()
+        state = getattr(self, 'finance_stamp_state', 'idle')
+        started = getattr(self, 'finance_stamp_started_at', now)
+        original = getattr(self, 'approve_stamp_rotated', None)
+        if approve_image is None:
+            approve_image = original
+        mark_image = getattr(self, 'stamp_on_paper_image', None)
+        if mark_image is not None and approve_image is not None and original is not None and approve_image is not original:
+            ratio = approve_image.get_width() / original.get_width()
+            mark_image = pygame.transform.smoothscale(mark_image, (max(1, round(mark_image.get_width()*ratio)),
+                                                                 max(1, round(mark_image.get_height()*ratio))))
+        if state in ("flying", "stamped", "closing") and mark_image:
+            mark_rect = mark_image.get_rect(center=stamp_center)
+            self.screen.blit(mark_image, mark_rect.topleft)
+
+        if state in ("idle", "pressing", "flying") and approve_image:
+            stamp_image = approve_image
             stamp_draw_center = stamp_center
-            if self.finance_stamp_state == "pressing":
-                progress = min(1.0, (now - self.finance_stamp_started_at) / 170.0)
+            if state == "pressing":
+                progress = min(1.0, (now - started) / 170.0)
                 stamp_draw_center = (stamp_center[0], stamp_center[1] + int(13 * progress))
-            elif self.finance_stamp_state == "flying":
-                progress = min(1.0, (now - self.finance_stamp_started_at) / 300.0)
+            elif state == "flying":
+                progress = min(1.0, (now - started) / 300.0)
                 scale, alpha = self._get_stamp_camera_flight(progress)
                 stamp_image = pygame.transform.smoothscale(
-                    self.approve_stamp_rotated,
+                    approve_image,
                     (
-                        max(1, int(self.approve_stamp_rotated.get_width() * scale)),
-                        max(1, int(self.approve_stamp_rotated.get_height() * scale)),
+                        max(1, int(approve_image.get_width() * scale)),
+                        max(1, int(approve_image.get_height() * scale)),
                     ),
                 ).convert_alpha()
                 stamp_image.set_alpha(alpha)
@@ -4843,9 +4835,6 @@ class GameplayPage(AdaptivePage):
             self.screen.blit(stamp_image, stamp_rect.topleft)
         else:
             self.finance_stamp_rect = None
-        if self.result_report_stage == "card_report" and self.card_report_tooltip:
-            card_id, mouse_pos = self.card_report_tooltip
-            self._draw_card_tooltip(card_id, mouse_pos)
 
     def _apply_long_investment_payout(self):
         payout = game_state.advance_long_investments(self.level_number)
@@ -4941,19 +4930,16 @@ class GameplayPage(AdaptivePage):
         dt = (now - getattr(self, "_winlose_last_tick", now)) / 1000.0
         self._winlose_last_tick = now
         dt = _clamp_dt_seconds(dt)
+        if getattr(self, 'result_report_stage', 'newspaper') == 'newspaper':
+            self._update_newspaper_animation(dt)
+            return
         if (
             self._has_result_report()
-            and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
+            and getattr(self, "result_report_stage", "cards") in ("finance", "card_report", "market_report")
         ):
             report_image = self._get_active_result_report_image()
             if not report_image:
-                if self.result_report_stage == "finance":
-                    self.result_report_stage = "card_report"
-                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
-                    self.finance_stamp_state = "idle"
-                    self._play_result_report_rustle()
-                else:
-                    self.result_transition_ready = "round_select" if self.win_lose_state == "win" else "level_select"
+                self._return_to_newspaper()
                 return
             if self.finance_stamp_state == "closing":
                 target_y = float(-report_image.get_height() - 30)
@@ -4980,15 +4966,7 @@ class GameplayPage(AdaptivePage):
             elif self.finance_stamp_state == "stamped" and elapsed >= 360:
                 self.finance_stamp_state = "closing"
             elif self.finance_stamp_state == "closing" and self.finance_report_y <= target_y:
-                if self.result_report_stage == "finance":
-                    self.result_report_stage = "card_report"
-                    self.finance_report_y = float(SCREEN_HEIGHT + 30)
-                    self.finance_stamp_state = "idle"
-                    self.finance_stamp_started_at = 0
-                    self.finance_stamp_rect = None
-                    self._play_result_report_rustle()
-                else:
-                    self.result_transition_ready = "round_select" if self.win_lose_state == "win" else "level_select"
+                self._return_to_newspaper()
             return
 
         if not self.win_lose_image:
@@ -5051,6 +5029,8 @@ class GameplayPage(AdaptivePage):
             copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
         recorder = getattr(self, "market_roll_stats", None)
+        for roll in random_rolls:
+            self._newspaper_event('roll', **roll)
         if recorder is not None:
             recorder.record(
                 random_rolls,
@@ -5891,6 +5871,7 @@ class GameplayPage(AdaptivePage):
 
     def _finish_turn_after_astor_cash_burn(self):
         self._apply_cash_yield_turn_bonus()
+        self._capture_newspaper_turn()
         self._check_win_lose()
         if self._is_final_auto_liquidation_animating():
             return
@@ -6926,7 +6907,9 @@ class GameplayPage(AdaptivePage):
 
     def _draw_next_deck_card(self):
         card_id = self.deck.pop(0)
-        return 100 if card_id == 0 else card_id
+        card_id = 100 if card_id == 0 else card_id
+        self._newspaper_event('draw', card_id=card_id)
+        return card_id
 
     def _draw_pending_cards(self):
         """Prepare hand compaction animation and subsequent draw after end-turn animations.
@@ -8373,45 +8356,12 @@ class GameplayPage(AdaptivePage):
         self._draw_waterloo_forecast()
 
     def _draw_gameplay_overlays(self):
-        # Victory reports are shown one after another: finances, then earned cards.
-        if (
-            self._has_result_report()
-            and getattr(self, "result_report_stage", "cards") in ("finance", "card_report")
-        ):
-            self._draw_finance_report()
-
-        # Defeat still uses the old result window; victory no longer does.
-        if self.win_lose_state == "lose" and self.win_lose_image:
-            win_lose_y_draw = int(round(self.win_lose_y))
-            # Draw WinLose window at centered position
-            self.screen.blit(self.win_lose_image, (self.win_lose_x, win_lose_y_draw))
-            
-            # Draw appropriate Ok button based on win/lose state
-            ok_button = None
-            if self.ok2_button:
-                ok_button = self.ok2_button
-            
-            if ok_button:
-                # Calculate button position relative to WinLose window
-                winlose_width = self.win_lose_image.get_width()
-                winlose_height = self.win_lose_image.get_height()
-                ok_margin_right = 30
-                ok_margin_bottom = 30
-                ok_x = self.win_lose_x + winlose_width - self.ok_button_base_size[0] - ok_margin_right
-                ok_y = win_lose_y_draw + winlose_height - self.ok_button_base_size[1] - ok_margin_bottom
-                self.ok_button_rect = pygame.Rect(int(ok_x), int(ok_y), self.ok_button_base_size[0], self.ok_button_base_size[1])
-                self.screen.blit(ok_button, (int(ok_x), int(ok_y)))
-            
-            # Draw text and cards on WinLose window
-            winlose_width = self.win_lose_image.get_width()
-            winlose_height = self.win_lose_image.get_height()
-            
-            # Draw lose text
-            text_y = win_lose_y_draw + 85  # Top padding (50 + 35)
-            text_surface = self.font_small.render(_tr(self.lose_window_text), True, PAPER_COLOR)
-            text_x = self.win_lose_x + (winlose_width - text_surface.get_width()) // 2  # Center horizontally
-            self.screen.blit(text_surface, (text_x, text_y))
-            
+        if self._has_result_report():
+            newspaper_active = getattr(self, 'result_report_stage', 'newspaper') == 'newspaper'
+            self._draw_newspaper(active=newspaper_active)
+            if not newspaper_active:
+                self._draw_newspaper_detail()
+            return
         if self.deck_view_active:
             self._draw_deck_view()
 
