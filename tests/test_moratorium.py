@@ -1,3 +1,6 @@
+import ast
+import csv
+from pathlib import Path
 import unittest
 from unittest import mock
 
@@ -7,6 +10,47 @@ from shop_page import ShopPage
 
 
 class MoratoriumTests(unittest.TestCase):
+    def test_offer_status_uses_runs_in_every_language(self):
+        from gameplay_collection_views import offer_status
+
+        root = Path(__file__).resolve().parents[1]
+        with (root / "Lang.csv").open(encoding="utf-8-sig", newline="") as source:
+            rows = list(csv.reader(source, delimiter=";"))
+        translations = next(row for row in rows if row[0] == "OfferRunsLeft")
+        for text in translations[1:]:
+            page = mock.Mock()
+            page._get_text.return_value = text
+            status = offer_status(page, {"remaining": 17, "remaining_kind": "runs"})
+            page._get_text.assert_called_once_with("OfferRunsLeft", "Осталось забегов: {count}")
+            self.assertEqual(status, text.format(count=17))
+        self.assertEqual(translations[2], "{count} runs remaining")
+
+    def test_run_start_counts_once_and_rounds_and_reload_do_not_reduce_duration(self):
+        # Exercise the actual nested run-start hook without launching the UI loop.
+        root = Path(__file__).resolve().parents[1]
+        tree = ast.parse((root / "main.py").read_text(encoding="utf-8-sig"))
+        hook = next(node for node in ast.walk(tree)
+                    if isinstance(node, ast.FunctionDef) and node.name == "mark_level_run_started")
+        scope = {"test_mode": False, "selected_slot": 1, "game_state": game_state,
+                 "update_level_run_started": mock.Mock()}
+        exec(compile(ast.Module(body=[hook], type_ignores=[]), "main.py", "exec"), scope)
+        start = scope["mark_level_run_started"]
+        self.assertTrue(game_state.buy_moratorium(401, 5))
+        for _ in range(4):
+            start({}, 5)
+        self.assertEqual(game_state.get_active_moratoriums()[401], 17)
+        current_run = {"run_stats_started": True}
+        for _ in range(25):
+            game_state.advance_bailout_round()
+            game_state.advance_disclosure_round()
+            game_state.advance_price_support_round()
+            start(current_run, 5)
+            profile_manager.apply_profile_to_game_state({"progress": profile_manager._capture_progress()})
+        self.assertEqual(game_state.get_active_moratoriums()[401], 17)
+        self.assertNotIn(401, game_state.build_open_gold_cards_pool(5))
+        start({}, 5)
+        self.assertEqual(game_state.get_active_moratoriums()[401], 16)
+
     def setUp(self):
         self.progress = profile_manager._capture_progress()
         game_state.seen_gold_card_ids = set(range(401, 416))

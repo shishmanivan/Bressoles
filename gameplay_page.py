@@ -213,7 +213,7 @@ FIELD_CARD_TOOLTIPS.update(LIFECYCLE_CARD_TOOLTIPS)
 DISCLOSURE_CARD_TOOLTIPS = {
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
+        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
     ),
     407: (
         "Rebate",
@@ -530,7 +530,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.card_hover_sound = gameplay_assets.get("card_hover_sound")
         self.percent_reveal_sound = gameplay_assets.get("percent_reveal_sound")
         self.gain_sound = gameplay_assets.get("gain_sound")
-        self.drop_sound = gameplay_assets.get("drop_sound")
         self.card_taking_sound = gameplay_assets.get("card_taking_sound")
         self.animation_width = gameplay_assets["animation_width"]
         self.animation_height = gameplay_assets["animation_height"]
@@ -4436,7 +4435,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             elif game_state.is_gold_card(normalized):
                 label = self._get_text(
                     "CardReportGold",
-                    "Золотая карта. Пропадёт после поражения.",
+                    "Пропадёт после поражения.",
                 )
             elif temporary_counts.get(normalized, 0) > 0:
                 temporary_counts[normalized] -= 1
@@ -4509,9 +4508,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 "CardReportBoss5Reward",
                 "Игра длится на два хода дольше.",
             )
-        # Arkwright's three silver cards are already displayed individually
-        # above, so repeating the same reward sentence adds no information.
-        if boss_number == 6:
+        # Arkwright's silver cards and Ricardo's gold card are already shown
+        # above, so repeating their reward descriptions adds no information.
+        if boss_number in (6, 12):
             return None
         return self._get_text(f"Boss{boss_number}Reward", f"Boss {boss_number} reward")
 
@@ -4562,28 +4561,22 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return
         text_width = report_rect.right - text_x - int(report_rect.width * 0.10)
         available_height = max(0, available_bottom - description_top)
-        bullet_indent = 24
         item_gap = 7
         for font_size in range(27, 16, -1):
             description_font = pygame.font.Font(self.font_path, font_size)
             line_height = description_font.get_height() + 3
-            wrapped_items = [
-                wrap_text(item, description_font, text_width - bullet_indent)
-                for item in items
-            ]
+            wrapped_items = [wrap_text(item, description_font, text_width) for item in items]
             total_height = sum(len(lines) * line_height for lines in wrapped_items)
             total_height += max(0, len(wrapped_items) - 1) * item_gap
             if total_height <= available_height or font_size == 17:
                 break
         cursor_y = description_top
-        bullet_surface = description_font.render(_tr("*"), True, PAPER_COLOR)
         for item_index, lines in enumerate(wrapped_items):
-            self.screen.blit(bullet_surface, (text_x, cursor_y))
             for line_index, line in enumerate(lines):
                 surface = description_font.render(_tr(line), True, PAPER_COLOR)
                 self.screen.blit(
                     surface,
-                    (text_x + bullet_indent, cursor_y + line_index * line_height),
+                    (text_x, cursor_y + line_index * line_height),
                 )
             cursor_y += len(lines) * line_height
             if item_index < len(wrapped_items) - 1:
@@ -5031,6 +5024,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         recorder = getattr(self, "market_roll_stats", None)
         for roll in random_rolls:
             self._newspaper_event('roll', **roll)
+        if getattr(self, "profile_slot", None) and not getattr(self, "test_mode", False):
+            profile_manager.record_player_market_rolls(
+                self.profile_slot,
+                random_rolls,
+                (self.Aquantity, self.Bquantity, self.Cquantity),
+            )
         if recorder is not None:
             recorder.record(
                 random_rolls,
@@ -5650,16 +5649,19 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         base_results = {}
         for movement in list(getattr(self, "stock_price_turn_results", []) or []):
-            if movement.get("source") is not None:
+            if movement.get("source") not in (None, "selling_pressure", "insider", "spoofing"):
                 continue
             market = movement.get("market")
             if market in (0, 1, 2) and market not in base_results:
                 base_results[market] = movement.get("type")
-        if base_results != {0: "unchanged", 1: "unchanged", 2: "unchanged"}:
+        if len(base_results) != 3 or any(
+            result not in ("unchanged", "fall") for result in base_results.values()
+        ):
             return False
 
         self.sideway_applied_this_resolution = True
-        reward = 5 * sideway_count
+        all_flat = all(result == "unchanged" for result in base_results.values())
+        reward = (8 if all_flat else 5) * sideway_count
         game_state.add_napoleondors(self.level_number, reward)
         game_state.record_finance_report_income("sideway", reward)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
@@ -5673,7 +5675,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             profile_manager.save_progress_from_game_state(self.profile_slot)
         print(
             f"Active card 416 Sideway awarded {reward} napoleondors "
-            "for three Flat market results."
+            f"for market results {base_results}."
         )
         return True
 
@@ -6170,7 +6172,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         previous_prices, (self.Aprice, self.BPrice, self.CPrice)
                     )
                     if (self.Aprice, self.BPrice, self.CPrice) != previous_prices:
-                        sound = getattr(self, "drop_sound" if card_id in (15, 16) else "gain_sound", None)
+                        sound = getattr(self, "gain_sound", None)
                         if sound is not None:
                             sound.play()
                     self._record_rebate_a_fall(previous_a_price, self.Aprice, f"card {card_id}")
@@ -7226,6 +7228,21 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         except (TypeError, ValueError):
             return None
 
+        if normalized == 410:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            detail = f"Сейчас {self._get_uptrend_rebate_bonus_percent()}%"
+            return title, f"{description} {detail}"
+        if normalized == 415:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            if getattr(self, "surge_triggered", False):
+                detail = "(Уже сработала в этом раунде)"
+            else:
+                completed = 0 if getattr(self, "surge_traded_this_turn", False) else int(
+                    getattr(self, "surge_turns_without_trade", 0) or 0
+                )
+                remaining = max(1, min(4, 4 - completed))
+                detail = f"(Осталось {remaining} ходов) до активации."
+            return title, f"{description} {detail}"
         if normalized == GOLD_OVERVALUATION_CARD_ID:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             detail = f"Сейчас {game_state.get_overvaluation_multiplier()}"

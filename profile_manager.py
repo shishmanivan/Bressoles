@@ -10,6 +10,7 @@ import pygame
 import game_state
 from card_acquisition_stats import get_encountered_card_ids
 from gameplay_deck import restore_card_instance, serialize_card_instance
+from player_market_stats import empty_stats, accumulate
 
 
 PROFILES_DIR = "Profiles"
@@ -210,6 +211,7 @@ def _default_profile(slot):
         "progress": _empty_progress(),
         "active_game": None,
         "tutorial_seen": [],
+        "market_roll_stats": empty_stats(),
     }
 
 
@@ -303,6 +305,8 @@ def load_profile(slot):
         return _default_profile(slot)
     profile = _default_profile(slot)
     profile.update(data)
+    # Never imply that a legacy profile has been tracked since its creation.
+    profile["market_roll_stats"] = data.get("market_roll_stats")
     # Existing profiles predate onboarding; only newly created profiles opt in.
     profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards", "stock_logo_hover"])
     profile["slot"] = slot
@@ -791,6 +795,21 @@ def rollback_balance_level(slot):
     save_profile(profile)
     apply_profile_to_game_state(profile)
     return True
+
+
+def record_player_market_rolls(slot, rolls, quantities, *, test_mode=False):
+    """Persist lifetime counters independently of run resets and checkpoints."""
+    if not slot or test_mode or not rolls:
+        return
+    # A gameplay callback must not create an unselected/missing profile.
+    if not os.path.exists(get_profile_path(slot)):
+        return
+    profile = load_profile(slot)
+    stats = profile.get("market_roll_stats")
+    if stats is None:
+        return
+    accumulate(stats, rolls, quantities)
+    save_profile(profile)
 
 
 def save_progress_from_game_state(slot):

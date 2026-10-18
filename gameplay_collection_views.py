@@ -141,6 +141,8 @@ def offer_status(page, entry, pending=False):
     remaining = entry.get("remaining")
     if remaining is None:
         return page._get_text("OffersPermanent", "До конца забега")
+    if entry.get("remaining_kind") == "runs":
+        return page._get_text("OfferRunsLeft", "Осталось забегов: {count}").format(count=remaining)
     if entry.get("remaining_kind") == "bosses":
         key = "OfferAfterBoss" if pending else "OfferUntilBoss"
         return page._get_text(key, "После победы над боссом" if pending else "До победы над боссом")

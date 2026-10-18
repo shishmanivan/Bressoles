@@ -273,7 +273,9 @@ class RunResetRulesTests(GameStateTestCase):
         self.assertFalse(game_state.is_level_unlocked(8))
 
         game_state.level_5_boss_defeated = True
-        self.assertTrue(game_state.is_level_unlocked(8))
+        self.assertTrue(game_state.is_level_unlocked(6))
+        self.assertFalse(game_state.is_level_unlocked(7))
+        self.assertFalse(game_state.is_level_unlocked(8))
 
     def test_victory_napoleondors_start_on_level_two_and_scale_by_difficulty(self):
         for difficulty in ("e", "m", "h"):
@@ -306,7 +308,7 @@ class RunResetRulesTests(GameStateTestCase):
 
         self.assertEqual(game_state.napoleondors, 20)
 
-    def test_level5_completion_unlocks_levels7_and8_and_awards_commission(self):
+    def test_level5_completion_unlocks_only_level6_and_awards_commission(self):
         game_state.level_5_boss_defeated = False
         self.assertFalse(game_state.get_progress_flags()["level_6_unlocked"])
         self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
@@ -316,8 +318,8 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.level_5_boss_defeated = True
 
         self.assertTrue(game_state.get_progress_flags()["level_6_unlocked"])
-        self.assertTrue(game_state.get_progress_flags()["level_7_unlocked"])
-        self.assertTrue(game_state.get_progress_flags()["level_8_unlocked"])
+        self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
+        self.assertFalse(game_state.get_progress_flags()["level_8_unlocked"])
         self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 4)
         self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [302])
         self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303, 304])

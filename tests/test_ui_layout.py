@@ -431,7 +431,7 @@ class UiLayoutTests(unittest.TestCase):
             [
                 "Временная карта. Пропадёт после победы над боссом.",
                 "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
-                "Золотая карта. Пропадёт после поражения.",
+                "Пропадёт после поражения.",
                 "Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде",
             ],
         )
@@ -541,7 +541,7 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(no_cards, 0.68)
         self.assertEqual(three_cards, 0.80)
 
-    def test_boss_bonus_description_is_split_into_starred_sentence_items(self):
+    def test_boss_bonus_description_is_split_into_separate_sentence_items(self):
         self.assertEqual(
             GameplayPage._split_card_report_bonus_items(
                 "Первый бонус. Второй бонус! Третий бонус?"

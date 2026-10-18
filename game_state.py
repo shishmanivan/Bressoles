@@ -61,7 +61,7 @@ disclosure_rounds_remaining = 0
 active_price_support_rounds = []
 protective_put_charges = 0
 active_long_investments = []
-golden_stocks_chance_percent = 10
+golden_stocks_chance_percent = 15
 golden_stocks_triggered = False
 golden_stocks_trigger_count = 0
 derivative_bought = False
@@ -140,7 +140,7 @@ DEAL_FLOW_BONUS_PERCENT = 10
 DEAL_FLOW_RARE_CHANCE_MAX = 20
 SHOP_PRICE_STEP = 0.5
 GOLDEN_STOCKS_CARD_ID = 302
-GOLDEN_STOCKS_BASE_CHANCE = 10
+GOLDEN_STOCKS_BASE_CHANCE = 15
 GOLDEN_STOCKS_MISS_INCREASE = 2
 GOLDEN_STOCKS_AUDIT_PATH = Path(__file__).resolve().with_name("GoldenStockChecks.log")
 LOAN_PAYOUT = 5
@@ -928,7 +928,7 @@ def is_level_unlocked(level_number):
         return bool(level_3_boss_defeated)
     if level == 5:
         return bool(level_4_boss_defeated)
-    if level in (6, 7, 8):
+    if level == 6:
         return bool(level_5_boss_defeated)
     return False
 
@@ -2107,8 +2107,8 @@ def get_progress_flags():
         "level_6_boss_defeated": level_6_boss_defeated,
         "level_8_boss_defeated": level_8_boss_defeated,
         "level_6_unlocked": bool(level_5_boss_defeated),
-        "level_7_unlocked": bool(level_5_boss_defeated),
-        "level_8_unlocked": bool(level_5_boss_defeated),
+        "level_7_unlocked": False,
+        "level_8_unlocked": False,
     }
 
 

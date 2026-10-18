@@ -1,5 +1,21 @@
 [
   {
+    "Source": "(Осталось {v0} ходов) до активации.",
+    "RU": "(Осталось {v0} ходов) до активации.",
+    "ENG": "({v0} turns remaining) until activation.",
+    "DE": "(Noch {v0} Züge) bis zur Aktivierung.",
+    "HU": "(Még {v0} lépés) az aktiválásig.",
+    "FR": "(Encore {v0} tours) avant activation."
+  },
+  {
+    "Source": "(Уже сработала в этом раунде)",
+    "RU": "(Уже сработала в этом раунде)",
+    "ENG": "(Already activated this round)",
+    "DE": "(In dieser Runde bereits aktiviert)",
+    "HU": "(Ebben a körben már aktiválódott)",
+    "FR": "(Déjà activée pendant cette manche)"
+  },
+  {
     "Source": "Protective Put",
     "RU": "Protective Put",
     "ENG": "Protective Put",
@@ -1744,12 +1760,12 @@
     "FR": "Si vous n’achetez et ne vendez rien pendant quatre tours consécutifs, le cours de l’action A est triplé à la fin du quatrième tour."
   },
   {
-    "Source": "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
-    "RU": "Даёт 5 наполеондоров если на на всех трёх рынках выпал Flat (цена не изменилась).",
-    "ENG": "Awards 5 Napoleondors if all three market rolls are Flat, with no price changes.",
-    "DE": "Gewährt 5 Napoleondor, wenn alle drei Märkte Flat ergeben, die Kurse sich also nicht ändern.",
-    "HU": "5 napóleonaranyat ad, ha mindhárom piaci dobás oldalazást eredményez, árfolyamváltozás nélkül.",
-    "FR": "Accorde 5 napoléons d’or si les trois tirages du marché sont neutres, sans changement de cours."
+    "Source": "Даёт 5 наполеондоров, если ни один из трёх рынков не вырос (флэт или падение). Если все три рынка во флэте, даёт 8 наполеондоров вместо 5.",
+    "RU": "Даёт 5 наполеондоров, если ни один из трёх рынков не вырос (флэт или падение). Если все три рынка во флэте, даёт 8 наполеондоров вместо 5.",
+    "ENG": "Awards 5 Napoleondors if none of the three markets rises (Flat or a fall). If all three markets are Flat, awards 8 Napoleondors instead of 5.",
+    "DE": "Gewährt 5 Napoleondor, wenn keiner der drei Märkte steigt (Flat oder Rückgang). Sind alle drei Märkte Flat, gibt es 8 statt 5 Napoleondor.",
+    "HU": "5 napóleonaranyat ad, ha egyik piac sem emelkedik (oldalazás vagy esés). Ha mindhárom piac oldalaz, 5 helyett 8 napóleonaranyat ad.",
+    "FR": "Accorde 5 napoléons d’or si aucun des trois marchés ne monte (stabilité ou baisse). Si les trois marchés sont stables, accorde 8 napoléons d’or au lieu de 5."
   },
   {
     "Source": "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",

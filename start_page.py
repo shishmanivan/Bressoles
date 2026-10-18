@@ -9,10 +9,13 @@ from adaptive_ui import AnchoredElement, clamp, cover_geometry, proportional_siz
 from sound_assets import load_card_hover_sound, load_sound
 from ribbon_letters import RibbonLetterHover
 from menu_chart import MenuChartReveal
+from menu_crowd import MenuCrowdAnimation
 from coin_hover import CoinHover
 
 
 FPS = 60
+MENU_CROWD_SOUND_PATH = os.path.join('Sounds', 'Menu Crowd.ogg')
+MENU_CROWD_VOLUME = 0.25
 BLACK = (0, 0, 0)
 # Median dark ink sampled from the lettering on the ribbon beneath the sack.
 PAPER_COLOR = (77, 63, 50)
@@ -234,6 +237,7 @@ class StartPage:
         self._beacon_sprite = self._make_beacon_sprite()
         self._ribbon_letters = RibbonLetterHover(self.menu_image)
         self._chart_reveal = MenuChartReveal(self.menu_image)
+        self._crowd_animation = MenuCrowdAnimation(self.menu_image)
         self._coin_hover = CoinHover(self.menu_image)
 
         self.menu_items = [
@@ -583,6 +587,7 @@ class StartPage:
         if menu_image is not None:
             self.screen.blit(menu_image, layout.menu_image_rect)
 
+        self._crowd_animation.draw(self.screen, layout.menu_image_rect, pygame.time.get_ticks())
         self._chart_reveal.draw(self.screen, layout.menu_image_rect, pygame.time.get_ticks())
         self._draw_smoke(layout)
         self._draw_menu_details(layout)
@@ -628,9 +633,19 @@ class StartPage:
         pygame.display.flip()
 
     def run(self):
-        while True:
-            result = self.handle_input()
-            if result in {"quit", "start", "profile", "options", "languages"}:
-                return result
-            self.draw()
-            self.clock.tick(FPS)
+        # Ambience always plays forwards, independently of the visual reversal.
+        # Sound volume follows effects settings; channel volume sets its mix.
+        ambience = load_sound(MENU_CROWD_SOUND_PATH)
+        channel = ambience.play(loops=-1, fade_ms=300) if ambience is not None else None
+        if channel is not None:
+            channel.set_volume(MENU_CROWD_VOLUME)
+        try:
+            while True:
+                result = self.handle_input()
+                if result in {"quit", "start", "profile", "options", "languages"}:
+                    return result
+                self.draw()
+                self.clock.tick(FPS)
+        finally:
+            if channel is not None and channel.get_sound() is ambience:
+                channel.stop()

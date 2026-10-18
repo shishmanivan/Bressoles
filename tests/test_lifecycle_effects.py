@@ -821,7 +821,7 @@ class LifecycleEffectTests(unittest.TestCase):
             ):
                 self.assertIsNone(game_state.resolve_golden_stocks_round([302]))
 
-            self.assertEqual(game_state.golden_stocks_chance_percent, 12)
+            self.assertEqual(game_state.golden_stocks_chance_percent, 17)
             self.assertEqual(game_state.golden_stocks_trigger_count, 0)
 
             with (
@@ -842,7 +842,7 @@ class LifecycleEffectTests(unittest.TestCase):
         original_chance = game_state.golden_stocks_chance_percent
         try:
             game_state.golden_stocks_chance_percent = 5
-            self.assertEqual(game_state.get_golden_stocks_chance_percent(), 10)
+            self.assertEqual(game_state.get_golden_stocks_chance_percent(), 15)
         finally:
             game_state.golden_stocks_chance_percent = original_chance
 
@@ -1355,15 +1355,15 @@ class LifecycleEffectTests(unittest.TestCase):
         page._start_card_jump_animation = mock.Mock()
 
         self.assertTrue(page._apply_sideway_reward_if_needed())
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 8)
         self.assertFalse(page._apply_sideway_reward_if_needed())
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 8)
         page._start_card_jump_animation.assert_called_once_with(
             page.lifecycle_card_jump_animations,
             0,
         )
 
-    def test_sideway_does_not_reward_when_any_base_market_moved(self):
+    def test_sideway_does_not_reward_when_any_base_market_rose(self):
         page = self._page(gold=[416])
         page.stock_price_turn_results = [
             {"market": 0, "type": "unchanged", "price_change": 0},
@@ -1375,7 +1375,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertFalse(page._apply_sideway_reward_if_needed())
         self.assertEqual(game_state.napoleondors, 0)
 
-    def test_duplicate_sideway_awards_ten_napoleondors(self):
+    def test_duplicate_sideway_awards_sixteen_napoleondors_for_all_flat(self):
         page = self._page(gold=[416, 416])
         page.stock_price_turn_results = [
             {"market": market, "type": "unchanged", "price_change": 0}
@@ -1386,7 +1386,41 @@ class LifecycleEffectTests(unittest.TestCase):
         page._start_card_jump_animation = mock.Mock()
 
         self.assertTrue(page._apply_sideway_reward_if_needed())
-        self.assertEqual(game_state.napoleondors, 10)
+        self.assertEqual(game_state.napoleondors, 16)
+
+    def test_sideway_reward_for_every_combination_of_base_market_results(self):
+        from itertools import product
+        for results in product(("unchanged", "fall", "rise"), repeat=3):
+            for copies in (1, 2):
+                with self.subTest(results=results, copies=copies):
+                    game_state.napoleondors = 0
+                    page = self._page(gold=[416] * copies)
+                    page.lifecycle_card_jump_animations = {}
+                    page._start_card_jump_animation = mock.Mock()
+                    page.stock_price_turn_results = [
+                        {"market": market, "type": result}
+                        for market, result in enumerate(results)
+                    ]
+                    expected = 0 if "rise" in results else (8 if all(
+                        result == "unchanged" for result in results
+                    ) else 5) * copies
+                    self.assertEqual(page._apply_sideway_reward_if_needed(), expected > 0)
+                    self.assertEqual(game_state.napoleondors, expected)
+                    self.assertFalse(page._apply_sideway_reward_if_needed())
+                    self.assertEqual(game_state.napoleondors, expected)
+
+    def test_sideway_counts_selling_pressure_fall_but_requires_all_three_results(self):
+        page = self._page(gold=[416])
+        page.lifecycle_card_jump_animations = {}
+        page._start_card_jump_animation = mock.Mock()
+        page.stock_price_turn_results = [
+            {"market": 0, "type": "unchanged"},
+            {"market": 1, "type": "fall", "source": "selling_pressure"},
+        ]
+        self.assertFalse(page._apply_sideway_reward_if_needed())
+        page.stock_price_turn_results.append({"market": 2, "type": "unchanged"})
+        self.assertTrue(page._apply_sideway_reward_if_needed())
+        self.assertEqual(game_state.napoleondors, 5)
 
     def test_full_deployment_requires_empty_deck_and_empty_hand(self):
         page = self._page(gold=[428])
