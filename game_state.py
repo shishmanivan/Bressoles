@@ -57,6 +57,7 @@ variance_offer_bought_count = 0
 pending_shop_discount_percent = 0
 correction_shop_cooldown = 0
 bailout_rounds_remaining = 0
+price_cut_purchases_by_level = {}
 disclosure_rounds_remaining = 0
 active_price_support_rounds = []
 protective_put_charges = 0
@@ -94,6 +95,7 @@ SHOP_SPECIAL_COSTS = {
     "profit": 6,
     "underwriter": 4,
     "bailout": 4,
+    "price_cut": 5,
     "long": 2,
     "derivative": 5,
     "junk_bond": 2,
@@ -687,18 +689,21 @@ def is_multibagger_offer_available(level_number=None):
     return bool(build_multibagger_gold_fallback_pool(level_number))
 
 
-def buy_multibagger_gold_card(level_number=None):
+def buy_multibagger_gold_card(level_number=None, excluded_card_ids=()):
     global multibagger_bought
     if not is_multibagger_offer_available(level_number):
         return None
 
-    unavailable = get_bought_shop_card_ids()
+    unavailable = get_bought_shop_card_ids() | set(excluded_card_ids)
     probability_pool = [
         card_id
         for card_id in build_gold_cards_pool(level_number)
         if card_id not in unavailable
     ]
-    pool = probability_pool or build_multibagger_gold_fallback_pool(level_number)
+    pool = probability_pool or [
+        card_id for card_id in build_multibagger_gold_fallback_pool(level_number)
+        if card_id not in unavailable
+    ]
     if not pool:
         return None
 
@@ -1352,6 +1357,30 @@ def clear_frugality():
     Frugality = 0
 
 
+def is_price_cut_offer_available(level_number):
+    return 1 <= int(level_number or 0) <= 6
+
+
+def get_price_cut_purchases(level_number):
+    if not is_price_cut_offer_available(level_number):
+        return 0
+    return max(0, int(price_cut_purchases_by_level.get(int(level_number), 0)))
+
+
+def buy_price_cut(level_number):
+    if not is_price_cut_offer_available(level_number):
+        return False
+    price_cut_purchases_by_level[int(level_number)] = get_price_cut_purchases(level_number) + 1
+    return True
+
+
+def apply_price_cut_goal_modifier(goal_value, level_number):
+    count = get_price_cut_purchases(level_number)
+    if goal_value is None or not count:
+        return goal_value
+    return max(1, int(float(goal_value) * (0.96 ** count)))
+
+
 def get_bailout_rounds_remaining():
     try:
         return max(0, int(bailout_rounds_remaining or 0))
@@ -1958,7 +1987,9 @@ def remove_unavailable_red_cards_from_active_deck(level_num):
 
 
 def new_boss_progress_state():
+    from player_market_stats import empty_stats
     return {
+        "market_roll_stats": empty_stats(),
         "defeated": 0,
         "last_rect": None,
         "lines": [],
@@ -2737,6 +2768,8 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
         entries.append(entry)
 
     bailout_remaining = get_bailout_rounds_remaining()
+    if get_price_cut_purchases(level_number or napoleondor_level):
+        add("price_cut", remaining_kind="level_permanent")
     if bailout_remaining > 0:
         add("bailout", bailout_remaining, "rounds")
 
@@ -3147,6 +3180,7 @@ def _available_screening_offer_ids(
         "profit": True,
         "underwriter": is_underwriter_offer_available(level),
         "bailout": not is_bailout_active(),
+        "price_cut": is_price_cut_offer_available(level),
         "long": is_long_offer_available(rounds_remaining),
         "junk_bond": True,
         "issuer": is_issuer_offer_available(),
@@ -3173,6 +3207,7 @@ def _available_screening_offer_ids(
     }
     if level < 3:
         level_offers = {
+            "price_cut",
             "price_support",
             "bailout",
             "junk_bond",
@@ -3232,6 +3267,7 @@ def build_shop_special_offer_pool(
     # are available. The rest of the special shop assortment starts at level 3.
     if level < 3:
         allowed_offers = {
+            "price_cut",
             "price_support",
             "bailout",
             "junk_bond",
@@ -3379,6 +3415,8 @@ def build_shop_special_offer_pool(
         rolled.append("underwriter")
     if bailout_hit:
         rolled.append("bailout")
+    if is_price_cut_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(20):
+        rolled.append("price_cut")
     if bank_hit:
         rolled.append("bank")
     if long_hit:

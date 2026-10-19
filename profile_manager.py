@@ -265,6 +265,7 @@ def _empty_progress():
         "pending_shop_discount_percent": 0,
         "correction_shop_cooldown": 0,
         "bailout_rounds_remaining": 0,
+        "price_cut_purchases_by_level": {},
         "disclosure_rounds_remaining": 0,
         "active_price_support_rounds": [],
         "protective_put_charges": 0,
@@ -501,6 +502,12 @@ def apply_profile_to_game_state(profile_or_slot):
         if game_state.is_gold_card(value)
     )
     game_state.moratorium_run_number = max(0, int(progress.get("moratorium_run_number", 0)))
+    game_state.price_cut_purchases_by_level = {
+        int(key): int(value)
+        for key, value in (progress.get("price_cut_purchases_by_level") or {}).items()
+        if str(key).isdigit() and 1 <= int(key) <= 6
+        and str(value).isdigit() and int(value) > 0
+    }
     game_state.moratorium_expirations = {
         int(key): int(value)
         for key, value in progress.get("moratorium_expirations", {}).items()
@@ -911,6 +918,7 @@ def _capture_progress():
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
+        "price_cut_purchases_by_level": dict(game_state.price_cut_purchases_by_level),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
         "active_price_support_rounds": game_state.get_active_price_support_rounds(),
         "protective_put_charges": game_state.get_protective_put_charges(),
@@ -1074,6 +1082,7 @@ def _serialize_boss_progress(source):
             "current_boss": _serialize_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
+            "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
         }
     return result
 
@@ -1104,6 +1113,7 @@ def _restore_boss_progress(source):
             "current_boss": _restore_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
+            "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
         }
     return result
 

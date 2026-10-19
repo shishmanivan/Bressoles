@@ -442,8 +442,11 @@ def load_winlose_assets(screen_width, screen_height):
 
     finance_height = max(1, int(screen_height * 0.84))
     finance_width = max(1, int(finance_height * 1086 / 1448))
+    market_height = max(1, min(finance_height, int(screen_width * 0.92 * 1024 / 1536)))
+    market_width = max(1, int(market_height * 1536 / 1024))
     finance_specs = (
         ("newspaper_report_image", "BressolesNewspaperTemplate-v3.png", (int((screen_height - 82) * 1056 / 1488), screen_height - 82)),
+        ("market_report_image", "MarketReportLandscape.png", (market_width, market_height)),
         ("finance_report_image", "FinanceReport.png", (finance_width, finance_height)),
         ("card_report_image", "CardReport.png", (finance_width, finance_height)),
         ("approve_stamp_image", "ApproveStamp.png", (230, 96)),

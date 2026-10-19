@@ -19,6 +19,7 @@ from shop_page import (
 
 
 SHOP_STATE_FIELDS = (
+    "price_cut_purchases_by_level",
     "protective_put_charges",
     "active_price_support_rounds",
     "seen_gold_card_ids",
@@ -84,6 +85,7 @@ class ShopEconomyTestCase(unittest.TestCase):
             for field in SHOP_STATE_FIELDS
         }
         game_state.napoleondors = 0
+        game_state.price_cut_purchases_by_level = {}
         game_state.protective_put_charges = 0
         game_state.active_price_support_rounds = []
         game_state.seen_gold_card_ids = set()
@@ -376,7 +378,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 100, 100, 35, 100, 100],
+                side_effect=[100, 100, 100, 100, 100, 100, 35, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(2, max_offers=2)
@@ -772,7 +774,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 100, 100, 30, 100, 100],
+                side_effect=[100, 100, 100, 100, 100, 100, 30, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(3, max_offers=2)
@@ -881,7 +883,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 100, 100, 25, 100, 100],
+                side_effect=[100, 100, 100, 100, 100, 100, 25, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(2)
@@ -1012,7 +1014,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 20, 100, 100],
+                side_effect=[100, 100, 100, 100, 20, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(2, max_offers=20)
@@ -1237,7 +1239,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 100, 100, 1, 100, 100],
+                side_effect=[100, 100, 100, 100, 100, 100, 1, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(2)
@@ -1305,7 +1307,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 10, 100, 100, 100],
+                side_effect=[100, 100, 100, 100, 10, 100, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(4, max_offers=20)
@@ -1460,7 +1462,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 5, 100, 100, 100],
+                side_effect=[100, 100, 100, 100, 5, 100, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(4, max_offers=20)
@@ -1579,6 +1581,43 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(awarded, 403)
         self.assertEqual(game_state.gold_cards, [401, 403])
 
+    def test_multibagger_excludes_displayed_cards_from_probability_and_fallback_pools(self):
+        for probability_pool in ([401, 402, 403], [401, 402], []):
+            with self.subTest(probability_pool=probability_pool):
+                game_state.napoleondors = 20
+                game_state.gold_cards = []
+                game_state.multibagger_bought = False
+                page = self._shop({"kind": "special", "special_id": "multibagger", "cost": 5})
+                page.offers.extend([
+                    {"kind": "card", "card_id": 401, "cost": 4},
+                    {"kind": "card", "card_id": 402, "cost": 4},
+                ])
+                with (
+                    mock.patch.object(game_state, "build_gold_cards_pool", return_value=probability_pool),
+                    mock.patch.object(game_state, "build_open_gold_cards_pool", return_value=[401, 402, 403]),
+                    mock.patch.object(game_state.random, "choice", side_effect=lambda pool: pool[0]) as choose,
+                ):
+                    page._buy_offer(0)
+                choose.assert_called_once_with([403])
+                self.assertEqual(game_state.gold_cards, [403])
+                self.assertEqual(game_state.napoleondors, 15)
+                self.assertEqual(page.sold_offer_indexes, {0})
+
+    def test_multibagger_does_not_charge_if_only_displayed_cards_are_available(self):
+        game_state.napoleondors = 20
+        page = self._shop({"kind": "special", "special_id": "multibagger", "cost": 5})
+        page.offers.append({"kind": "card", "card_id": 401, "cost": 4})
+        with (
+            mock.patch.object(game_state, "build_gold_cards_pool", return_value=[401]),
+            mock.patch.object(game_state, "build_open_gold_cards_pool", return_value=[401]),
+            mock.patch.object(game_state.random, "choice") as choose,
+        ):
+            page._buy_offer(0)
+        choose.assert_not_called()
+        self.assertEqual(game_state.napoleondors, 20)
+        self.assertEqual(game_state.gold_cards, [])
+        self.assertFalse(game_state.multibagger_bought)
+
     def test_investments_are_a_separate_section_unlocked_by_level4_completion(self):
         game_state.level_4_boss_defeated = False
         locked_offers = game_state.generate_shop_offers(5, card_slots=0, special_slots=0, license_slots=0)
@@ -1619,7 +1658,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 10, 100, 100],
+                side_effect=[100, 100, 100, 100, 10, 100, 100, 100],
             ),
             mock.patch.object(game_state, "is_protective_put_offer_available", return_value=False),
             mock.patch.object(game_state, "is_price_support_offer_available", return_value=False),
@@ -1672,6 +1711,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
     def test_level2_shop_only_offers_short_level_specials(self):
         allowed = {
+            "price_cut",
             "price_support",
             "bailout",
             "junk_bond",

@@ -38,8 +38,14 @@
     "actual_count": "Выпало: {value}",
     "actual_percent": "Факт: {value}",
     "expected_percent": "Ожидалось: {value}",
-    "expectation_note": "Ожидаемый процент — среднее вероятностей этого исхода по всем случайным броскам данной акции в раунде.",
-    "random_only": "Учтены только случайные броски. Принудительные движения карт не включены. При отсутствии бросков проценты не определены."
+    "expectation_note": "Ожидаемые значения рассчитаны по вероятностям каждого броска за выбранный период, с учётом эффектов карт.",
+    "random_only": "Учтены только случайные броски. Принудительные движения карт не включены. При отсутствии бросков проценты не определены.",
+    "actual_heading": "Выпало",
+    "expected_heading": "Ожидалось",
+    "scope_round": "За раунд",
+    "scope_run": "За всю игру",
+    "scope_lifetime": "За всё время",
+    "no_roll_history": "Для этого периода история бросков не сохранена."
   },
   "ENG": {
     "win": "The player achieved victory!",
@@ -80,8 +86,14 @@
     "actual_count": "Count: {value}",
     "actual_percent": "Actual: {value}",
     "expected_percent": "Expected: {value}",
-    "expectation_note": "The expected percentage is the mean probability of this outcome across all random rolls for this stock in the round.",
-    "random_only": "Only random rolls are counted. Forced card movements are excluded. Percentages are undefined when there are no rolls."
+    "expectation_note": "Expected values use the probabilities of each roll in the selected period, including card effects.",
+    "random_only": "Only random rolls are counted. Forced card movements are excluded. Percentages are undefined when there are no rolls.",
+    "actual_heading": "Actual",
+    "expected_heading": "Expected",
+    "scope_round": "This round",
+    "scope_run": "This run",
+    "scope_lifetime": "All time",
+    "no_roll_history": "No roll history was saved for this period."
   },
   "DE": {
     "win": "Der Spieler hat gesiegt!",
@@ -122,8 +134,14 @@
     "actual_count": "Anzahl: {value}",
     "actual_percent": "Ist: {value}",
     "expected_percent": "Erwartet: {value}",
-    "expectation_note": "Der erwartete Prozentsatz ist die mittlere Wahrscheinlichkeit dieses Ergebnisses über alle Zufallswürfe der Aktie in dieser Runde.",
-    "random_only": "Nur Zufallswürfe zählen. Erzwungene Kartenbewegungen sind ausgeschlossen. Ohne Würfe sind keine Prozentsätze definiert."
+    "expectation_note": "Erwartete Werte berücksichtigen die Wahrscheinlichkeiten jedes Wurfs im gewählten Zeitraum, einschließlich Karteneffekten.",
+    "random_only": "Nur Zufallswürfe zählen. Erzwungene Kartenbewegungen sind ausgeschlossen. Ohne Würfe sind keine Prozentsätze definiert.",
+    "actual_heading": "Tatsächlich",
+    "expected_heading": "Erwartet",
+    "scope_round": "Diese Runde",
+    "scope_run": "Dieser Durchlauf",
+    "scope_lifetime": "Gesamtzeit",
+    "no_roll_history": "Für diesen Zeitraum wurde kein Wurfverlauf gespeichert."
   },
   "HU": {
     "win": "A játékos győzelmet aratott!",
@@ -164,8 +182,14 @@
     "actual_count": "Darab: {value}",
     "actual_percent": "Tény: {value}",
     "expected_percent": "Várt: {value}",
-    "expectation_note": "A várt százalék az adott eredmény valószínűségeinek átlaga a részvény körbeli véletlen dobásain.",
-    "random_only": "Csak a véletlen dobások számítanak. A kártyák kényszerített mozgásai kimaradnak. Dobás nélkül nincs százalék."
+    "expectation_note": "A várható értékek a kiválasztott időszak minden dobásának valószínűségein alapulnak, a kártyahatásokat is figyelembe véve.",
+    "random_only": "Csak a véletlen dobások számítanak. A kártyák kényszerített mozgásai kimaradnak. Dobás nélkül nincs százalék.",
+    "actual_heading": "Tényleges",
+    "expected_heading": "Várható",
+    "scope_round": "Ebben a körben",
+    "scope_run": "Ebben a menetben",
+    "scope_lifetime": "Összesen",
+    "no_roll_history": "Erre az időszakra nincs mentett dobástörténet."
   },
   "FR": {
     "win": "Le joueur a remporté la victoire !",
@@ -206,7 +230,13 @@
     "actual_count": "Nombre : {value}",
     "actual_percent": "Réel : {value}",
     "expected_percent": "Attendu : {value}",
-    "expectation_note": "Le pourcentage attendu est la moyenne des probabilités de ce résultat sur tous les tirages aléatoires de cette action pendant la manche.",
-    "random_only": "Seuls les tirages aléatoires sont comptés. Les mouvements imposés par les cartes sont exclus. Sans tirage, les pourcentages sont indéfinis."
+    "expectation_note": "Les valeurs attendues tiennent compte des probabilités de chaque tirage sur la période choisie, effets des cartes compris.",
+    "random_only": "Seuls les tirages aléatoires sont comptés. Les mouvements imposés par les cartes sont exclus. Sans tirage, les pourcentages sont indéfinis.",
+    "actual_heading": "Obtenu",
+    "expected_heading": "Attendu",
+    "scope_round": "Cette manche",
+    "scope_run": "Cette partie",
+    "scope_lifetime": "Depuis le début",
+    "no_roll_history": "Aucun historique des tirages enregistré pour cette période."
   }
 }

@@ -138,6 +138,8 @@ def draw_deck(page, content, panel):
 
 
 def offer_status(page, entry, pending=False):
+    if entry.get("remaining_kind") == "level_permanent":
+        return page._get_text("OfferLevelPermanent", "Навсегда для этого уровня")
     remaining = entry.get("remaining")
     if remaining is None:
         return page._get_text("OffersPermanent", "До конца забега")

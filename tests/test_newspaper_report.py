@@ -97,7 +97,9 @@ class NewspaperTests(unittest.TestCase):
         page.card_report_image = page.finance_report_image
         for outcome in ('win', 'lose'):
             page.win_lose_state = outcome
-            for target in ('finance', 'card_report', 'market_report'):
+            targets = ('finance', 'card_report', 'market_report') if outcome == 'win' else ('market_report',)
+            self.assertEqual(set(page._newspaper_button_layout()), {*targets, 'continue'})
+            for target in targets:
                 page.result_report_stage = 'newspaper'
                 page.newspaper_y = 12
                 page.newspaper_closing = False
@@ -171,12 +173,62 @@ class NewspaperTests(unittest.TestCase):
         summary = summarize_round_rolls(page.newspaper_events)
         self.assertEqual(summary['A']['rolls'], 2)
         self.assertEqual(summary['A']['outcomes']['rise'],
-                         {'count': 1, 'actual_percent': 50, 'expected_percent': 50})
+                         {'count': 1, 'expected_count': 1, 'actual_percent': 50, 'expected_percent': 50})
+        self.assertAlmostEqual(summary['A']['outcomes']['fall']['expected_count'], .4)
+        self.assertAlmostEqual(summary['A']['outcomes']['flat']['expected_count'], .6)
+        self.assertAlmostEqual(sum(item['expected_count'] for item in summary['A']['outcomes'].values()), 2)
         self.assertEqual(summary['A']['outcomes']['fall']['expected_percent'], 20)
         self.assertEqual(summary['A']['outcomes']['flat']['expected_percent'], 30)
         self.assertEqual(summary['B']['rolls'], 0)
         self.assertIsNone(summary['B']['outcomes']['rise']['actual_percent'])
         self.assertIsNone(summary['B']['outcomes']['rise']['expected_percent'])
+
+    def test_run_counts_span_rounds_survive_serialization_and_reset(self):
+        import profile_manager
+        page = make_page()
+        roll = dict(market=0, outcome='rise', probabilities=dict(rise=25, fall=25, flat=50))
+        with patch.object(game_state, 'boss_progress', {}):
+            page._record_run_market_rolls([roll])
+            restored = profile_manager._restore_boss_progress(
+                json.loads(json.dumps(profile_manager._serialize_boss_progress(game_state.boss_progress))))
+            game_state.boss_progress = restored
+            next_round = make_page()
+            next_round._record_run_market_rolls([roll])
+            next_round.market_report_scope = 'run'
+            summary = next_round._market_report_summary()
+            self.assertEqual(summary['A']['rolls'], 2)
+            self.assertEqual(summary['A']['outcomes']['rise']['expected_count'], .5)
+            self.assertEqual(next_round._market_report_summary(), summary)
+            game_state.boss_progress[3] = game_state.new_boss_progress_state()
+            fresh_run = make_page()
+            fresh_run._record_run_market_rolls([roll])
+            fresh_run.market_report_scope = 'run'
+            self.assertEqual(fresh_run._market_report_summary()['A']['rolls'], 1)
+            self.assertEqual(next_round._market_report_summary()['A']['rolls'], 2)
+
+    def test_scope_tabs_switch_without_starting_stamp(self):
+        from player_market_stats import empty_stats, accumulate
+        page = make_page()
+        page.result_report_stage = 'market_report'
+        page.market_report_image = pygame.Surface((1323, 882))
+        page.finance_report_y = 84
+        page.finance_stamp_state = 'idle'
+        page.run_market_roll_stats = empty_stats()
+        accumulate(page.run_market_roll_stats,
+                   [dict(market=1, outcome='flat', probabilities=dict(rise=20, fall=30, flat=50))], (0, 0, 0))
+        page._lifetime_market_report_stats = None
+        rect = page.market_report_image.get_rect(center=(840, 525))
+        for scope in ('run', 'lifetime', 'round'):
+            page._handle_newspaper_input(pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, button=1, pos=page._market_report_tabs(rect)[scope].center))
+            self.assertEqual(page.market_report_scope, scope)
+            self.assertEqual(page.finance_stamp_state, 'idle')
+            page._draw_market_report_rows(rect)
+            summary = page._market_report_summary()
+            if scope == 'lifetime':
+                self.assertIsNone(summary)
+            else:
+                self.assertEqual(summary['B']['rolls'], 1 if scope == 'run' else 0)
 
     def test_languages_have_matching_placeholders_and_render_both_results(self):
         reference = catalog()['RU']

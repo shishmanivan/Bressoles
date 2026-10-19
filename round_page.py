@@ -355,7 +355,9 @@ class RoundPage(AdaptivePage):
         return {
             key: (
                 game_state.apply_loan_goal_modifier(
-                    game_state.apply_bailout_goal_modifier(value),
+                    game_state.apply_bailout_goal_modifier(
+                        game_state.apply_price_cut_goal_modifier(value, self.level_number)
+                    ),
                     self.level_number,
                     self.defeated_count,
                 )
@@ -700,6 +702,7 @@ class RoundPage(AdaptivePage):
                                 self._get_level4_goal,
                                 self._apper_goal_boost,
                             )
+                            self.Goal = game_state.apply_price_cut_goal_modifier(self.Goal, self.level_number)
                             self.Goal = game_state.apply_bailout_goal_modifier(self.Goal)
                             self.Goal = game_state.apply_loan_goal_modifier(
                                 self.Goal,
@@ -803,6 +806,7 @@ class RoundPage(AdaptivePage):
                         self._get_level4_goal,
                         self._apper_goal_boost,
                     )
+                    goal_value = game_state.apply_price_cut_goal_modifier(goal_value, self.level_number)
                     goal_value = game_state.apply_bailout_goal_modifier(goal_value)
                     goal_value = game_state.apply_loan_goal_modifier(
                         goal_value,

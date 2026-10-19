@@ -8,6 +8,7 @@ import math
 import re
 import sys
 import os
+from copy import deepcopy
 
 import game_state
 import profile_manager
@@ -397,6 +398,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.level_number = level_number  # Level number for deck initialization
         self.round_start_napoleondors = float(game_state.napoleondors or 0)
         self.newspaper_events = []
+        self.run_market_roll_stats = deepcopy(
+            game_state.boss_progress.get(level_number, game_state.new_boss_progress_state()).get('market_roll_stats'))
+        self.market_report_scope = 'round'
         self.newspaper_opening = {'coins': self.round_start_napoleondors,
                                   'income_sources': {e['source']: float(e.get('amount', 0))
                                                      for e in game_state.pending_finance_report_entries}}
@@ -861,6 +865,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.ok_button_base_size = winlose_assets["ok_button_base_size"]
         self.finance_report_image = winlose_assets.get("finance_report_image")
         self.newspaper_report_image = winlose_assets.get("newspaper_report_image")
+        self.market_report_image = winlose_assets.get("market_report_image")
         self.market_report_icons = winlose_assets.get('market_report_icons', {})
         self.newspaper_y = float(-SCREEN_HEIGHT)
         self.newspaper_closing = False
@@ -2043,6 +2048,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "finance_report_y": float(self.finance_report_y),
             "finance_report_entries": [dict(entry) for entry in self.finance_report_entries],
             "newspaper_events": list(getattr(self, 'newspaper_events', [])),
+            "run_market_roll_stats": getattr(self, 'run_market_roll_stats', None),
+            "market_report_scope": getattr(self, 'market_report_scope', 'round'),
             "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
             "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
             "newspaper_closing": bool(getattr(self, 'newspaper_closing', False)),
@@ -2195,6 +2202,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.win_lose_state is not None and 'newspaper_events' not in state:
             self.result_report_stage = 'newspaper'
         self.newspaper_events = list(state.get('newspaper_events') or [])
+        self.run_market_roll_stats = state.get('run_market_roll_stats')
+        self.market_report_scope = state.get('market_report_scope', 'round')
+        if self.market_report_scope not in ('round', 'run', 'lifetime'):
+            self.market_report_scope = 'round'
         self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
         self.newspaper_y = float(state.get('newspaper_y', -SCREEN_HEIGHT))
         self.newspaper_closing = bool(state.get('newspaper_closing', False))
@@ -4315,7 +4326,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _get_active_result_report_image(self):
         stage = getattr(self, "result_report_stage", "cards")
-        if stage in ('newspaper', 'market_report'):
+        if stage == 'market_report':
+            return (getattr(self, 'market_report_image', None)
+                    or getattr(self, 'newspaper_report_image', None)
+                    or getattr(self, 'finance_report_image', None))
+        if stage == 'newspaper':
             return getattr(self, 'newspaper_report_image', None) or getattr(self, 'finance_report_image', None)
         if stage == "finance":
             return getattr(self, "finance_report_image", None)
@@ -5022,6 +5037,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
         recorder = getattr(self, "market_roll_stats", None)
+        self._record_run_market_rolls(random_rolls)
+        self.__dict__.pop('_lifetime_market_report_stats', None)
         for roll in random_rolls:
             self._newspaper_event('roll', **roll)
         if getattr(self, "profile_slot", None) and not getattr(self, "test_mode", False):

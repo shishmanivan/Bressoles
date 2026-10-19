@@ -48,6 +48,7 @@ SPECIAL_ASSETS = {
     "profit": ("Прибыль", os.path.join("Shop", "Profit.png")),
     "underwriter": ("Андеррайтер", os.path.join("Shop", "Underwriter.png")),
     "bailout": ("Бейлаут", os.path.join("Shop", "Bailout.png")),
+    "price_cut": ("PriceCut", os.path.join("Shop", "Price Cut.png")),
     "long": ("Лонг", os.path.join("Shop", "Long.png")),
     "derivative": ("Дериватив", os.path.join("Shop", "Derivative.png")),
     "junk_bond": ("Джанк-бонд", os.path.join("Shop", "Junk Bond.png")),
@@ -86,6 +87,7 @@ SPECIAL_DESCRIPTIONS = {
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
     "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
+    "price_cut": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
     "derivative": "Увеличивает руку на одну карту до конца забега.",
     "junk_bond": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
@@ -836,6 +838,15 @@ class ShopPage(AdaptivePage):
             self.message = "Bailout активирован на 5 раундов"
             return
 
+        if special_id == "price_cut":
+            if not game_state.buy_price_cut(self.level_number):
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["price_cut"]
+            return
+
         if special_id == "long":
             rounds_remaining = getattr(self, "rounds_remaining", None)
             if not game_state.is_long_offer_available(rounds_remaining):
@@ -889,7 +900,13 @@ class ShopPage(AdaptivePage):
             return
 
         if special_id == "multibagger":
-            awarded_card = game_state.buy_multibagger_gold_card(self.level_number)
+            displayed_card_ids = {
+                offer["card_id"] for offer_index, offer in enumerate(self.offers)
+                if offer.get("kind") == "card" and offer_index not in self.sold_offer_indexes
+            }
+            awarded_card = game_state.buy_multibagger_gold_card(
+                self.level_number, excluded_card_ids=displayed_card_ids,
+            )
             if awarded_card is None:
                 self.message = "Нет доступных золотых карт"
                 self.sold_offer_indexes.add(index)

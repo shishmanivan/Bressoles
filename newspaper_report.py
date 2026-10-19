@@ -6,6 +6,8 @@ import json
 
 import native_render as pygame
 import game_state
+import profile_manager
+from player_market_stats import accumulate, summarize
 from localization import get_language, translate
 
 
@@ -37,10 +39,12 @@ def summarize_round_rolls(events):
         summary[stock] = {'rolls': count, 'outcomes': {}}
         for outcome in ('rise', 'fall', 'flat'):
             actual = sum(event['outcome'] == outcome for event in rolls)
+            expected_count = sum(event['probabilities'][outcome] for event in rolls) / 100
             summary[stock]['outcomes'][outcome] = {
                 'count': actual,
+                'expected_count': expected_count,
                 'actual_percent': 100 * actual / count if count else None,
-                'expected_percent': sum(event['probabilities'][outcome] for event in rolls) / count if count else None,
+                'expected_percent': 100 * expected_count / count if count else None,
             }
     return summary
 
@@ -118,6 +122,49 @@ def articles(page, detailed=False):
 
 
 class NewspaperReportMixin:
+    def _record_run_market_rolls(self, rolls):
+        if not rolls:
+            return
+        if not hasattr(self, 'run_market_roll_stats'):
+            self.run_market_roll_stats = deepcopy(
+                game_state.boss_progress.get(self.level_number, game_state.new_boss_progress_state()).get('market_roll_stats'))
+        if self.run_market_roll_stats is None:
+            return
+        accumulate(self.run_market_roll_stats, rolls, (0, 0, 0))
+        if not getattr(self, 'test_mode', False):
+            progress = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
+            progress['market_roll_stats'] = deepcopy(self.run_market_roll_stats)
+
+    def _market_report_summary(self):
+        scope = getattr(self, 'market_report_scope', 'round')
+        if scope == 'round':
+            return summarize_round_rolls(getattr(self, 'newspaper_events', []))
+        if scope == 'run':
+            stats = getattr(self, 'run_market_roll_stats', None)
+        else:
+            if not hasattr(self, '_lifetime_market_report_stats'):
+                slot = getattr(self, 'profile_slot', None)
+                self._lifetime_market_report_stats = (
+                    profile_manager.load_profile(slot).get('market_roll_stats')
+                    if slot and not getattr(self, 'test_mode', False) else None)
+            stats = self._lifetime_market_report_stats
+        totals = summarize(stats)
+        if totals is None:
+            return None
+        return {stock: {'rolls': values['rolls'], 'outcomes': {
+            outcome: {'count': row['actual'], 'expected_count': row['expected'],
+                      'actual_percent': row['actual_percent'], 'expected_percent': row['expected_percent']}
+            for outcome, row in values['outcomes'].items()}}
+            for stock, values in totals.items()}
+
+    def _market_report_tabs(self, rect):
+        gap = 12
+        width = round(rect.width * .22)
+        left = rect.centerx - (3 * width + 2 * gap) // 2
+        return {scope: pygame.Rect(left + index * (width + gap),
+                                  rect.top + round(rect.height * .365), width, 28)
+                for index, scope in enumerate(('round', 'run', 'lifetime'))}
+
     def _newspaper_event(self, kind, **data):
         if not hasattr(self, 'newspaper_events'):
             self.newspaper_events = []
@@ -181,6 +228,13 @@ class NewspaperReportMixin:
     def _newspaper_rect(self):
         rect = self._newspaper_target_rect()
         rect.y = round(getattr(self, 'newspaper_y', rect.y))
+        if getattr(self, 'result_report_stage', 'newspaper') == 'newspaper':
+            now = pygame.time.get_ticks()
+            elapsed = now - int(getattr(self, 'finance_stamp_started_at', 0) or now)
+            shake = self._get_finance_report_shake(
+                getattr(self, 'finance_stamp_state', 'idle'), elapsed,
+            )
+            rect.move_ip(*shake)
         return rect
 
     def _start_newspaper_entrance(self):
@@ -215,6 +269,8 @@ class NewspaperReportMixin:
         boundaries = (.028, .340, .662, .972)
         buttons = {}
         for index, stage in enumerate(('finance', 'card_report', 'market_report')):
+            if self.win_lose_state == 'lose' and stage in ('finance', 'card_report'):
+                continue
             left = rect.left + round(rect.width * boundaries[index])
             right = rect.left + round(rect.width * boundaries[index + 1])
             width = min(round(rect.width * .26), right - left - 28)
@@ -349,6 +405,14 @@ class NewspaperReportMixin:
             if not image or abs(self.finance_report_y - (self.screen.get_height()-image.get_height())//2) > 1:
                 return None
             click = event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+            if stage == 'market_report' and click and self.finance_stamp_state == 'idle':
+                report_rect = image.get_rect(topleft=(
+                    (self.screen.get_width() - image.get_width()) // 2, round(self.finance_report_y)))
+                for scope, tab in self._market_report_tabs(report_rect).items():
+                    if tab.collidepoint(event.pos):
+                        self.market_report_scope = scope
+                        self._save_active_game()
+                        return None
             escape = event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
             stamp = getattr(self, 'finance_stamp_rect', None)
             if self.finance_stamp_state == 'idle' and (escape or (click and stamp and stamp.collidepoint(event.pos))):
@@ -380,38 +444,73 @@ class NewspaperReportMixin:
             surface = self._newspaper_font(size, bold).render(label, True, ink)
             self.screen.blit(surface, surface.get_rect(centerx=center_x, top=top))
 
-        centered(text('market_button'), rect.centerx, rect.top+round(rect.height*.265), 30, True, rect.width*.9)
-        summary = summarize_round_rolls(getattr(self, 'newspaper_events', []))
-        boundaries = (.028, .340, .662, .972)
-        icons = getattr(self, 'market_report_icons', {})
+        centered(text('market_button'), rect.centerx, rect.top+round(rect.height*.325), 30, True, rect.width*.9)
+        scope = getattr(self, 'market_report_scope', 'round')
+        for tab_scope, tab in self._market_report_tabs(rect).items():
+            self._newspaper_button(tab, text('scope_' + tab_scope), font_size=16)
+            if scope == tab_scope:
+                pygame.draw.line(self.screen, ink, (tab.left + 8, tab.bottom - 4),
+                                 (tab.right - 8, tab.bottom - 4), 2)
+        summary = self._market_report_summary()
+        if summary is None:
+            centered(text('no_roll_history'), rect.centerx, rect.top + round(rect.height * .55),
+                     20, width=rect.width * .9)
+            return
+        left_margin = rect.left + round(rect.width * .028)
+        table_width = round(rect.width * .944)
+        group_width = table_width / 3
+        table_top = rect.top + round(rect.height * .405)
+        table_bottom = rect.top + round(rect.height * .77)
+        pygame.draw.line(self.screen, ink, (left_margin, table_top),
+                         (left_margin + table_width, table_top), 2)
         for index, stock in enumerate('ABC'):
-            left = rect.left+round(rect.width*boundaries[index])+10
-            right = rect.left+round(rect.width*boundaries[index+1])-10
-            center = (left+right)//2
-            centered(stock, center, rect.top+round(rect.height*.345), 29, True)
-            centered(text('sample_count', count=summary[stock]['rolls']), center,
-                     rect.top+round(rect.height*.385), 14, width=right-left)
-            for row, outcome in enumerate(('rise', 'fall', 'flat')):
-                y = rect.top+round(rect.height*(.425 + row*.13))
+            left = left_margin + round(index * group_width)
+            def x(fraction):
+                return left + round(group_width * fraction)
+
+            if index:
+                for offset in (-2, 2):
+                    pygame.draw.line(self.screen, ink, (left + offset, table_top),
+                                     (left + offset, table_bottom), 1)
+            divider = x(.63)
+            pygame.draw.line(self.screen, ink, (divider, table_top + 12),
+                             (divider, table_bottom - 12), 1)
+            heading_y = table_top + 16
+            centered(text('actual_heading'), x(.455), heading_y, 20, True, group_width * .30)
+            centered(text('expected_heading'), x(.815), heading_y, 20, True, group_width * .32)
+            row_centers = [rect.top + round(rect.height * fraction) for fraction in (.51, .61, .71)]
+            stock_font = self._newspaper_font(48, True)
+            stock_image = stock_font.render(stock, True, ink)
+            self.screen.blit(stock_image, stock_image.get_rect(center=(x(.075), row_centers[1])))
+            for row, outcome in enumerate(('rise', 'flat', 'fall')):
+                center_y = row_centers[row]
+                # Small ink graphs mirror the sketch without repeating row labels.
+                graph_width = max(18, round(group_width * .105))
+                graph_height = max(10, round(rect.height * .022))
+                graph_left = x(.205) - graph_width // 2
+                direction = {'rise': -1, 'flat': 0, 'fall': 1}[outcome]
+                profile = (-.5, -.35, -.4, .1, .15, .5)
+                points = [(graph_left + round(i * graph_width / 5),
+                           center_y + round(direction * value * graph_height))
+                          for i, value in enumerate(profile)]
+                pygame.draw.lines(self.screen, ink, False, points, 2)
                 values = summary[stock]['outcomes'][outcome]
-                centered(text(outcome), center, y, 17, True, right-left)
-                icon = icons.get(outcome)
-                if icon:
-                    icon = pygame.transform.smoothscale(icon, (68, 68))
-                    self.screen.blit(icon, (left, y+29))
-                metric_left = left+76
-                metric_center = (metric_left+right)//2
-                for line, (key, value) in enumerate((('actual_count', values['count']),
-                                                     ('actual_percent', values['actual_percent']),
-                                                     ('expected_percent', values['expected_percent']))):
-                    shown = str(value) if key == 'actual_count' else ('—' if value is None else f'{value:.1f}%')
-                    centered(text(key, value=shown), metric_center, y+29+line*23,
-                             14, key=='actual_count', right-metric_left)
-        for index, note in enumerate(('expectation_note', 'random_only')):
-            left = rect.left+round(rect.width*boundaries[index])+12
-            width = round(rect.width*(boundaries[index+1]-boundaries[index]))-24
-            y = rect.top+round(rect.height*.835)
-            font = self._newspaper_font(13)
-            for line in wrap_lines(text(note), font, width):
-                self.screen.blit(font.render(line, True, ink), (left, y))
-                y += 15
+                expected = f"{values['expected_count']:.1f}".rstrip('0').rstrip('.')
+                actual_percent = values['actual_percent']
+                expected_percent = values['expected_percent']
+                cells = ((.36, str(values['count'])),
+                         (.53, '—' if actual_percent is None else f'{actual_percent:.1f}%'),
+                         (.715, expected),
+                         (.90, '—' if expected_percent is None else f'{expected_percent:.1f}%'))
+                for position, label in cells:
+                    centered(label, x(position), center_y - 12, 22, False, group_width * .16)
+            centered(text('sample_count', count=summary[stock]['rolls']), x(.5),
+                     table_bottom + 12, 15, width=group_width * .9)
+        note_width = round(table_width * .62)
+        note_y = rect.top + round(rect.height * .85)
+        font = self._newspaper_font(13)
+        for note in ('expectation_note', 'random_only'):
+            for line in wrap_lines(text(note), font, note_width):
+                self.screen.blit(font.render(line, True, ink), (left_margin, note_y))
+                note_y += 16
+            note_y += 5

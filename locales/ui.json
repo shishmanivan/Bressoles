@@ -1,5 +1,21 @@
 [
   {
+    "Source": "PriceCut",
+    "RU": "PriceCut",
+    "ENG": "PriceCut",
+    "DE": "Zielsenkung",
+    "HU": "Célcsökkentés",
+    "FR": "Réduction des objectifs"
+  },
+  {
+    "Source": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
+    "RU": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
+    "ENG": "Permanently reduces this level's goals by 4%. This offer is available in shops up to and including level 6.",
+    "DE": "Senkt die Ziele dieses Levels dauerhaft um 4%. Dieses Angebot ist bis einschließlich Level 6 im Laden erhältlich.",
+    "HU": "Véglegesen 4%-kal csökkenti ennek a szintnek a céljait. Ez az ajánlat a 6. szintig bezárólag érhető el a boltban.",
+    "FR": "Réduit définitivement les objectifs de ce niveau de 4 %. Cette offre est disponible en boutique jusqu’au niveau 6 inclus."
+  },
+  {
     "Source": "(Осталось {v0} ходов) до активации.",
     "RU": "(Осталось {v0} ходов) до активации.",
     "ENG": "({v0} turns remaining) until activation.",
@@ -528,12 +544,12 @@
     "FR": "Ne peut être jouée qu’au dernier tour. A 50 % de chances de doubler le cours des actions que vous détenez."
   },
   {
-    "Source": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
-    "RU": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 10%.",
-    "ENG": "May award a random gold card at the end of a victorious round. Each failed attempt raises the chance by 2 percentage points. It resets to 10% in a new run.",
-    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Nach einem Fehlschlag steigt die Chance um 2 Prozentpunkte. Zu Beginn eines neuen Durchlaufs wird sie auf 10 % zurückgesetzt.",
-    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Minden sikertelen próbálkozás 2 százalékponttal növeli az esélyt. Új menetben az esély visszaáll 10%-ra.",
-    "FR": "Peut attribuer une carte dorée aléatoire après une manche victorieuse. Chaque échec augmente la probabilité de 2 points. Elle revient à 10 % au début d’une nouvelle partie."
+    "Source": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
+    "RU": "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
+    "ENG": "May award a random gold card at the end of a victorious round. Each failed attempt raises the chance by 2 percentage points. It resets to 15% in a new run.",
+    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Nach einem Fehlschlag steigt die Chance um 2 Prozentpunkte. Zu Beginn eines neuen Durchlaufs wird sie auf 15 % zurückgesetzt.",
+    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Minden sikertelen próbálkozás 2 százalékponttal növeli az esélyt. Új menetben az esély visszaáll 15%-ra.",
+    "FR": "Peut attribuer une carte dorée aléatoire après une manche victorieuse. Chaque échec augmente la probabilité de 2 points. Elle revient à 15 % au début d’une nouvelle partie."
   },
   {
     "Source": "Продаёт акции дороже их стоимости. Каждое падение акций A увеличивает процент продажи ещё на 2 пункта.",
@@ -2432,12 +2448,12 @@
     "FR": "Transforme une défaite en manche ordinaire en victoire. Le montant manquant est ajouté à l’objectif de la prochaine manche ordinaire. Inutilisable contre les adversaires."
   },
   {
-    "Source": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
-    "RU": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 10%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
-    "ENG": "May award a random gold card at the end of a victorious round. The base chance is 10% and rises by 2 percentage points after each failed attempt. After a success, it cannot trigger again until the next run.",
-    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Die Grundchance beträgt 10 % und steigt nach jedem Fehlschlag um 2 Prozentpunkte. Nach einem Erfolg wird der Effekt erst im nächsten Durchlauf wieder verfügbar.",
-    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Az alap esély 10%, amely minden sikertelen próbálkozás után 2 százalékponttal nő. Siker után csak a következő menetben aktiválódhat újra.",
-    "FR": "Peut attribuer une carte dorée aléatoire après une manche victorieuse. La probabilité initiale est de 10 % et augmente de 2 points après chaque échec. Après un succès, ne peut plus s’activer avant la partie suivante."
+    "Source": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 15%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
+    "RU": "В конце победного раунда может дать случайную золотую карту. Базовый шанс 15%, после неудачи шанс растёт на 2%. После успеха больше не срабатывает до следующего забега.",
+    "ENG": "May award a random gold card at the end of a victorious round. The base chance is 15% and rises by 2 percentage points after each failed attempt. After a success, it cannot trigger again until the next run.",
+    "DE": "Kann am Ende einer gewonnenen Runde eine zufällige Goldkarte gewähren. Die Grundchance beträgt 15 % und steigt nach jedem Fehlschlag um 2 Prozentpunkte. Nach einem Erfolg wird der Effekt erst im nächsten Durchlauf wieder verfügbar.",
+    "HU": "Győztes forduló végén véletlenszerű aranykártyát adhat. Az alap esély 15%, amely minden sikertelen próbálkozás után 2 százalékponttal nő. Siker után csak a következő menetben aktiválódhat újra.",
+    "FR": "Peut attribuer une carte dorée aléatoire après une manche victorieuse. La probabilité initiale est de 15 % et augmente de 2 points après chaque échec. Après un succès, ne peut plus s’activer avant la partie suivante."
   },
   {
     "Source": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора.",
