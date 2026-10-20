@@ -19,6 +19,7 @@ from shop_page import (
 
 
 SHOP_STATE_FIELDS = (
+    "flash_issue_slots",
     "price_cut_purchases_by_level",
     "protective_put_charges",
     "active_price_support_rounds",
@@ -85,6 +86,7 @@ class ShopEconomyTestCase(unittest.TestCase):
             for field in SHOP_STATE_FIELDS
         }
         game_state.napoleondors = 0
+        game_state.flash_issue_slots = 0
         game_state.price_cut_purchases_by_level = {}
         game_state.protective_put_charges = 0
         game_state.active_price_support_rounds = []
@@ -1307,7 +1309,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 10, 100, 100, 100, 100],
+                side_effect=[100, 100, 100, 100, 10, 100, 100, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(4, max_offers=20)
@@ -1462,7 +1464,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 5, 100, 100, 100, 100],
+                side_effect=[100, 100, 100, 100, 5, 100, 100, 100, 100, 100],
             ),
         ):
             offers = game_state.build_shop_special_offer_pool(4, max_offers=20)
@@ -1658,7 +1660,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             mock.patch.object(
                 game_state.random,
                 "randint",
-                side_effect=[100, 100, 100, 100, 10, 100, 100, 100],
+                side_effect=[100, 100, 100, 100, 10, 100, 100, 100, 100],
             ),
             mock.patch.object(game_state, "is_protective_put_offer_available", return_value=False),
             mock.patch.object(game_state, "is_price_support_offer_available", return_value=False),

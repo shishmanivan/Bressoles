@@ -53,6 +53,7 @@ SPECIAL_ASSETS = {
     "derivative": ("Дериватив", os.path.join("Shop", "Derivative.png")),
     "junk_bond": ("Джанк-бонд", os.path.join("Shop", "Junk Bond.png")),
     "issuer": ("Эмитент", os.path.join("Shop", "Issuer.png")),
+    "flash_issue": ("Flash Issue", os.path.join("Shop", "Flash Issue.png")),
     "bank": ("Банк", os.path.join("Shop", "Bank.png")),
     "multibagger": ("Мультбэггер", os.path.join("Shop", "Multibagger.png")),
     "variance": ("Дисперсия", os.path.join("Shop", "Variance.png")),
@@ -81,6 +82,7 @@ SPECIAL_ASSETS = {
 }
 
 SPECIAL_DESCRIPTIONS = {
+    "flash_issue": "Добавляет одно место для серебряной, чёрной или золотой карты на один раунд. После раунда карта из исчезнувшего места возвращается в хранилище, а серебряная карта удаляется.",
     "moratorium": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
     "delisting": "Удаляет одну выбранную карту из колоды.",
     "trader": "Позволяет продать одну карту из колоды.",
@@ -120,6 +122,9 @@ INVESTMENT_DESCRIPTION = (
 )
 
 CARD_DESCRIPTIONS = {
+    222: "Снижает цель раунда на 10%.",
+    223: "Снижает цель раунда на 20%.",
+    224: "Снижает цель раунда на 40%.",
     304: "Никто не знает, что эта карта делает.",
     305: "В три раза увеличивает Rebate эффект",
     126: "Никто не знает, что эта карта делает.",
@@ -156,6 +161,9 @@ CARD_DESCRIPTIONS = {
 }
 
 CARD_NAMES = {
+    222: "Flash Sale −10%",
+    223: "Flash Sale −20%",
+    224: "Flash Sale −40%",
     304: "25%",
     305: "100%",
     126: "25%",
@@ -836,6 +844,15 @@ class ShopPage(AdaptivePage):
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Bailout активирован на 5 раундов"
+            return
+
+        if special_id == "flash_issue":
+            if not game_state.buy_flash_issue(self.level_number):
+                return
+            game_state.spend_napoleondors(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["flash_issue"]
             return
 
         if special_id == "price_cut":

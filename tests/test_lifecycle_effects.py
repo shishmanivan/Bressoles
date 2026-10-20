@@ -12,6 +12,29 @@ from silver_black_page import CARD_TOOLTIPS, get_positioning_selection_limit
 
 
 class LifecycleEffectTests(unittest.TestCase):
+    def test_flash_sale_discounts_apply_in_regular_and_boss_rounds(self):
+        for card_id, expected in ((222, 90), (223, 80), (224, 60)):
+            for boss in (False, True):
+                with self.subTest(card=card_id, boss=boss):
+                    page = self._page(silver=[card_id])
+                    page.Goal = 100
+                    page.is_boss_fight = boss
+                    self.assertTrue(page._apply_flash_sale_goal_modifier())
+                    self.assertEqual(page.Goal, expected)
+
+    def test_flash_sale_stacks_and_catalysts_strengthen_discount(self):
+        page = self._page(silver=[222, 223, 210], gold=[414])
+        page.Goal = 100
+        page._apply_flash_sale_goal_modifier()
+        self.assertEqual(page.Goal, 20)
+        page = self._page(silver=[224, 224, 224])
+        page.Goal = 100
+        page._apply_flash_sale_goal_modifier()
+        self.assertEqual(page.Goal, 1)
+        page.Goal = 0
+        self.assertFalse(page._apply_flash_sale_goal_modifier())
+        self.assertEqual(page.Goal, 0)
+
     def setUp(self):
         self.original_state = {
             "bear_goal_reduction_steps": game_state.bear_goal_reduction_steps,

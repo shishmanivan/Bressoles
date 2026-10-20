@@ -11,6 +11,7 @@ import game_state
 from card_acquisition_stats import get_encountered_card_ids
 from gameplay_deck import restore_card_instance, serialize_card_instance
 from player_market_stats import empty_stats, accumulate
+from player_other_stats import empty_stats as empty_other_stats, record as record_other_stats
 
 
 PROFILES_DIR = "Profiles"
@@ -212,6 +213,8 @@ def _default_profile(slot):
         "active_game": None,
         "tutorial_seen": [],
         "market_roll_stats": empty_stats(),
+        "other_stats": empty_other_stats(),
+        "lifecycle_card_stats": {"version": 1, "counts": {}, "rounds": {}},
     }
 
 
@@ -232,6 +235,7 @@ def _empty_progress():
         "global_start_c_shares_bonus": 0,
         "derivative_bought": False,
         "issuer_bought_count": 0,
+        "flash_issue_slots": 0,
         "boss_lifecycle_slot_bonus": 0,
         "boss_shop_offer_bonus": 0,
         "boss_rare_card_pool_bonus_percent": 0,
@@ -308,6 +312,8 @@ def load_profile(slot):
     profile.update(data)
     # Never imply that a legacy profile has been tracked since its creation.
     profile["market_roll_stats"] = data.get("market_roll_stats")
+    profile["other_stats"] = data.get("other_stats")
+    profile["lifecycle_card_stats"] = data.get("lifecycle_card_stats")
     # Existing profiles predate onboarding; only newly created profiles opt in.
     profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards", "stock_logo_hover"])
     profile["slot"] = slot
@@ -528,6 +534,10 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.global_hand_bonus = int(progress.get("global_hand_bonus", 0) or 0)
     game_state.global_start_c_shares_bonus = int(progress.get("global_start_c_shares_bonus", 0) or 0)
     game_state.derivative_bought = bool(progress.get("derivative_bought", False))
+    try:
+        game_state.flash_issue_slots = max(0, int(progress.get("flash_issue_slots", 0) or 0))
+    except (TypeError, ValueError):
+        game_state.flash_issue_slots = 0
     try:
         game_state.issuer_bought_count = max(
             0,
@@ -819,6 +829,42 @@ def record_player_market_rolls(slot, rolls, quantities, *, test_mode=False):
     save_profile(profile)
 
 
+def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None):
+    if not slot or not os.path.exists(get_profile_path(slot)):
+        return None
+    profile = load_profile(slot)
+    stats = profile.get("other_stats")
+    if stats is None:
+        return None
+    record_other_stats(stats, round_id, cards, earned=earned, label=label)
+    save_profile(profile)
+    return copy.deepcopy(stats)
+
+
+def record_player_lifecycle_cards(slot, round_id, cards, *, test_mode=False):
+    """Count each equipped copy once per round; replaying a save adds nothing."""
+    if not slot or test_mode or not round_id or not os.path.exists(get_profile_path(slot)):
+        return
+    from collections import Counter
+    profile = load_profile(slot)
+    stats = profile.get("lifecycle_card_stats")
+    if stats is None:
+        return
+    current = Counter(str(int(card)) for card in cards if 200 <= int(card) < 500)
+    if not current:
+        return
+    previous = stats["rounds"].setdefault(round_id, {})
+    changed = False
+    for card, count in current.items():
+        delta = max(0, count - previous.get(card, 0))
+        if delta:
+            stats["counts"][card] = stats["counts"].get(card, 0) + delta
+            previous[card] = count
+            changed = True
+    if changed:
+        save_profile(profile)
+
+
 def save_progress_from_game_state(slot):
     if not slot:
         return None
@@ -874,6 +920,7 @@ def _capture_progress():
         "global_start_c_shares_bonus": int(game_state.global_start_c_shares_bonus),
         "derivative_bought": bool(game_state.derivative_bought),
         "issuer_bought_count": game_state.get_issuer_bought_count(),
+        "flash_issue_slots": game_state.flash_issue_slots,
         "boss_lifecycle_slot_bonus": max(0, int(game_state.boss_lifecycle_slot_bonus or 0)),
         "boss_shop_offer_bonus": game_state.get_boss_shop_offer_bonus(),
         "boss_rare_card_pool_bonus_percent": game_state.get_boss_rare_card_pool_bonus(),
@@ -1083,6 +1130,7 @@ def _serialize_boss_progress(source):
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
+            "other_stats": copy.deepcopy(state.get("other_stats")),
         }
     return result
 
@@ -1114,6 +1162,7 @@ def _restore_boss_progress(source):
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
+            "other_stats": copy.deepcopy(state.get("other_stats")),
         }
     return result
 

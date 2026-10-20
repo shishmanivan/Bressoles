@@ -230,6 +230,27 @@ class NewspaperTests(unittest.TestCase):
             else:
                 self.assertEqual(summary['B']['rolls'], 1 if scope == 'run' else 0)
 
+    def test_other_tab_renders_two_statistic_periods_and_legacy_notice(self):
+        from player_other_stats import empty_stats, record
+        page = make_page()
+        page.result_report_stage = 'market_report'
+        page.market_report_image = pygame.Surface((1323, 882))
+        page.finance_report_y = 84
+        page.finance_stamp_state = 'idle'
+        rect = page.market_report_image.get_rect(center=(840, 525))
+        page._handle_newspaper_input(pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=page._market_report_tabs(rect)['other'].center))
+        self.assertEqual(page.market_report_scope, 'other')
+        for language in SUPPORTED_LANGUAGES:
+            set_language(language)
+            page.other_stats_run = page.other_stats_lifetime = None
+            page._draw_market_report_rows(rect)
+            stats = empty_stats()
+            record(stats, 'round', 25, earned=1234,
+                   label=dict(level=3, round=2, boss=False, boss_number=None))
+            page.other_stats_run = page.other_stats_lifetime = stats
+            page._draw_market_report_rows(rect)
+
     def test_languages_have_matching_placeholders_and_render_both_results(self):
         reference = catalog()['RU']
         fields = lambda value: {key for _, key, _, _ in Formatter().parse(value) if key}

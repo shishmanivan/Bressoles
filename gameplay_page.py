@@ -53,6 +53,7 @@ from card_catalog import (
     REGULATION_CARD_IDS,
     SILVER_CONCENTRATION_CARD_ID,
     SILVER_NABOB_CARD_ID,
+    FLASH_SALE_DISCOUNTS,
 )
 from game_data import (
     REWARD_TOKEN_RANDOM_RED,
@@ -584,6 +585,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.Goal = goal if goal is not None else 0  # Use passed goal or default to 0
         self._apply_bear_goal_modifier()
         self._apply_markdown_goal_modifier()
+        self._apply_flash_sale_goal_modifier()
         if self.insurance_goal_debt:
             self.Goal += self.insurance_goal_debt
             print(
@@ -939,6 +941,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.market_copy_resolved = set()
         self.market_copy_turn_state = {}
         self._apply_starting_market_effects()
+        self._init_other_stats()
         self._restore_saved_state(self._initial_saved_state)
         if not isinstance(self._initial_saved_state, dict) or "shareholder_blocked_market" not in self._initial_saved_state:
             self._roll_shareholder_market_shutdown()
@@ -2050,6 +2053,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "newspaper_events": list(getattr(self, 'newspaper_events', [])),
             "run_market_roll_stats": getattr(self, 'run_market_roll_stats', None),
             "market_report_scope": getattr(self, 'market_report_scope', 'round'),
+            "other_stats": self._serialize_other_stats(),
             "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
             "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
             "newspaper_closing": bool(getattr(self, 'newspaper_closing', False)),
@@ -2202,9 +2206,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.win_lose_state is not None and 'newspaper_events' not in state:
             self.result_report_stage = 'newspaper'
         self.newspaper_events = list(state.get('newspaper_events') or [])
+        self._restore_other_stats(state)
         self.run_market_roll_stats = state.get('run_market_roll_stats')
         self.market_report_scope = state.get('market_report_scope', 'round')
-        if self.market_report_scope not in ('round', 'run', 'lifetime'):
+        if self.market_report_scope not in ('round', 'run', 'lifetime', 'other'):
             self.market_report_scope = 'round'
         self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
         self.newspaper_y = float(state.get('newspaper_y', -SCREEN_HEIGHT))
@@ -3234,6 +3239,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
+        self._finish_other_stats()
         self._capture_newspaper_turn(final=True)
         self.win_lose_state = next_state
         self.frugality_bonus_turns = self._settle_frugality_for_finished_round()
@@ -3327,6 +3333,23 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.result_report_stage = 'newspaper'
         self._start_newspaper_entrance()
         self._newspaper_surface_cache = None
+        self._expire_flash_issue()
+
+    def _expire_flash_issue(self):
+        if not game_state.flash_issue_slots:
+            return
+        retained = game_state.expire_flash_issue(
+            self._normalize_active_lifecycle_card_order(self.active_lifecycle_card_order),
+            silver_already_spent=self.active_silver_cards_spent,
+        )
+        if retained is None:
+            return
+        self.active_lifecycle_card_order = retained
+        self.active_silver_cards = [entry["card_id"] for entry in retained if entry.get("kind") == "silver"]
+        self.active_black_cards = list(game_state.active_black_cards)
+        self.active_gold_cards = list(game_state.active_gold_cards)
+        if self.profile_slot and not self.test_mode:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
 
     def _try_complete_percent_puzzle(self):
         """Consume one equipped quarter of each colour when red 126 is placed."""
@@ -3768,6 +3791,27 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             f"Gold card 422 Markdown reduced round {round_num} Goal by {discount_percent}%: "
             f"{base_goal:g} -> {self.Goal}"
         )
+        return True
+
+    def _apply_flash_sale_goal_modifier(self):
+        counts = {
+            card_id: self._count_active_silver_card(card_id)
+            for card_id in FLASH_SALE_DISCOUNTS
+        }
+        if not any(counts.values()):
+            return False
+        try:
+            base_goal = float(self.Goal)
+        except (TypeError, ValueError):
+            return False
+        if base_goal <= 0:
+            return False
+        amplifier = self._get_percentage_amplifier_bonus()
+        discount = min(100, sum(
+            count * (FLASH_SALE_DISCOUNTS[card_id] + amplifier)
+            for card_id, count in counts.items()
+        ))
+        self.Goal = max(1, int(base_goal * (100 - discount) / 100))
         return True
 
     def _get_current_bear_goal_discount_percent(self):
@@ -5481,6 +5525,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.end_turn_sound.play()
         if self._try_start_waterloo_preview():
             return True
+        self._commit_other_stats_cards()
         self.turn_resolution_active = True
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False

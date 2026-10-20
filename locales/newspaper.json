@@ -45,7 +45,15 @@
     "scope_round": "За раунд",
     "scope_run": "За всю игру",
     "scope_lifetime": "За всё время",
-    "no_roll_history": "Для этого периода история бросков не сохранена."
+    "no_roll_history": "Для этого периода история бросков не сохранена.",
+    "scope_other": "Другое",
+    "no_other_history": "Статистика доступна для новых профилей.",
+    "other_round": "Уровень {level}, раунд {number}",
+    "other_boss": "Уровень {level}, босс {number}",
+    "other_best": "Лучший раунд: {value}",
+    "other_cards": "Сыграно карт: {value}",
+    "other_average": "В среднем заработано за раунд: {value}",
+    "other_note": "Заработок — деньги на счету в конце раунда. Учитываются только завершённые раунды без оставшихся акций, включая поражения. Обычные карты считаются после End."
   },
   "ENG": {
     "win": "The player achieved victory!",
@@ -93,7 +101,15 @@
     "scope_round": "This round",
     "scope_run": "This run",
     "scope_lifetime": "All time",
-    "no_roll_history": "No roll history was saved for this period."
+    "no_roll_history": "No roll history was saved for this period.",
+    "scope_other": "Other",
+    "no_other_history": "Statistics are available for new profiles.",
+    "other_round": "Level {level}, round {number}",
+    "other_boss": "Level {level}, boss {number}",
+    "other_best": "Best round: {value}",
+    "other_cards": "Cards played: {value}",
+    "other_average": "Average earnings per round: {value}",
+    "other_note": "Earnings are the final cash balance. Only completed rounds with no remaining shares count, including losses. Ordinary cards count after End."
   },
   "DE": {
     "win": "Der Spieler hat gesiegt!",
@@ -141,7 +157,15 @@
     "scope_round": "Diese Runde",
     "scope_run": "Dieser Durchlauf",
     "scope_lifetime": "Gesamtzeit",
-    "no_roll_history": "Für diesen Zeitraum wurde kein Wurfverlauf gespeichert."
+    "no_roll_history": "Für diesen Zeitraum wurde kein Wurfverlauf gespeichert.",
+    "scope_other": "Sonstiges",
+    "no_other_history": "Statistiken sind für neue Profile verfügbar.",
+    "other_round": "Level {level}, Runde {number}",
+    "other_boss": "Level {level}, Boss {number}",
+    "other_best": "Beste Runde: {value}",
+    "other_cards": "Gespielte Karten: {value}",
+    "other_average": "Durchschnittlicher Gewinn pro Runde: {value}",
+    "other_note": "Gewinn bezeichnet den abschließenden Kontostand. Nur abgeschlossene Runden ohne verbleibende Aktien zählen, auch Niederlagen. Normale Karten zählen nach End."
   },
   "HU": {
     "win": "A játékos győzelmet aratott!",
@@ -189,7 +213,15 @@
     "scope_round": "Ebben a körben",
     "scope_run": "Ebben a menetben",
     "scope_lifetime": "Összesen",
-    "no_roll_history": "Erre az időszakra nincs mentett dobástörténet."
+    "no_roll_history": "Erre az időszakra nincs mentett dobástörténet.",
+    "scope_other": "Egyéb",
+    "no_other_history": "A statisztika új profilokhoz érhető el.",
+    "other_round": "{level}. szint, {number}. kör",
+    "other_boss": "{level}. szint, {number}. főellenfél",
+    "other_best": "Legjobb kör: {value}",
+    "other_cards": "Kijátszott lapok: {value}",
+    "other_average": "Átlagos nyereség körönként: {value}",
+    "other_note": "A nyereség a kör végi készpénz. Csak a befejezett, megmaradt részvények nélküli körök számítanak, a vereségek is. A normál lapok az End után számítanak."
   },
   "FR": {
     "win": "Le joueur a remporté la victoire !",
@@ -237,6 +269,14 @@
     "scope_round": "Cette manche",
     "scope_run": "Cette partie",
     "scope_lifetime": "Depuis le début",
-    "no_roll_history": "Aucun historique des tirages enregistré pour cette période."
+    "no_roll_history": "Aucun historique des tirages enregistré pour cette période.",
+    "scope_other": "Autres",
+    "no_other_history": "Statistiques disponibles pour les nouveaux profils.",
+    "other_round": "Niveau {level}, manche {number}",
+    "other_boss": "Niveau {level}, adversaire {number}",
+    "other_best": "Meilleure manche : {value}",
+    "other_cards": "Cartes jouées : {value}",
+    "other_average": "Gain moyen par manche : {value}",
+    "other_note": "Le gain est le solde final en espèces. Seules les manches terminées sans actions restantes comptent, défaites comprises. Les cartes ordinaires comptent après End."
   }
 }

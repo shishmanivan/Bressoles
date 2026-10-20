@@ -1,5 +1,21 @@
 [
   {
+    "Source": "Flash Issue",
+    "RU": "Flash Issue",
+    "ENG": "Flash Issue",
+    "DE": "Blitzemission",
+    "HU": "Villámkibocsátás",
+    "FR": "Émission éclair"
+  },
+  {
+    "Source": "Добавляет одно место для серебряной, чёрной или золотой карты на один раунд. После раунда карта из исчезнувшего места возвращается в хранилище, а серебряная карта удаляется.",
+    "RU": "Добавляет одно место для серебряной, чёрной или золотой карты на один раунд. После раунда карта из исчезнувшего места возвращается в хранилище, а серебряная карта удаляется.",
+    "ENG": "Adds one slot for a silver, black or gold card for one round. After the round, the card in the removed slot returns to storage; a silver card is discarded instead.",
+    "DE": "Fügt für eine Runde einen Platz für eine Silber-, Schwarz- oder Goldkarte hinzu. Danach kehrt die Karte aus dem entfernten Platz ins Lager zurück; eine Silberkarte wird stattdessen entfernt.",
+    "HU": "Egy fordulóra egy hellyel bővíti az ezüst-, fekete- és aranykártyák helyeit. Utána a megszűnt hely kártyája visszakerül a tárolóba; az ezüstkártya viszont elvész.",
+    "FR": "Ajoute un emplacement pour une carte argentée, noire ou dorée pendant une manche. Ensuite, la carte de l’emplacement supprimé retourne au stockage ; une carte argentée est défaussée."
+  },
+  {
     "Source": "PriceCut",
     "RU": "PriceCut",
     "ENG": "PriceCut",

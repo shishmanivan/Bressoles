@@ -41,16 +41,16 @@ class MarketRollStatsTests(unittest.TestCase):
         self.assertEqual(float(rows[2]["СлучайноеЧисло0до100"]), 90)
 
     def test_forced_c_does_not_remove_random_a_and_b(self):
-        queue, rolls = self._rolls((0.1, 0.9), forced_rise_markets={2})
-        self.assertEqual([r["market"] for r in rolls], [0, 1])
+        queue, rolls = self._rolls((0.1, 0.9, 0.5), forced_rise_markets={2})
+        self.assertEqual([r["market"] for r in rolls], [0, 1, 2])
         self.assertEqual(queue[2]["type"], "rise")
 
     def test_forced_fall_flat_and_guaranteed_probability_are_excluded(self):
         cases = [
-            ({"forced_fall_markets": {1}}, [0, 2]),
+            ({"forced_fall_markets": {1}}, [0, 1, 2]),
             ({"force_flat": True}, []),
-            ({"market_cards": {0: {}, 1: {}, 2: {}}, "force_flat_markets": {1}}, [0, 2]),
-            ({"market_cards": {0: {0: 2}}, "probability_card_bonus": 100}, [1, 2]),
+            ({"market_cards": {0: {}, 1: {}, 2: {}}, "force_flat_markets": {1}}, [0, 1, 2]),
+            ({"market_cards": {0: {0: 2}}, "probability_card_bonus": 100}, [0, 1, 2]),
         ]
         for kwargs, expected in cases:
             with self.subTest(kwargs=kwargs):
@@ -139,7 +139,7 @@ class MarketRollStatsTests(unittest.TestCase):
             movements = page.update_stock_prices()
         self.assertEqual(len([m for m in movements if m["market"] == 2]), 2)
         rows = self._read(self.journal)
-        self.assertEqual([r["Акция"] for r in rows], ["A", "B"])
+        self.assertEqual([r["Акция"] for r in rows], ["A", "B", "C"])
         self.assertTrue(all(r["Профиль"] == "3" for r in rows))
 
 

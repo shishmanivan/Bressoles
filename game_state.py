@@ -67,6 +67,7 @@ golden_stocks_triggered = False
 golden_stocks_trigger_count = 0
 derivative_bought = False
 issuer_bought_count = 0
+flash_issue_slots = 0
 boss_lifecycle_slot_bonus = 0
 boss_shop_offer_bonus = 0
 boss_rare_card_pool_bonus_percent = 0
@@ -100,6 +101,7 @@ SHOP_SPECIAL_COSTS = {
     "derivative": 5,
     "junk_bond": 2,
     "issuer": 8,
+    "flash_issue": 2,
     "bank": 3,
     "multibagger": 5,
     "variance": 1,
@@ -238,7 +240,7 @@ SHOP_CARD_COSTS = {
     441: 6,
 }
 
-DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208}
+DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208, 222, 223, 224}
 LICENSE_COSTS = {
     126: 3,
     221: 3,
@@ -2008,6 +2010,7 @@ def _reset_run_bonuses():
     global global_hand_bonus, global_start_c_shares_bonus, profit_reward_bonus
     global updown_probability_bonus, variance_offer_bought_count, derivative_bought
     global issuer_bought_count, boss_lifecycle_slot_bonus, boss_shop_offer_bonus
+    global flash_issue_slots
     global boss_rare_card_pool_bonus_percent, deal_flow_bonus_percent, multibagger_bought
     global diversification_bought, expansion_bought, bill_of_exchange_offer_bought, compounding_bought
     global_dobor = 1
@@ -2020,6 +2023,7 @@ def _reset_run_bonuses():
     variance_offer_bought_count = 0
     derivative_bought = False
     issuer_bought_count = 0
+    flash_issue_slots = 0
     boss_lifecycle_slot_bonus = 0
     boss_shop_offer_bonus = 0
     boss_rare_card_pool_bonus_percent = 0
@@ -2445,7 +2449,32 @@ def get_lifecycle_card_slot_limit():
     except (TypeError, ValueError):
         boss_bonus = 0
     completion_bonus = LEVEL_5_COMPLETION_LIFECYCLE_SLOT_BONUS if level_5_boss_defeated else 0
-    return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus
+    return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus + flash_issue_slots
+
+
+def buy_flash_issue(level_number):
+    global flash_issue_slots
+    if int(level_number or 0) < 4:
+        return False
+    flash_issue_slots += 1
+    return True
+
+
+def expire_flash_issue(selected_order, silver_already_spent=False):
+    """Remove temporary rightmost slots, not cards of a preferred colour."""
+    global flash_issue_slots
+    if not flash_issue_slots:
+        return None
+    flash_issue_slots = 0
+    limit = get_lifecycle_card_slot_limit()
+    retained = list(selected_order or [])[:limit]
+    if not silver_already_spent:
+        spend_silver_cards([entry["card_id"] for entry in list(selected_order or [])[limit:]
+                           if entry.get("kind") == "silver"])
+    set_active_black_cards([entry["card_id"] for entry in retained if entry.get("kind") == "black"])
+    set_active_gold_cards([entry["card_id"] for entry in retained if entry.get("kind") == "gold"])
+    set_active_lifecycle_card_order(retained)
+    return retained
 
 
 def add_boss_lifecycle_card_slot_bonus(amount=1):
@@ -2796,6 +2825,8 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
         add("derivative")
     if get_issuer_bought_count() > 0:
         add("issuer")
+    for _ in range(flash_issue_slots):
+        add("flash_issue", 1, "rounds")
     if bank_bought:
         add("bank")
     if int(variance_offer_bought_count or 0) > 0:
@@ -3184,6 +3215,7 @@ def _available_screening_offer_ids(
         "long": is_long_offer_available(rounds_remaining),
         "junk_bond": True,
         "issuer": is_issuer_offer_available(),
+        "flash_issue": level >= 4,
         "bank": is_bank_offer_available(),
         "derivative": is_derivative_offer_available(),
         "multibagger": is_multibagger_offer_available(level),
@@ -3425,6 +3457,8 @@ def build_shop_special_offer_pool(
         rolled.append("junk_bond")
     if issuer_hit:
         rolled.append("issuer")
+    if level >= 4 and random.randint(1, 100) <= get_shop_special_offer_chance(20):
+        rolled.append("flash_issue")
     if derivative_hit:
         rolled.append("derivative")
     if trader_hit:

@@ -8,6 +8,8 @@ import native_render as pygame
 import game_state
 import profile_manager
 from player_market_stats import accumulate, summarize
+from player_other_stats import average
+from gameplay_other_stats import OtherStatsMixin
 from localization import get_language, translate
 
 
@@ -121,7 +123,7 @@ def articles(page, detailed=False):
     return [finance, cards, market]
 
 
-class NewspaperReportMixin:
+class NewspaperReportMixin(OtherStatsMixin):
     def _record_run_market_rolls(self, rolls):
         if not rolls:
             return
@@ -159,11 +161,11 @@ class NewspaperReportMixin:
 
     def _market_report_tabs(self, rect):
         gap = 12
-        width = round(rect.width * .22)
-        left = rect.centerx - (3 * width + 2 * gap) // 2
+        width = round(rect.width * .21)
+        left = rect.centerx - (4 * width + 3 * gap) // 2
         return {scope: pygame.Rect(left + index * (width + gap),
                                   rect.top + round(rect.height * .365), width, 28)
-                for index, scope in enumerate(('round', 'run', 'lifetime'))}
+                for index, scope in enumerate(('round', 'run', 'lifetime', 'other'))}
 
     def _newspaper_event(self, kind, **data):
         if not hasattr(self, 'newspaper_events'):
@@ -451,6 +453,9 @@ class NewspaperReportMixin:
             if scope == tab_scope:
                 pygame.draw.line(self.screen, ink, (tab.left + 8, tab.bottom - 4),
                                  (tab.right - 8, tab.bottom - 4), 2)
+        if scope == 'other':
+            self._draw_other_report(rect)
+            return
         summary = self._market_report_summary()
         if summary is None:
             centered(text('no_roll_history'), rect.centerx, rect.top + round(rect.height * .55),
@@ -484,16 +489,14 @@ class NewspaperReportMixin:
             self.screen.blit(stock_image, stock_image.get_rect(center=(x(.075), row_centers[1])))
             for row, outcome in enumerate(('rise', 'flat', 'fall')):
                 center_y = row_centers[row]
-                # Small ink graphs mirror the sketch without repeating row labels.
-                graph_width = max(18, round(group_width * .105))
-                graph_height = max(10, round(rect.height * .022))
-                graph_left = x(.205) - graph_width // 2
-                direction = {'rise': -1, 'flat': 0, 'fall': 1}[outcome]
-                profile = (-.5, -.35, -.4, .1, .15, .5)
-                points = [(graph_left + round(i * graph_width / 5),
-                           center_y + round(direction * value * graph_height))
-                          for i, value in enumerate(profile)]
-                pygame.draw.lines(self.screen, ink, False, points, 2)
+                icon = getattr(self, 'market_report_icons', {}).get(outcome)
+                if icon:
+                    scale = min(group_width * .17 / icon.get_width(),
+                                rect.height * .075 / icon.get_height())
+                    size = (max(1, round(icon.get_width() * scale)),
+                            max(1, round(icon.get_height() * scale)))
+                    graph = pygame.transform.smoothscale(icon, size)
+                    self.screen.blit(graph, graph.get_rect(center=(x(.205), center_y)))
                 values = summary[stock]['outcomes'][outcome]
                 expected = f"{values['expected_count']:.1f}".rstrip('0').rstrip('.')
                 actual_percent = values['actual_percent']
@@ -514,3 +517,45 @@ class NewspaperReportMixin:
                 self.screen.blit(font.render(line, True, ink), (left_margin, note_y))
                 note_y += 16
             note_y += 5
+
+    def _draw_other_report(self, rect):
+        ink = (38, 30, 21)
+        top = rect.top + round(rect.height * .43)
+        bottom = rect.top + round(rect.height * .84)
+        pygame.draw.line(self.screen, ink, (rect.centerx, top), (rect.centerx, bottom), 1)
+        for index, (heading, stats) in enumerate((
+                ('scope_run', getattr(self, 'other_stats_run', None)),
+                ('scope_lifetime', getattr(self, 'other_stats_lifetime', None)))):
+            left = rect.left + round(rect.width * (.045 + index * .5))
+            width = round(rect.width * .41)
+            font = self._newspaper_font(23, True)
+            title = font.render(text(heading), True, ink)
+            self.screen.blit(title, title.get_rect(centerx=left + width // 2, top=top))
+            y = top + 55
+            if stats is None:
+                rows = [text('no_other_history')]
+            else:
+                best = stats['best']
+                if best:
+                    label = best['label']
+                    key = 'other_boss' if label['boss'] else 'other_round'
+                    identity = text(key, level=label['level'],
+                                    number=label['boss_number'] if label['boss'] else label['round'])
+                    best_value = f"{identity} — {best['earned']:g}"
+                else:
+                    best_value = '—'
+                mean = average(stats)
+                rows = [text('other_best', value=best_value),
+                        text('other_cards', value=stats['cards']),
+                        text('other_average', value='—' if mean is None else f'{mean:.1f}')]
+            font = self._newspaper_font(21)
+            for value in rows:
+                for line in wrap_lines(value, font, width):
+                    self.screen.blit(font.render(line, True, ink), (left, y))
+                    y += 28
+                y += 28
+        font = self._newspaper_font(14)
+        y = rect.top + round(rect.height * .87)
+        for line in wrap_lines(text('other_note'), font, round(rect.width * .67)):
+            self.screen.blit(font.render(line, True, ink), (rect.left + round(rect.width * .045), y))
+            y += 18

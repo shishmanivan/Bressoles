@@ -152,6 +152,23 @@ class RedRewardPoolTests(RewardPoolTestCase):
 
 
 class SilverRewardPoolTests(RewardPoolTestCase):
+    def test_flash_sale_is_available_without_licenses_at_declared_pool_thresholds(self):
+        restored = game_state.normalize_license_ids([201, 202])
+        self.assertTrue({222, 223, 224}.issubset(restored))
+        for card_id, chance in ((222, 30), (223, 10), (224, 1)):
+            with (
+                self.subTest(card=card_id),
+                mock.patch.object(game_state, "load_cards_config", return_value={
+                    card_id: {"Type": 3, "Open": 1, "Variable": chance}
+                }),
+                mock.patch.object(game_state, "get_rare_card_pool_chance", side_effect=lambda value: value),
+                mock.patch.object(game_state.random, "randint", return_value=chance) as roll,
+            ):
+                self.assertEqual(game_state.build_silver_cards_pool(3), [card_id])
+                roll.return_value = chance + 1
+                self.assertEqual(game_state.build_silver_cards_pool(3), [])
+                self.assertIsNone(game_state.get_license_cost(card_id))
+
     def test_nabob_uses_a_ten_percent_pool_roll(self):
         cards = {216: {"Type": 3, "Open": 1, "Variable": 10}}
         game_state.licensed_card_ids.add(216)
