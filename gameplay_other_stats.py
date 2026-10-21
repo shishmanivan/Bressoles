@@ -5,6 +5,9 @@ from uuid import uuid4
 import game_state
 import profile_manager
 from player_other_stats import empty_stats, record
+from player_time_stats import empty_stats as empty_time_stats, record as record_time
+import time
+from uuid import uuid4
 
 
 class OtherStatsMixin:
@@ -22,6 +25,26 @@ class OtherStatsMixin:
             deepcopy(game_state.boss_progress.get(self.level_number, {}).get("other_stats"))
             or empty_stats()) if self.other_stats_enabled else None
         self.other_stats_lifetime = deepcopy(profile.get("other_stats"))
+        self.play_time_enabled = profile.get("play_time_stats") is not None
+        self.play_time_round_id = uuid4().hex
+        self.play_time_elapsed = 0.0
+        self.play_time_started_at = time.time() if self.play_time_enabled else None
+        self.play_time_stats = deepcopy(profile.get("play_time_stats")) if self.play_time_enabled else None
+
+    def _checkpoint_play_time(self):
+        if not getattr(self, "play_time_enabled", False) or self.play_time_started_at is None:
+            return
+        self.play_time_elapsed += max(0.0, time.time() - self.play_time_started_at)
+        self.play_time_started_at = time.time()
+
+    def _finish_play_time(self):
+        if not getattr(self, "play_time_enabled", False) or self.play_time_started_at is None:
+            return
+        self._checkpoint_play_time()
+        self.play_time_stats = profile_manager.record_player_time(
+            self.profile_slot, self.level_number, self.play_time_round_id,
+            self.play_time_elapsed, test_mode=self.test_mode)
+        self.play_time_started_at = None
 
     def _commit_other_stats_cards(self):
         self._commit_lifecycle_card_stats()
@@ -70,8 +93,13 @@ class OtherStatsMixin:
         self.other_stats_finished = True
 
     def _serialize_other_stats(self):
-        return deepcopy({key: value for key, value in self.__dict__.items()
-                         if key.startswith("other_stats_")})
+        self._checkpoint_play_time()
+        values = deepcopy({key: value for key, value in self.__dict__.items()
+                           if key.startswith("other_stats_")})
+        values.update({"play_time_enabled": self.play_time_enabled,
+                       "play_time_round_id": self.play_time_round_id,
+                       "play_time_elapsed": self.play_time_elapsed})
+        return values
 
     def _restore_other_stats(self, state):
         saved = state.get("other_stats")
@@ -79,6 +107,10 @@ class OtherStatsMixin:
             for key in tuple(self.__dict__):
                 if key.startswith("other_stats_") and key in saved:
                     setattr(self, key, deepcopy(saved[key]))
+            if saved.get("play_time_enabled"):
+                self.play_time_round_id = saved.get("play_time_round_id", self.play_time_round_id)
+                self.play_time_elapsed = float(saved.get("play_time_elapsed", 0) or 0)
+                self.play_time_started_at = time.time()
         else:
             self.other_stats_enabled = False
             self.other_stats_lifecycle_enabled = False

@@ -12,6 +12,7 @@ from card_acquisition_stats import get_encountered_card_ids
 from gameplay_deck import restore_card_instance, serialize_card_instance
 from player_market_stats import empty_stats, accumulate
 from player_other_stats import empty_stats as empty_other_stats, record as record_other_stats
+from player_time_stats import empty_stats as empty_time_stats, record as record_time_stats
 
 
 PROFILES_DIR = "Profiles"
@@ -215,6 +216,7 @@ def _default_profile(slot):
         "market_roll_stats": empty_stats(),
         "other_stats": empty_other_stats(),
         "lifecycle_card_stats": {"version": 1, "counts": {}, "rounds": {}},
+        "play_time_stats": empty_time_stats(),
     }
 
 
@@ -314,6 +316,7 @@ def load_profile(slot):
     profile["market_roll_stats"] = data.get("market_roll_stats")
     profile["other_stats"] = data.get("other_stats")
     profile["lifecycle_card_stats"] = data.get("lifecycle_card_stats")
+    profile["play_time_stats"] = data.get("play_time_stats")
     # Existing profiles predate onboarding; only newly created profiles opt in.
     profile["tutorial_seen"] = data.get("tutorial_seen", ["stock_cards", "stock_logo_hover"])
     profile["slot"] = slot
@@ -841,6 +844,18 @@ def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None)
     return copy.deepcopy(stats)
 
 
+def record_player_time(slot, level, round_id, seconds, *, test_mode=False):
+    if not slot or test_mode or not os.path.exists(get_profile_path(slot)):
+        return None
+    profile = load_profile(slot)
+    stats = profile.get("play_time_stats")
+    if stats is None:
+        return None
+    record_time_stats(stats, level, round_id, seconds)
+    save_profile(profile)
+    return copy.deepcopy(stats)
+
+
 def record_player_lifecycle_cards(slot, round_id, cards, *, test_mode=False):
     """Count each equipped copy once per round; replaying a save adds nothing."""
     if not slot or test_mode or not round_id or not os.path.exists(get_profile_path(slot)):
@@ -1131,6 +1146,7 @@ def _serialize_boss_progress(source):
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),
+            "play_time": copy.deepcopy(state.get("play_time")),
         }
     return result
 
@@ -1163,6 +1179,7 @@ def _restore_boss_progress(source):
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),
+            "play_time": copy.deepcopy(state.get("play_time")),
         }
     return result
 

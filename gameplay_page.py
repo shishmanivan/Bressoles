@@ -3239,6 +3239,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
+        self._finish_play_time()
         self._finish_other_stats()
         self._capture_newspaper_turn(final=True)
         self.win_lose_state = next_state
