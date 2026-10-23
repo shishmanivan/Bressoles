@@ -442,6 +442,17 @@ def _has_current_schema(path):
         return False
 
 
+def get_level_run_losses(level_number, path=None):
+    """Read completed run losses, excluding round and boss statistics."""
+    return sum(
+        max(0, _to_int(row.get("Поражения")))
+        for row in _read_rows(path)
+        if row.get("Уровень") == str(int(level_number))
+        and row.get("Раунд") == LEVEL_RUN_ROUND_LABEL
+        and row.get("Сложность") == LEVEL_RUN_DIFFICULTY_LABEL
+    )
+
+
 def _read_rows(path=None):
     target_path = _get_active_stats_file(path)
     if not os.path.exists(target_path):

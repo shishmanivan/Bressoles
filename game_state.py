@@ -58,6 +58,7 @@ pending_shop_discount_percent = 0
 correction_shop_cooldown = 0
 bailout_rounds_remaining = 0
 price_cut_purchases_by_level = {}
+price_cut_assistance_shown_levels = set()
 disclosure_rounds_remaining = 0
 active_price_support_rounds = []
 protective_put_charges = 0

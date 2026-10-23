@@ -272,6 +272,7 @@ def _empty_progress():
         "correction_shop_cooldown": 0,
         "bailout_rounds_remaining": 0,
         "price_cut_purchases_by_level": {},
+        "price_cut_assistance_shown_levels": [],
         "disclosure_rounds_remaining": 0,
         "active_price_support_rounds": [],
         "protective_put_charges": 0,
@@ -516,6 +517,10 @@ def apply_profile_to_game_state(profile_or_slot):
         for key, value in (progress.get("price_cut_purchases_by_level") or {}).items()
         if str(key).isdigit() and 1 <= int(key) <= 6
         and str(value).isdigit() and int(value) > 0
+    }
+    game_state.price_cut_assistance_shown_levels = {
+        int(level) for level in progress.get("price_cut_assistance_shown_levels", [])
+        if str(level).isdigit() and 1 <= int(level) <= 6
     }
     game_state.moratorium_expirations = {
         int(key): int(value)
@@ -981,6 +986,7 @@ def _capture_progress():
         "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "price_cut_purchases_by_level": dict(game_state.price_cut_purchases_by_level),
+        "price_cut_assistance_shown_levels": sorted(game_state.price_cut_assistance_shown_levels),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
         "active_price_support_rounds": game_state.get_active_price_support_rounds(),
         "protective_put_charges": game_state.get_protective_put_charges(),

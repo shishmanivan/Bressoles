@@ -7,6 +7,7 @@ import sys
 import native_render as pygame
 
 import game_state
+from game_stats import get_level_run_losses
 from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, draw_scrollbar, panel_rect
 import profile_manager
 from asset_loaders import load_scaled_image
@@ -387,6 +388,13 @@ class ShopPage(AdaptivePage):
             rounds_remaining=self.rounds_remaining,
             guarantee_gold=self.first_level3_shop,
         )
+        self.sold_offer_indexes = set()
+        self._price_cut_assistance_pending = False
+        self.level_run_losses = (
+            get_level_run_losses(self.level_number, profile_manager.get_stats_file(profile_slot))
+            if profile_slot and game_state.is_price_cut_offer_available(self.level_number) else 0
+        )
+        self._ensure_price_cut_assistance()
         if stats_enabled:
             record_card_offers(self.offers)
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
@@ -1252,6 +1260,35 @@ class ShopPage(AdaptivePage):
                 hint_id=hint_id, text=text,
             )
 
+    def _ensure_price_cut_assistance(self):
+        if (not self.profile_slot
+                or not game_state.is_price_cut_offer_available(self.level_number)
+                or self.level_number in game_state.price_cut_assistance_shown_levels
+                or self.level_run_losses < 4
+                or self._price_cut_assistance_pending):
+            return
+        cost = game_state.get_discounted_shop_price(
+            game_state.get_shop_special_cost("price_cut", self.level_number), self.discount_percent,
+        )
+        if self.napoleondors < cost:
+            return
+        available = [(index, offer) for index, offer in enumerate(self.offers)
+                     if index not in self.sold_offer_indexes and offer.get("kind") == "special"]
+        if not any(offer.get("special_id") == "price_cut" for _, offer in available):
+            offer = {"kind": "special", "special_id": "price_cut", "cost": cost}
+            if available:
+                self.offers[available[0][0]] = offer
+            else:
+                self.offers.append(offer)
+        self._price_cut_assistance_pending = True
+
+    def _record_price_cut_assistance_shown(self):
+        if not self._price_cut_assistance_pending:
+            return
+        game_state.price_cut_assistance_shown_levels.add(self.level_number)
+        profile_manager.save_progress_from_game_state(self.profile_slot)
+        self._price_cut_assistance_pending = False
+
     def run(self):
         self._prepare_tutorial()
         visit_recorded = not self.first_level3_shop
@@ -1284,7 +1321,9 @@ class ShopPage(AdaptivePage):
                     if offer_index is not None:
                         self._buy_offer(offer_index)
 
+            self._ensure_price_cut_assistance()
             self.draw()
+            self._record_price_cut_assistance_shown()
             if not visit_recorded:
                 profile = profile_manager.load_profile(self.profile_slot)
                 profile["level3_shop_visited"] = True
