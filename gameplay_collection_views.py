@@ -18,6 +18,7 @@ VIEW_LABELS = {"deck": ("CollectionDeck", "Колода"), "offers": ("Collectio
                "bosses": ("CollectionBosses", "Боссы"),
                "conditions": ("CollectionConditions", "Условия")}
 OFFER_GROUPS = (
+    ("persistent", "OffersPersistent", "Действует постоянно"),
     ("permanent", "OffersPermanent", "До конца забега"),
     ("temporary", "OffersTemporary", "Временные эффекты"),
     ("pending", "OffersPending", "Ожидают срабатывания"),
@@ -40,7 +41,9 @@ def group_deck_cards(cards):
 def group_offers(entries):
     groups = {key: [] for key, _label, _fallback in OFFER_GROUPS}
     for entry in entries:
-        if entry.get("special_id") in ("long", "retention"):
+        if entry.get("special_id") in ("price_cut", "moratorium"):
+            group = "persistent"
+        elif entry.get("special_id") in ("long", "retention"):
             group = "pending"
         elif entry.get("remaining") is not None:
             group = "temporary"

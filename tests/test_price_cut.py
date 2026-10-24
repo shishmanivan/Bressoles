@@ -104,6 +104,7 @@ class PriceCutTests(unittest.TestCase):
             self.assertEqual(get_level_run_losses(6, path), 0)
 
     def test_level_limits_and_twenty_percent_pool_chance(self):
+        game_state.price_cut_assistance_shown_levels = set(range(1, 7))
         self.assertEqual(game_state.get_shop_special_cost("price_cut", 1), 5)
         for level in (1, 2, 6, 7, 8):
             for roll in (20, 21):
@@ -112,6 +113,42 @@ class PriceCutTests(unittest.TestCase):
                 self.assertEqual("price_cut" in pool, level <= 6 and roll <= 20)
             self.assertEqual("price_cut" in game_state._available_screening_offer_ids(level), level <= 6)
         self.assertFalse(game_state.buy_price_cut(7))
+
+    def test_random_offers_stay_locked_even_with_legacy_purchases(self):
+        for level in range(1, 7):
+            game_state.buy_price_cut(level)
+            with mock.patch.object(game_state.random, "randint", return_value=1):
+                pool = game_state.build_shop_special_offer_pool(level, max_offers=100)
+            self.assertNotIn("price_cut", pool)
+            self.assertNotIn("price_cut", game_state._available_screening_offer_ids(level))
+            self.assertEqual(game_state.apply_price_cut_goal_modifier(100, level), 96)
+
+    def test_random_pool_unlocks_only_after_affordable_guaranteed_display(self):
+        page = self.assistance_shop(losses=0, balance=5)
+        for losses in range(4):
+            page.level_run_losses = losses
+            page._ensure_price_cut_assistance()
+            self.assertFalse(page._price_cut_assistance_pending)
+            self.assertFalse(game_state.is_price_cut_random_offer_available(5))
+        page.level_run_losses = 4
+        page.napoleondors = 4
+        page._ensure_price_cut_assistance()
+        self.assertFalse(page._price_cut_assistance_pending)
+        self.assertFalse(game_state.is_price_cut_random_offer_available(5))
+        page.napoleondors = 5
+        page._ensure_price_cut_assistance()
+        self.assertTrue(page._price_cut_assistance_pending)
+        self.assertFalse(game_state.is_price_cut_random_offer_available(5))
+        with mock.patch("shop_page.profile_manager.save_progress_from_game_state"):
+            page._record_price_cut_assistance_shown()
+        saved = json.loads(json.dumps(profile_manager._capture_progress()))
+        game_state.price_cut_assistance_shown_levels.clear()
+        profile_manager.apply_profile_to_game_state({"progress": saved})
+        for level in range(1, 7):
+            with mock.patch.object(game_state.random, "randint", return_value=1):
+                pool = game_state.build_shop_special_offer_pool(level, max_offers=100)
+            self.assertEqual("price_cut" in pool, level == 5)
+            self.assertEqual("price_cut" in game_state._available_screening_offer_ids(level), level == 5)
 
     def test_reductions_stack_only_for_purchased_level_and_survive_runs(self):
         self.assertTrue(game_state.buy_price_cut(5))

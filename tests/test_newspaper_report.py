@@ -164,6 +164,33 @@ class NewspaperTests(unittest.TestCase):
         page._update_newspaper_animation(1)
         self.assertEqual(page.newspaper_y, 12)
 
+    def test_boss_victory_auto_opens_card_reward_report_after_newspaper(self):
+        page = make_page()
+        page.is_boss_fight = True
+        page.card_report_image = pygame.Surface((500, 700))
+        page.finance_report_y = page.screen.get_height() + 30
+        page.finance_stamp_state = 'idle'
+        page._save_active_game = Mock()
+        page._play_result_report_rustle = Mock()
+        page._start_newspaper_entrance()
+        page.newspaper_y = page._newspaper_target_rect().top
+        page.newspaper_reward_report_started_at = pygame.time.get_ticks() - 500
+        page._update_newspaper_animation(0)
+        self.assertEqual(page.result_report_stage, 'card_report')
+        self.assertTrue(page.newspaper_reward_report_auto_opened)
+        page._update_newspaper_animation(0)
+        page._update_newspaper_animation(0)
+        self.assertEqual(page._save_active_game.call_count, 1)
+
+    def test_regular_victory_does_not_auto_open_reward_report(self):
+        page = make_page()
+        page.card_report_image = pygame.Surface((500, 700))
+        page._start_newspaper_entrance()
+        page.newspaper_y = page._newspaper_target_rect().top
+        page.newspaper_reward_report_started_at = pygame.time.get_ticks() - 500
+        page._update_newspaper_animation(0)
+        self.assertEqual(page.result_report_stage, 'newspaper')
+
     def test_expected_percent_averages_the_probabilities_at_each_roll(self):
         page = make_page()
         page._newspaper_event('roll', market=0, outcome='rise', random_value=10,

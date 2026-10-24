@@ -10,11 +10,53 @@ import game_state
 import profile_manager
 from shop_page import ShopPage
 from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT, TutorialHint,
+                               FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT,
                                INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT)
-from localization import SUPPORTED_LANGUAGES, get_language, set_language
+from localization import SUPPORTED_LANGUAGES, get_language, set_language, translate
 
 
 class GoldShopTutorialTests(unittest.TestCase):
+    def test_first_shop_hint_precedes_other_hints_and_is_profile_specific(self):
+        page = ShopPage.__new__(ShopPage)
+        page.offers = [{"kind": "investment"}]
+        page.first_level3_shop = True
+        page.profile_slot = 1
+        page.screen, page.font_path = mock.Mock(), "unused"
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ), mock.patch("shop_page.load_scaled_image"), mock.patch("shop_page.TutorialHint") as hint:
+            page._prepare_tutorial()
+            self.assertEqual(hint.call_args.kwargs["hint_id"], FIRST_SHOP_HINT_ID)
+            self.assertEqual([item[0] for item in page._tutorial_queue],
+                             [GOLD_SHOP_HINT_ID, INVESTMENT_HINT_ID])
+            profile_manager.mark_tutorial_seen(1, FIRST_SHOP_HINT_ID)
+            page._prepare_tutorial()
+            self.assertEqual(hint.call_args.kwargs["hint_id"], GOLD_SHOP_HINT_ID)
+            page.profile_slot = 2
+            page.first_level3_shop = False
+            page.offers = []
+            page._prepare_tutorial()
+            self.assertEqual(hint.call_args.kwargs["hint_id"], FIRST_SHOP_HINT_ID)
+            page.profile_slot = None
+            hint.reset_mock()
+            page._prepare_tutorial()
+            hint.assert_not_called()
+
+    def test_first_shop_translations_fit(self):
+        pygame.font.init()
+        previous = get_language()
+        self.addCleanup(set_language, previous)
+        for language in SUPPORTED_LANGUAGES:
+            with self.subTest(language=language):
+                set_language(language)
+                if language != "RU":
+                    self.assertNotEqual(translate(FIRST_SHOP_HINT_TEXT), FIRST_SHOP_HINT_TEXT)
+                hint = TutorialHint((1680, 1050), None, "egyptiennemncyr_condensedbold.ttf",
+                                    hint_id=FIRST_SHOP_HINT_ID, text=FIRST_SHOP_HINT_TEXT)
+                self.assertTrue(hint.has_checkbox)
+                self.assertLessEqual(len(hint.lines) * (hint.font.get_linesize() + 8),
+                                     hint.checkbox_row.top - hint.panel.top - 65)
+
     def test_investment_hint_requires_visible_section_and_respects_seen_flag(self):
         for offers, seen, gold, expected in (
             ([], False, False, []),
@@ -28,7 +70,7 @@ class GoldShopTutorialTests(unittest.TestCase):
                 page.offers, page.first_level3_shop, page.profile_slot = offers, gold, 1
                 page.screen, page.font_path = mock.Mock(), "unused"
                 with mock.patch("shop_page.profile_manager.is_tutorial_pending",
-                                return_value=not seen), mock.patch(
+                                side_effect=lambda slot, hint_id: not seen and hint_id != FIRST_SHOP_HINT_ID), mock.patch(
                     "shop_page.load_scaled_image"
                 ), mock.patch("shop_page.TutorialHint") as hint:
                     page._prepare_tutorial()

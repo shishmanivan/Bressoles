@@ -116,6 +116,7 @@ class UiLayoutTests(unittest.TestCase):
 
     def test_completed_level_click_is_ignored(self):
         page = GameScreen.__new__(GameScreen)
+        page.back_rect = pygame.Rect(100, 10, 167, 80)
         page.test_mode = False
         page.progress_flags = {"level_1_boss_defeated": True}
         page.scroll_y = 0

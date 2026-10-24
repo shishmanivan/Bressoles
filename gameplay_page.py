@@ -1,3 +1,4 @@
+from runtime_diagnostics import event, gameplay_event
 from adaptive_page import AdaptivePage, adaptive_draw, draw_modal_shade
 from app_settings import card_information_enabled
 from localization import translate as _tr
@@ -381,6 +382,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         insurance_goal_debt=0,
         rounds_required=None,
     ):
+        event("gameplay.construct", level=level_number, round=round_num, boss=boss_filename,
+              difficulty=difficulty, restored=bool(saved_state), test_mode=test_mode)
         self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.lang_dict = lang_dict or {}
@@ -2057,6 +2060,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
             "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
             "newspaper_closing": bool(getattr(self, 'newspaper_closing', False)),
+            "newspaper_reward_report_started_at": int(getattr(self, "newspaper_reward_report_started_at", 0) or 0),
+            "newspaper_reward_report_auto_opened": bool(getattr(self, "newspaper_reward_report_auto_opened", False)),
             "finance_stamp_state": self.finance_stamp_state,
             "round_start_napoleondors": float(self.round_start_napoleondors or 0),
             "boss_turn_timer_remaining_ms": int(self.boss_turn_timer_remaining_ms or 0),
@@ -2214,6 +2219,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
         self.newspaper_y = float(state.get('newspaper_y', -SCREEN_HEIGHT))
         self.newspaper_closing = bool(state.get('newspaper_closing', False))
+        self.newspaper_reward_report_started_at = int(state.get("newspaper_reward_report_started_at", 0) or 0)
+        self.newspaper_reward_report_auto_opened = bool(state.get("newspaper_reward_report_auto_opened", False))
         self._newspaper_surface_cache = None
         self.finance_report_y = float(state.get("finance_report_y", self.finance_report_y) or 0)
         self.finance_report_entries = [
@@ -2912,6 +2919,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 continue
 
             if self.win_lose_state is not None:
+                continue
+
+            if self._handle_waterloo_forecast_event(event):
                 continue
             
             if event.type == pygame.KEYDOWN:
@@ -5520,6 +5530,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         """Start the same end-turn flow for a button click or an expired boss timer."""
         if self.win_lose_state is not None or self._is_turn_resolution_active():
             return False
+        gameplay_event("turn.begin", self)
         self._reset_drag_state()
         self._start_end_button_press_animation()
         if getattr(self, "end_turn_sound", None):
@@ -5656,6 +5667,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return False
 
         self.waterloo_preview_movements = list(self.update_stock_prices() or [])
+        self.waterloo_forecast_position = None
+        self.waterloo_forecast_drag_offset = None
         self._start_lifecycle_card_scale_animation(triggered_slot)
         self._reset_boss_turn_timer()
         self._save_active_game()
@@ -5666,6 +5679,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return self.update_stock_prices()
         movements = [dict(movement) for movement in self.waterloo_preview_movements]
         self.waterloo_preview_movements = None
+        self.waterloo_forecast_drag_offset = None
         return movements
 
     def _calculate_waterloo_preview_prices(self, movements=None):
@@ -5751,11 +5765,14 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return False
 
         movements = list(getattr(self, "stock_price_turn_results", []) or [])
-        rose_markets = {
-            entry.get("market")
-            for entry in movements
-            if entry.get("type") == "rise" and entry.get("source") != "surge"
-        }
+        rose_markets = set()
+        for entry in movements:
+            if entry.get("type") != "rise" or entry.get("source") == "surge":
+                continue
+            markets = entry.get("market")
+            if not isinstance(markets, (list, tuple, set)):
+                markets = (markets,)
+            rose_markets.update(market for market in markets if market in (0, 1, 2))
         if rose_markets != {0, 1, 2}:
             return False
 
@@ -5768,6 +5785,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 "source": "basket_trading",
             }
         )
+        self.stock_price_turn_results = movements + [dict(self.price_animation_queue[-1])]
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
                 is_basket_trading = int(card_id) == 206
@@ -5803,16 +5821,26 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.continuation_growth_streaks = [0, 0, 0]
             return []
 
-        base_results = {}
-        momentum_rise_counts = [0, 0, 0]
+        # Preserve event order: forced rises and each Momentum copy are separate
+        # steps in the same series. Field cards and red cards do not participate.
+        eligible_sources = {
+            None, "insider", "spoofing", "momentum", "advance", "surge",
+            "basket_trading", "selling_pressure",
+        }
+        market_events = [[], [], []]
         for movement in list(getattr(self, "stock_price_turn_results", []) or []):
-            market = movement.get("market")
-            if movement.get("source") == "momentum":
-                if market in (0, 1, 2) and movement.get("type") == "rise":
-                    momentum_rise_counts[market] += 1
+            if movement.get("source") not in eligible_sources:
                 continue
-            if movement.get("source") is None and market in (0, 1, 2) and market not in base_results:
-                base_results[market] = movement.get("type")
+            markets = movement.get("market")
+            if not isinstance(markets, (list, tuple, set)):
+                markets = (markets,)
+            repetitions = (
+                max(1, self._count_active_card_safely(415))
+                if movement.get("source") == "surge" else 1
+            )
+            for market in markets:
+                if market in (0, 1, 2):
+                    market_events[market].extend([movement.get("type")] * repetitions)
 
         held_markets = set(getattr(self, "continuation_held_markets_this_turn", set()) or set())
         current_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
@@ -5823,17 +5851,16 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if market not in held_markets or current_quantities[market] <= 0:
                 streaks[market] = 0
                 continue
-            if base_results.get(market) != "rise":
+            bonus_count = 0
+            if not market_events[market]:
                 streaks[market] = 0
-                continue
-
-            previous_streak = streaks[market]
-            growth_count = 1 + momentum_rise_counts[market]
-            streaks[market] += growth_count
-            bonus_count = (
-                max(0, streaks[market] - 1)
-                - max(0, previous_streak - 1)
-            )
+            for event in market_events[market]:
+                if event == "rise":
+                    if streaks[market] > 0:
+                        bonus_count += 1
+                    streaks[market] += 1
+                elif event in ("fall", "unchanged"):
+                    streaks[market] = 0
             if bonus_count <= 0:
                 continue
 
@@ -5935,6 +5962,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return bonus
 
     def _finish_turn_after_astor_cash_burn(self):
+        gameplay_event("turn.effects_resolved", self)
         self._apply_cash_yield_turn_bonus()
         self._capture_newspaper_turn()
         self._check_win_lose()
@@ -6274,18 +6302,36 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "duration": 900,
         }
 
-    def _get_lifecycle_card_scale(self, slot, now=None):
-        animation = getattr(self, "lifecycle_card_scale_animations", {}).get(slot)
-        if not animation:
+    def _get_continuation_ready_scale(self, slot, now):
+        """Pulse while a held stock is ready for a bonus on its next rise."""
+        cards = self._active_lifecycle_cards()
+        if slot < 0 or slot >= len(cards) or str(cards[slot]) != "419":
             return 1.0
+        if (getattr(self, "win_lose_state", None) is not None
+                or getattr(self, "turn_resolution_active", False)):
+            return 1.0
+        streaks = getattr(self, "continuation_growth_streaks", []) or []
+        quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+        if not any(quantity > 0 and streak > 0
+                   for quantity, streak in zip(quantities, streaks)):
+            return 1.0
+        # A smooth one-second cycle, from normal size to +4% and back.
+        phase = (int(now) % 1000) / 1000.0
+        return 1.0 + 0.02 * (1.0 - math.cos(2.0 * math.pi * phase))
+
+    def _get_lifecycle_card_scale(self, slot, now=None):
         if now is None:
             now = pygame.time.get_ticks()
+        ready_scale = self._get_continuation_ready_scale(slot, now)
+        animation = getattr(self, "lifecycle_card_scale_animations", {}).get(slot)
+        if not animation:
+            return ready_scale
         duration = max(1, int(animation.get("duration", 900)))
         progress = (int(now) - int(animation.get("start_time", now))) / duration
         if progress < 0 or progress >= 1:
-            return 1.0
+            return ready_scale
         pulse = 1.0 - abs(progress * 2.0 - 1.0)
-        return 1.0 + 0.2 * pulse
+        return max(ready_scale, 1.0 + 0.2 * pulse)
 
     def update_lifecycle_card_scale_animations(self, now=None):
         if not hasattr(self, "lifecycle_card_scale_animations"):
@@ -7498,6 +7544,44 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         hovered_card = self._get_hovered_field_card(mouse_pos)
         self._draw_card_tooltip(hovered_card, mouse_pos)
 
+    def _waterloo_forecast_rect(self):
+        panel = pygame.Rect(0, 18, 690, 96)
+        layout = compute_market_frames_layout(getattr(self, "frame", None), SCREEN_WIDTH)
+        if layout:
+            frames = layout["frame_rects"]
+            left = min(frame["x"] for frame in frames)
+            right = max(frame["x"] + layout["frame_width"] for frame in frames)
+            panel.centerx = round((left + right) / 2)
+        else:
+            panel.centerx = SCREEN_WIDTH // 2
+        position = getattr(self, "waterloo_forecast_position", None)
+        if position is not None:
+            panel.topleft = position
+        return panel.clamp(pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    def _handle_waterloo_forecast_event(self, event):
+        if getattr(self, "waterloo_preview_movements", None) is None:
+            self.waterloo_forecast_drag_offset = None
+            return False
+        offset = getattr(self, "waterloo_forecast_drag_offset", None)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            panel = self._waterloo_forecast_rect()
+            if panel.collidepoint(event.pos):
+                self.waterloo_forecast_drag_offset = (event.pos[0] - panel.x, event.pos[1] - panel.y)
+                return True
+        if offset is not None:
+            if event.type == pygame.MOUSEMOTION or (
+                event.type == pygame.MOUSEBUTTONUP and event.button == 1
+            ):
+                panel = self._waterloo_forecast_rect()
+                panel.topleft = (event.pos[0] - offset[0], event.pos[1] - offset[1])
+                panel.clamp_ip(pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+                self.waterloo_forecast_position = panel.topleft
+                if event.type == pygame.MOUSEBUTTONUP:
+                    self.waterloo_forecast_drag_offset = None
+                return True
+        return False
+
     def _draw_waterloo_forecast(self):
         if getattr(self, "waterloo_preview_movements", None) is None:
             return
@@ -7509,7 +7593,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             market = movement.get("market")
             if movement.get("source") is None and market in (0, 1, 2) and market not in base_results:
                 base_results[market] = movement.get("type")
-        panel = pygame.Rect((SCREEN_WIDTH - 690) // 2, 18, 690, 96)
+        panel = self._waterloo_forecast_rect()
         surface = pygame.Surface(panel.size, pygame.SRCALPHA)
         pygame.draw.rect(surface, (244, 235, 211, 248), surface.get_rect(), border_radius=7)
         pygame.draw.rect(surface, PAPER_COLOR, surface.get_rect(), 3, border_radius=7)
@@ -8587,6 +8671,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
 
     def run(self):
+        gameplay_event("gameplay.ready", self)
         self.tutorial_hint = None
         if not self.test_mode and profile_manager.is_tutorial_pending(self.profile_slot, FIRST_HINT_ID):
             self.tutorial_hint = TutorialHint(

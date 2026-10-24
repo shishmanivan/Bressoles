@@ -1,5 +1,6 @@
 """Independent cover background and fitted, interactive foreground layer."""
 from functools import wraps
+from runtime_diagnostics import event
 
 import pygame
 
@@ -83,6 +84,7 @@ class AdaptivePage:
     master_background_path = "RoundPage/Master background.png"
 
     def init_viewport(self, viewport):
+        event("screen.construct", screen=type(self).__name__)
         clear_cache()
         self.viewport = viewport
         self.screen = ContentSurface(LOGICAL_SCREEN_SIZE)

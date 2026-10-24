@@ -3640,8 +3640,8 @@
     "FR": "Pour terminer votre tour, appuyez sur le bouton de fin de tour. Oui, ce conseil arrive en retard, mais mieux vaut tard que jamais."
   },
   {
-    "Source": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
-    "RU": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
+    "Source": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в Балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
+    "RU": "Теперь вы можете покупать золотые карты. Золотые карты действуют на протяжении всей игры. Это как джокеры в Балатро, если вы понимаете, о чём я.\n\nТакже вам теперь доступен раздел лицензий, где вы можете купить лицензию. Купить лицензию значит сделать так, чтобы карта появлялась в игре.",
     "ENG": "You can now buy gold cards. Gold cards remain active throughout the game. They are like Jokers in Balatro, if you know what I mean.\n\nThe licenses section is now available too, where you can buy a license. Buying a license makes a card available to appear in the game.",
     "DE": "Du kannst jetzt goldene Karten kaufen. Goldene Karten wirken während des gesamten Spiels. Sie sind wie die Joker in Balatro, wenn du verstehst, was ich meine.\n\nAußerdem steht dir jetzt der Lizenzbereich zur Verfügung, in dem du eine Lizenz kaufen kannst. Mit einer Lizenz kann die entsprechende Karte im Spiel auftauchen.",
     "HU": "Mostantól aranykártyákat vásárolhatsz. Az aranykártyák az egész játék során hatnak. Olyanok, mint a jokerek a Balatróban, ha érted, mire gondolok.\n\nMostantól a licencek részlege is elérhető, ahol licencet vásárolhatsz. A licenc megvásárlásával lehetővé teszed, hogy az adott kártya megjelenjen a játékban.",
@@ -3686,5 +3686,13 @@
     "DE": "Auf Level 4 ist der Shareholder-Effekt aktiv. Mit 3 Shareholder-Karten im Deck besteht eine Chance von 20%, dass sie dir den Handel an einem Markt verbieten. Das Verbot gilt für einen Zug. Je mehr Shareholder-Karten du im Deck hast, desto wahrscheinlicher wird ein Handelsverbot. Im Spiel gibt es jedoch Karten, die diesen Effekt ausschalten.",
     "HU": "A 4. szinten érvényesül a részvényesek hatása. Ha 3 Shareholder kártya van a paklidban, 20% az esélye, hogy megtiltják a kereskedést az egyik piacon. A tilalom egy lépésig tart. Minél több Shareholder kártya van a paklidban, annál valószínűbb a kereskedési tilalom. A játékban azonban találhatsz olyan kártyákat, amelyek kikapcsolják ezt a hatást.",
     "FR": "L’effet des actionnaires est actif au niveau 4. Si votre paquet contient 3 cartes Shareholder, il y a 20 % de chances qu’elles vous interdisent de négocier sur un marché. Cette interdiction dure un tour. Plus votre paquet contient de cartes Shareholder, plus cette interdiction est probable. Mais vous pouvez trouver des cartes qui désactivent cet effet."
+  },
+  {
+    "Source": "Теперь вам доступен магазин. Здесь вы можете выбрать предложения, которые сделают вашу партию легче. С каждым пройденным уровнем ассортимент предложений будет увеличиваться",
+    "RU": "Теперь вам доступен магазин. Здесь вы можете выбрать предложения, которые сделают вашу партию легче. С каждым пройденным уровнем ассортимент предложений будет увеличиваться",
+    "ENG": "The shop is now available. Here you can choose offers that will make your run easier. The range of offers will expand with each level you complete.",
+    "DE": "Der Laden ist jetzt verfügbar. Hier kannst du Angebote auswählen, die deinen Spieldurchlauf erleichtern. Mit jedem abgeschlossenen Level wird das Angebot größer.",
+    "HU": "Mostantól elérhető a bolt. Itt olyan ajánlatokat választhatsz, amelyek megkönnyítik a játékodat. Minden teljesített szinttel bővül az ajánlatok választéka.",
+    "FR": "La boutique est désormais accessible. Vous pouvez y choisir des offres qui faciliteront votre partie. Le choix d’offres s’élargira à chaque niveau terminé."
   }
 ]

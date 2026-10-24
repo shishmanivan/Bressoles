@@ -243,6 +243,8 @@ class NewspaperReportMixin(OtherStatsMixin):
         self.newspaper_y = float(-self._newspaper_target_rect().height - 72)
         self.newspaper_closing = False
         self._winlose_last_tick = pygame.time.get_ticks()
+        self.newspaper_reward_report_started_at = pygame.time.get_ticks()
+        self.newspaper_reward_report_auto_opened = False
 
     def _update_newspaper_animation(self, dt):
         now = pygame.time.get_ticks()
@@ -263,6 +265,22 @@ class NewspaperReportMixin(OtherStatsMixin):
         current = float(getattr(self, 'newspaper_y', target))
         step = 1800 * dt
         self.newspaper_y = min(target, current + step) if current < target else max(target, current - step)
+        if (
+            not closing
+            and self.newspaper_y == target
+            and getattr(self, "is_boss_fight", False)
+            and getattr(self, "win_lose_state", None) == "win"
+            and not getattr(self, "newspaper_reward_report_auto_opened", False)
+            and now - int(getattr(self, "newspaper_reward_report_started_at", now)) >= 500
+            and getattr(self, "card_report_image", None)
+        ):
+            self.result_report_stage = "card_report"
+            self.finance_report_y = float(self.screen.get_height() + 30)
+            self.finance_stamp_state = "idle"
+            self.finance_stamp_started_at = now
+            self.newspaper_reward_report_auto_opened = True
+            self._play_result_report_rustle()
+            self._save_active_game()
         if closing and self.newspaper_y == target:
             self.result_transition_ready = 'round_select' if self.win_lose_state == 'win' else 'level_select'
 

@@ -46,8 +46,10 @@ class GameScreen:
         self.lang = lang_dict or {}
         self.progress_flags = progress_flags or {}
         self.balance_replay_level = balance_replay_level
-        self.balance_rollback_rect = pygame.Rect(16, 12, 350, 44)
+        self.balance_rollback_rect = pygame.Rect(SCREEN_WIDTH - 366, 12, 350, 44)
         self.balance_font = pygame.font.Font(font_path, 22)
+        self.back_button = self._build_back_button(font_path)
+        self.back_rect = self.back_button.get_rect(topleft=(16, 12))
         self.button_sound = load_sound(os.path.join("Sounds", "Level Button.wav"))
         self.page_arrow_sound = load_sound(os.path.join("Sounds", "Skrip.wav"))
 
@@ -400,6 +402,26 @@ class GameScreen:
                 self._hovered_level = level_num
                 break
 
+    def _build_back_button(self, font_path):
+        artwork = load_scaled_image(os.path.join("UI", "Ornate Button Blank.png"))
+        artwork = artwork.subsurface(artwork.get_bounding_rect())
+        width = 167  # Same visible width as the End Turn button.
+        size = (width, round(width * artwork.get_height() / artwork.get_width()))
+        button = pygame.transform.smoothscale(artwork, size)
+        label = {"RU": "Назад", "ENG": "Back", "DE": "Zurück",
+                 "HU": "Vissza", "FR": "Retour"}[get_language()]
+        font = pygame.font.Font(font_path, 24)
+        text = font.render(label, True, (62, 36, 9))
+        button.blit(text, text.get_rect(center=button.get_rect().center))
+        return button
+
+    def _draw_back_button(self):
+        button = self.back_button
+        if pygame.mouse.get_focused() and self.back_rect.collidepoint(pygame.mouse.get_pos()):
+            button = button.copy()
+            button.fill((230, 230, 230, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(button, self.back_rect)
+
     def handle_input(self):
 
         for event in pygame.event.get():
@@ -411,6 +433,16 @@ class GameScreen:
                 if display_surface is not None:
                     self.screen = display_surface
                 continue
+
+            # This control is anchored to the viewport, outside the scrolling
+            # cards, and remains available during level/page animations.
+            if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and self.back_rect.collidepoint(event.pos)):
+                self._pending_level = None
+                self._level_press_drawn = False
+                if self.button_sound:
+                    self.button_sound.play()
+                return "back"
 
             if getattr(self, "_pending_level", None) is not None:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -676,6 +708,7 @@ class GameScreen:
         if rect.size != LEVEL_CONTENT_SIZE:
             content = pygame.transform.smoothscale(content, rect.size)
         viewport.blit(content, rect)
+        self._draw_back_button()
         pygame.display.flip()
 
     def _draw_balance_rollback(self):

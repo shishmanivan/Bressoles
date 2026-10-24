@@ -8,7 +8,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
-from gameplay_collection_views import group_offers, group_deck_cards
+from gameplay_collection_views import group_offers, group_deck_cards, offer_status
 from gameplay_deck import (build_initial_deck, deal_starting_hand, InvestedCard,
                            serialize_card_instance, restore_card_instance, restore_legacy_deck_origins)
 from gameplay_page import GameplayPage
@@ -104,6 +104,20 @@ class CollectionViewTests(unittest.TestCase):
         self.assertEqual(groups["permanent"], entries[:1])
         self.assertEqual(groups["temporary"], entries[1:3])
         self.assertEqual(groups["pending"], entries[3:])
+
+    def test_persistent_offers_keep_moratorium_run_counter(self):
+        entries = [
+            {"special_id": "price_cut", "remaining_kind": "level_permanent"},
+            {"special_id": "moratorium", "remaining": 17, "remaining_kind": "runs"},
+        ]
+        groups = group_offers(entries)
+        self.assertEqual(groups["persistent"], entries)
+        for key in ("permanent", "temporary", "pending"):
+            self.assertEqual(groups[key], [])
+        page = mock.Mock()
+        page._get_text.side_effect = lambda key, fallback: fallback
+        self.assertEqual(offer_status(page, entries[0]), "Навсегда для этого уровня")
+        self.assertEqual(offer_status(page, entries[1]), "Осталось забегов: 17")
 
     def test_icons_open_distinct_views_switch_and_close(self):
         page = self.make_page()

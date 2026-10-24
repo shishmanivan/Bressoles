@@ -1,3 +1,10 @@
+from runtime_diagnostics import event, finish_session, logger, run_page, start_session
+
+# Install diagnostics before importing pygame or game modules.
+if __name__ == "__main__":
+    start_session()
+    event("startup.imports.begin")
+
 from localization import SUPPORTED_LANGUAGES, set_language
 import pygame
 import sys
@@ -62,7 +69,10 @@ from shop_page import CARD_NAMES, RetentionDeckPage, ShopPage
 from start_page import StartPage
 
 # Initialize Pygame
-pygame.init()
+event("startup.pygame.begin")
+_init_ok, _init_failed = pygame.init()
+event("startup.pygame.ready", pygame=pygame.version.ver, sdl=pygame.get_sdl_version(),
+      initialized=_init_ok, failed=_init_failed, audio=pygame.mixer.get_init())
 
 # Constants
 SCREEN_WIDTH, SCREEN_HEIGHT = LOGICAL_SCREEN_SIZE
@@ -76,6 +86,7 @@ CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses 
 def main():
     global Lang, CURRENT_LANGUAGE
 
+    event("startup.display.begin")
     # Initialize screen
     screen = create_game_display((SCREEN_WIDTH, SCREEN_HEIGHT))
     preferences = load_settings()
@@ -83,34 +94,43 @@ def main():
         try:
             screen = apply_display_settings(preferences)
         except pygame.error:
+            logger.exception("Saved display settings failed; falling back to default window")
             screen = create_game_display(LOGICAL_SCREEN_SIZE)
+    event("startup.display.ready", driver=pygame.display.get_driver(), preferences=preferences)
     set_effects_volume(preferences["sound_volume"])
     set_card_information_enabled(preferences["show_card_info"])
     pygame.display.set_caption("Bressoles")
+    event("startup.audio.begin")
     menu_music = MenuMusic(volume=load_music_volume())
     menu_music.play()
     
+    event("startup.assets.begin")
     # Load shared resources
     background = load_main_background((SCREEN_WIDTH, SCREEN_HEIGHT))
     font_path = find_font_path_or_exit()
     
+    event("startup.language.begin")
     # Load language (default: RU/RUS)
     CURRENT_LANGUAGE = load_selected_language()
     set_language(CURRENT_LANGUAGE)
     Lang = load_language(CURRENT_LANGUAGE)
     
+    event("startup.validation.begin", language=CURRENT_LANGUAGE)
     # Validate levels and rounds config (RoundsData.csv vs LEVEL_BOSS_ROUNDS)
     validate_levels_and_rounds_config()
     assert_valid_game_content()
 
+    event("startup.profile.begin")
     selected_slot = profile_manager.get_selected_slot()
     profile_needs_attention = False
     try:
         selected_profile = profile_manager.load_profile(selected_slot) if selected_slot else None
         profile_needs_attention = bool(selected_slot and profile_manager.was_profile_recovered(selected_slot))
     except profile_manager.ProfileLoadError:
+        logger.exception("Selected profile could not be loaded")
         selected_slot, selected_profile = None, None
         profile_needs_attention = True
+    event("startup.profile.loaded", slot=selected_slot, needs_attention=profile_needs_attention)
     if selected_profile:
         profile_manager.apply_profile_to_game_state(selected_profile)
         set_stats_file(profile_manager.get_stats_file(selected_slot))
@@ -121,7 +141,7 @@ def main():
     def choose_profile():
         nonlocal selected_slot, selected_profile
         profile_page = ProfilePage(screen, background, font_path, Lang)
-        profile_result = profile_page.run()
+        profile_result = run_page(profile_page)
         if isinstance(profile_result, dict):
             selected_slot = int(profile_result["slot"])
             selected_profile = profile_manager.load_profile(selected_slot)
@@ -141,7 +161,7 @@ def main():
         candidates = game_state.get_retention_pending_cards(level_number)
         if not candidates:
             return None
-        selected_card = RetentionDeckPage(screen, font_path, candidates).run()
+        selected_card = run_page(RetentionDeckPage(screen, font_path, candidates))
         retained = game_state.complete_retention_selection(level_number, selected_card)
         if retained is not None:
             save_progress_if_needed(test_mode)
@@ -157,7 +177,7 @@ def main():
         else:
             menu_music.pause()
         try:
-            return gameplay_page.run()
+            return run_page(gameplay_page)
         finally:
             menu_music.play()
 
@@ -188,7 +208,7 @@ def main():
             bosses_required=bosses_required,
             rounds_remaining=rounds_remaining,
         )
-        shop_page.run()
+        run_page(shop_page)
         game_state.update_bank_interest_base()
         save_progress_if_needed(test_mode)
 
@@ -445,7 +465,7 @@ def main():
             round_number=round_number,
             lang_dict=Lang,
         )
-        silver_result = silver_page.run()
+        silver_result = run_page(silver_page)
         if silver_result == "back":
             return "back", {}
         if isinstance(silver_result, dict):
@@ -462,7 +482,7 @@ def main():
                     positioning_limit,
                     lang_dict=Lang,
                 )
-                positioning_result = positioning_page.run()
+                positioning_result = run_page(positioning_page)
                 if positioning_result == "back":
                     return "back", {}
                 positioning_start_cards = list(positioning_result or [])
@@ -566,7 +586,7 @@ def main():
         else:
             profile_name = selected_profile.get("name") if selected_profile else None
             start_page = StartPage(screen, background, font_path, Lang, profile_name=profile_name)
-            result = start_page.run()
+            result = run_page(start_page)
         
         # Track test mode flag
         test_mode = False
@@ -576,7 +596,7 @@ def main():
             continue
 
         if result == "languages":
-            language_result = LanguagesPage(screen, background, font_path, Lang, CURRENT_LANGUAGE).run()
+            language_result = run_page(LanguagesPage(screen, background, font_path, Lang, CURRENT_LANGUAGE))
             if language_result == "quit":
                 result = "quit"
                 break
@@ -595,7 +615,7 @@ def main():
                 music_volume=menu_music.volume,
                 on_volume_change=menu_music.set_volume,
             )
-            settings_result, music_volume = settings_page.run()
+            settings_result, music_volume = run_page(settings_page)
             screen = settings_page.screen
             if settings_result == "quit":
                 result = "quit"
@@ -801,7 +821,7 @@ def main():
                             if not test_mode else None
                         ),
                     )
-                    level_result = level_page.run()
+                    level_result = run_page(level_page)
 
                 if level_result == "back":
                     break  # Return to start page
@@ -1008,7 +1028,7 @@ def main():
                             get_bosses_required=get_bosses_required,
                             get_boss_number_from_filename=get_boss_number_from_filename,
                         )
-                        boss_result = boss_page.run()
+                        boss_result = run_page(boss_page)
 
                         if boss_result == "back":
                             break
@@ -1085,7 +1105,7 @@ def main():
                         reward_token_random_red=REWARD_TOKEN_RANDOM_RED,
                         round_progress=saved_round_progress,
                     )
-                    round_result = round_page.run()
+                    round_result = run_page(round_page)
                     gameplay_result = None
 
                     # Round buttons (E/M/H)
@@ -1098,7 +1118,7 @@ def main():
                             round_number=round_num,
                         )
                         if silver_status == "back":
-                            round_result = round_page.run()
+                            round_result = run_page(round_page)
                             continue
                         insurance_goal_debt = game_state.consume_insurance_goal_debt()
 
@@ -1128,7 +1148,7 @@ def main():
                         if gameplay_result == "back":
                             if insurance_goal_debt:
                                 game_state.add_insurance_goal_debt(insurance_goal_debt)
-                            round_result = round_page.run()
+                            round_result = run_page(round_page)
                         elif gameplay_result == "round_select":
                             complete_regular_round(
                                 boss_level,
@@ -1141,7 +1161,7 @@ def main():
                                 round_page=round_page,
                                 test_mode=test_mode,
                             )
-                            round_result = round_page.run()
+                            round_result = run_page(round_page)
                         elif gameplay_result == "level_select":
                             mark_level_run_loss_stage(
                                 boss_level,
@@ -1171,7 +1191,7 @@ def main():
                             result = "main_menu"
                             break
                         else:
-                            round_result = round_page.run()
+                            round_result = run_page(round_page)
 
                     if gameplay_result in ("level_select", "restart_level", "main_menu"):
                         break
@@ -1192,7 +1212,7 @@ def main():
                             is_boss_fight=True,
                         )
                         if silver_status == "back":
-                            round_result = round_page.run()
+                            round_result = run_page(round_page)
                             continue
                         # Pass defeated_count to determine if this is the final boss
                         gameplay_page = GameplayPage(
@@ -1332,10 +1352,17 @@ def main():
         elif result == "quit":
             break
     
+    event("shutdown.begin")
     menu_music.stop()
     pygame.quit()
     sys.exit()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit as exc:
+        finish_session(exc.code)
+        raise
+    else:
+        finish_session()

@@ -1364,6 +1364,13 @@ def is_price_cut_offer_available(level_number):
     return 1 <= int(level_number or 0) <= 6
 
 
+def is_price_cut_random_offer_available(level_number):
+    return (
+        is_price_cut_offer_available(level_number)
+        and int(level_number) in price_cut_assistance_shown_levels
+    )
+
+
 def get_price_cut_purchases(level_number):
     if not is_price_cut_offer_available(level_number):
         return 0
@@ -3212,7 +3219,7 @@ def _available_screening_offer_ids(
         "profit": True,
         "underwriter": is_underwriter_offer_available(level),
         "bailout": not is_bailout_active(),
-        "price_cut": is_price_cut_offer_available(level),
+        "price_cut": is_price_cut_random_offer_available(level),
         "long": is_long_offer_available(rounds_remaining),
         "junk_bond": True,
         "issuer": is_issuer_offer_available(),
@@ -3448,7 +3455,7 @@ def build_shop_special_offer_pool(
         rolled.append("underwriter")
     if bailout_hit:
         rolled.append("bailout")
-    if is_price_cut_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(20):
+    if is_price_cut_random_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(20):
         rolled.append("price_cut")
     if bank_hit:
         rolled.append("bank")

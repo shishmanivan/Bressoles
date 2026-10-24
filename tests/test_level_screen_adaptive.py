@@ -41,6 +41,22 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         with mock.patch("pygame.event.get", return_value=[event]):
             return page.handle_input()
 
+    def test_back_button_returns_to_menu_in_each_layout(self):
+        for size, test_mode in (((1680, 1050), False), ((1280, 720), True), ((2560, 1080), False)):
+            with self.subTest(size=size, test_mode=test_mode):
+                page = self.make_page(size, test_mode=test_mode)
+                page.scroll_y = 200
+                self.assertEqual(page.back_rect.topleft, (16, 12))
+                self.assertEqual(self.click(page, page.back_rect.center), "back")
+
+    def test_back_button_cancels_pending_level_selection(self):
+        page = self.make_page()
+        page._pending_level = 1
+        page._level_press_drawn = True
+        self.assertEqual(self.click(page, page.back_rect.center), "back")
+        self.assertIsNone(page._pending_level)
+        self.assertFalse(page._level_press_drawn)
+
     def finish_level_press(self, page):
         with mock.patch("pygame.time.get_ticks", return_value=page._level_press_started_at + LEVEL_BUTTON_PRESS_MS):
             page.draw()

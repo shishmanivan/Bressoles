@@ -13,6 +13,7 @@ import profile_manager
 from asset_loaders import load_scaled_image
 from sound_assets import load_button_sound
 from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT,
+                               FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT,
                                INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT, TutorialHint)
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from gameplay_card_rendering import (
@@ -1244,6 +1245,7 @@ class ShopPage(AdaptivePage):
     def _prepare_tutorial(self):
         self._tutorial_queue = [
             (hint_id, text) for available, hint_id, text in (
+                (True, FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT),
                 (self.first_level3_shop, GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT),
                 (any(offer.get("kind") == "investment" for offer in self.offers),
                  INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT),
