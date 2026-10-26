@@ -468,8 +468,10 @@ def apply_boss_reward(reward_string, gameplay_instance):
         if str(reward_string).strip().lower() == "redcard":
             level_num = getattr(gameplay_instance, "level_number", None)
             level = int(level_num or 0)
+            game_state.ensure_red_reward_capacity(level)
             red_card = game_state.draw_red_card_for_level(level)
             if red_card is None:
+                gameplay_instance.red_reward_exhausted = True
                 print(f"WARNING: RedCard reward requested but no available red cards pool for level {level_num}.")
                 return
 

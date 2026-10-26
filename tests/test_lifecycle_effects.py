@@ -471,6 +471,21 @@ class LifecycleEffectTests(unittest.TestCase):
 
                 self.assertEqual(page._apply_volatility_steps(), expected_bonus)
                 self.assertEqual((page.StepA, page.StepB, page.StepC), expected_steps)
+                page.tutorial_hint = page.dragged_card_source = page.win_lose_state = None
+                page.pause_menu_active = page.deck_view_active = False
+                page.test_mode = True
+                page.screen = page.stock_description_font = mock.Mock()
+                page.mouse_pos = mock.Mock(return_value=(5, 5))
+                page._is_standardization_active = mock.Mock(return_value=False)
+                page._stock_bot_probabilities = mock.Mock(return_value={
+                    0: {"fall": 0}, 1: {"fall": 10}, 2: {"fall": 30},
+                })
+                for market, step in enumerate(expected_steps):
+                    page.stock_logo_rects = {market: gameplay_page.pygame.Rect(0, 0, 10, 10)}
+                    with mock.patch("gameplay_page.draw_stock_tooltip") as draw:
+                        page._draw_stock_logo_tooltip()
+                    self.assertEqual(draw.call_args.kwargs["current_step"],
+                                     step if gold_cards else None)
 
     def test_bear_flat_insider_and_gambling_contracts(self):
         page = self._page(gold=[401, 404, 405, 406])

@@ -1353,12 +1353,15 @@ def main():
             break
     
     event("shutdown.begin")
+    profile_manager.save_error_handler = None
     menu_music.stop()
     pygame.quit()
     sys.exit()
 
 
 if __name__ == "__main__":
+    from save_error_dialog import wait_for_save_retry
+    profile_manager.save_error_handler = wait_for_save_retry
     try:
         main()
     except SystemExit as exc:

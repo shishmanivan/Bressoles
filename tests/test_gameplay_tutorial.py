@@ -245,6 +245,7 @@ class TutorialTests(unittest.TestCase):
 
     def test_logo_reminder_third_turn_and_discovery_persist_across_rounds(self):
         page = GameplayPage.__new__(GameplayPage)
+        page._count_active_card_safely = mock.Mock(return_value=0)
         page.test_mode = False
         page.profile_slot = 1
         page.tutorial_hint = None

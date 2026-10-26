@@ -636,25 +636,26 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers_after_purchase = game_state.build_shop_special_offer_pool(3, max_offers=30)
         self.assertNotIn("bill_of_exchange", offers_after_purchase)
 
-    def test_diversification_costs_five_and_is_bought_only_once(self):
+    def test_diversification_costs_four_and_is_bought_only_once(self):
         game_state.napoleondors = 10
         page = self._shop(
-            {"kind": "special", "special_id": "diversification", "cost": 5}
+            {"kind": "special", "special_id": "diversification",
+             "cost": game_state.get_shop_special_cost("diversification", 3)}
         )
 
         page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 6)
         self.assertTrue(game_state.diversification_bought)
         self.assertEqual(page.sold_offer_indexes, {0})
         self.assertEqual(page.message, "В магазине теперь предлагаются две карты")
         self.assertFalse(game_state.is_diversification_offer_available())
 
         repeated_offer = self._shop(
-            {"kind": "special", "special_id": "diversification", "cost": 5}
+            {"kind": "special", "special_id": "diversification", "cost": 4}
         )
         repeated_offer._buy_offer(0)
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 6)
         self.assertEqual(repeated_offer.message, "Диверсификация уже куплена")
 
     def test_diversification_increases_only_default_card_slots_to_two(self):
@@ -723,7 +724,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
     def test_marathon_starts_with_two_cards_and_diversification_adds_third(self):
         level = get_campaign_content_level(6)
         game_state.napoleondors = 10
-        page = self._shop({"kind": "special", "special_id": "diversification", "cost": 5})
+        page = self._shop({"kind": "special", "special_id": "diversification", "cost": 4})
         page.level_number = level
 
         def card_offers():
@@ -736,7 +737,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             self.assertTrue(game_state.is_diversification_offer_available())
             page._buy_offer(0)
             self.assertEqual(len(card_offers()), 3)
-            self.assertEqual(game_state.napoleondors, 5)
+            self.assertEqual(game_state.napoleondors, 6)
             self.assertEqual(page.message, "В магазине теперь предлагаются три карты")
             self.assertFalse(game_state.buy_diversification())
             self.assertEqual(len(card_offers()), 3)
@@ -782,7 +783,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers = game_state.build_shop_special_offer_pool(3, max_offers=2)
 
         self.assertIn("diversification", offers)
-        self.assertEqual(game_state.get_shop_special_cost("diversification", 3), 5)
+        self.assertEqual(game_state.get_shop_special_cost("diversification", 3), 4)
 
         game_state.diversification_bought = True
         with mock.patch.object(game_state.random, "randint", return_value=1):
@@ -1075,18 +1076,19 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertNotIn("replication_plus", offers)
         self.assertEqual(game_state.get_shop_special_cost("replication_plus", 3), 6)
 
-    def test_mirroring_duplicates_selected_current_deck_card_for_four(self):
+    def test_mirroring_duplicates_selected_current_deck_card_for_two(self):
         game_state.napoleondors = 10
         game_state.round_reward_cards = {5: [112]}
         page = self._shop(
-            {"kind": "special", "special_id": "mirroring", "cost": 4}
+            {"kind": "special", "special_id": "mirroring",
+             "cost": game_state.get_shop_special_cost("mirroring", 5)}
         )
 
         with mock.patch("shop_page.MirroringDeckPage") as mirroring_page:
             mirroring_page.return_value.run.return_value = 112
             page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(game_state.napoleondors, 8)
         self.assertEqual(game_state.mirrored_deck_cards, [112])
         self.assertEqual(game_state.get_mirroring_bought_count(), 1)
         self.assertEqual(game_state.build_current_level_deck(5).count(112), 2)
@@ -1102,7 +1104,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertFalse(game_state.is_mirroring_offer_available(5))
         self.assertIsNone(game_state.buy_mirroring_card(5, 1))
         self.assertEqual(game_state.mirrored_deck_cards, [1, 1])
-        self.assertEqual(game_state.get_shop_special_cost("mirroring", 5), 4)
+        self.assertEqual(game_state.get_shop_special_cost("mirroring", 5), 2)
 
     def test_mirroring_pool_roll_uses_purchase_dependent_chance(self):
         with mock.patch.object(game_state.random, "randint", return_value=25):
@@ -1118,15 +1120,16 @@ class ShopTransactionTests(ShopEconomyTestCase):
             second_pool = game_state.build_shop_special_offer_pool(5, max_offers=30)
         self.assertIn("mirroring", second_pool)
 
-    def test_retention_costs_three_and_stays_unavailable_until_boss_victory(self):
+    def test_retention_costs_one_and_stays_unavailable_until_boss_victory(self):
         game_state.napoleondors = 8
         page = self._shop(
-            {"kind": "special", "special_id": "retention", "cost": 3}
+            {"kind": "special", "special_id": "retention",
+             "cost": game_state.get_shop_special_cost("retention", 3)}
         )
 
         page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 7)
         self.assertTrue(game_state.retention_active)
         self.assertFalse(game_state.is_retention_offer_available())
         self.assertEqual(page.message, "Удержание активно до победы над боссом")
@@ -1139,7 +1142,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         with mock.patch.object(game_state.random, "randint", return_value=21):
             offers = game_state.build_shop_special_offer_pool(3, max_offers=30)
         self.assertNotIn("retention", offers)
-        self.assertEqual(game_state.get_shop_special_cost("retention", 3), 3)
+        self.assertEqual(game_state.get_shop_special_cost("retention", 3), 1)
 
     def test_retention_is_unavailable_before_the_final_boss(self):
         self.assertTrue(
@@ -1841,8 +1844,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
 
         self.assertNotIn("12%", CARD_DESCRIPTIONS[426])
 
-    def test_gold_disclosure_costs_five_and_has_thirty_percent_pool_chance(self):
-        self.assertEqual(game_state.SHOP_CARD_COSTS[427], 5)
+    def test_gold_disclosure_costs_three_and_has_thirty_percent_pool_chance(self):
+        self.assertEqual(game_state.SHOP_CARD_COSTS[427], 3)
         self.assertEqual(CARD_NAMES[427], "Disclosure")
         self.assertEqual(
             CARD_DESCRIPTIONS[427],

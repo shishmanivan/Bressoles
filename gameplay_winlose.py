@@ -261,6 +261,7 @@ def apply_win_reward(
             pick_random_red_card_for_level,
         )
         if reward_card_number is None:
+            gameplay_instance.red_reward_exhausted = True
             print(
                 f"Skipped {reward_key_part} for level {gameplay_instance.level_number}, "
                 f"round {round_num}, button {button}"
@@ -315,6 +316,7 @@ def apply_win_reward(
 def _select_reward_card(reward_list, level_number, reward_token_random_red, pick_random_red_card_for_level):
     reward_card_number = _choose_reward_card(reward_list)
     if reward_card_number == reward_token_random_red:
+        game_state.ensure_red_reward_capacity(level_number)
         picked = pick_random_red_card_for_level(level_number)
         if picked is None:
             print(f"WARNING: 'Red Card' reward requested but no available red cards for level {level_number}.")

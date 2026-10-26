@@ -901,6 +901,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         # Store last earned reward cards for WinLose window display
         self.last_earned_cards = []  # List of card numbers earned in this round
         self.blocked_reward_cards = []
+        self.red_reward_exhausted = False
         self.last_earned_napoleondors = 0
         self.long_payout_amount = 0
         self.golden_stocks_reward_card = None
@@ -2044,6 +2045,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "win_lose_state": self.win_lose_state,
             "win_lose_y": self.win_lose_y,
             "last_earned_cards": list(self.last_earned_cards or []),
+            "red_reward_exhausted": bool(getattr(self, "red_reward_exhausted", False)),
             "blocked_reward_cards": [dict(entry) for entry in getattr(self, "blocked_reward_cards", [])],
             "last_earned_napoleondors": float(self.last_earned_napoleondors or 0),
             "long_payout_amount": int(self.long_payout_amount or 0),
@@ -2198,6 +2200,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.win_lose_state == "win" and self.is_final_boss:
             self.reward_window_text = self._get_final_boss_reward_text()
         self.last_earned_cards = list(state.get("last_earned_cards") or [])
+        self.red_reward_exhausted = bool(state.get("red_reward_exhausted", False))
         self.blocked_reward_cards = [dict(entry) for entry in state.get("blocked_reward_cards", [])]
         self.last_earned_napoleondors = float(state.get("last_earned_napoleondors", 0) or 0)
         self.long_payout_amount = int(state.get("long_payout_amount", self.long_payout_amount) or 0)
@@ -4542,6 +4545,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             })
         return rows
 
+    def _get_red_reward_exhaustion_notice(self):
+        if getattr(self, "red_reward_exhausted", False):
+            return _tr("Вы уже получили все красные карты колоды.")
+        return None
+
     def _get_card_report_notice(self):
         if getattr(self, "golden_stocks_reward_card", None) is None:
             return None
@@ -4697,6 +4705,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         frugality_bonus = self._get_card_report_frugality_bonus()
         if frugality_bonus:
             items.append(frugality_bonus)
+        exhaustion_notice = self._get_red_reward_exhaustion_notice()
+        if exhaustion_notice:
+            items.append(exhaustion_notice)
         self._draw_card_report_bonus_items(
             report_rect,
             items,
@@ -4724,6 +4735,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         is_boss_report = bool(getattr(self, "is_boss_fight", False))
         notice = self._get_card_report_notice()
         frugality_bonus = self._get_card_report_frugality_bonus()
+        extra_items = [item for item in (frugality_bonus, self._get_red_reward_exhaustion_notice()) if item]
         content_top_ratio = 0.325 if is_boss_report else (0.32 if notice else 0.27)
         content_top = report_rect.top + int(report_rect.height * content_top_ratio)
         if is_boss_report:
@@ -4734,7 +4746,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             content_bottom = content_top + cards_height
         else:
             content_top = report_rect.top + int(report_rect.height * (0.32 if notice else 0.29))
-            content_bottom_ratio = 0.73 if frugality_bonus else 0.835
+            content_bottom_ratio = 0.73 if extra_items else 0.835
             content_bottom = report_rect.top + int(report_rect.height * content_bottom_ratio)
         slot_height = max(70, (content_bottom - content_top) // max(1, len(rows)))
         card_ratio = 99 / 171.0
@@ -4803,10 +4815,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 text_x,
                 len(rows),
             )
-        elif frugality_bonus:
+        elif extra_items:
             self._draw_card_report_bonus_items(
                 report_rect,
-                [frugality_bonus],
+                extra_items,
                 content_bottom + int(report_rect.height * 0.018),
                 text_x,
                 report_rect.top + int(report_rect.height * 0.88),
@@ -7520,10 +7532,21 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if rect.collidepoint(mouse_pos):
                 if not hasattr(self, "stock_description_font"):
                     self.stock_description_font = stock_tooltip_font(self.font_path)
+                copied = market in getattr(self, "market_copy_snapshots", {})
+                show_current_step = (
+                    copied or self._count_active_card_safely(424)
+                    or self._count_active_card_safely(425)
+                )
                 draw_stock_tooltip(
                     self.screen, market, mouse_pos, self.stock_description_font,
                     standardization=self._is_standardization_active(),
-                    copied=market in getattr(self, "market_copy_snapshots", {}),
+                    copied=copied,
+                    current_step=(
+                        getattr(self, ("StepA", "StepB", "StepC")[market])
+                        if show_current_step else None
+                    ),
+                    can_fall=(self._stock_bot_probabilities()[market]["fall"] > 0
+                              if show_current_step else None),
                 )
                 if not self.test_mode and self.profile_slot and not getattr(self, "_stock_logo_discovered", False):
                     profile_manager.mark_tutorial_seen(self.profile_slot, LOGO_HINT_ID)

@@ -10,6 +10,7 @@ __pycache__/
 Thumbs.db
 # Local saves / runtime data
 Profiles/
+Logs/
 GameStats.csv
 GoldenStockChecks.log
 MarketRolls.csv
@@ -18,6 +19,7 @@ CardAcquisitionStats.csv
 
 # Generated test and visual QA output
 output/
+.test-tmp/
 
 # Codex local attachments
 .codex-remote-attachments/

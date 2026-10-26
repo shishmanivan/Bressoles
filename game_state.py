@@ -59,6 +59,7 @@ correction_shop_cooldown = 0
 bailout_rounds_remaining = 0
 price_cut_purchases_by_level = {}
 price_cut_assistance_shown_levels = set()
+price_cut_assistance_milestones = {}
 disclosure_rounds_remaining = 0
 active_price_support_rounds = []
 protective_put_charges = 0
@@ -99,7 +100,7 @@ SHOP_SPECIAL_COSTS = {
     "bailout": 4,
     "price_cut": 5,
     "long": 2,
-    "derivative": 5,
+    "derivative": 3,
     "junk_bond": 2,
     "issuer": 8,
     "flash_issue": 2,
@@ -108,7 +109,7 @@ SHOP_SPECIAL_COSTS = {
     "variance": 1,
     "loan": 0,
     "correction": 2,
-    "diversification": 5,
+    "diversification": 4,
     "expansion": 5,
     "bill_of_exchange": 4,
     "disclosure": 3,
@@ -119,8 +120,8 @@ SHOP_SPECIAL_COSTS = {
     "replication_plus": 6,
     "screening": 1,
     "capital_preservation": 5,
-    "mirroring": 4,
-    "retention": 3,
+    "mirroring": 2,
+    "retention": 1,
     "deal_flow": 4,
     "moratorium": 6,
 }
@@ -224,7 +225,7 @@ SHOP_CARD_COSTS = {
     424: 5,
     425: 6,
     426: 6,
-    427: 5,
+    427: 3,
     428: 4,
     429: 7,
     430: 5,
@@ -863,6 +864,12 @@ def unlock_card_license(card_id):
     if cid in licensed_card_ids:
         return False
     licensed_card_ids.add(cid)
+    if active_red_cards_level and is_red_card(cid):
+        eligible = build_red_cards_deck_for_level(active_red_cards_level, roll_probabilities=False)
+        if (cid in eligible
+                and cid not in get_unavailable_red_cards(active_red_cards_level)
+                and cid not in active_red_cards_deck):
+            active_red_cards_deck.insert(random.randint(0, len(active_red_cards_deck)), cid)
     return True
 
 
@@ -1369,6 +1376,12 @@ def is_price_cut_random_offer_available(level_number):
         is_price_cut_offer_available(level_number)
         and int(level_number) in price_cut_assistance_shown_levels
     )
+
+
+def get_price_cut_assistance_milestone(losses):
+    """Number of reached guarantees: losses 4, 9, 13, 18, ... ."""
+    losses = max(0, int(losses))
+    return (losses // 9) * 2 + int(losses % 9 >= 4)
 
 
 def get_price_cut_purchases(level_number):
@@ -3667,6 +3680,25 @@ def start_red_cards_deck_for_level(level_num):
     return list(active_red_cards_deck)
 
 
+def ensure_red_reward_capacity(level_num, count=1):
+    """Fill reward shortages from unowned licensed cards that missed the pool roll."""
+    level = int(level_num or 0)
+    if not level or count <= 0:
+        return
+    if active_red_cards_level != level:
+        start_red_cards_deck_for_level(level)
+    remove_unavailable_red_cards_from_active_deck(level)
+    missing = count - len(active_red_cards_deck)
+    if missing <= 0:
+        return
+    excluded = get_unavailable_red_cards(level) | set(active_red_cards_deck)
+    remaining = [
+        cid for cid in build_red_cards_deck_for_level(level, roll_probabilities=False)
+        if cid not in excluded
+    ]
+    active_red_cards_deck.extend(random.sample(remaining, min(missing, len(remaining))))
+
+
 def draw_red_card_for_level(level_num):
     """Draw one red card without replacement for the current boss attempt."""
     global active_red_cards_level, active_red_cards_deck
@@ -4005,7 +4037,7 @@ def build_gain_drop_cards_pool(excluded_card_ids=None):
     return sorted(set(gain_drop_cards))
 
 
-def build_red_cards_deck_for_level(level_num):
+def build_red_cards_deck_for_level(level_num, *, roll_probabilities=True):
     """Build the per-run deck of available red cards when a level is selected."""
     try:
         level = int(level_num or 0)
@@ -4031,6 +4063,10 @@ def build_red_cards_deck_for_level(level_num):
         if not is_open:
             continue
         if not is_card_licensed(cid):
+            continue
+
+        if not roll_probabilities:
+            red_cards.append(cid)
             continue
 
         prob_raw = row.get("Variable") if isinstance(row, dict) else None

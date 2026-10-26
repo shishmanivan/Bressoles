@@ -21,7 +21,7 @@ from level_screen_helpers import (
 from level_card_style import LevelCardStyle
 from level_routes import get_campaign_content_level, get_test_content_level
 from shared_utils import wrap_text
-from sound_assets import load_sound
+from sound_assets import load_button_sound, load_sound
 
 
 SCREEN_WIDTH, SCREEN_HEIGHT = LEVEL_CONTENT_SIZE
@@ -49,7 +49,14 @@ class GameScreen:
         self.balance_rollback_rect = pygame.Rect(SCREEN_WIDTH - 366, 12, 350, 44)
         self.balance_font = pygame.font.Font(font_path, 22)
         self.back_button = self._build_back_button(font_path)
-        self.back_rect = self.back_button.get_rect(topleft=(16, 12))
+        self.back_rect = self.back_button.get_rect(topleft=(16, 72))
+        self.back_pressed_button = pygame.transform.smoothscale(
+            self.back_button,
+            tuple(max(1, int(size * 0.96)) for size in self.back_button.get_size()),
+        )
+        self._back_pending = False
+        self._back_press_until = None
+        self.back_sound = load_button_sound()
         self.button_sound = load_sound(os.path.join("Sounds", "Level Button.wav"))
         self.page_arrow_sound = load_sound(os.path.join("Sounds", "Skrip.wav"))
 
@@ -412,15 +419,26 @@ class GameScreen:
                  "HU": "Vissza", "FR": "Retour"}[get_language()]
         font = pygame.font.Font(font_path, 24)
         text = font.render(label, True, (62, 36, 9))
-        button.blit(text, text.get_rect(center=button.get_rect().center))
+        # Center the visible lettering, excluding the font's empty line margins.
+        text = text.subsurface(text.get_bounding_rect())
+        # The lettering sits optically lower than the ornament's inner panel.
+        text_center = (button.get_width() // 2, button.get_height() // 2 - 6)
+        button.blit(text, text.get_rect(center=text_center))
         return button
 
     def _draw_back_button(self):
         button = self.back_button
-        if pygame.mouse.get_focused() and self.back_rect.collidepoint(pygame.mouse.get_pos()):
+        rect = self.back_rect
+        if self._back_pending:
+            # Match End Turn's 110 ms press, counted from its first visible frame.
+            if self._back_press_until is None:
+                self._back_press_until = pygame.time.get_ticks() + 110
+            button = self.back_pressed_button
+            rect = button.get_rect(center=self.back_rect.move(0, 3).center)
+        elif pygame.mouse.get_focused() and self.back_rect.collidepoint(pygame.mouse.get_pos()):
             button = button.copy()
             button.fill((230, 230, 230, 255), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(button, self.back_rect)
+        self.screen.blit(button, rect)
 
     def handle_input(self):
 
@@ -436,13 +454,16 @@ class GameScreen:
 
             # This control is anchored to the viewport, outside the scrolling
             # cards, and remains available during level/page animations.
+            if self._back_pending:
+                continue
             if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
                     and self.back_rect.collidepoint(event.pos)):
                 self._pending_level = None
                 self._level_press_drawn = False
-                if self.button_sound:
-                    self.button_sound.play()
-                return "back"
+                self._back_pending = True
+                if self.back_sound:
+                    self.back_sound.play()
+                continue
 
             if getattr(self, "_pending_level", None) is not None:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -510,6 +531,11 @@ class GameScreen:
                             if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and self._level_button_hit(rect, mouse_pos, level_num):
                                 return self._start_level(level_num)
 
+        if self._back_pending:
+            if (self._back_press_until is not None
+                    and pygame.time.get_ticks() >= self._back_press_until):
+                return "back"
+            return None
         if getattr(self, "_level_press_drawn", False):
             level_num = self._pending_level
             self._pending_level = None

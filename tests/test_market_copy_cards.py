@@ -26,6 +26,7 @@ class MarketCopyCardTests(unittest.TestCase):
         page.Aquantity = page.Bquantity = page.Cquantity = 1
         page.StepA, page.StepB, page.StepC = 2, 4, 6
         page.Day = 1
+        page.level_number = 1
         page.insider_c_growth_turns_remaining = 0
         page.typewriter_sound = None
         page._start_card_jump_animation = mock.Mock()
@@ -65,6 +66,28 @@ class MarketCopyCardTests(unittest.TestCase):
             self.assertFalse(page._apply_market_copy_card(card_id, market, 0))
             self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (12, 24, 36))
             self.assertEqual(page._stock_bot_probabilities(), before)
+
+    def test_copied_market_tooltip_uses_current_step_and_fall_probability(self):
+        for card_id, target, source in ((23, 1, 0), (23, 2, 1), (24, 0, 1), (24, 1, 2)):
+            for volatility in (False, True):
+                with self.subTest(card=card_id, target=target, volatility=volatility):
+                    page = self.page()
+                    if volatility:
+                        page.active_gold_cards = [424]
+                        page._apply_volatility_steps()
+                    self.play(page, card_id, target)
+                    page.tutorial_hint = page.dragged_card_source = page.win_lose_state = None
+                    page.pause_menu_active = page.deck_view_active = False
+                    page.test_mode = True
+                    page.screen = page.stock_description_font = mock.Mock()
+                    page.stock_logo_rects = {target: pygame.Rect(0, 0, 10, 10)}
+                    page.mouse_pos = mock.Mock(return_value=(5, 5))
+                    with mock.patch("gameplay_page.draw_stock_tooltip") as draw:
+                        page._draw_stock_logo_tooltip()
+                    self.assertTrue(draw.call_args.kwargs["copied"])
+                    self.assertEqual(draw.call_args.kwargs["current_step"],
+                                     (2, 4, 6)[source] + (2 if volatility else 0))
+                    self.assertEqual(draw.call_args.kwargs["can_fall"], source != 0)
 
     def test_snapshot_is_independent_and_later_target_cards_still_apply(self):
         page = self.page()

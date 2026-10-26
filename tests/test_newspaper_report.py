@@ -34,6 +34,36 @@ def make_page():
 
 
 class NewspaperTests(unittest.TestCase):
+    def test_red_exhaustion_notice_is_localized_and_only_shown_for_missing_reward(self):
+        from asset_loaders import find_font_path_or_exit
+
+        page = make_page()
+        page.font_path = find_font_path_or_exit()
+        page.is_boss_fight = False
+        page.mouse_pos = lambda: (-1, -1)
+        page._load_winlose_card = Mock(return_value=None)
+        page._get_text = lambda key, default=None: default or key
+        expected = {
+            'RU': 'Вы уже получили все красные карты колоды.',
+            'ENG': 'You have already received all the red cards in the deck.',
+            'DE': 'Du hast bereits alle roten Karten des Decks erhalten.',
+            'HU': 'Már megkaptad a pakli összes piros kártyáját.',
+            'FR': 'Vous avez déjà reçu toutes les cartes rouges du paquet.',
+        }
+        for language in SUPPORTED_LANGUAGES:
+            set_language(language)
+            for rewards in ([], [124, 201]):
+                page.last_earned_cards = rewards
+                page.red_reward_exhausted = False
+                self.assertIsNone(page._get_red_reward_exhaustion_notice())
+                self.assertNotIn(expected[language], articles(page)[1])
+                page.red_reward_exhausted = True
+                self.assertEqual(page._get_red_reward_exhaustion_notice(), expected[language])
+                self.assertEqual(articles(page)[1].count(expected[language]), 1)
+                with patch.object(page, '_draw_card_report_bonus_items', wraps=page._draw_card_report_bonus_items) as draw:
+                    page._draw_card_report_rows(pygame.Rect(300, 40, 800, 900))
+                self.assertIn(expected[language], draw.call_args.args[1])
+
     @classmethod
     def setUpClass(cls):
         pygame.font.init()

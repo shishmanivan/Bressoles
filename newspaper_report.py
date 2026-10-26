@@ -113,6 +113,8 @@ def articles(page, detailed=False):
             cards.append(description)
     if not rewards:
         cards.append(text('no_rewards'))
+    if getattr(page, 'red_reward_exhausted', False):
+        cards.append(translate('Вы уже получили все красные карты колоды.'))
     for entry in getattr(page, 'blocked_reward_cards', []) or []:
         cards.append(text('blocked', card=page._newspaper_card_name(entry['card_id'])))
     if getattr(page, 'is_final_boss', False) and page.win_lose_state == 'win':

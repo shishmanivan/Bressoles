@@ -18,6 +18,7 @@ class PriceCutTests(unittest.TestCase):
         self.progress = profile_manager._capture_progress()
         game_state.price_cut_purchases_by_level = {}
         game_state.price_cut_assistance_shown_levels = set()
+        game_state.price_cut_assistance_milestones = {}
         game_state.bill_of_exchange_offer_bought = False
         game_state.deal_flow_bonus_percent = 0
 
@@ -52,7 +53,7 @@ class PriceCutTests(unittest.TestCase):
                 if expected:
                     self.assertEqual(offers[0]["cost"], balance)
 
-    def test_assistance_is_once_per_level_on_display_not_purchase(self):
+    def test_assistance_is_once_per_milestone_on_display_not_purchase(self):
         page = self.assistance_shop()
         page._ensure_price_cut_assistance()
         self.assertNotIn(5, game_state.price_cut_assistance_shown_levels)
@@ -69,6 +70,41 @@ class PriceCutTests(unittest.TestCase):
         other_level = self.assistance_shop(level=4)
         other_level._ensure_price_cut_assistance()
         self.assertTrue(other_level._price_cut_assistance_pending)
+
+    def test_repeated_guarantees_follow_alternating_loss_intervals(self):
+        for losses in range(28):
+            page = self.assistance_shop(losses=losses)
+            page._ensure_price_cut_assistance()
+            self.assertEqual(page._price_cut_assistance_pending,
+                             losses in (4, 9, 13, 18, 22, 27), losses)
+            with mock.patch("shop_page.profile_manager.save_progress_from_game_state"):
+                page._record_price_cut_assistance_shown()
+            saved = json.loads(json.dumps(profile_manager._capture_progress()))
+            profile_manager.apply_profile_to_game_state({"progress": saved})
+
+    def test_delayed_guarantee_consumes_reached_milestones_together(self):
+        page = self.assistance_shop(losses=13, balance=4)
+        page._ensure_price_cut_assistance()
+        self.assertFalse(page._price_cut_assistance_pending)
+        page.napoleondors = 5
+        page._ensure_price_cut_assistance()
+        with mock.patch("shop_page.profile_manager.save_progress_from_game_state"):
+            page._record_price_cut_assistance_shown()
+        next_shop = self.assistance_shop(losses=13)
+        next_shop._ensure_price_cut_assistance()
+        self.assertFalse(next_shop._price_cut_assistance_pending)
+        next_shop.level_run_losses = 18
+        next_shop._ensure_price_cut_assistance()
+        self.assertTrue(next_shop._price_cut_assistance_pending)
+
+    def test_legacy_guarantee_counts_as_first_milestone(self):
+        profile_manager.apply_profile_to_game_state({"progress": {
+            "price_cut_assistance_shown_levels": [5],
+        }})
+        self.assertEqual(game_state.price_cut_assistance_milestones, {5: 1})
+        page = self.assistance_shop(losses=9)
+        page._ensure_price_cut_assistance()
+        self.assertTrue(page._price_cut_assistance_pending)
 
     def test_reaching_balance_inside_shop_preserves_sold_offers_and_avoids_duplicates(self):
         page = self.assistance_shop(balance=4)
@@ -93,7 +129,7 @@ class PriceCutTests(unittest.TestCase):
                 writer = csv.writer(output, delimiter=";")
                 writer.writerow(fields)
                 writer.writerows([
-                    [5, "Забег уровня", "Level", 4],
+                    [5, "Забег уровня", "LEVEL", 4],
                     [5, "Раунд 1", "E", 50],
                     [5, "Босс уровня", "LevelBoss", 50],
                     [5, "Поражение забега", "RunLoss", 4],

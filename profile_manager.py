@@ -4,6 +4,7 @@ import math
 import os
 import shutil
 import tempfile
+import time
 
 import pygame
 
@@ -13,12 +14,14 @@ from gameplay_deck import restore_card_instance, serialize_card_instance
 from player_market_stats import empty_stats, accumulate
 from player_other_stats import empty_stats as empty_other_stats, record as record_other_stats
 from player_time_stats import empty_stats as empty_time_stats, record as record_time_stats
+from runtime_diagnostics import logger
 
 
 PROFILES_DIR = "Profiles"
 INDEX_FILE = os.path.join(PROFILES_DIR, "index.json")
 MAX_PROFILES = 6
 _recovered_profile_paths = set()
+save_error_handler = None
 
 
 class ProfileLoadError(OSError):
@@ -147,7 +150,15 @@ def _write_json_atomically(path, data):
             json.dump(data, output_file, ensure_ascii=False, indent=2, allow_nan=False)
             output_file.flush()
             os.fsync(output_file.fileno())
-        os.replace(temporary_path, path)
+        for attempt in range(5):
+            try:
+                os.replace(temporary_path, path)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                logger.warning("Save replacement busy; retry %s: %s", attempt + 1, path)
+                time.sleep(0.05 * (2 ** attempt))
     except Exception:
         try:
             os.remove(temporary_path)
@@ -273,6 +284,7 @@ def _empty_progress():
         "bailout_rounds_remaining": 0,
         "price_cut_purchases_by_level": {},
         "price_cut_assistance_shown_levels": [],
+        "price_cut_assistance_milestones": {},
         "disclosure_rounds_remaining": 0,
         "active_price_support_rounds": [],
         "protective_put_charges": 0,
@@ -427,6 +439,51 @@ def _migrate_completed_black_rewards(profile):
 
 
 def save_profile(profile):
+    # Keep the exact requested state while the UI waits. Retrying the game
+    # action itself could award money/cards twice.
+    pending = copy.deepcopy(profile)
+    recovery_path = None
+    while True:
+        try:
+            _save_profile_once(pending)
+            break
+        except ProfileLoadError:
+            raise  # Never overwrite an unreadable existing profile.
+        except OSError as error:
+            if save_error_handler is None:
+                raise
+            logger.exception("Profile save failed; holding progress for retry")
+            if recovery_path is None:
+                candidate = None
+                try:
+                    descriptor, candidate = tempfile.mkstemp(
+                        prefix=f"profile_{pending.get('slot', 1)}.pending-",
+                        suffix=".json", dir=PROFILES_DIR,
+                    )
+                    with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+                        json.dump(pending, output, ensure_ascii=False, indent=2, allow_nan=False)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    recovery_path = candidate
+                    logger.warning("Pending progress preserved: %s", recovery_path)
+                except OSError:
+                    logger.exception("Could not write emergency progress snapshot")
+                    if candidate is not None:
+                        try:
+                            os.remove(candidate)
+                        except OSError:
+                            pass
+            save_error_handler(error, recovery_path)
+    # Preserve the existing caller-visible normalization contract.
+    profile.update(pending)
+    if recovery_path is not None:
+        try:
+            os.remove(recovery_path)
+        except OSError:
+            logger.warning("Could not remove resolved snapshot: %s", recovery_path)
+
+
+def _save_profile_once(profile):
     ensure_profiles_dir()
     slot = int(profile.get("slot") or 1)
     profile["slot"] = slot
@@ -522,6 +579,14 @@ def apply_profile_to_game_state(profile_or_slot):
         int(level) for level in progress.get("price_cut_assistance_shown_levels", [])
         if str(level).isdigit() and 1 <= int(level) <= 6
     }
+    game_state.price_cut_assistance_milestones = {
+        int(key): int(value)
+        for key, value in progress.get("price_cut_assistance_milestones", {}).items()
+        if str(key).isdigit() and 1 <= int(key) <= 6
+        and str(value).isdigit() and int(value) > 0
+    }
+    for level in game_state.price_cut_assistance_shown_levels:
+        game_state.price_cut_assistance_milestones.setdefault(level, 1)
     game_state.moratorium_expirations = {
         int(key): int(value)
         for key, value in progress.get("moratorium_expirations", {}).items()
@@ -987,6 +1052,7 @@ def _capture_progress():
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "price_cut_purchases_by_level": dict(game_state.price_cut_purchases_by_level),
         "price_cut_assistance_shown_levels": sorted(game_state.price_cut_assistance_shown_levels),
+        "price_cut_assistance_milestones": dict(game_state.price_cut_assistance_milestones),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
         "active_price_support_rounds": game_state.get_active_price_support_rounds(),
         "protective_put_charges": game_state.get_protective_put_charges(),

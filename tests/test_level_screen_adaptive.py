@@ -46,16 +46,34 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
             with self.subTest(size=size, test_mode=test_mode):
                 page = self.make_page(size, test_mode=test_mode)
                 page.scroll_y = 200
-                self.assertEqual(page.back_rect.topleft, (16, 12))
-                self.assertEqual(self.click(page, page.back_rect.center), "back")
+                self.assertEqual(page.back_rect.topleft, (16, 72))
+                self.assertIsNone(self.click(page, page.back_rect.center))
+                page.draw()
+                with mock.patch("pygame.time.get_ticks", return_value=page._back_press_until):
+                    with mock.patch("pygame.event.get", return_value=[]):
+                        self.assertEqual(page.handle_input(), "back")
 
     def test_back_button_cancels_pending_level_selection(self):
         page = self.make_page()
         page._pending_level = 1
         page._level_press_drawn = True
-        self.assertEqual(self.click(page, page.back_rect.center), "back")
+        self.assertIsNone(self.click(page, page.back_rect.center))
         self.assertIsNone(page._pending_level)
         self.assertFalse(page._level_press_drawn)
+
+    def test_back_press_waits_for_visible_animation_and_ignores_repeat_clicks(self):
+        page = self.make_page()
+        page.back_sound = mock.Mock()
+        self.assertIsNone(self.click(page, page.back_rect.center))
+        with mock.patch("pygame.time.get_ticks", return_value=10000):
+            self.assertIsNone(self.click(page, page.back_rect.center))
+            page._draw_back_button()
+        self.assertEqual(page._back_press_until, 10110)
+        with mock.patch("pygame.time.get_ticks", return_value=10109):
+            self.assertIsNone(self.click(page, page.back_rect.center))
+        with mock.patch("pygame.time.get_ticks", return_value=10110):
+            self.assertEqual(self.click(page, page.back_rect.center), "back")
+        page.back_sound.play.assert_called_once_with()
 
     def finish_level_press(self, page):
         with mock.patch("pygame.time.get_ticks", return_value=page._level_press_started_at + LEVEL_BUTTON_PRESS_MS):

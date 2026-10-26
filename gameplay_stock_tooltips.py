@@ -14,7 +14,8 @@ STOCK_DESCRIPTIONS = (
 )
 
 
-def draw_stock_tooltip(screen, market, mouse_pos, font, standardization=False, copied=False):
+def draw_stock_tooltip(screen, market, mouse_pos, font, standardization=False, copied=False,
+                       current_step=None, can_fall=None):
     width = min(460, screen.get_width() - 16)
     padding = 18
     description = (
@@ -24,6 +25,11 @@ def draw_stock_tooltip(screen, market, mouse_pos, font, standardization=False, c
         if standardization else STOCK_DESCRIPTIONS[market]
     )
     lines = wrap_text(translate(description), font, width - padding * 2)
+    if current_step is not None:
+        if can_fall is None:
+            can_fall = market != 0
+        summary = "Сейчас растёт и падает на {step}." if can_fall else "Сейчас растёт на {step}."
+        lines.extend(wrap_text(translate(summary).format(step=current_step), font, width - padding * 2))
     line_height = font.get_linesize() + 4
     panel = pygame.Rect(0, 0, width, padding * 2 + len(lines) * line_height)
     panel.topleft = (mouse_pos[0] + 20, mouse_pos[1] + 20)

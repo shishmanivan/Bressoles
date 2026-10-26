@@ -1,5 +1,29 @@
 [
   {
+    "Source": "Вы уже получили все красные карты колоды.",
+    "RU": "Вы уже получили все красные карты колоды.",
+    "ENG": "You have already received all the red cards in the deck.",
+    "DE": "Du hast bereits alle roten Karten des Decks erhalten.",
+    "HU": "Már megkaptad a pakli összes piros kártyáját.",
+    "FR": "Vous avez déjà reçu toutes les cartes rouges du paquet."
+  },
+  {
+    "Source": "Сейчас растёт на {step}.",
+    "RU": "Сейчас растёт на {step}.",
+    "ENG": "Currently rises by {step}.",
+    "DE": "Steigt derzeit um {step}.",
+    "HU": "Jelenleg {step} az emelkedés mértéke.",
+    "FR": "Augmente actuellement de {step}."
+  },
+  {
+    "Source": "Сейчас растёт и падает на {step}.",
+    "RU": "Сейчас растёт и падает на {step}.",
+    "ENG": "Currently rises and falls by {step}.",
+    "DE": "Steigt und fällt derzeit um {step}.",
+    "HU": "Jelenleg {step} az emelkedés és a csökkenés mértéke.",
+    "FR": "Augmente et baisse actuellement de {step}."
+  },
+  {
     "Source": "Flash Issue",
     "RU": "Flash Issue",
     "ENG": "Flash Issue",
@@ -3694,5 +3718,61 @@
     "DE": "Der Laden ist jetzt verfügbar. Hier kannst du Angebote auswählen, die deinen Spieldurchlauf erleichtern. Mit jedem abgeschlossenen Level wird das Angebot größer.",
     "HU": "Mostantól elérhető a bolt. Itt olyan ajánlatokat választhatsz, amelyek megkönnyítik a játékodat. Minden teljesített szinttel bővül az ajánlatok választéka.",
     "FR": "La boutique est désormais accessible. Vous pouvez y choisir des offres qui faciliteront votre partie. Le choix d’offres s’élargira à chaque niveau terminé."
+  },
+  {
+    "Source": "Не удалось сохранить прогресс.",
+    "RU": "Не удалось сохранить прогресс.",
+    "ENG": "Could not save progress.",
+    "DE": "Fortschritt konnte nicht gespeichert werden.",
+    "HU": "Nem sikerült menteni az előrehaladást.",
+    "FR": "Impossible de sauvegarder la progression."
+  },
+  {
+    "Source": "Игра приостановлена до успешного сохранения.",
+    "RU": "Игра приостановлена до успешного сохранения.",
+    "ENG": "The game is paused until saving succeeds.",
+    "DE": "Das Spiel pausiert, bis das Speichern gelingt.",
+    "HU": "A játék a sikeres mentésig szünetel.",
+    "FR": "Le jeu est en pause jusqu’à la réussite de la sauvegarde."
+  },
+  {
+    "Source": "Освободите место на диске и проверьте доступ к папке Profiles.",
+    "RU": "Освободите место на диске и проверьте доступ к папке Profiles.",
+    "ENG": "Free disk space and check access to the Profiles folder.",
+    "DE": "Speicherplatz freigeben und Zugriff auf den Ordner Profiles prüfen.",
+    "HU": "Szabadíts fel lemezterületet, és ellenőrizd a Profiles mappa elérését.",
+    "FR": "Libérez de l’espace disque et vérifiez l’accès au dossier Profiles."
+  },
+  {
+    "Source": "Аварийная копия прогресса записана в папку Profiles.",
+    "RU": "Аварийная копия прогресса записана в папку Profiles.",
+    "ENG": "An emergency copy was saved in the Profiles folder.",
+    "DE": "Eine Notfallkopie wurde im Ordner Profiles gespeichert.",
+    "HU": "Vészhelyzeti másolat készült a Profiles mappában.",
+    "FR": "Une copie de secours a été enregistrée dans le dossier Profiles."
+  },
+  {
+    "Source": "Прогресс пока хранится только в памяти. Не закрывайте игру.",
+    "RU": "Прогресс пока хранится только в памяти. Не закрывайте игру.",
+    "ENG": "Progress is only in memory. Do not close the game.",
+    "DE": "Fortschritt ist nur im Arbeitsspeicher. Spiel nicht schließen.",
+    "HU": "Az állás csak a memóriában van. Ne zárd be a játékot.",
+    "FR": "La progression est seulement en mémoire. Ne fermez pas le jeu."
+  },
+  {
+    "Source": "Нажмите Enter или кнопку, чтобы повторить сохранение.",
+    "RU": "Нажмите Enter или кнопку, чтобы повторить сохранение.",
+    "ENG": "Press Enter or the button to retry saving.",
+    "DE": "Enter oder die Schaltfläche drücken, um erneut zu speichern.",
+    "HU": "Nyomd meg az Entert vagy a gombot a mentés újrapróbálásához.",
+    "FR": "Appuyez sur Entrée ou sur le bouton pour réessayer."
+  },
+  {
+    "Source": "Повторить сохранение",
+    "RU": "Повторить сохранение",
+    "ENG": "Retry saving",
+    "DE": "Speichern wiederholen",
+    "HU": "Mentés újrapróbálása",
+    "FR": "Réessayer la sauvegarde"
   }
 ]

@@ -53,11 +53,60 @@ class ProfileRecoveryTests(unittest.TestCase):
         profile_manager.save_profile(self.profile)
         self.assertEqual(self.read(self.primary), self.profile)
         self.assertEqual(self.read(self.backup), self.profile)
+
         updated = copy.deepcopy(self.profile)
         updated["active_game"]["state"]["Day"] = 5
         profile_manager.save_profile(updated)
         self.assertEqual(self.read(self.primary), updated)
         self.assertEqual(self.read(self.backup), self.profile)
+
+    def test_transient_backup_lock_retries_without_losing_new_progress(self):
+        profile_manager.save_profile(self.profile)
+        updated = copy.deepcopy(self.profile)
+        updated["active_game"]["state"]["Money"] = 336
+        replace = os.replace
+        attempts = []
+
+        def temporarily_locked(source, target):
+            if target == str(self.backup):
+                attempts.append(target)
+                if len(attempts) < 3:
+                    raise PermissionError("Windows access denied")
+            return replace(source, target)
+
+        with mock.patch.object(profile_manager.os, "replace", side_effect=temporarily_locked), mock.patch.object(profile_manager.time, "sleep"):
+            profile_manager.save_profile(updated)
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(self.read(self.primary), updated)
+        self.assertEqual(self.read(self.backup), self.profile)
+
+    def test_persistent_lock_preserves_snapshot_and_retries_exact_state(self):
+        for locked_file in (self.primary, self.backup):
+            with self.subTest(locked_file=locked_file):
+                profile_manager.save_profile(self.profile)
+                updated = copy.deepcopy(self.profile)
+                updated["active_game"]["state"]["Money"] = 336
+                replace = os.replace
+                locked = True
+
+                def deny(source, target):
+                    if locked and target == str(locked_file):
+                        raise PermissionError("Windows access denied")
+                    return replace(source, target)
+
+                def retry(error, snapshot):
+                    nonlocal locked
+                    self.assertIsInstance(error, PermissionError)
+                    self.assertEqual(self.read(Path(snapshot)), updated)
+                    self.assertEqual(self.read(self.primary), self.profile)
+                    locked = False
+
+                with mock.patch.object(profile_manager.os, "replace", side_effect=deny), mock.patch.object(profile_manager.time, "sleep"), mock.patch.object(profile_manager, "save_error_handler", side_effect=retry) as handler:
+                    profile_manager.save_profile(updated)
+                handler.assert_called_once()
+                self.assertEqual(self.read(self.primary), updated)
+                self.assertEqual(self.read(self.backup), self.profile)
+                self.assertEqual(list(self.directory.glob("*.pending-*.json")), [])
 
     def test_invalid_json_encoding_and_envelope_restore_backup_and_archive_bytes(self):
         for damaged in (b'{"progress":', b'\xff\xfe', b'[]', b'{}',
@@ -80,6 +129,55 @@ class ProfileRecoveryTests(unittest.TestCase):
                 self.assertTrue(profile_manager.was_profile_recovered(1))
                 profile_manager.load_profile(1)
                 self.assertEqual(len(set(self.directory.glob("*.corrupt-*.bak")) - before), 1)
+
+    def test_interrupted_retry_keeps_emergency_snapshot(self):
+        profile_manager.save_profile(self.profile)
+        updated = copy.deepcopy(self.profile)
+        updated["active_game"]["state"]["Money"] = 336
+        with mock.patch.object(profile_manager.os, "replace", side_effect=PermissionError("locked")), mock.patch.object(profile_manager.time, "sleep"), mock.patch.object(profile_manager, "save_error_handler", side_effect=SystemExit):
+            with self.assertRaises(SystemExit):
+                profile_manager.save_profile(updated)
+        snapshot, = self.directory.glob("*.pending-*.json")
+        self.assertEqual(self.read(snapshot), updated)
+        self.assertEqual(self.read(self.primary), self.profile)
+
+    def test_failed_emergency_write_still_waits_for_retry(self):
+        profile_manager.save_profile(self.profile)
+        updated = copy.deepcopy(self.profile)
+        updated["active_game"]["state"]["Money"] = 336
+        write = profile_manager._write_json_atomically
+        failed = True
+
+        def write_once(path, data):
+            if failed:
+                raise OSError("disk full")
+            return write(path, data)
+
+        def retry(error, snapshot):
+            nonlocal failed
+            self.assertIsNone(snapshot)
+            failed = False
+            temporary.stop()
+
+        temporary = mock.patch.object(profile_manager.tempfile, "mkstemp", side_effect=OSError("disk full"))
+        with mock.patch.object(profile_manager, "_write_json_atomically", side_effect=write_once), mock.patch.object(profile_manager, "save_error_handler", side_effect=retry):
+            temporary.start()
+            try:
+                profile_manager.save_profile(updated)
+            finally:
+                temporary.stop()
+        self.assertEqual(self.read(self.primary), updated)
+
+    def test_retry_dialog_ignores_close_and_restores_screen_on_enter(self):
+        import pygame
+        from save_error_dialog import wait_for_save_retry
+        pygame.init()
+        screen = pygame.display.set_mode((1280, 720))
+        screen.fill((10, 20, 30))
+        events = [pygame.event.Event(pygame.QUIT), pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN)]
+        with mock.patch.object(pygame.event, "get", return_value=events):
+            wait_for_save_retry(PermissionError("locked"), None)
+        self.assertEqual(screen.get_at((0, 0))[:3], (10, 20, 30))
 
     def test_missing_primary_is_restored_from_backup(self):
         self.write_backup()

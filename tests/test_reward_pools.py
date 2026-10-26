@@ -52,6 +52,73 @@ class RewardPoolTestCase(unittest.TestCase):
 
 
 class RedRewardPoolTests(RewardPoolTestCase):
+    def test_license_purchase_immediately_adds_red_card_without_probability_roll(self):
+        from shop_purchases import buy_card_or_license
+
+        game_state.active_red_cards_level = 4
+        cards = {125: {"Type": 2, "Open": 1, "Variable": 20}}
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "napoleondors", 10),
+        ):
+            result = buy_card_or_license(4, {"kind": "license", "card_id": 125, "cost": 2})
+            self.assertTrue(result.purchased)
+            self.assertEqual(game_state.active_red_cards_deck, [125])
+            self.assertFalse(game_state.unlock_card_license(125))
+            self.assertEqual(game_state.active_red_cards_deck, [125])
+
+    def test_two_red_rewards_use_remaining_cards_even_when_all_probability_rolls_fail(self):
+        for remaining in ([], [124], [124, 125], [123, 124, 125]):
+            with self.subTest(remaining=remaining):
+                game_state.earned_reward_cards = {}
+                game_state.active_red_cards_level = None
+                game_state.active_red_cards_deck = []
+                game_state.licensed_card_ids.update(remaining)
+                cards = {cid: {"Type": 2, "Open": 1, "Variable": 10} for cid in remaining}
+                gameplay = mock.Mock(
+                    active_gold_cards=[], active_silver_cards=[], is_boss_fight=False,
+                    level_number=4, round_num=3, difficulty="h", last_earned_cards=[],
+                    red_reward_exhausted=False,
+                )
+                with (
+                    mock.patch.object(game_state, "load_cards_config", return_value=cards),
+                    mock.patch.object(game_state.random, "randint", return_value=100),
+                ):
+                    apply_win_reward(
+                        gameplay, earned_reward_cards=game_state.earned_reward_cards,
+                        rewards={(4, 3, "H"): {"reward1": [-1001], "reward2": [-1001], "reward3": [-1002]}},
+                        reward_token_random_red=-1001, load_boss_rewards=mock.Mock(),
+                        get_boss_number_from_index=mock.Mock(), apply_boss_reward=mock.Mock(),
+                        pick_random_red_card_for_level=game_state.pick_random_red_card_for_level,
+                        add_silver_card=mock.Mock(return_value=201),
+                    )
+                red = [cid for cid in gameplay.last_earned_cards if cid < 200]
+                self.assertEqual(len(red), min(2, len(remaining)))
+                self.assertEqual(len(red), len(set(red)))
+                self.assertTrue(set(red).issubset(remaining))
+                self.assertEqual(gameplay.last_earned_cards[-1], 201)
+                self.assertEqual(gameplay.red_reward_exhausted, len(remaining) < 2)
+
+    def test_sufficient_rolled_pool_is_preserved(self):
+        game_state.active_red_cards_level = 4
+        game_state.active_red_cards_deck = [123, 124, 125]
+        with mock.patch.object(game_state, "build_red_cards_deck_for_level") as build:
+            game_state.ensure_red_reward_capacity(4, 2)
+        build.assert_not_called()
+        self.assertEqual(game_state.active_red_cards_deck, [123, 124, 125])
+
+    def test_reserve_excludes_owned_locked_closed_and_level_restricted_cards(self):
+        game_state.active_red_cards_level = 4
+        game_state.earned_reward_cards[4] = [123]
+        game_state.licensed_card_ids = {123, 124, 126}
+        cards = {
+            123: {"Open": 1}, 124: {"Open": 0},
+            125: {"Open": 1}, 126: {"Open": 1},
+        }
+        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+            game_state.ensure_red_reward_capacity(4, 2)
+        self.assertEqual(game_state.active_red_cards_deck, [])
+
     def test_manipulation_uses_a_twenty_percent_silver_pool_roll_after_licensing(self):
         cards = {212: {"Type": 3, "Open": 1, "Variable": 20}}
         game_state.licensed_card_ids.add(212)

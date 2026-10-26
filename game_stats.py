@@ -449,7 +449,8 @@ def get_level_run_losses(level_number, path=None):
         for row in _read_rows(path)
         if row.get("Уровень") == str(int(level_number))
         and row.get("Раунд") == LEVEL_RUN_ROUND_LABEL
-        and row.get("Сложность") == LEVEL_RUN_DIFFICULTY_LABEL
+        and _normalize_difficulty_label(row.get("Сложность"))
+        == _normalize_difficulty_label(LEVEL_RUN_DIFFICULTY_LABEL)
     )
 
 
