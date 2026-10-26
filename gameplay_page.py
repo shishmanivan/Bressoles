@@ -1372,6 +1372,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             card_name = card_content[0] if card_content else str(entry.get("card_id"))
             description = _tr(f"Карта под мораторием: {card_name}.")
         text = f"{label}. {description}{status}".strip()
+        if entry.get("purchased_count") is not None:
+            count_text = self._get_text("OfferPurchasedCount", "Куплено: {count}")
+            text += " " + count_text.format(count=entry["purchased_count"])
         self._draw_boss_reward_tooltip(
             {"reward_text": text},
             entry.get("rect"),
@@ -1638,6 +1641,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         elif action == "cancel":
             self.pause_restart_confirmation = False
         elif action == "restart_confirm":
+            self._finish_other_stats('lose', abandoned=True)
             self._record_stats_result(False)
             self._close_pause_menu()
             return "restart_level"
@@ -2058,6 +2062,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "newspaper_events": list(getattr(self, 'newspaper_events', [])),
             "run_market_roll_stats": getattr(self, 'run_market_roll_stats', None),
             "market_report_scope": getattr(self, 'market_report_scope', 'round'),
+            "market_report_selection": getattr(self, 'market_report_selection', 'all'),
             "other_stats": self._serialize_other_stats(),
             "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
             "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
@@ -2217,6 +2222,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._restore_other_stats(state)
         self.run_market_roll_stats = state.get('run_market_roll_stats')
         self.market_report_scope = state.get('market_report_scope', 'round')
+        self.market_report_selection = state.get('market_report_selection', 'all')
+        if self.market_report_selection not in ('all', 'invested'):
+            self.market_report_selection = 'all'
         if self.market_report_scope not in ('round', 'run', 'lifetime', 'other'):
             self.market_report_scope = 'round'
         self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
@@ -2706,6 +2714,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if trade_result["changed"]:
             current_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
             for market, (previous, current) in enumerate(zip(previous_quantities, current_quantities)):
+                if current != previous:
+                    self._newspaper_event(
+                        'trade', stock='ABC'[market], action='buy' if current > previous else 'sell',
+                        quantity=abs(current - previous),
+                        price=(self.Aprice, self.BPrice, self.CPrice)[market], cash=self.Money,
+                    )
                 if current < previous:
                     self._reset_continuation_growth_streak(market)
             self.surge_turns_without_trade = 0
@@ -3253,7 +3267,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _finish_win_lose_result(self, next_state, reason):
         self._finish_play_time()
-        self._finish_other_stats()
+        self._finish_other_stats(next_state)
         self._capture_newspaper_turn(final=True)
         self.win_lose_state = next_state
         self.frugality_bonus_turns = self._settle_frugality_for_finished_round()
@@ -5083,6 +5097,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 f"{sorted(regulation_flat_markets)}"
             )
         random_rolls = []
+        roll_quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
         animation_queue = build_stock_price_animation_queue(
             self.StepA,
             self.StepB,
@@ -5104,15 +5119,15 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             copy_snapshots=getattr(self, "market_copy_snapshots", None),
         )
         recorder = getattr(self, "market_roll_stats", None)
-        self._record_run_market_rolls(random_rolls)
+        self._record_run_market_rolls(random_rolls, roll_quantities)
         self.__dict__.pop('_lifetime_market_report_stats', None)
         for roll in random_rolls:
-            self._newspaper_event('roll', **roll)
+            self._newspaper_event('roll', invested=roll_quantities[roll['market']] > 0, **roll)
         if getattr(self, "profile_slot", None) and not getattr(self, "test_mode", False):
             profile_manager.record_player_market_rolls(
                 self.profile_slot,
                 random_rolls,
-                (self.Aquantity, self.Bquantity, self.Cquantity),
+                roll_quantities,
             )
         if recorder is not None:
             recorder.record(

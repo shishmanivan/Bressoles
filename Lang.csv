@@ -7,6 +7,7 @@ DeckEmpty;В колоде нет карт;No cards in the deck;Das Deck ist leer
 BossRewardsEmpty;Пока нет побеждённых боссов;No defeated bosses yet;Noch keine Bosse besiegt;Még nem győztél le főellenfelet;Aucun adversaire vaincu
 OffersPermanent;До конца забега;Until the end of the run;Bis zum Ende des Durchlaufs;A menet végéig;Jusqu’à la fin de la partie
 OffersPersistent;Действует постоянно;Persistent effects;Dauerhafte Effekte;Tartós hatások;Effets persistants
+OfferPurchasedCount;Куплено: {count};Purchased: {count};Gekauft: {count};Megvásárolva: {count};Achats : {count}
 OfferLevelPermanent;Навсегда для этого уровня;Permanent for this level;Dauerhaft für dieses Level;Véglegesen erre a szintre;Permanent pour ce niveau
 OffersTemporary;Временные эффекты;Temporary effects;Vorübergehende Effekte;Ideiglenes hatások;Effets temporaires
 OffersPending;Ожидают срабатывания;Pending effects;Ausstehende Effekte;Aktiválásra váró hatások;Effets en attente

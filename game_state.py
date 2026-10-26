@@ -104,7 +104,7 @@ SHOP_SPECIAL_COSTS = {
     "junk_bond": 2,
     "issuer": 8,
     "flash_issue": 2,
-    "bank": 3,
+    "bank": 1,
     "multibagger": 5,
     "variance": 1,
     "loan": 0,
@@ -112,7 +112,7 @@ SHOP_SPECIAL_COSTS = {
     "diversification": 4,
     "expansion": 5,
     "bill_of_exchange": 4,
-    "disclosure": 3,
+    "disclosure": 2,
     "price_support": 2,
     "protective_put": 1,
     "compounding": 5,
@@ -2811,15 +2811,18 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
     """Return shop offers whose effects are still active in the current run."""
     entries = []
 
-    def add(special_id, remaining=None, remaining_kind=None):
+    def add(special_id, remaining=None, remaining_kind=None, purchased_count=None):
         entry = {"special_id": special_id, "remaining": remaining}
+        if purchased_count is not None:
+            entry["purchased_count"] = purchased_count
         if remaining_kind:
             entry["remaining_kind"] = remaining_kind
         entries.append(entry)
 
     bailout_remaining = get_bailout_rounds_remaining()
     if get_price_cut_purchases(level_number or napoleondor_level):
-        add("price_cut", remaining_kind="level_permanent")
+        add("price_cut", remaining_kind="level_permanent",
+            purchased_count=get_price_cut_purchases(level_number or napoleondor_level))
     if bailout_remaining > 0:
         add("bailout", bailout_remaining, "rounds")
 
@@ -2845,13 +2848,13 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
     if derivative_bought:
         add("derivative")
     if get_issuer_bought_count() > 0:
-        add("issuer")
+        add("issuer", purchased_count=get_issuer_bought_count())
     for _ in range(flash_issue_slots):
         add("flash_issue", 1, "rounds")
     if bank_bought:
         add("bank")
     if int(variance_offer_bought_count or 0) > 0:
-        add("variance")
+        add("variance", purchased_count=int(variance_offer_bought_count))
     if diversification_bought:
         add("diversification")
     if expansion_bought:

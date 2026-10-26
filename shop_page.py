@@ -417,7 +417,7 @@ class ShopPage(AdaptivePage):
         self.title_font = pygame.font.Font(font_path, 72)
         self.balance_font = pygame.font.Font(font_path, 48)
         self.small_font = pygame.font.Font(font_path, 30)
-        self.button_font = pygame.font.Font(font_path, 24)
+        self.button_font = pygame.font.Font(font_path, 28)
         artwork = load_scaled_image(os.path.join("UI", "Ornate Button Blank.png"))
         artwork = artwork.subsurface(artwork.get_bounding_rect())
         button_width = 167  # Same visible width as End Turn and the level Back button.
@@ -427,7 +427,16 @@ class ShopPage(AdaptivePage):
         label = {"RU": "Далее", "ENG": "Next", "DE": "Weiter",
                  "HU": "Tovább", "FR": "Suivant"}[get_language()]
         text = self.button_font.render(label, True, (62, 36, 9))
-        self.next_button.blit(text, text.get_rect(center=self.next_button.get_rect().center))
+        # Align visible letters, excluding the font's empty line margins.
+        text = text.subsurface(text.get_bounding_rect())
+        text_center = (self.next_button.get_width() // 2, self.next_button.get_height() // 2 - 7)
+        self.next_button.blit(text, text.get_rect(center=text_center))
+        self.next_button_pressed = pygame.transform.smoothscale(
+            self.next_button,
+            tuple(max(1, int(size * 0.96)) for size in self.next_button.get_size()),
+        )
+        self._next_pending = False
+        self._next_press_until = None
         self.button_rect = self.next_button.get_rect()
         self.button_rect.center = (self.panel_rect.centerx, self.panel_rect.bottom - 120)
         self.next_button_sound = load_button_sound()
@@ -1245,10 +1254,17 @@ class ShopPage(AdaptivePage):
 
         mouse_pos = self.mouse_pos()
         button = self.next_button
-        if self.button_rect.collidepoint(mouse_pos):
+        button_rect = self.button_rect
+        if self._next_pending:
+            # Start timing at the first drawn press, as on the level Back button.
+            if self._next_press_until is None:
+                self._next_press_until = pygame.time.get_ticks() + 110
+            button = self.next_button_pressed
+            button_rect = button.get_rect(center=self.button_rect.move(0, 3).center)
+        elif self.button_rect.collidepoint(mouse_pos):
             button = button.copy()
             button.fill((230, 230, 230, 255), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(button, self.button_rect)
+        self.screen.blit(button, button_rect)
 
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
@@ -1323,7 +1339,7 @@ class ShopPage(AdaptivePage):
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if closing_hint:
+                if closing_hint or self._next_pending:
                     continue
                 if self.tutorial_hint is not None:
                     if self.tutorial_hint.accepts(event):
@@ -1333,16 +1349,21 @@ class ShopPage(AdaptivePage):
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_ESCAPE):
                         if self.next_button_sound:
                             self.next_button_sound.play()
-                        return "next"
+                        self._next_pending = True
+                        continue
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.button_rect.collidepoint(event.pos):
                         if self.next_button_sound:
                             self.next_button_sound.play()
-                        return "next"
+                        self._next_pending = True
+                        continue
                     offer_index = self._offer_at(event.pos)
                     if offer_index is not None:
                         self._buy_offer(offer_index)
 
+            if (self._next_pending and self._next_press_until is not None
+                    and pygame.time.get_ticks() >= self._next_press_until):
+                return "next"
             self._ensure_price_cut_assistance()
             self.draw()
             self._record_price_cut_assistance_shown()

@@ -126,7 +126,25 @@ def articles(page, detailed=False):
 
 
 class NewspaperReportMixin(OtherStatsMixin):
-    def _record_run_market_rolls(self, rolls):
+    def _newspaper_columns(self):
+        finance, cards, market = articles(self)
+        if self.level_number != 1:
+            return [('finances', finance), ('cards', cards), ('market', market)]
+        report = [text('intro_boss' if getattr(self, 'is_boss_fight', False) else 'intro',
+                       level=self.level_number, round=self.round_num)]
+        for event in getattr(self, 'newspaper_events', []):
+            if event.get('kind') == 'trade':
+                report.append(text('trade_' + event['action'], day=event['day'],
+                                   stock=event['stock'], quantity=amount(event['quantity']),
+                                   price=amount(event['price']),
+                                   total=amount(event['quantity'] * event['price']),
+                                   cash=amount(event['cash'])))
+        if len(report) == 1:
+            report.append(text('no_trade_history'))
+        report.append(text('game_report_end', day=self.Day, cash=amount(self.Money)))
+        return [('cards', cards), ('market', market), ('game_report', report)]
+
+    def _record_run_market_rolls(self, rolls, quantities=(0, 0, 0)):
         if not rolls:
             return
         if not hasattr(self, 'run_market_roll_stats'):
@@ -134,17 +152,25 @@ class NewspaperReportMixin(OtherStatsMixin):
                 game_state.boss_progress.get(self.level_number, game_state.new_boss_progress_state()).get('market_roll_stats'))
         if self.run_market_roll_stats is None:
             return
-        accumulate(self.run_market_roll_stats, rolls, (0, 0, 0))
+        accumulate(self.run_market_roll_stats, rolls, quantities)
         if not getattr(self, 'test_mode', False):
             progress = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
             progress['market_roll_stats'] = deepcopy(self.run_market_roll_stats)
 
     def _market_report_summary(self):
         scope = getattr(self, 'market_report_scope', 'round')
+        selection = getattr(self, 'market_report_selection', 'all')
         if scope == 'round':
-            return summarize_round_rolls(getattr(self, 'newspaper_events', []))
+            events = getattr(self, 'newspaper_events', [])
+            if selection == 'invested':
+                if any(e.get('kind') == 'roll' and 'invested' not in e for e in events):
+                    return None
+                events = [e for e in events if e.get('invested', False)]
+            return summarize_round_rolls(events)
         if scope == 'run':
             stats = getattr(self, 'run_market_roll_stats', None)
+            if selection == 'invested' and stats and stats.get('version', 1) < 2:
+                return None
         else:
             if not hasattr(self, '_lifetime_market_report_stats'):
                 slot = getattr(self, 'profile_slot', None)
@@ -152,7 +178,7 @@ class NewspaperReportMixin(OtherStatsMixin):
                     profile_manager.load_profile(slot).get('market_roll_stats')
                     if slot and not getattr(self, 'test_mode', False) else None)
             stats = self._lifetime_market_report_stats
-        totals = summarize(stats)
+        totals = summarize(stats, selection)
         if totals is None:
             return None
         return {stock: {'rolls': values['rolls'], 'outcomes': {
@@ -168,6 +194,16 @@ class NewspaperReportMixin(OtherStatsMixin):
         return {scope: pygame.Rect(left + index * (width + gap),
                                   rect.top + round(rect.height * .365), width, 28)
                 for index, scope in enumerate(('round', 'run', 'lifetime', 'other'))}
+
+    def _market_report_selection_tabs(self, rect):
+        if getattr(self, 'market_report_scope', 'round') == 'other':
+            return {}
+        all_width = round(rect.width * .18)
+        invested_width = round(rect.width * .40)
+        left = rect.left + round(rect.width * .028)
+        top = rect.top + round(rect.height * .815)
+        return {'all': pygame.Rect(left, top, all_width, 28),
+                'invested': pygame.Rect(left + all_width + 12, top, invested_width, 28)}
 
     def _newspaper_event(self, kind, **data):
         if not hasattr(self, 'newspaper_events'):
@@ -290,7 +326,8 @@ class NewspaperReportMixin(OtherStatsMixin):
         rect = self._newspaper_rect()
         boundaries = (.028, .340, .662, .972)
         buttons = {}
-        for index, stage in enumerate(('finance', 'card_report', 'market_report')):
+        stages = ('card_report', 'market_report') if self.level_number == 1 else ('finance', 'card_report', 'market_report')
+        for index, stage in enumerate(stages):
             if self.win_lose_state == 'lose' and stage in ('finance', 'card_report'):
                 continue
             left = rect.left + round(rect.width * boundaries[index])
@@ -330,7 +367,7 @@ class NewspaperReportMixin(OtherStatsMixin):
     def _draw_newspaper(self, active=True):
         rect = self._newspaper_rect()
         cache = getattr(self, '_newspaper_surface_cache', None)
-        key = (get_language(), rect.size, self.win_lose_state)
+        key = (get_language(), rect.size, self.win_lose_state, self.level_number)
         if not cache or cache[0] != key:
             surface = pygame.Surface(rect.size, pygame.SRCALPHA)
             image = getattr(self, 'newspaper_report_image', None)
@@ -352,7 +389,7 @@ class NewspaperReportMixin(OtherStatsMixin):
             body_font = self._newspaper_font(12)
             column_width = round(rect.width * .322)
             body_width = column_width - 20
-            for index, (heading, paragraphs) in enumerate(zip(('finances', 'cards', 'market'), articles(self))):
+            for index, (heading, paragraphs) in enumerate(self._newspaper_columns()):
                 x = round(rect.width * .028) + index * column_width + 9
                 y = round(rect.height * .341)
                 hsize = 19
@@ -363,8 +400,8 @@ class NewspaperReportMixin(OtherStatsMixin):
                 y += 32
                 # Each article is one continuous justified block, without paragraph breaks.
                 lines = wrap_lines(' '.join(paragraphs), body_font, body_width)
-                body_bottom = rect.height - 70
-                if index == 2:
+                body_bottom = rect.height - (25 if heading == 'game_report' else 70)
+                if heading == 'market':
                     body_bottom = min(body_bottom, self._newspaper_button_layout()['continue'].top - rect.top - 12)
                 for number, line in enumerate(lines):
                     if y + 14 > body_bottom:
@@ -435,6 +472,11 @@ class NewspaperReportMixin(OtherStatsMixin):
                         self.market_report_scope = scope
                         self._save_active_game()
                         return None
+                for selection, tab in self._market_report_selection_tabs(report_rect).items():
+                    if tab.collidepoint(event.pos):
+                        self.market_report_selection = selection
+                        self._save_active_game()
+                        return None
             escape = event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
             stamp = getattr(self, 'finance_stamp_rect', None)
             if self.finance_stamp_state == 'idle' and (escape or (click and stamp and stamp.collidepoint(event.pos))):
@@ -476,6 +518,11 @@ class NewspaperReportMixin(OtherStatsMixin):
         if scope == 'other':
             self._draw_other_report(rect)
             return
+        for selection, tab in self._market_report_selection_tabs(rect).items():
+            self._newspaper_button(tab, text('selection_' + selection), font_size=15)
+            if selection == getattr(self, 'market_report_selection', 'all'):
+                pygame.draw.line(self.screen, ink, (tab.left + 8, tab.bottom - 4),
+                                 (tab.right - 8, tab.bottom - 4), 2)
         summary = self._market_report_summary()
         if summary is None:
             centered(text('no_roll_history'), rect.centerx, rect.top + round(rect.height * .55),
@@ -530,7 +577,7 @@ class NewspaperReportMixin(OtherStatsMixin):
             centered(text('sample_count', count=summary[stock]['rolls']), x(.5),
                      table_bottom + 12, 15, width=group_width * .9)
         note_width = round(table_width * .62)
-        note_y = rect.top + round(rect.height * .85)
+        note_y = rect.top + round(rect.height * .86)
         font = self._newspaper_font(13)
         for note in ('expectation_note', 'random_only'):
             for line in wrap_lines(text(note), font, note_width):
@@ -568,12 +615,18 @@ class NewspaperReportMixin(OtherStatsMixin):
                 rows = [text('other_best', value=best_value),
                         text('other_cards', value=stats['cards']),
                         text('other_average', value='—' if mean is None else f'{mean:.1f}')]
-            font = self._newspaper_font(21)
+                results = stats.get('results')
+                total = sum(results.values()) if results is not None else None
+                rows.append(text('other_games', value=total if total is not None else '—'))
+                for result in ('win', 'lose'):
+                    percent = f'{100 * results[result] / total:.1f}%' if total else '—'
+                    rows.append(text('other_' + result, value=results[result] if results else '—', percent=percent))
+            font = self._newspaper_font(19)
             for value in rows:
                 for line in wrap_lines(value, font, width):
                     self.screen.blit(font.render(line, True, ink), (left, y))
-                    y += 28
-                y += 28
+                    y += 24
+                y += 14
         font = self._newspaper_font(14)
         y = rect.top + round(rect.height * .87)
         for line in wrap_lines(text('other_note'), font, round(rect.width * .67)):

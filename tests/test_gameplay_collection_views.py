@@ -119,6 +119,22 @@ class CollectionViewTests(unittest.TestCase):
         self.assertEqual(offer_status(page, entries[0]), "Навсегда для этого уровня")
         self.assertEqual(offer_status(page, entries[1]), "Осталось забегов: 17")
 
+    def test_variance_has_one_icon_with_purchase_count_in_tooltip(self):
+        import game_state
+
+        for count in (1, 2, 3):
+            with self.subTest(count=count), mock.patch.object(game_state, "variance_offer_bought_count", count):
+                entries = [entry for entry in game_state.get_active_shop_offer_effects(3)
+                           if entry["special_id"] == "variance"]
+                self.assertEqual(len(entries), 1)
+                self.assertEqual(entries[0]["purchased_count"], count)
+                page = GameplayPage.__new__(GameplayPage)
+                page._get_text = mock.Mock(side_effect=lambda key, fallback: fallback)
+                page._draw_boss_reward_tooltip = mock.Mock()
+                page._draw_active_shop_offer_tooltip(entries[0], None)
+                text = page._draw_boss_reward_tooltip.call_args.args[0]["reward_text"]
+                self.assertIn(f"Куплено: {count}", text)
+
     def test_icons_open_distinct_views_switch_and_close(self):
         page = self.make_page()
         page.level_number = 4

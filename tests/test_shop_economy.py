@@ -386,7 +386,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers = game_state.build_shop_special_offer_pool(2, max_offers=2)
 
         self.assertIn("disclosure", offers)
-        self.assertEqual(game_state.get_shop_special_cost("disclosure", 2), 3)
+        self.assertEqual(game_state.get_shop_special_cost("disclosure", 2), 2)
 
     def test_expansion_costs_five_and_combines_with_peabody_bonus(self):
         game_state.napoleondors = 10
@@ -1489,7 +1489,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         )
 
     def test_bank_offer_costs_three_napoleondors(self):
-        self.assertEqual(game_state.get_shop_special_cost("bank", 3), 3)
+        self.assertEqual(game_state.get_shop_special_cost("bank", 3), 1)
 
     def test_multibagger_shop_chance_is_70_only_on_level3(self):
         self.assertEqual(game_state.get_multibagger_shop_chance(3), 70)

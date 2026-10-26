@@ -139,6 +139,26 @@ class OtherStatsTests(unittest.TestCase):
         stats = profile_manager.load_profile(1)["other_stats"]
         self.assertEqual((stats["cards"], stats["rounds"]), (2, 0))
 
+    def test_results_include_unsold_shares_zero_cash_and_restart_once(self):
+        for outcome, shares, cash, abandoned in (
+                ('win', 1, 200, False), ('lose', 1, 20, False),
+                ('lose', 0, 0, False), ('lose', 0, 90, True)):
+            page = self.page()
+            page.Aquantity, page.Money = shares, cash
+            page._finish_other_stats(outcome, abandoned=abandoned)
+            page._finish_other_stats(outcome, abandoned=abandoned)
+        stats = profile_manager.load_profile(1)['other_stats']
+        self.assertEqual(stats['results'], {'win': 1, 'lose': 3})
+        self.assertEqual(stats['rounds'], 1)
+        self.assertEqual(stats['earned'], 0)
+        self.assertEqual(page.other_stats_run['results'], stats['results'])
+
+    def test_legacy_result_totals_are_not_invented(self):
+        stats = empty_stats()
+        del stats['results']
+        record(stats, 'round', 2, result='win')
+        self.assertNotIn('results', stats)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -231,3 +231,30 @@ class PriceCutTests(unittest.TestCase):
         game_state.clear_insurance_goal_debt()
         for _ in range(2):
             self.assertEqual(page._build_display_button_goals(), {"E": 96, "M": 192, "H": None})
+
+    def test_shop_purchase_refreshes_existing_round_page_and_survives_reload(self):
+        game_state.clear_bailout_bonus()
+        game_state.clear_loan_offers()
+        game_state.clear_insurance_goal_debt()
+        for level in range(1, 7):
+            with self.subTest(level=level):
+                page = RoundPage.__new__(RoundPage)
+                page.level_number = level
+                page.defeated_count = 0
+                page.base_button_goals = {"e": 1000, "m": 2000, "h": 3000}
+                page.get_current_active_round = mock.Mock(return_value=None)
+                page._refresh_button_goals()
+                self.assertEqual(page.button_goals, {"e": 1000, "m": 2000, "h": 3000})
+                shop = self.assistance_shop(level=level)
+                shop.offers = [{"kind": "special", "special_id": "price_cut", "cost": 5}]
+                game_state.napoleondors = 5
+                shop._buy_offer(0)
+                for _ in range(2):
+                    page._refresh_button_goals()
+                    self.assertEqual(page.button_goals, {"e": 960, "m": 1920, "h": 2880})
+                game_state.reset_level_attempt(level)
+                saved = json.loads(json.dumps(profile_manager._capture_progress()))
+                game_state.price_cut_purchases_by_level.clear()
+                profile_manager.apply_profile_to_game_state({"progress": saved})
+                page._refresh_button_goals()
+                self.assertEqual(page.button_goals, {"e": 960, "m": 1920, "h": 2880})

@@ -34,6 +34,21 @@ def make_page():
 
 
 class NewspaperTests(unittest.TestCase):
+    def test_level_one_replaces_finance_with_trade_chronicle(self):
+        page = make_page()
+        page.level_number = 1
+        page._newspaper_event('trade', stock='B', action='buy', quantity=3, price=4, cash=8)
+        columns = page._newspaper_columns()
+        self.assertEqual([name for name, _ in columns], ['cards', 'market', 'game_report'])
+        self.assertIn('12', ' '.join(columns[2][1]))
+        buttons = page._newspaper_button_layout()
+        self.assertNotIn('finance', buttons)
+        self.assertLess(buttons['card_report'].centerx, buttons['market_report'].centerx)
+        self.assertEqual(buttons['continue'].centerx, buttons['market_report'].centerx)
+        page.win_lose_state = 'lose'
+        self.assertEqual(set(page._newspaper_button_layout()), {'market_report', 'continue'})
+        page._draw_newspaper()
+
     def test_red_exhaustion_notice_is_localized_and_only_shown_for_missing_reward(self):
         from asset_loaders import find_font_path_or_exit
 
@@ -239,6 +254,52 @@ class NewspaperTests(unittest.TestCase):
         self.assertEqual(summary['B']['rolls'], 0)
         self.assertIsNone(summary['B']['outcomes']['rise']['actual_percent'])
         self.assertIsNone(summary['B']['outcomes']['rise']['expected_percent'])
+
+    def test_invested_filter_uses_holdings_for_each_roll_in_all_three_periods(self):
+        from copy import deepcopy
+        page = make_page()
+        with patch.object(game_state, 'boss_progress', {}):
+            for quantities, outcome, probability in (((1, 0, 2), 'rise', 80), ((0, 3, 0), 'fall', 20)):
+                rolls = [dict(market=m, outcome=outcome,
+                              probabilities=dict(rise=probability, fall=100-probability, flat=0))
+                         for m in range(3)]
+                page._record_run_market_rolls(rolls, quantities)
+                for roll in rolls:
+                    page._newspaper_event('roll', invested=quantities[roll['market']] > 0, **roll)
+            page._lifetime_market_report_stats = deepcopy(page.run_market_roll_stats)
+            for period in ('round', 'run', 'lifetime'):
+                page.market_report_scope = period
+                page.market_report_selection = 'all'
+                self.assertEqual([s['rolls'] for s in page._market_report_summary().values()], [2, 2, 2])
+                page.market_report_selection = 'invested'
+                summary = page._market_report_summary()
+                self.assertEqual([s['rolls'] for s in summary.values()], [1, 1, 1])
+                self.assertEqual(summary['A']['outcomes']['rise']['count'], 1)
+                self.assertEqual(summary['B']['outcomes']['fall']['count'], 1)
+                self.assertEqual(summary['A']['outcomes']['rise']['expected_percent'], 80)
+                self.assertEqual(summary['B']['outcomes']['rise']['expected_percent'], 20)
+
+    def test_missing_holdings_history_is_not_shown_as_zero_investment(self):
+        page = make_page()
+        page._newspaper_event('roll', market=0, outcome='rise', probabilities=dict(rise=80, fall=20, flat=0))
+        page.market_report_selection = 'invested'
+        self.assertIsNone(page._market_report_summary())
+
+    def test_bottom_filter_switches_and_is_hidden_in_other(self):
+        page = make_page()
+        page.result_report_stage = 'market_report'
+        page.market_report_image = pygame.Surface((1323, 882))
+        page.finance_report_y = 84
+        page.finance_stamp_state = 'idle'
+        rect = page.market_report_image.get_rect(center=(840, 525))
+        for selection in ('invested', 'all'):
+            page._handle_newspaper_input(pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, button=1,
+                pos=page._market_report_selection_tabs(rect)[selection].center))
+            self.assertEqual(page.market_report_selection, selection)
+            self.assertEqual(page.finance_stamp_state, 'idle')
+        page.market_report_scope = 'other'
+        self.assertEqual(page._market_report_selection_tabs(rect), {})
 
     def test_run_counts_span_rounds_survive_serialization_and_reset(self):
         import profile_manager

@@ -3,15 +3,19 @@ from copy import deepcopy
 
 
 def empty_stats():
-    return {"cards": 0, "rounds": 0, "earned": 0.0, "best": None, "checkpoints": {}}
+    return {"cards": 0, "rounds": 0, "earned": 0.0, "best": None, "checkpoints": {},
+            "results": {"win": 0, "lose": 0}}
 
 
-def record(stats, round_id, cards, *, earned=None, label=None):
+def record(stats, round_id, cards, *, earned=None, label=None, result=None):
     """Commit cumulative cards and, once completed, the round's earnings."""
     previous = stats["checkpoints"].setdefault(round_id, {"cards": 0, "finished": False})
     cards = max(previous["cards"], int(cards))
     stats["cards"] += cards - previous["cards"]
     previous["cards"] = cards
+    if result in ('win', 'lose') and 'results' in stats and 'result' not in previous:
+        stats['results'][result] += 1
+        previous['result'] = result
     if earned is not None and not previous["finished"]:
         previous["finished"] = True
         stats["rounds"] += 1

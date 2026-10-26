@@ -72,24 +72,24 @@ class OtherStatsMixin:
             self.profile_slot, self.other_stats_round_id, cards, test_mode=self.test_mode)
         self.other_stats_lifecycle_committed = True
 
-    def _persist_other_stats(self, earned=None):
+    def _persist_other_stats(self, earned=None, result=None):
         label = {"level": self.level_number, "round": self.round_num,
                  "boss": bool(self.is_boss_fight), "boss_number": self._get_active_boss_number()}
         record(self.other_stats_run, self.other_stats_round_id, self.other_stats_cards,
-               earned=earned, label=label)
+               earned=earned, label=label, result=result)
         progress = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
         progress["other_stats"] = deepcopy(self.other_stats_run)
         self.other_stats_lifetime = profile_manager.record_player_other_stats(
             self.profile_slot, self.other_stats_round_id, self.other_stats_cards,
-            earned=earned, label=label)
+            earned=earned, label=label, result=result)
 
-    def _finish_other_stats(self):
+    def _finish_other_stats(self, result=None, abandoned=False):
         if not getattr(self, "other_stats_enabled", False) or self.test_mode or self.other_stats_finished:
             return
         # A portfolio with unsold shares is not a cash result, even on victory.
-        earned = float(self.Money) if not any(
+        earned = float(self.Money) if not abandoned and not any(
             (self.Aquantity, self.Bquantity, self.Cquantity)) else None
-        self._persist_other_stats(earned)
+        self._persist_other_stats(earned, result)
         self.other_stats_finished = True
 
     def _serialize_other_stats(self):

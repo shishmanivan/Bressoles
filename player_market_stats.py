@@ -10,7 +10,7 @@ SCOPES = ("all", "invested")
 
 def empty_stats():
     return {
-        "version": 1,
+        "version": 2,
         **{scope: {
             stock: {
                 "rolls": 0,

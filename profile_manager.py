@@ -902,14 +902,14 @@ def record_player_market_rolls(slot, rolls, quantities, *, test_mode=False):
     save_profile(profile)
 
 
-def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None):
+def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None, result=None):
     if not slot or not os.path.exists(get_profile_path(slot)):
         return None
     profile = load_profile(slot)
     stats = profile.get("other_stats")
     if stats is None:
         return None
-    record_other_stats(stats, round_id, cards, earned=earned, label=label)
+    record_other_stats(stats, round_id, cards, earned=earned, label=label, result=result)
     save_profile(profile)
     return copy.deepcopy(stats)
 
