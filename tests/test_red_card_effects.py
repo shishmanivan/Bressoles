@@ -267,11 +267,93 @@ class RedCardEffectTests(unittest.TestCase):
 
         self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
 
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 7, 7))
+        self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertEqual(page._start_card_jump_animation.call_count, 1)
+        import gameplay_bankruptcy_animation as bankruptcy_animation
+        started = page.bankruptcy_animations[0]['start_time']
+        with mock.patch.object(bankruptcy_animation.pygame.time, 'get_ticks',
+                               return_value=started + bankruptcy_animation.DURATION_MS - 1):
+            bankruptcy_animation.update(page)
+        self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 7, 7))
+        with mock.patch.object(bankruptcy_animation.pygame.time, 'get_ticks',
+                               return_value=started + bankruptcy_animation.DURATION_MS):
+            bankruptcy_animation.update(page)
+        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
         self.assertEqual(
             [call.args[1] for call in page._start_card_jump_animation.call_args_list],
             [0, 1],
         )
+
+    def test_red_stages_resume_after_bankruptcy_without_repeating_effects(self):
+        page = self._page()
+        page.side_cards_top[:3] = [113, 114, 116]
+        page.Aprice = page.BPrice = page.CPrice = 7
+        page.LastTurn = 8
+        page._start_card_jump_animation = mock.Mock()
+        page._apply_forward_trading_effect_if_needed = mock.Mock()
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        self.assertEqual((page.Aprice, page.BPrice), (2, 7))
+        self.assertEqual(page.LastTurn, 8)
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        page.bankruptcy_animations.clear()
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        self.assertEqual((page.Aprice, page.BPrice), (2, 2))
+        self.assertEqual(page.LastTurn, 8)
+        page.bankruptcy_animations.clear()
+        self.assertTrue(page._apply_red_card_effects_if_needed())
+        self.assertEqual(page.LastTurn, 9)
+        page._apply_forward_trading_effect_if_needed.assert_called_once()
+        self.assertEqual([call.args[1] for call in page._start_card_jump_animation.call_args_list],
+                         [0, 1])
+
+    def test_turn_finalization_waits_for_red_sequence(self):
+        page = self._page()
+        page.turn_resolution_active = True
+        page.red_effects_applied_this_resolution = False
+        page.side_cards_top[:2] = [113, 118]
+        page.Aprice = page.BPrice = page.CPrice = 7
+        page._start_card_jump_animation = mock.Mock()
+        page._lock_side_cards = mock.Mock()
+        page._has_effect_animations = lambda: bool(page.bankruptcy_animations)
+        page._build_continuation_bonus_movements = mock.Mock(return_value=[])
+        page._finalize_turn_resolution = mock.Mock()
+        page._begin_effect_finalize_or_wait()
+        self.assertTrue(page.effect_finalize_pending)
+        self.assertFalse(page.red_effects_applied_this_resolution)
+        page._lock_side_cards.assert_not_called()
+        page._finalize_turn_resolution.assert_not_called()
+        page._begin_effect_finalize_or_wait()
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 7, 7))
+        page.bankruptcy_animations.clear()
+        page._begin_effect_finalize_or_wait()
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+        self.assertTrue(page.red_effects_applied_this_resolution)
+        page._lock_side_cards.assert_called_once()
+        page._finalize_turn_resolution.assert_called_once()
+
+    def test_crash_blocks_next_bid_until_last_market_finishes(self):
+        import gameplay_bankruptcy_animation as animation
+        page = self._page()
+        page.side_cards_top[:2] = [117, 118]
+        page.Aprice = page.BPrice = page.CPrice = 7
+        page._start_card_jump_animation = mock.Mock()
+        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 2, 2))
+        self.assertEqual(list(page.bankruptcy_animations), [0, 1, 2])
+        started = page.bankruptcy_animations[0]['start_time']
+        duration = animation.DURATION_MS + 2 * animation.CRASH_STAGGER_MS
+        with mock.patch.object(animation.pygame.time, 'get_ticks', return_value=started + duration - 1):
+            animation.update(page)
+        self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 2, 2))
+        with mock.patch.object(animation.pygame.time, 'get_ticks', return_value=started + duration):
+            animation.update(page)
+        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
 
     def test_parity_sets_all_prices_to_the_nearest_whole_average(self):
         page = self._page()

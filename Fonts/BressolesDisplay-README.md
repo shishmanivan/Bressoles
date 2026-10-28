@@ -1,4 +1,11 @@
-# Бресоль / Bressoles Display — 0.112
+# Бресоль / Bressoles Display — 0.113
+
+## Corrected 6 and 9 — 0.113
+
+The six now has a continuous curved shoulder and bowl with one enclosed
+counter. This removes the projecting stump caused by the former cut through
+overlapping oval rings. Nine is derived from the corrected six. Character
+advances and other glyphs are unchanged.
 
 First working display face for the Bressoles main menu, inspired exclusively by
 the menu lettering in the reference image dated 21 December 2025. The logo in

@@ -50,7 +50,7 @@
   {
     "Source": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
     "RU": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
-    "ENG": "Permanently reduces this level's goals by 4%. This offer is available in shops up to and including level 6.",
+    "ENG": "Permanently reduces this level's targets by 4%. This offer is available in shops up to and including level 6.",
     "DE": "Senkt die Ziele dieses Levels dauerhaft um 4%. Dieses Angebot ist bis einschließlich Level 6 im Laden erhältlich.",
     "HU": "Véglegesen 4%-kal csökkenti ennek a szintnek a céljait. Ez az ajánlat a 6. szintig bezárólag érhető el a boltban.",
     "FR": "Réduit définitivement les objectifs de ce niveau de 4 %. Cette offre est disponible en boutique jusqu’au niveau 6 inclus."
@@ -802,7 +802,7 @@
   {
     "Source": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
     "RU": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
-    "ENG": "Reduces the goals of the next 5 rounds by 20%. Does not appear in the shop while active.",
+    "ENG": "Reduces the targets of the next 5 rounds by 20%. Does not appear in the shop while active.",
     "DE": "Senkt die Zielbeträge der nächsten 5 Runden um 20 %. Solange der Effekt aktiv ist, erscheint das Angebot nicht im Laden.",
     "HU": "20%-kal csökkenti a következő 5 forduló célösszegét. Amíg aktív, nem jelenik meg a boltban.",
     "FR": "Réduit de 20 % les objectifs des 5 prochaines manches. N’apparaît pas en boutique tant que l’effet est actif."
@@ -840,12 +840,12 @@
     "FR": "Débloque une place commune supplémentaire pour les cartes noires, argentées et dorées."
   },
   {
-    "Source": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
-    "RU": "Начисляет 25% на остаток наполеондоров перед следующим магазином. Проценты кратны 0.5.",
-    "ENG": "Pays 25% interest on your remaining Napoleondors before the next shop. Interest is calculated in increments of 0.5.",
-    "DE": "Gewährt vor dem nächsten Laden 25 % Zinsen auf deine übrigen Napoleondor. Die Zinsen werden in Schritten von 0,5 berechnet.",
-    "HU": "A következő bolt előtt 25% kamatot fizet a megmaradt napóleonaranyaid után. A kamatot 0,5-ös lépésekben számolja.",
-    "FR": "Verse 25 % d’intérêts sur vos napoléons d’or restants avant la prochaine boutique. Les intérêts sont calculés par paliers de 0,5."
+    "Source": "Начисляет 25% на остаток наполеондоров на старте раунда. Бонусы текущего раунда не учитываются. Проценты кратны 0.5.",
+    "RU": "Начисляет 25% на остаток наполеондоров на старте раунда. Бонусы текущего раунда не учитываются. Проценты кратны 0.5.",
+    "ENG": "Pays 25% interest on your Napoleondor balance at the start of the round. Bonuses earned during the round are excluded. Interest is calculated in increments of 0.5.",
+    "DE": "Gewährt 25 % Zinsen auf dein Napoleondor-Guthaben zu Rundenbeginn. Boni der aktuellen Runde zählen nicht mit. Die Zinsen werden in Schritten von 0,5 berechnet.",
+    "HU": "A kör eleji napóleonarany-egyenleged után 25% kamatot fizet. Az aktuális kör bónuszai nem számítanak bele. A kamatot 0,5-ös lépésekben számolja.",
+    "FR": "Verse 25 % d’intérêts sur votre solde de napoléons d’or au début de la manche. Les bonus de la manche sont exclus. Les intérêts sont calculés par paliers de 0,5."
   },
   {
     "Source": "Добавляет случайную золотую карту в текущем забеге.",
@@ -866,7 +866,7 @@
   {
     "Source": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
     "RU": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
-    "ENG": "Immediately gives you 5 Napoleondors, but increases the current boss's goals by 20%.",
+    "ENG": "Immediately gives you 5 Napoleondors, but increases the current boss's targets by 20%.",
     "DE": "Gewährt sofort 5 Napoleondor, erhöht aber die Zielbeträge des aktuellen Bosses um 20 %.",
     "HU": "Azonnal 5 napóleonaranyat ad, de 20%-kal növeli az aktuális főellenfél célösszegeit.",
     "FR": "Donne immédiatement 5 napoléons d’or, mais augmente de 20 % les objectifs de l’adversaire actuel."
@@ -1090,7 +1090,7 @@
   {
     "Source": "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
     "RU": "Медведь: снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2%.",
-    "ENG": "Bear: reduces the goal by 2%. Each victory increases the reduction by another 2 percentage points.",
+    "ENG": "Bear: reduces the target by 2%. Each victory increases the reduction by another 2 percentage points.",
     "DE": "Bear: Senkt den Zielbetrag um 2 %. Nach jedem Sieg steigt die Senkung um weitere 2 Prozentpunkte.",
     "HU": "Bear: 2%-kal csökkenti a célösszeget. Minden győzelem további 2 százalékponttal növeli a csökkentést.",
     "FR": "Ours : réduit l’objectif de 2 %. Chaque victoire augmente encore cette réduction de 2 points."
@@ -1434,7 +1434,7 @@
   {
     "Source": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
     "RU": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Не работает против боссов.",
-    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the goal of the next regular round. Does not work against bosses.",
+    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the target of the next regular round. Does not work against bosses.",
     "DE": "Verwandelt in einer regulären Runde eine Niederlage in einen Sieg. Der fehlende Betrag wird zum Zielbetrag der nächsten regulären Runde addiert. Wirkt nicht gegen Bosse.",
     "HU": "A rendes forduló vereségét győzelemmé változtatja. A hiányzó összeg hozzáadódik a következő rendes forduló célösszegéhez. Főellenfelek ellen nem működik.",
     "FR": "Transforme une défaite en manche ordinaire en victoire. Le montant manquant est ajouté à l’objectif de la prochaine manche ordinaire. Ne fonctionne pas contre les adversaires."
@@ -1866,7 +1866,7 @@
   {
     "Source": "Снижает цель третьего и четвёртого обычных раундов на 30%. В остальных раундах и боях с боссами не действует.",
     "RU": "Снижает цель третьего и четвёртого обычных раундов на 30%. В остальных раундах и боях с боссами не действует.",
-    "ENG": "Reduces the goals of the third and fourth regular rounds by 30%. Has no effect in other rounds or boss battles.",
+    "ENG": "Reduces the targets of the third and fourth regular rounds by 30%. Has no effect in other rounds or boss battles.",
     "DE": "Senkt den Zielbetrag der dritten und vierten regulären Runde um 30 %. Wirkt weder in anderen Runden noch gegen Bosse.",
     "HU": "30%-kal csökkenti a harmadik és negyedik rendes forduló célösszegét. Más fordulókban és főellenfelek ellen nincs hatása.",
     "FR": "Réduit de 30 % les objectifs des troisième et quatrième manches ordinaires. Aucun effet dans les autres manches ni contre les adversaires."
@@ -2482,7 +2482,7 @@
   {
     "Source": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Нельзя использовать против боссов.",
     "RU": "В обычном раунде превращает поражение в победу. Недостающая сумма добавляется к цели следующего обычного раунда. Нельзя использовать против боссов.",
-    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the goal of the next regular round. Cannot be used against bosses.",
+    "ENG": "Turns a defeat in a regular round into a victory. The shortfall is added to the target of the next regular round. Cannot be used against bosses.",
     "DE": "Verwandelt in einer regulären Runde eine Niederlage in einen Sieg. Der fehlende Betrag wird zum Zielbetrag der nächsten regulären Runde addiert. Kann nicht gegen Bosse eingesetzt werden.",
     "HU": "A rendes forduló vereségét győzelemmé változtatja. A hiányzó összeg hozzáadódik a következő rendes forduló célösszegéhez. Főellenfelek ellen nem használható.",
     "FR": "Transforme une défaite en manche ordinaire en victoire. Le montant manquant est ajouté à l’objectif de la prochaine manche ordinaire. Inutilisable contre les adversaires."
@@ -2506,7 +2506,7 @@
   {
     "Source": "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",
     "RU": "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",
-    "ENG": "Reduces the goal by 2%. Each victory increases the reduction by another 2 percentage points.",
+    "ENG": "Reduces the target by 2%. Each victory increases the reduction by another 2 percentage points.",
     "DE": "Senkt den Zielbetrag um 2 %. Nach jedem Sieg steigt die Senkung um weitere 2 Prozentpunkte.",
     "HU": "2%-kal csökkenti a célösszeget. Minden győzelem további 2 százalékponttal növeli a csökkentést.",
     "FR": "Réduit l’objectif de 2 %. Chaque victoire augmente encore cette réduction de 2 points."
@@ -2922,7 +2922,7 @@
   {
     "Source": "Goal:",
     "RU": "Цель:",
-    "ENG": "Goal:",
+    "ENG": "Target:",
     "DE": "Ziel:",
     "HU": "Cél:",
     "FR": "Objectif :"

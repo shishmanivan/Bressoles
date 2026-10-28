@@ -2303,17 +2303,17 @@ class TimedShopEffectTests(ShopEconomyTestCase):
         ].append(3)
         self.assertEqual(game_state.get_remaining_run_rounds(5, 4, 3), 2)
 
-    def test_bank_uses_current_pre_victory_balance_at_round_end(self):
-        game_state.napoleondors = 10
+    def test_bank_uses_opening_balance_without_round_bonuses(self):
+        game_state.napoleondors = 3
         self.assertTrue(game_state.buy_bank_offer())
-        self.assertEqual(game_state.update_bank_interest_base(), 10)
+        self.assertEqual(game_state.update_bank_interest_base(), 3)
 
-        self.assertTrue(game_state.spend_napoleondors(4))
+        game_state.napoleondors += 7
         self.assertEqual(
-            game_state.apply_bank_interest(5, base_amount=game_state.napoleondors),
-            1.5,
+            game_state.apply_bank_interest(5, base_amount=3),
+            0.5,
         )
-        self.assertEqual(game_state.napoleondors, 7.5)
+        self.assertEqual(game_state.napoleondors, 10.5)
 
 
 class ShopPersistenceTests(ShopEconomyTestCase):

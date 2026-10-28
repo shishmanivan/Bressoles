@@ -484,10 +484,15 @@ def digits_and_symbols():
                "C 140 50 183 26 232 26 C 314 26 350 90 350 204 "
                "C 350 315 306 366 237 366 C 184 366 138 343 113 318 L 78 332 Z")
     register("5", five, 505)
-    six = join(cut(ellipse(43, -12, 462, 656), ellipse(157, 24, 357, 593)),
-               cut(ellipse(128, -12, 464, 396), ellipse(172, 27, 351, 354)))
-    # Open the upper counter into the curved shoulder of 6.
-    six = cut(six, box(286, 405, 550, 540))
+    # A continuous shoulder and bowl avoid the rectangular stump left by
+    # cutting a gap through two overlapping oval rings. One enclosed counter.
+    six = svg("M 414 548 C 390 598 350 619 305 619 "
+              "C 209 619 161 496 157 325 C 184 371 227 396 284 396 "
+              "C 399 396 464 317 464 205 C 464 68 385 -12 265 -12 "
+              "C 117 -12 43 80 43 275 C 43 469 121 656 289 656 "
+              "C 358 656 415 627 443 581 C 456 563 445 537 426 537 "
+              "C 421 537 417 542 414 548 Z")
+    six = cut(six, ellipse(166, 27, 351, 354))
     register("6", six, 510)
     seven = svg("M 63 644 L 468 644 L 468 612 C 373 437 327 249 299 0 "
                 "L 185 0 C 218 229 301 418 400 538 L 188 538 "
@@ -680,9 +685,9 @@ def build():
     fb.setupHorizontalHeader(ascent=940, descent=-230, lineGap=20)
     fb.setupNameTable({
         "familyName": "Bressoles Display", "styleName": "Regular",
-        "uniqueFontIdentifier": "Bressoles Display 0.112 stronger A diagonal",
+        "uniqueFontIdentifier": "Bressoles Display 0.113 corrected six and nine",
         "fullName": "Bressoles Display Regular", "psName": "BressolesDisplay-Regular",
-        "version": "Version 0.112",
+        "version": "Version 0.113",
         "copyright": "Bressoles project. Original vector outlines, 2026.",
         "description": "Menu lettering inspired by the Bressoles reference. Lowercase is small capitals. Latin, Cyrillic, French and Hungarian.",
     })
@@ -693,11 +698,11 @@ def build():
     fb.setupMaxp()
     font = fb.font
     font["head"].flags |= 0x08
-    font["head"].fontRevision = .112
+    font["head"].fontRevision = .113
     font.recalcTimestamp = False
     timestamp = int(datetime(2026, 9, 30, tzinfo=timezone.utc).timestamp()) + 2082844800
     font["head"].created = timestamp
-    font["head"].modified = timestamp + 86400
+    font["head"].modified = timestamp + 27*86400
     for name_id, value in [(1, "Бресоль"), (2, "Обычный"), (4, "Бресоль — меню")]:
         font["name"].setName(value, name_id, 3, 1, 0x419)
     font["OS/2"].version = 4

@@ -12,6 +12,8 @@ import os
 from copy import deepcopy
 
 import game_state
+import gameplay_bankruptcy_animation as bankruptcy_animation
+import gameplay_bankruptcy_audio as bankruptcy_audio
 import profile_manager
 from market_roll_stats import MarketRollStats
 from asset_loaders import load_scaled_image, load_scaled_image_variants
@@ -498,6 +500,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.font_large = pygame.font.Font(font_path, 72)
         self.font_medium = pygame.font.Font(font_path, 48)
         self.font_small = pygame.font.Font(font_path, 36)
+        self.market_probability_font = pygame.font.Font(font_path, 28)
         self.disclosure_tooltip_title_font = pygame.font.Font(font_path, 27)
         self.disclosure_tooltip_text_font = pygame.font.Font(font_path, 22)
         self.boss_round_label_font = pygame.font.Font(font_path, 30)
@@ -827,6 +830,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.lifecycle_card_shake_animations = {}
         self.lifecycle_reminder_days_started = set()
         self.market_clear_animations = []
+        self.bankruptcy_animations = {}
         self.market_clear_animation_duration = 520
         
         # Queue for processing persistent price-effect cards in market/slot order.
@@ -837,6 +841,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.turn_resolution_active = False
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
+        self._red_effect_stage = 0
+        self._red_price_next_slot = 0
         self.hand_negative_overlay_hold = {"red": False, "market": False}
 
         # Hand compaction animation state (after end turn)
@@ -878,6 +884,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.card_report_image = winlose_assets.get("card_report_image")
         self.approve_stamp_image = winlose_assets.get("approve_stamp_image")
         self.stamp_on_paper_image = winlose_assets.get("stamp_on_paper_image")
+        self.bankrupt_stamp_image = winlose_assets.get("bankrupt_stamp_image")
+        self.bankruptcy_animations = {}
         self.stamp_sound = winlose_assets.get("stamp_sound")
         self.report_rustle_sound = winlose_assets.get("report_rustle_sound")
         self.approve_stamp_rotated = (
@@ -2363,10 +2371,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.arkwright_share_theft_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
+        self._red_effect_stage = 0
+        self._red_price_next_slot = 0
         self.hand_negative_overlay_hold = {"red": False, "market": False}
         self.hand_compact_anim = []
         self.hand_draw_anim = []
         self.market_clear_animations = []
+        self.bankruptcy_animations = {}
         self._reset_drag_state()
         self._start_lifecycle_turn_reminder()
 
@@ -3069,6 +3080,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                 if not self._can_play_dragged_hand_card_on_side_top(card_id):
                                     continue
                                 self.side_cards_top[slot] = card_id
+                                if card_id in (113, 114, 115, 117):
+                                    bankruptcy_audio.preload(self)
                                 if card_id == 110:
                                     self._disable_sell_tutorial_after_rebate()
                                 # Remember original hand slot and mark as not locked for this turn
@@ -3280,7 +3293,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             pending_report_entries = game_state.consume_finance_report_income()
             bank_interest_amount = game_state.apply_bank_interest(
                 self.level_number,
-                base_amount=game_state.napoleondors,
+                base_amount=self.round_start_napoleondors,
             )
             napoleondors_before_rewards = float(game_state.napoleondors or 0)
             if self.is_final_boss:
@@ -4174,6 +4187,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.pending_draws = 0
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
+        self._red_effect_stage = 0
+        self._red_price_next_slot = 0
         self._clear_hand_negative_overlay_hold()
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
@@ -5551,6 +5566,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.side_card_jump_animations)
             or bool(self.lifecycle_card_jump_animations)
             or bool(self.market_clear_animations)
+            or bool(getattr(self, "bankruptcy_animations", {}))
         )
 
     def _start_turn_resolution(self):
@@ -5568,6 +5584,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.turn_resolution_active = True
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
+        self._red_effect_stage = 0
+        self._red_price_next_slot = 0
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
         self.continuation_applied_this_resolution = False
@@ -5928,7 +5946,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self.effect_finalize_pending = True
                 return
 
-            self._apply_red_card_effects_if_needed()
+            if self._apply_red_card_effects_if_needed() is False:
+                self.effect_finalize_pending = True
+                return
             if getattr(self, "win_lose_state", None) is not None:
                 return
             self._lock_side_cards()
@@ -6021,6 +6041,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.pending_draws = 0
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
+        self._red_effect_stage = 0
+        self._red_price_next_slot = 0
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
         self.continuation_applied_this_resolution = False
@@ -6405,6 +6427,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.side_card_jump_animations)
             or bool(self.lifecycle_card_jump_animations)
             or bool(self.market_clear_animations)
+            or bool(getattr(self, "bankruptcy_animations", {}))
         )
 
     def _maybe_finalize_after_effect_animations(self):
@@ -6532,10 +6555,23 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._apply_manipulation_effect_if_needed,
             self._apply_deleverage_effect_if_needed,
         )
-        for apply_effect in effects:
-            apply_effect()
+        if getattr(self, "bankruptcy_animations", {}):
+            return False
+        stage = getattr(self, "_red_effect_stage", 0)
+        while stage < len(effects):
+            effects[stage]()
             if getattr(self, "win_lose_state", None) is not None:
-                return
+                return True
+            # Keep this stage until its remaining slots have resolved.
+            if getattr(self, "_red_price_next_slot", 0):
+                self._red_effect_stage = stage
+                return False
+            stage += 1
+            self._red_effect_stage = stage
+            if getattr(self, "bankruptcy_animations", {}):
+                return False
+        self._red_effect_stage = 0
+        return True
 
     def _apply_price_setting_red_card_effects_in_slot_order(self):
         """Resolve fresh price-setting red cards from left to right."""
@@ -6552,8 +6588,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             123: self._apply_parity_effect_if_needed,
             125: self._apply_breakout_effect_if_needed,
         }
+        if getattr(self, "bankruptcy_animations", {}):
+            return False
         applied = False
-        for slot, card_id in enumerate(self.side_cards_top):
+        next_slot = getattr(self, "_red_price_next_slot", 0)
+        for slot in range(next_slot, len(self.side_cards_top)):
+            card_id = self.side_cards_top[slot]
             if self.side_cards_locked_top.get(slot):
                 continue
             try:
@@ -6565,7 +6605,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 continue
             applied = handler(slots=(slot,)) or applied
             if getattr(self, "win_lose_state", None) is not None:
+                self._red_price_next_slot = 0
                 return applied
+            if getattr(self, "bankruptcy_animations", {}):
+                self._red_price_next_slot = slot + 1
+                return applied
+        self._red_price_next_slot = 0
         return applied
 
     def _start_fresh_side_card_jump_animation_for_card(self, target_card_id):
@@ -6704,6 +6749,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 continue
             changed = self._set_market_price_to_minimum(market)
             if changed:
+                bankruptcy_animation.start(self, market)
                 self._start_card_jump_animation(self.side_card_jump_animations, slot)
                 applied = True
             if getattr(self, "win_lose_state", None) is not None:
@@ -6755,6 +6801,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._record_c_price_fall(previous_c_price, self.CPrice, "Market Crash")
             self._record_short_seller_falls(previous_prices, "Market Crash")
             if changed:
+                prices = (self.Aprice, self.BPrice, self.CPrice)
+                bankruptcy_animation.start_sequence(
+                    self, [market for market in range(3)
+                           if prices[market] != previous_prices[market]],
+                )
                 self._start_card_jump_animation(self.side_card_jump_animations, slot)
                 applied = True
         print(
@@ -7678,15 +7729,28 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         def fmt(value):
             return f"{int(value)}" if float(value).is_integer() else f"{value:.1f}"
 
-        lines = (
-            f"Падение {fmt(probs['fall'])}%",
-            f"Флэт {fmt(probs['flat'])}%",
-            f"Рост {fmt(probs['rise'])}%",
-        )
-        line_height = self.font_small.get_height() + 2
-        for index, line in enumerate(lines):
-            text_surface = self.font_small.render(_tr(line), True, PAPER_COLOR)
-            self.screen.blit(text_surface, (x, y + index * line_height))
+        font = self.market_probability_font
+        padding, gap = 8, 10
+        icon_width, icon_height = 42, 30
+        row_height = max(34, font.get_height())
+        value_width = font.size("100.0%")[0]
+        panel = pygame.Rect(x, y, padding * 2 + icon_width + gap + value_width,
+                            padding * 2 + row_height * 3)
+        pygame.draw.rect(self.screen, (244, 235, 211), panel, border_radius=4)
+        pygame.draw.rect(self.screen, PAPER_COLOR, panel, 1, border_radius=4)
+        for index, outcome in enumerate(('rise', 'flat', 'fall')):
+            center_y = panel.top + padding + row_height * index + row_height // 2
+            icon = self.market_report_icons.get(outcome)
+            if icon is not None:
+                scale = min(icon_width / icon.get_width(), icon_height / icon.get_height())
+                size = (max(1, round(icon.get_width() * scale)),
+                        max(1, round(icon.get_height() * scale)))
+                graph = pygame.transform.smoothscale(icon, size)
+                self.screen.blit(graph, graph.get_rect(
+                    center=(panel.left + padding + icon_width // 2, center_y)))
+            text_surface = font.render(f"{fmt(probs[outcome])}%", True, PAPER_COLOR)
+            self.screen.blit(text_surface, text_surface.get_rect(
+                midright=(panel.right - padding, center_y)))
 
     def _draw_market_clear_animations(self):
         if not self.market_clear_animations:
@@ -7937,6 +8001,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             # Draw three frames at the top, moved down 20px
             for frame_info in market_layout["frame_rects"]:
                 i = frame_info["market"]
+                shake_x, shake_y = bankruptcy_animation.shake(self, i)
+                frame_info["x"] += shake_x
+                frame_info["y"] += shake_y
+                frame_info["rect"] = frame_info["rect"].move(shake_x, shake_y)
                 frame_x = frame_info["x"]
                 frame_y = frame_info["y"]
                 self.screen.blit(self.frame, (frame_x, frame_y))
@@ -8049,7 +8117,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         img_to_draw = arrow_img
                         if idx == 0 and self.arrow_anim_frames:
                             rect = pygame.Rect(arrow_x, ay, arrow_size, arrow_size)
-                            entry = next((e for e in self.arrow_entries if e["rect"].topleft == rect.topleft), None)
+                            entry = next((e for e in self.arrow_entries if e["frame_index"] == i and e["arrow_type"] == idx), None)
+                            if entry:
+                                entry["rect"] = rect
                             if not entry:
                                 entry = {"rect": rect, "animating": False, "idx": 0, "last": 0, "frames": self.arrow_anim_frames, "arrow_type": 0, "frame_index": i}
                                 self.arrow_entries.append(entry)
@@ -8061,7 +8131,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         elif idx == 1 and self.arrow_mid_up_frames:
                             # Middle up arrow with animation
                             rect = pygame.Rect(arrow_x, ay, arrow_size, arrow_size)
-                            entry = next((e for e in self.arrow_entries if e["rect"].topleft == rect.topleft), None)
+                            entry = next((e for e in self.arrow_entries if e["frame_index"] == i and e["arrow_type"] == idx), None)
+                            if entry:
+                                entry["rect"] = rect
                             if not entry:
                                 entry = {"rect": rect, "animating": False, "idx": 0, "last": 0, "frames": self.arrow_mid_up_frames, "arrow_type": 1, "frame_index": i}
                                 self.arrow_entries.append(entry)
@@ -8075,7 +8147,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         elif idx == 2 and self.arrow_mid_down_frames:
                             # Middle down arrow with animation
                             rect = pygame.Rect(arrow_x, ay, arrow_size, arrow_size)
-                            entry = next((e for e in self.arrow_entries if e["rect"].topleft == rect.topleft), None)
+                            entry = next((e for e in self.arrow_entries if e["frame_index"] == i and e["arrow_type"] == idx), None)
+                            if entry:
+                                entry["rect"] = rect
                             if not entry:
                                 entry = {"rect": rect, "animating": False, "idx": 0, "last": 0, "frames": self.arrow_mid_down_frames, "arrow_type": 2, "frame_index": i}
                                 self.arrow_entries.append(entry)
@@ -8088,7 +8162,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                             self.screen.blit(img_to_draw, rect.topleft)
                         elif idx == 3 and self.arrow_down_frames:
                             rect = pygame.Rect(arrow_x, ay, arrow_size, arrow_size)
-                            entry = next((e for e in self.arrow_entries if e["rect"].topleft == rect.topleft), None)
+                            entry = next((e for e in self.arrow_entries if e["frame_index"] == i and e["arrow_type"] == idx), None)
+                            if entry:
+                                entry["rect"] = rect
                             if not entry:
                                 entry = {"rect": rect, "animating": False, "idx": 0, "last": 0, "frames": self.arrow_down_frames, "arrow_type": 3, "frame_index": i}
                                 self.arrow_entries.append(entry)
@@ -8216,6 +8292,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
                 self._draw_level6_bot_trade_action(frame_info["rect"], i)
 
+            bankruptcy_animation.draw(self, market_layout)
             self._draw_market_clear_animations()
 
             # ------------------------------------------------------------
@@ -8670,6 +8747,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.dragged_card_source is not None:
             self.dragged_card_pos = self.mouse_pos()
 
+        bankruptcy_animation.update(self)
+
         # Update arrow animation timing
         self.update_arrow_animation()
 
@@ -8709,6 +8788,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
 
     def run(self):
+        if any(str(card) in ("113", "114", "115", "117") for card in self.side_cards_top):
+            bankruptcy_audio.preload(self)
         gameplay_event("gameplay.ready", self)
         self.tutorial_hint = None
         if not self.test_mode and profile_manager.is_tutorial_pending(self.profile_slot, FIRST_HINT_ID):
@@ -8721,6 +8802,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._maybe_show_logo_tutorial()
             self._maybe_show_late_end_turn_tutorial()
             result = self.handle_input()
+            if result in ("quit", "back", "round_select", "level_select", "main_menu", "restart_level"):
+                bankruptcy_audio.stop(self)
             
             if result == "quit":
                 pygame.quit()
@@ -8745,6 +8828,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             animations_paused = sync_animation_clock(
                 self, pygame.time.get_ticks(), focused=pygame.key.get_focused(),
             )
+            bankruptcy_audio.pause(self, animations_paused)
             if not animations_paused:
                 self._update_boss_turn_timer()
 

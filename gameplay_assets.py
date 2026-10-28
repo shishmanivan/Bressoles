@@ -451,6 +451,7 @@ def load_winlose_assets(screen_width, screen_height):
         ("card_report_image", "CardReport.png", (finance_width, finance_height)),
         ("approve_stamp_image", "ApproveStamp.png", (230, 96)),
         ("stamp_on_paper_image", "StampOnPaper.png", (205, 123)),
+        ("bankrupt_stamp_image", "BankruptStampOnPaper.png", (260, 156)),
     )
     for key, filename, size in finance_specs:
         path = os.path.join("Arts", filename)
