@@ -9,6 +9,10 @@ import pygame
 from gameplay_deck import deal_starting_hand, setup_starting_deck_and_hand
 from gameplay_drag import find_market_drag_start, find_side_top_drag_start
 from gameplay_page import GameplayPage
+from gameplay_page import SCREEN_WIDTH, SCREEN_HEIGHT
+from gameplay_layout import compute_bottom_hand_layout
+from gameplay_hand_hover import hand_card_rect
+from gameplay_draw_helpers import draw_hand_draw_animations
 
 
 class StartingHandTests(unittest.TestCase):
@@ -169,6 +173,63 @@ class HandDrawTests(unittest.TestCase):
         self.assertEqual(page.hand_cards, [1, 2, 3, 4])
         self.assertEqual(page.deck, [])
         self.assertCountEqual(page.hand_cards, before_cards)
+
+    def test_draw_lands_exactly_on_rendered_slots_for_every_hand_size(self):
+        for size in (1, 2, 4, 7, 8, 10, 12):
+            for state in ("empty", "packed", "gaps"):
+                with self.subTest(size=size, state=state):
+                    page = self._page()
+                    page.hand = size
+                    page.hand_cards = [None] * size
+                    if state == "packed" and size > 1:
+                        page.hand_cards[0] = 1
+                    if state == "gaps" and size > 1:
+                        page.hand_cards[-1] = 1
+                    page.bottom_frame = pygame.Surface((1154, 298))
+                    page.deck = [3, 4, 11]
+                    page.hand_compact_duration = 100
+                    page.hand_draw_duration = 400
+                    page._save_active_game = mock.Mock()
+                    before = page.deck + [c for c in page.hand_cards if c is not None]
+                    with mock.patch.object(pygame.time, "get_ticks", return_value=0):
+                        page._draw_pending_cards()
+                    with mock.patch.object(pygame.time, "get_ticks", return_value=100):
+                        page.update_hand_compact_animation()
+                    self.assertTrue(page.hand_draw_anim)
+                    layout = compute_bottom_hand_layout(
+                        page.bottom_frame, size, SCREEN_WIDTH, SCREEN_HEIGHT,
+                    )
+                    first_free = page.hand_cards.index(None)
+                    self.assertEqual(page.hand_draw_anim[0]["target_slot"], first_free)
+                    for entry in page.hand_draw_anim:
+                        slot = entry["target_slot"]
+                        self.assertEqual(entry["target_pos"], layout["slot_rects"][slot].topleft)
+                        self.assertEqual(entry["from_pos"][0], entry["target_pos"][0])
+                        self.assertGreater(entry["from_pos"][1], SCREEN_HEIGHT)
+                        # Verify the actual animation renderer and resting card agree.
+                        screen = mock.Mock()
+                        image = mock.Mock()
+                        draw_hand_draw_animations(
+                            screen, [dict(entry, progress=1.0)],
+                            {entry["card_id"]: image}, (142, 244), mock.Mock(), mock.Mock(),
+                        )
+                        resting = hand_card_rect(layout["slot_rects"][slot].topleft, (142, 244))
+                        self.assertEqual(screen.blit.call_args.args[1], resting.topleft)
+                    with mock.patch.object(pygame.time, "get_ticks", return_value=600):
+                        page.update_hand_draw_animation()
+                    self.assertFalse(page.hand_draw_anim)
+                    self.assertCountEqual(
+                        page.deck + [c for c in page.hand_cards if c is not None], before,
+                    )
+
+    def test_draw_reserves_first_free_slots_without_overwriting_cards(self):
+        page = self._page()
+        page.bottom_frame = pygame.Surface((1154, 298))
+        page.deck = [3, 4, 11]
+        page._start_hand_draw_animation(3)
+        self.assertEqual([entry["target_slot"] for entry in page.hand_draw_anim], [1, 3])
+        self.assertEqual(page.hand_cards, [1, None, 2, None])
+        self.assertEqual(page.deck, [11])
 
     def test_terminal_rebate_resolution_does_not_draw_more_cards(self):
         page = GameplayPage.__new__(GameplayPage)

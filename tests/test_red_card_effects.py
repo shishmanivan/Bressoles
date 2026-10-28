@@ -426,6 +426,14 @@ class RedCardEffectTests(unittest.TestCase):
                 page.Aprice, page.BPrice, page.CPrice = 3, 9, 30
                 page._start_card_jump_animation = mock.Mock()
                 self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+                if cards[0] == 123:
+                    self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (14, 14, 30))
+                    self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+                    import gameplay_parity_animation as animation
+                    with mock.patch.object(animation.pygame.time, "get_ticks",
+                                           return_value=page.parity_animation["start_time"] + animation.DURATION_MS):
+                        animation.update(page)
+                    self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
                 self.assertEqual((page.Aprice, page.BPrice, page.CPrice), expected)
                 self.assertEqual([call.args[1] for call in page._start_card_jump_animation.call_args_list], [0, 1])
 

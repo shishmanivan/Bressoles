@@ -209,6 +209,27 @@ class NewspaperTests(unittest.TestCase):
         page._update_newspaper_animation(1)
         self.assertEqual(page.newspaper_y, 12)
 
+    def test_newspaper_entrance_decelerates_and_is_frame_rate_independent(self):
+        page = make_page()
+        page._start_newspaper_entrance()
+        positions = [page.newspaper_y]
+        for _ in range(5):
+            page._update_newspaper_animation(.1)
+            positions.append(page.newspaper_y)
+        distances = [b - a for a, b in zip(positions, positions[1:])]
+        self.assertTrue(all(distance > 0 for distance in distances))
+        self.assertTrue(all(a > b for a, b in zip(distances, distances[1:])))
+        other = make_page()
+        other._start_newspaper_entrance()
+        for _ in range(50):
+            other._update_newspaper_animation(.01)
+        self.assertAlmostEqual(page.newspaper_y, other.newspaper_y)
+        page._update_newspaper_animation(1)
+        self.assertEqual(page.newspaper_y, page._newspaper_target_rect().top)
+        page._start_newspaper_entrance()
+        page._update_newspaper_animation(.1)
+        self.assertAlmostEqual(page.newspaper_y, positions[1])
+
     def test_boss_victory_auto_opens_card_reward_report_after_newspaper(self):
         page = make_page()
         page.is_boss_fight = True

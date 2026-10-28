@@ -96,7 +96,7 @@ SHOP_SPECIAL_COSTS = {
     "delisting": 1,
     "trader": 0,
     "profit": 6,
-    "underwriter": 4,
+    "underwriter": 3,
     "bailout": 4,
     "price_cut": 5,
     "long": 2,

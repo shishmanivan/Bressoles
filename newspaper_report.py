@@ -279,6 +279,8 @@ class NewspaperReportMixin(OtherStatsMixin):
 
     def _start_newspaper_entrance(self):
         self.newspaper_y = float(-self._newspaper_target_rect().height - 72)
+        self.newspaper_entrance_from_y = self.newspaper_y
+        self.newspaper_entrance_elapsed = 0.0
         self.newspaper_closing = False
         self._winlose_last_tick = pygame.time.get_ticks()
         self.newspaper_reward_report_started_at = pygame.time.get_ticks()
@@ -301,8 +303,21 @@ class NewspaperReportMixin(OtherStatsMixin):
         closing = getattr(self, 'newspaper_closing', False)
         target = float(-rect.height - 72 if closing else rect.top)
         current = float(getattr(self, 'newspaper_y', target))
-        step = 1800 * dt
-        self.newspaper_y = min(target, current + step) if current < target else max(target, current - step)
+        if closing:
+            step = 1800 * max(0.0, dt)
+            self.newspaper_y = max(target, current - step)
+        elif current != target:
+            start = getattr(self, 'newspaper_entrance_from_y', current)
+            self.newspaper_entrance_from_y = start
+            self.newspaper_entrance_elapsed = (
+                getattr(self, 'newspaper_entrance_elapsed', 0.0) + max(0.0, dt)
+            )
+            duration = max(0.001, abs(target - start) / 1800)
+            progress = min(1.0, self.newspaper_entrance_elapsed / duration)
+            eased_progress = 1.0 - (1.0 - progress) ** 3
+            self.newspaper_y = target if progress >= 1.0 else start + (target - start) * eased_progress
+        else:
+            self.newspaper_y = target
         if (
             not closing
             and self.newspaper_y == target

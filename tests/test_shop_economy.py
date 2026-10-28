@@ -2208,9 +2208,10 @@ class ShopTransactionTests(ShopEconomyTestCase):
         select.assert_called_once_with(fallback, 1)
 
     def test_underwriter_does_not_charge_without_two_inventory_slots(self):
+        self.assertEqual(game_state.get_shop_special_cost("underwriter", 3), 3)
         game_state.napoleondors = 10
         game_state.silver_cards = [201] * (game_state.MAX_SILVER_CARDS - 1)
-        page = self._shop({"kind": "special", "special_id": "underwriter", "cost": 4})
+        page = self._shop({"kind": "special", "special_id": "underwriter", "cost": 3})
 
         page._buy_offer(0)
 

@@ -14,6 +14,7 @@ from copy import deepcopy
 import game_state
 import gameplay_bankruptcy_animation as bankruptcy_animation
 import gameplay_bankruptcy_audio as bankruptcy_audio
+import gameplay_parity_animation as parity_animation
 import profile_manager
 from market_roll_stats import MarketRollStats
 from asset_loaders import load_scaled_image, load_scaled_image_variants
@@ -831,6 +832,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.lifecycle_reminder_days_started = set()
         self.market_clear_animations = []
         self.bankruptcy_animations = {}
+        self.parity_animation = None
         self.market_clear_animation_duration = 520
         
         # Queue for processing persistent price-effect cards in market/slot order.
@@ -886,6 +888,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.stamp_on_paper_image = winlose_assets.get("stamp_on_paper_image")
         self.bankrupt_stamp_image = winlose_assets.get("bankrupt_stamp_image")
         self.bankruptcy_animations = {}
+        self.parity_animation = None
         self.stamp_sound = winlose_assets.get("stamp_sound")
         self.report_rustle_sound = winlose_assets.get("report_rustle_sound")
         self.approve_stamp_rotated = (
@@ -2378,6 +2381,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.hand_draw_anim = []
         self.market_clear_animations = []
         self.bankruptcy_animations = {}
+        self.parity_animation = None
         self._reset_drag_state()
         self._start_lifecycle_turn_reminder()
 
@@ -5567,6 +5571,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.lifecycle_card_jump_animations)
             or bool(self.market_clear_animations)
             or bool(getattr(self, "bankruptcy_animations", {}))
+            or bool(getattr(self, "parity_animation", None))
         )
 
     def _start_turn_resolution(self):
@@ -6428,6 +6433,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.lifecycle_card_jump_animations)
             or bool(self.market_clear_animations)
             or bool(getattr(self, "bankruptcy_animations", {}))
+            or bool(getattr(self, "parity_animation", None))
         )
 
     def _maybe_finalize_after_effect_animations(self):
@@ -6555,7 +6561,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._apply_manipulation_effect_if_needed,
             self._apply_deleverage_effect_if_needed,
         )
-        if getattr(self, "bankruptcy_animations", {}):
+        if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
             return False
         stage = getattr(self, "_red_effect_stage", 0)
         while stage < len(effects):
@@ -6568,7 +6574,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 return False
             stage += 1
             self._red_effect_stage = stage
-            if getattr(self, "bankruptcy_animations", {}):
+            if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
                 return False
         self._red_effect_stage = 0
         return True
@@ -6588,7 +6594,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             123: self._apply_parity_effect_if_needed,
             125: self._apply_breakout_effect_if_needed,
         }
-        if getattr(self, "bankruptcy_animations", {}):
+        if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
             return False
         applied = False
         next_slot = getattr(self, "_red_price_next_slot", 0)
@@ -6607,7 +6613,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if getattr(self, "win_lose_state", None) is not None:
                 self._red_price_next_slot = 0
                 return applied
-            if getattr(self, "bankruptcy_animations", {}):
+            if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
                 self._red_price_next_slot = slot + 1
                 return applied
         self._red_price_next_slot = 0
@@ -6885,6 +6891,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")
             if self._record_short_seller_falls(previous_prices, "Parity"):
                 return True
+            parity_animation.start(self)
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
             applied_count += 1
 
@@ -7100,6 +7107,35 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._newspaper_event('draw', card_id=card_id)
         return card_id
 
+    def _start_hand_draw_animation(self, draw_count):
+        """Deal into free slots using the same pixel positions as the resting hand."""
+        free_slots = [
+            slot for slot, card in enumerate(self.hand_cards[:self.hand])
+            if card is None
+        ]
+        draw_count = max(0, min(draw_count, len(self.deck), len(free_slots)))
+        if not draw_count:
+            return
+        layout = compute_bottom_hand_layout(
+            self.bottom_frame, self.hand, SCREEN_WIDTH, SCREEN_HEIGHT,
+        )
+        self._play_card_taking_sound()
+        self.hand_draw_anim = []
+        for slot in free_slots[:draw_count]:
+            card_id = self._draw_next_deck_card()
+            if layout is None:
+                self.hand_cards[slot] = card_id
+                continue
+            target_pos = layout["slot_rects"][slot].topleft
+            self.hand_draw_anim.append({
+                "card_id": card_id,
+                "target_slot": slot,
+                "target_pos": target_pos,
+                "from_pos": (target_pos[0], SCREEN_HEIGHT + 100),
+                "progress": 0.0,
+            })
+        self.hand_draw_start_time = pygame.time.get_ticks()
+
     def _draw_pending_cards(self):
         """Prepare hand compaction animation and subsequent draw after end-turn animations.
 
@@ -7122,15 +7158,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             existing_cards = [card for card in self.hand_cards if card is not None][: self.hand]
             self.hand_cards = existing_cards + [None] * (self.hand - len(existing_cards))
 
-            # Добор без анимации — всегда добраем, если есть свободные слоты и карты в колоде
-            start_idx = len(existing_cards)
-            slots_available = self.hand - start_idx
-            if self.Dobor > 0 and self.deck and slots_available > 0:
-                draw_limit = min(self.Dobor, len(self.deck), slots_available)
-                self._play_card_taking_sound()
-                for offset in range(draw_limit):
-                    card_id = self._draw_next_deck_card()
-                    self.hand_cards[start_idx + offset] = card_id
+            self._start_hand_draw_animation(self.Dobor)
             self.pending_draws = 0
             return
 
@@ -7142,22 +7170,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             SCREEN_WIDTH,
             SCREEN_HEIGHT,
         )
-        slot_positions = hand_layout["slot_positions"]
+        slot_positions = [rect.topleft for rect in hand_layout["slot_rects"]]
 
         # 2) Текущее содержимое и целевой порядок (уплотнение влево)
         existing = [(idx, card) for idx, card in enumerate(self.hand_cards) if card is not None]
-        if not existing:
-            # В руке вообще нет карт — просто добираем без анимации - всегда добраем, если есть карты в колоде
-            if self.Dobor > 0 and len(self.deck) > 0 and self.hand > 0:
-                draw_limit = min(self.Dobor, len(self.deck), self.hand)
-                self.hand_cards = [None] * self.hand
-                self._play_card_taking_sound()
-                for i in range(draw_limit):
-                    card_id = self._draw_next_deck_card()
-                    self.hand_cards[i] = card_id
-            self.pending_draws = 0
-            return
-
         # Обрезаем по размеру руки
         existing = existing[: self.hand]
         # Целевая рука: те же карты, но слева без дыр
@@ -7190,34 +7206,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if not moves:
             # Ничего не двигается — применяем целевой порядок и запускаем анимацию добора
             self.hand_cards = target_hand
-            if draw_limit > 0 and len(self.deck) > 0:
-                start_idx = len(existing)
-                self._play_card_taking_sound()
-                # Запускаем анимацию добора вместо мгновенного добора
-                if self.bottom_frame:
-                    self.hand_draw_anim = []
-                    for offset in range(draw_limit):
-                        target_slot = start_idx + offset
-                        target_x = slot_positions[target_slot][0]
-                        target_y = slot_positions[target_slot][1]
-                        # Стартовая позиция: снизу экрана, по центру целевого слота по X
-                        from_x = target_x
-                        from_y = SCREEN_HEIGHT + 100  # За экраном снизу
-                        
-                        card_id = self._draw_next_deck_card()
-                        self.hand_draw_anim.append({
-                            'card_id': card_id,
-                            'target_slot': target_slot,
-                            'target_pos': (target_x, target_y),
-                            'from_pos': (from_x, from_y),
-                            'progress': 0.0,
-                        })
-                    self.hand_draw_start_time = pygame.time.get_ticks()
-                else:
-                    # Без рамки — мгновенный добор
-                    for offset in range(draw_limit):
-                        card_id = self._draw_next_deck_card()
-                        self.hand_cards[start_idx + offset] = card_id
+            self._start_hand_draw_animation(draw_limit)
             self.pending_draws = 0
             return
 
@@ -7236,9 +7225,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         elapsed = now - self.hand_compact_start_time
         progress = min(1.0, max(0.0, elapsed / max(1, self.hand_compact_duration)))
 
-        # Обновляем прогресс для всех движений
+        # Match the draw animation's gentle deceleration into the resting slot.
+        eased_progress = 1.0 - (1.0 - progress) ** 3
         for entry in self.hand_compact_anim:
-            entry["progress"] = progress
+            entry["progress"] = eased_progress
 
         # Если анимация завершена, применяем итоговое состояние
         if progress >= 1.0:
@@ -7246,63 +7236,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if self.hand_compact_target_hand is not None:
                 self.hand_cards = self.hand_compact_target_hand
 
-            # 2) Запускаем анимацию добора карт (вместо мгновенного добора)
-            if (
-                self.hand_compact_draw_count > 0
-                and len(self.deck) > 0
-                and any(card is None for card in self.hand_cards)
-            ):
-                # Ищем первый свободный слот
-                first_free = next(
-                    (i for i, card in enumerate(self.hand_cards) if card is None), None
-                )
-                if first_free is not None:
-                    slots_available = self.hand - first_free
-                    draw_count = min(
-                        self.hand_compact_draw_count, slots_available, len(self.deck)
-                    )
-                    if draw_count > 0:
-                        self._play_card_taking_sound()
-                    
-                # Подготовка геометрии для анимации (как в draw, с тем же более плотным spacing и центрированием)
-                    if self.bottom_frame:
-                        bf_w = self.bottom_frame.get_width()
-                        bf_h = self.bottom_frame.get_height()
-                        bf_x = (SCREEN_WIDTH - bf_w) // 2 - 200
-                        bf_y = SCREEN_HEIGHT - bf_h - 150
-                        
-                        ph_w = 138
-                        ph_h = 240
-                        available_width = bf_w - 40
-                        spacing = ((available_width - ph_w) / (self.hand - 1)) - ph_w if self.hand > 1 else 0
-                        total_width = ph_w * self.hand + spacing * (self.hand - 1)
-                        start_x = bf_x + (bf_w - total_width) / 2
-                        start_y = bf_y + (bf_h - ph_h) // 2
-                        
-                        # Создаём анимации для каждой новой карты
-                        self.hand_draw_anim = []
-                        for offset in range(draw_count):
-                            target_slot = first_free + offset
-                            target_x = start_x + target_slot * (ph_w + spacing)
-                            target_y = start_y
-                            # Стартовая позиция: снизу экрана, по центру целевого слота по X
-                            from_x = target_x
-                            from_y = SCREEN_HEIGHT + 100  # За экраном снизу
-                            
-                            card_id = self._draw_next_deck_card()
-                            self.hand_draw_anim.append({
-                                'card_id': card_id,
-                                'target_slot': target_slot,
-                                'target_pos': (target_x, target_y),
-                                'from_pos': (from_x, from_y),
-                                'progress': 0.0,
-                            })
-                        self.hand_draw_start_time = pygame.time.get_ticks()
-                    else:
-                        # Без рамки — мгновенный добор
-                        for offset in range(draw_count):
-                            card_id = self._draw_next_deck_card()
-                            self.hand_cards[first_free + offset] = card_id
+            self._start_hand_draw_animation(self.hand_compact_draw_count)
 
             # 3) Сбрасываем состояние анимации компактирования (добор запущен отдельно)
             self.pending_draws = 0
@@ -7321,10 +7255,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         elapsed = now - self.hand_draw_start_time
         progress = min(1.0, max(0.0, elapsed / max(1, self.hand_draw_duration)))
         
-        # Обновляем прогресс для всех анимаций добора
+        eased_progress = 1.0 - (1.0 - progress) ** 3
         for entry in self.hand_draw_anim:
-            entry["progress"] = progress
-        
+            entry["progress"] = eased_progress
+
         # Если анимация завершена, физически добавляем карты в руку
         if progress >= 1.0:
             for entry in self.hand_draw_anim:
@@ -7862,6 +7796,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _draw_gameplay_table(self):
         self.stock_logo_rects = {}
+        parity_labels = []
         # Clear market placeholders list at start of draw
         self.market_placeholders = []
 
@@ -8087,6 +8022,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                 # Center text vertically with Dollar image
                                 price_text_y = dollar_y + (self.dollar_image.get_height() - price_text.get_height()) // 2
                                 self.screen.blit(price_text, (price_text_x, price_text_y))
+                                parity_labels.append((price_text, price_text.get_rect(
+                                    topleft=(price_text_x, price_text_y))))
 
                 # Draw arrows inside each frame (stacked vertically), size 60x60, start 25px from top
                 if self.arrow_up and self.arrow_down and self.arrow_mid_up and self.arrow_mid_down:
@@ -8293,6 +8230,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self._draw_level6_bot_trade_action(frame_info["rect"], i)
 
             bankruptcy_animation.draw(self, market_layout)
+            parity_animation.draw(self, parity_labels)
             self._draw_market_clear_animations()
 
             # ------------------------------------------------------------
@@ -8748,6 +8686,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.dragged_card_pos = self.mouse_pos()
 
         bankruptcy_animation.update(self)
+        parity_animation.update(self)
 
         # Update arrow animation timing
         self.update_arrow_animation()
