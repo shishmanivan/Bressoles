@@ -18,6 +18,7 @@ def normalize_boss_effect(value):
 
 
 REWARD_KINDS = {
+    "disclosureuntilrunend": "disclosure_until_run_end",
     "disclosure5rounds": "disclosure_5_rounds",
     "redcard": "red_card",
     "freeshop": "free_shop",
@@ -40,6 +41,7 @@ REWARD_KINDS = {
     "randomgaindropcard": "gain_drop_card",
     "dropcard": "drop_card",
     "fixeddropcard": "drop_card",
+    "slaterraresilvercard": "slater_rare_silver_card",
     "silvercard": "silver_card",
     "randomsilver": "silver_card",
     "randomsilvercard": "silver_card",

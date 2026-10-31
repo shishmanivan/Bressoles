@@ -61,6 +61,7 @@ price_cut_purchases_by_level = {}
 price_cut_assistance_shown_levels = set()
 price_cut_assistance_milestones = {}
 disclosure_rounds_remaining = 0
+whitney_disclosure_active = False
 active_price_support_rounds = []
 protective_put_charges = 0
 active_long_investments = []
@@ -95,7 +96,7 @@ retention_pending_cards = []
 SHOP_SPECIAL_COSTS = {
     "delisting": 1,
     "trader": 0,
-    "profit": 6,
+    "profit": 3,
     "underwriter": 3,
     "bailout": 4,
     "price_cut": 5,
@@ -110,7 +111,7 @@ SHOP_SPECIAL_COSTS = {
     "loan": 0,
     "correction": 2,
     "diversification": 4,
-    "expansion": 5,
+    "expansion": 3,
     "bill_of_exchange": 4,
     "disclosure": 2,
     "price_support": 2,
@@ -366,6 +367,8 @@ def is_gold_card(card_id):
 def is_gold_card_available_for_level(card_id, level_number=None):
     """Return whether a gold card may enter pools at the given level."""
     normalized = _normalize_card_id(card_id)
+    if normalized == 427 and whitney_disclosure_active:
+        return False
     if normalized in get_active_moratoriums():
         return False
     if normalized is None or not is_gold_card(normalized):
@@ -1527,7 +1530,7 @@ def get_disclosure_rounds_remaining():
 
 
 def is_disclosure_active():
-    return get_disclosure_rounds_remaining() > 0 or _contains_card(active_gold_cards, 427)
+    return whitney_disclosure_active or get_disclosure_rounds_remaining() > 0 or _contains_card(active_gold_cards, 427)
 
 
 def is_disclosure_offer_available():
@@ -1568,7 +1571,8 @@ def advance_disclosure_round():
 
 
 def clear_disclosure():
-    global disclosure_rounds_remaining
+    global disclosure_rounds_remaining, whitney_disclosure_active
+    whitney_disclosure_active = False
     if get_disclosure_rounds_remaining():
         print(f"Cleared Disclosure: {disclosure_rounds_remaining}")
     disclosure_rounds_remaining = 0
@@ -2798,7 +2802,7 @@ def get_shop_special_offer_slots():
 
 def get_shop_special_cost(offer_id, level_number=None):
     if offer_id == "profit" and int(profit_reward_bonus or 0) > 0:
-        return 10
+        return 5 if int(profit_reward_bonus) == 1 else 10
     if offer_id == "issuer":
         cost = get_issuer_offer_cost()
         return cost if cost is not None else SHOP_SPECIAL_COSTS.get(offer_id, 1)
@@ -3810,8 +3814,8 @@ def build_open_silver_cards_pool(level_number=None):
     return sorted(set(silver_pool))
 
 
-def build_rare_silver_cards_pool(level_number=None):
-    """Return every open silver card whose pool probability is below 40%."""
+def build_rare_silver_cards_pool(level_number=None, probability_limit=40):
+    """Return open silver cards below the exclusive pool-probability limit."""
     cfg = load_cards_config() or {}
     rare_cards = []
     for card_id, row in cfg.items():
@@ -3831,7 +3835,7 @@ def build_rare_silver_cards_pool(level_number=None):
             probability = int(probability_raw)
         except (TypeError, ValueError):
             continue
-        if is_open and is_card_licensed(cid) and 0 < probability < 40:
+        if is_open and is_card_licensed(cid) and 0 < probability < probability_limit:
             rare_cards.append(cid)
 
     return sorted(set(rare_cards))

@@ -71,7 +71,7 @@ def load_round_page_static_assets():
     button_h = _load_scaled_button(os.path.join("RoundPage", "LevelButtonH.png"), "WARNING: LevelButtonH not found:")
 
     napoleondor_image = load_scaled_image(
-        os.path.join("Shop", "Napoleondor.png"),
+        os.path.join("Shop", "Other", "Napoleondor.png"),
         target_size=(28, 28),
         warning_message="WARNING: Napoleondor.png not found:",
     )

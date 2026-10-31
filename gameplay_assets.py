@@ -204,7 +204,7 @@ def load_gameplay_core_assets(screen_width, screen_height):
         os.path.join("GameplayPage", "Dollar.png"),
         "WARNING: Dollar.png not found:",
     )
-    napoleondor_path = os.path.join("Shop", "Napoleondor.png")
+    napoleondor_path = os.path.join("Shop", "Other", "Napoleondor.png")
     if os.path.exists(napoleondor_path):
         napoleondor_original = pygame.image.load(napoleondor_path).convert_alpha()
         assets["napoleondor_image"] = pygame.transform.smoothscale(
@@ -462,6 +462,10 @@ def load_winlose_assets(screen_width, screen_height):
         original = pygame.image.load(path).convert_alpha()
         assets[key] = pygame.transform.smoothscale(original, size).convert_alpha()
 
+    assets["probability_drop_sound"] = _load_sound(
+        os.path.join("Sounds", "Drop Var.wav"),
+        "WARNING: Drop Var.wav not found at",
+    )
     assets["stamp_sound"] = _load_sound(
         os.path.join("Sounds", "Stamp.wav"),
         "WARNING: Stamp.wav not found at",

@@ -631,6 +631,28 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(gambling_page._get_gambling_probability_bonus(), 9)
         self.assertEqual(gambling_page._get_probability_card_bonus(), 11)
 
+    def test_disclosure_strengthens_bear_and_stacks_with_catalysts(self):
+        cases = (
+            ([], [427], 0),
+            ([], [401, 427], 4),
+            ([], [401, 427, 427], 6),
+            ([], [401, 401, 427], 8),
+            ([210], [401, 414, 427], 29),
+        )
+        for silver, gold, expected in cases:
+            with self.subTest(silver=silver, gold=gold):
+                page = self._page(silver=silver, gold=gold)
+                page.Goal = 100
+                self.assertEqual(page._get_current_bear_goal_discount_percent(), expected)
+                page._apply_bear_goal_modifier()
+                self.assertEqual(page.Goal, 100 - expected)
+
+        game_state.bear_goal_reduction_steps = 2
+        page = self._page(gold=[401, 427])
+        self.assertEqual(page._get_current_bear_goal_discount_percent(), 8)
+        page = self._page(gold=[401] + [427] * 60)
+        self.assertEqual(page._get_current_bear_goal_discount_percent(), 100)
+
     def test_gold_disclosure_increases_advance_chance(self):
         page = self._page(gold=[420, 427])
         page.Aquantity, page.Bquantity, page.Cquantity = 1, 0, 0
@@ -696,7 +718,7 @@ class LifecycleEffectTests(unittest.TestCase):
 
         self.assertEqual(page._get_catalyst_percentage_bonus(), 10)
         self.assertEqual(page._get_gambling_probability_bonus(), 17)
-        self.assertEqual(page._get_probability_card_bonus(), 27)
+        self.assertEqual(page._get_probability_card_bonus(), 17)
 
         page._apply_bear_goal_modifier()
         self.assertEqual(page.Goal, 88)
@@ -707,6 +729,18 @@ class LifecycleEffectTests(unittest.TestCase):
         game_state.napoleondors = 5
         self.assertEqual(page._get_uptrend_rebate_bonus_percent(), 20)
         self.assertEqual(page._get_current_rebate_sale_percent(), 160)
+
+    def test_catalysts_do_not_amplify_upside_or_downside_market_cards(self):
+        from gameplay_price_helpers import build_market_probabilities
+        for silver, gold in (([210], []), ([], [414]), ([210, 210], [414, 414])):
+            for card_id in (1, 2, 3, 4):
+                with self.subTest(silver=silver, gold=gold, card_id=card_id):
+                    page = self._page(silver=silver, gold=gold)
+                    page.market_cards = {market: {0: card_id} for market in range(3)}
+                    page.market_card_turns = {market: {} for market in range(3)}
+                    with mock.patch.object(game_state, 'get_updown_probability_bonus', return_value=0):
+                        self.assertEqual(page._get_probability_card_bonus(), 0)
+                        self.assertEqual(page._stock_bot_probabilities(), build_market_probabilities(page.market_cards))
 
     def test_each_downside_risk_copy_guarantees_two_drop_cards(self):
         page = self._page(gold=[433, 433])
@@ -722,7 +756,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertEqual(page._get_gold_catalyst_percentage_bonus(), 15)
         self.assertEqual(page._get_percentage_amplifier_bonus(), 25)
         self.assertEqual(page._get_gambling_probability_bonus(), 32)
-        self.assertEqual(page._get_probability_card_bonus(), 57)
+        self.assertEqual(page._get_probability_card_bonus(), 32)
 
         page._apply_bear_goal_modifier()
         self.assertEqual(page.Goal, 73)

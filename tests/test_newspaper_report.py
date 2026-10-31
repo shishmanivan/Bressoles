@@ -34,6 +34,48 @@ def make_page():
 
 
 class NewspaperTests(unittest.TestCase):
+    def test_bottom_reports_decelerate_and_restart_on_reopening(self):
+        for stage, size in (('finance', (600, 800)), ('card_report', (600, 800)),
+                            ('market_report', (1200, 700))):
+            with self.subTest(stage=stage):
+                page = make_page()
+                page.result_report_stage = stage
+                setattr(page, stage + '_image', pygame.Surface(size))
+                # Finance uses a different asset attribute from its stage name.
+                page.finance_report_image = pygame.Surface(size)
+                page.finance_stamp_state = 'idle'
+                page.finance_stamp_started_at = 0
+                page.finance_report_y = 1080.0
+                page._winlose_last_tick = 0
+                positions = [page.finance_report_y]
+                for now in range(40, 401, 40):
+                    with patch('gameplay_page.pygame.time.get_ticks', return_value=now):
+                        page.update_win_lose_animation()
+                    positions.append(page.finance_report_y)
+                distances = [a - b for a, b in zip(positions, positions[1:])]
+                self.assertTrue(all(a > b for a, b in zip(distances[:6], distances[1:7])))
+                self.assertEqual(page.finance_report_y, (1050 - size[1]) // 2)
+                page.finance_report_y = 1080.0
+                with patch('gameplay_page.pygame.time.get_ticks', return_value=440):
+                    page.update_win_lose_animation()
+                self.assertAlmostEqual(page.finance_report_y, positions[1])
+
+    def test_market_table_is_reused_during_slide_and_refreshes_on_selection(self):
+        page = make_page()
+        rect = pygame.Rect(200, 100, 1200, 700)
+        with patch.object(page, '_render_market_report_rows',
+                          wraps=page._render_market_report_rows) as render:
+            page._draw_market_report_rows(rect.move(0, 600))
+            page._draw_market_report_rows(rect.move(0, 300))
+            page._draw_market_report_rows(rect)
+            self.assertEqual(render.call_count, 1)
+            page.market_report_selection = 'invested'
+            page._draw_market_report_rows(rect)
+            self.assertEqual(render.call_count, 2)
+            page.market_report_scope = 'other'
+            page._draw_market_report_rows(rect)
+            self.assertEqual(render.call_count, 3)
+
     def test_level_one_replaces_finance_with_trade_chronicle(self):
         page = make_page()
         page.level_number = 1

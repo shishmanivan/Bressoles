@@ -161,6 +161,41 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_diversification_immediately_adds_distinct_discounted_card(self):
+        game_state.napoleondors = 10
+        page = self._shop({"kind": "special", "special_id": "diversification", "cost": 4})
+        page.offers.insert(0, {"kind": "card", "card_id": 401, "cost": 5})
+        page.sold_offer_indexes = {0}
+        page.discount_percent = 50
+        with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[401, 402]):
+            page._buy_offer(1)
+        self.assertEqual([o.get("card_id") for o in page.offers[:2]], [401, 402])
+        self.assertEqual(page.sold_offer_indexes, {0, 2})
+        self.assertEqual(game_state.napoleondors, 6)
+        self.assertEqual(page.offers[1]["cost"], game_state.get_discounted_shop_price(
+            game_state.SHOP_CARD_COSTS[402], 50))
+        self.assertIn(402, game_state.seen_gold_card_ids)
+        page._buy_offer(2)
+        self.assertEqual(len(page.offers), 3)
+
+    def test_free_diversification_adds_card_after_removing_temporary_offer(self):
+        page = self._shop({"kind": "special", "special_id": "screening", "cost": 1})
+        with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[]), \
+                mock.patch.object(game_state, "build_all_available_shop_cards", return_value=[401]):
+            self.assertTrue(page._activate_free_special_offer("diversification"))
+        self.assertEqual([o["kind"] for o in page.offers], ["card", "special"])
+        self.assertEqual(page.offers[1]["special_id"], "screening")
+        self.assertEqual(page.sold_offer_indexes, set())
+
+    def test_diversification_handles_exhausted_card_pool(self):
+        game_state.napoleondors = 4
+        page = self._shop({"kind": "special", "special_id": "diversification", "cost": 4})
+        with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[]), \
+                mock.patch.object(game_state, "build_all_available_shop_cards", return_value=[]):
+            page._buy_offer(0)
+        self.assertTrue(game_state.diversification_bought)
+        self.assertEqual(len(page.offers), 1)
+
     def test_card_and_license_results_keep_messages_and_sold_markers(self):
         game_state.napoleondors = 20
         for kind, card_id, success, duplicate in (
@@ -388,16 +423,16 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertIn("disclosure", offers)
         self.assertEqual(game_state.get_shop_special_cost("disclosure", 2), 2)
 
-    def test_expansion_costs_five_and_combines_with_peabody_bonus(self):
+    def test_expansion_costs_three_and_combines_with_peabody_bonus(self):
         game_state.napoleondors = 10
         page = self._shop(
-            {"kind": "special", "special_id": "expansion", "cost": 5}
+            {"kind": "special", "special_id": "expansion", "cost": 3}
         )
 
         self.assertEqual(game_state.get_shop_special_offer_slots(), 2)
         page._buy_offer(0)
 
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 7)
         self.assertTrue(game_state.expansion_bought)
         self.assertEqual(game_state.get_shop_special_offer_slots(), 3)
         self.assertEqual(page.message, "В магазине теперь больше предложений")
@@ -411,15 +446,15 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(game_state.boss_shop_offer_bonus, 1)
 
         repeated_offer = self._shop(
-            {"kind": "special", "special_id": "expansion", "cost": 5}
+            {"kind": "special", "special_id": "expansion", "cost": 3}
         )
         repeated_offer._buy_offer(0)
-        self.assertEqual(game_state.napoleondors, 5)
+        self.assertEqual(game_state.napoleondors, 7)
         self.assertEqual(repeated_offer.message, "Экспансия уже куплена")
 
     def test_expansion_immediately_adds_discounted_offer_and_keeps_sold_indexes(self):
         game_state.napoleondors = 10
-        page = self._shop({"kind": "special", "special_id": "expansion", "cost": 5})
+        page = self._shop({"kind": "special", "special_id": "expansion", "cost": 3})
         license_offer = {"kind": "license", "card_id": 121, "cost": 3}
         page.offers.append(license_offer)
         page.sold_offer_indexes.add(1)
@@ -479,7 +514,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
             offers = game_state.build_shop_special_offer_pool(4, max_offers=30)
 
         self.assertIn("expansion", offers)
-        self.assertEqual(game_state.get_shop_special_cost("expansion", 4), 5)
+        self.assertEqual(game_state.get_shop_special_cost("expansion", 4), 3)
         self.assertFalse(game_state.is_expansion_offer_available(3))
         self.assertTrue(game_state.is_expansion_offer_available(4))
         self.assertNotIn("expansion", game_state._available_screening_offer_ids(3))
@@ -519,7 +554,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         page.offers.extend(
             [
                 {"kind": "card", "card_id": 117, "cost": 7},
-                {"kind": "special", "special_id": "profit", "cost": 6},
+                {"kind": "special", "special_id": "profit", "cost": 3},
                 {
                     "kind": "license",
                     "card_id": 121,
@@ -551,13 +586,13 @@ class ShopTransactionTests(ShopEconomyTestCase):
         )
         page.discount_percent = 50
         page.offers.append(
-            {"kind": "special", "special_id": "profit", "cost": 3}
+            {"kind": "special", "special_id": "profit", "cost": 1.5}
         )
 
         page._buy_offer(0)
 
         self.assertEqual(game_state.napoleondors, 3)
-        self.assertEqual(page.offers[1]["cost"], 1.5)
+        self.assertEqual(page.offers[1]["cost"], 1.0)
 
     def test_bill_of_exchange_discounts_every_future_shop_section_and_rounds_to_half(self):
         game_state.bill_of_exchange_offer_bought = True
@@ -607,7 +642,16 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 license_slots=0,
                 discount_percent=50,
             )
-        self.assertEqual(offers[0]["cost"], 1.5)
+        self.assertEqual(offers[0]["cost"], 1.0)
+
+    def test_profit_costs_three_then_five_then_ten(self):
+        self.assertEqual(game_state.get_shop_special_cost("profit", 3), 3)
+        game_state.profit_reward_bonus = 1
+        self.assertEqual(game_state.get_shop_special_cost("profit", 3), 5)
+        game_state.profit_reward_bonus = 2
+        self.assertEqual(game_state.get_shop_special_cost("profit", 3), 10)
+        game_state.profit_reward_bonus = 3
+        self.assertEqual(game_state.get_shop_special_cost("profit", 3), 10)
 
     def test_bill_of_exchange_has_eighteen_percent_pool_roll_then_disappears(self):
         with mock.patch.object(game_state.random, "randint", return_value=18):
@@ -643,11 +687,12 @@ class ShopTransactionTests(ShopEconomyTestCase):
              "cost": game_state.get_shop_special_cost("diversification", 3)}
         )
 
-        page._buy_offer(0)
+        with mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[401]):
+            page._buy_offer(0)
 
         self.assertEqual(game_state.napoleondors, 6)
         self.assertTrue(game_state.diversification_bought)
-        self.assertEqual(page.sold_offer_indexes, {0})
+        self.assertEqual(page.sold_offer_indexes, {1})
         self.assertEqual(page.message, "В магазине теперь предлагаются две карты")
         self.assertFalse(game_state.is_diversification_offer_available())
 

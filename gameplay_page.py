@@ -448,6 +448,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.surge_turns_without_trade = 0
         self.surge_traded_this_turn = False
         self.surge_triggered = False
+        self.surge_effect_pending = False
         self.continuation_growth_streaks = [0, 0, 0]
         self.continuation_held_markets_this_turn = set()
         self.continuation_applied_this_resolution = False
@@ -890,6 +891,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.bankruptcy_animations = {}
         self.parity_animation = None
         self.stamp_sound = winlose_assets.get("stamp_sound")
+        self.probability_drop_sound = winlose_assets.get("probability_drop_sound")
+        self._probability_drop_sounded = set()
         self.report_rustle_sound = winlose_assets.get("report_rustle_sound")
         self.approve_stamp_rotated = (
             pygame.transform.rotate(self.approve_stamp_image, 10).convert_alpha()
@@ -2098,6 +2101,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "surge_turns_without_trade": int(self.surge_turns_without_trade or 0),
             "surge_traded_this_turn": bool(self.surge_traded_this_turn),
             "surge_triggered": bool(self.surge_triggered),
+            "surge_effect_pending": bool(getattr(self, "surge_effect_pending", False)),
             "continuation_growth_streaks": list(
                 (getattr(self, "continuation_growth_streaks", None) or [0, 0, 0])[:3]
             ),
@@ -2301,6 +2305,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             else None
         )
         raw_short_seller_counts = list(state.get("short_seller_fall_counts") or [0, 0, 0])
+        self.surge_effect_pending = bool(state.get(
+            "surge_effect_pending",
+            any(movement.get("source") == "surge" for movement in (self.waterloo_preview_movements or [])),
+        ))
         self.short_seller_fall_counts = []
         for value in (raw_short_seller_counts + [0, 0, 0])[:3]:
             try:
@@ -2521,7 +2529,15 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 getattr(self, "is_boss_fight", False),
             )
         if normalized == 415:
-            return bool(getattr(self, "surge_triggered", False))
+            if not getattr(self, "surge_triggered", False) or getattr(self, "surge_effect_pending", False):
+                return False
+            jumps = getattr(self, "lifecycle_card_jump_animations", {})
+            if slot is not None:
+                return slot not in jumps
+            return not any(
+                index in jumps for index, card in enumerate(self._active_lifecycle_cards())
+                if card == 415
+            )
         if normalized == GOLD_FULL_DEPLOYMENT_CARD_ID:
             return bool(getattr(self, "full_deployment_reward_applied", False))
         if normalized == 408:
@@ -3540,7 +3556,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _get_probability_card_bonus(self):
         return (
-            self._get_probability_amplifier_bonus()
+            self._get_disclosure_probability_bonus()
             + self._get_gambling_probability_bonus()
             + game_state.get_updown_probability_bonus()
         )
@@ -3866,7 +3882,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         bear_count = self._count_active_card_safely(401)
         return min(
             100,
-            discount_percent + bear_count * self._get_percentage_amplifier_bonus(),
+            discount_percent + bear_count * self._get_probability_amplifier_bonus(),
         )
 
     def _get_contango_gain_drop_multiplier(self):
@@ -5057,13 +5073,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 2400.0,
                 float(getattr(self, "win_lose_speed_pps", 1200.0)),
             )
-            self.finance_report_y = compute_slide_position(
-                self.finance_report_y,
-                target_y,
-                slide_speed,
-                dt,
-                move_towards,
-            )
+            if self.finance_stamp_state == "closing":
+                self._result_report_entrance = None
+                self.finance_report_y = compute_slide_position(
+                    self.finance_report_y, target_y, slide_speed, dt, move_towards,
+                )
+            else:
+                self._update_result_report_entrance(target_y, slide_speed, dt)
             elapsed = now - int(self.finance_stamp_started_at or now)
             if self.finance_stamp_state == "pressing" and elapsed >= 170:
                 self.finance_stamp_state = "flying"
@@ -5086,6 +5102,26 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             dt,
             move_towards,
         )
+
+    def _update_result_report_entrance(self, target_y, speed, dt):
+        """Slide every detail report to rest with the same easing as hand draws."""
+        current = self.finance_report_y
+        key = (self.result_report_stage, target_y)
+        animation = getattr(self, '_result_report_entrance', None)
+        if animation is None or animation['key'] != key or animation['last_y'] != current:
+            animation = {
+                'key': key, 'start_y': current, 'last_y': current, 'elapsed': 0.0,
+                'duration': max(0.001, abs(current - target_y) / max(1.0, speed)),
+            }
+            self._result_report_entrance = animation
+        animation['elapsed'] += max(0.0, dt)
+        progress = min(1.0, animation['elapsed'] / animation['duration'])
+        eased = 1.0 - (1.0 - progress) ** 3
+        self.finance_report_y = (
+            target_y if progress >= 1.0
+            else animation['start_y'] + (target_y - animation['start_y']) * eased
+        )
+        animation['last_y'] = self.finance_report_y
 
     def update_stock_prices(self):
         """Calculate price changes based on probability distributions after EndTurn.
@@ -5287,6 +5323,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.surge_turns_without_trade < 4:
             return False
         self.surge_triggered = True
+        self.surge_effect_pending = True
         return True
 
     def _get_shakeout_markets(self):
@@ -5497,6 +5534,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 if is_surge:
                     self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
             print(f"Active card 415 Surge applied {surge_count} time(s): A={self.Aprice}")
+            self.surge_effect_pending = False
         elif next_anim.get("source") == "advance":
             advance_slot = next_anim.get("card_slot")
             if isinstance(advance_slot, int):
@@ -6356,19 +6394,25 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "duration": 900,
         }
 
-    def _get_continuation_ready_scale(self, slot, now):
-        """Pulse while a held stock is ready for a bonus on its next rise."""
+    def _get_lifecycle_ready_scale(self, slot, now):
+        """Pulse Continuation or Surge when its next-turn condition is ready."""
         cards = self._active_lifecycle_cards()
-        if slot < 0 or slot >= len(cards) or str(cards[slot]) != "419":
+        if slot < 0 or slot >= len(cards) or str(cards[slot]) not in ("415", "419"):
             return 1.0
         if (getattr(self, "win_lose_state", None) is not None
                 or getattr(self, "turn_resolution_active", False)):
             return 1.0
-        streaks = getattr(self, "continuation_growth_streaks", []) or []
-        quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
-        if not any(quantity > 0 and streak > 0
-                   for quantity, streak in zip(quantities, streaks)):
-            return 1.0
+        if str(cards[slot]) == "415":
+            if (getattr(self, "surge_triggered", False)
+                    or getattr(self, "surge_traded_this_turn", False)
+                    or int(getattr(self, "surge_turns_without_trade", 0) or 0) != 3):
+                return 1.0
+        else:
+            streaks = getattr(self, "continuation_growth_streaks", []) or []
+            quantities = (self.Aquantity, self.Bquantity, self.Cquantity)
+            if not any(quantity > 0 and streak > 0
+                       for quantity, streak in zip(quantities, streaks)):
+                return 1.0
         # A smooth one-second cycle, from normal size to +4% and back.
         phase = (int(now) % 1000) / 1000.0
         return 1.0 + 0.02 * (1.0 - math.cos(2.0 * math.pi * phase))
@@ -6376,7 +6420,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
     def _get_lifecycle_card_scale(self, slot, now=None):
         if now is None:
             now = pygame.time.get_ticks()
-        ready_scale = self._get_continuation_ready_scale(slot, now)
+        ready_scale = self._get_lifecycle_ready_scale(slot, now)
         animation = getattr(self, "lifecycle_card_scale_animations", {}).get(slot)
         if not animation:
             return ready_scale
@@ -7355,7 +7399,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return title, f"{description} {detail}"
         if normalized == 415:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
-            if getattr(self, "surge_triggered", False):
+            if getattr(self, "surge_triggered", False) and not getattr(self, "surge_effect_pending", False):
                 detail = "(Уже сработала в этом раунде)"
             else:
                 completed = 0 if getattr(self, "surge_traded_this_turn", False) else int(
@@ -7653,6 +7697,22 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 pygame.draw.line(surface, (151, 137, 119), (separator_x, 48), (separator_x, 80), 1)
         self.screen.blit(surface, panel.topleft)
 
+    def _update_probability_drop_sound(self):
+        started = getattr(self, 'probability_intro_started_at', None)
+        if started is None or not game_state.is_disclosure_active():
+            return
+        sounded = getattr(self, '_probability_drop_sounded', None)
+        if sounded is None:
+            sounded = self._probability_drop_sounded = set()
+        elapsed = pygame.time.get_ticks() - started
+        for market in range(3):
+            # The first contact occurs at 75% of the 450 ms fall.
+            if market not in sounded and elapsed >= market * 500 + 450 * 0.75:
+                sounded.add(market)
+                sound = getattr(self, 'probability_drop_sound', None)
+                if sound is not None:
+                    sound.play()
+
     def _draw_market_probability_debug(self, market, x, y):
         if not game_state.is_disclosure_active():
             return
@@ -7665,11 +7725,27 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         font = self.market_probability_font
         padding, gap = 8, 10
-        icon_width, icon_height = 42, 30
+        icon_width, icon_height = 48, 48
+        # Keep the original compact panel while allowing larger, tightly spaced icons.
+        icon_column_width = 42
         row_height = max(34, font.get_height())
         value_width = font.size("100.0%")[0]
-        panel = pygame.Rect(x, y, padding * 2 + icon_width + gap + value_width,
+        panel = pygame.Rect(x, y, padding * 2 + icon_column_width + gap + value_width,
                             padding * 2 + row_height * 3)
+        now = pygame.time.get_ticks()
+        if getattr(self, 'probability_intro_started_at', None) is None:
+            self.probability_intro_started_at = now
+        elapsed = now - self.probability_intro_started_at - market * 500
+        if elapsed < 0:
+            return
+        progress = min(1.0, elapsed / 450)
+        # Accelerate into the landing, then settle with a small bounce.
+        if progress < 0.75:
+            travel = (progress / 0.75) ** 2
+            panel.y = round(-panel.height + (y + panel.height) * travel)
+        else:
+            bounce = (progress - 0.75) / 0.25
+            panel.y = y - round(6 * 4 * bounce * (1 - bounce))
         pygame.draw.rect(self.screen, (244, 235, 211), panel, border_radius=4)
         pygame.draw.rect(self.screen, PAPER_COLOR, panel, 1, border_radius=4)
         for index, outcome in enumerate(('rise', 'flat', 'fall')):
@@ -7680,11 +7756,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 size = (max(1, round(icon.get_width() * scale)),
                         max(1, round(icon.get_height() * scale)))
                 graph = pygame.transform.smoothscale(icon, size)
+                # Optical alignment compensates for the artwork's top padding
+                # and the font's space below the visible digits.
                 self.screen.blit(graph, graph.get_rect(
-                    center=(panel.left + padding + icon_width // 2, center_y)))
+                    center=(panel.left + padding + icon_column_width // 2, center_y - 5)))
             text_surface = font.render(f"{fmt(probs[outcome])}%", True, PAPER_COLOR)
             self.screen.blit(text_surface, text_surface.get_rect(
-                midright=(panel.right - padding, center_y)))
+                midright=(panel.right - padding, center_y + 3)))
 
     def _draw_market_clear_animations(self):
         if not self.market_clear_animations:
@@ -7792,9 +7870,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._draw_gameplay_hand()
         self._draw_gameplay_moving_cards()
         self._draw_gameplay_controls()
+        for market, x, y in self._probability_panel_positions:
+            self._draw_market_probability_debug(market, x, y)
         self._draw_gameplay_overlays()
 
     def _draw_gameplay_table(self):
+        self._probability_panel_positions = []
         self.stock_logo_rects = {}
         parity_labels = []
         # Clear market placeholders list at start of draw
@@ -7957,11 +8038,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                     logo_y = frame_y + 20
                     self.screen.blit(logo, (logo_x, logo_y))
                     self.stock_logo_rects[i] = logo.get_rect(topleft=(logo_x, logo_y))
-                    self._draw_market_probability_debug(
+                    self._probability_panel_positions.append((
                         i,
                         logo_x + logo.get_width() + 8,
                         logo_y + 8,
-                    )
+                    ))
                     
                     # ============================================================
                     # QP BLOCK - Quantity and Price Block
@@ -8686,6 +8767,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.dragged_card_pos = self.mouse_pos()
 
         bankruptcy_animation.update(self)
+        self._update_probability_drop_sound()
         parity_animation.update(self)
 
         # Update arrow animation timing

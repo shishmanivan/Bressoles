@@ -101,7 +101,7 @@ SPECIAL_DESCRIPTIONS = {
     "variance": "Усиливает все карты Upside и Downside на 1 процентный пункт до конца забега.",
     "loan": "Сразу даёт 5 наполеондоров, но повышает цели текущего босса на 20%.",
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
-    "diversification": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
+    "diversification": "Сразу добавляет одну карту на продажу в текущий и каждый следующий магазин до конца забега.",
     "expansion": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
     "bill_of_exchange": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
@@ -229,7 +229,7 @@ CARD_DESCRIPTIONS.update(
         411: "На четвёртом ходу акции, которыми владеет игрок, гарантированно растут.",
         412: "На четвёртом и восьмом ходах акции, которыми владеет игрок, гарантированно растут.",
         413: "Удваивает вероятность падения акций, которыми игрок не владеет.",
-        414: "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
+        414: "Усиливает числовые процентные эффекты карт на 15 процентных пунктов (не касается карт Upside и Downside).",
         415: "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
         416: "Даёт 5 наполеондоров, если ни один из трёх рынков не вырос (флэт или падение). Если все три рынка во флэте, даёт 8 наполеондоров вместо 5.",
         417: "Перед началом раунда позволяет выбрать 2 карты, которые гарантированно попадут в стартовую руку.",
@@ -316,7 +316,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
     207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
     209: "Переносит все неиспользованные ходы в следующий раунд.",
-    210: "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
+    210: "Усиливает числовые процентные эффекты карт на 10 процентных пунктов (не касается карт Upside и Downside).",
     211: "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
     214: "Добавляет 4 к стартовым деньгам в начале раунда.",
     215: "После победы снижает цены всех предложений в следующем магазине на 50%.",
@@ -408,7 +408,9 @@ class ShopPage(AdaptivePage):
         self.round_koordinates = assets["koordinates"]
         self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
-        self.coin_image = self._load_image(os.path.join("Shop", "Napoleondor.png"), (54, 54))
+        self.coin_image = self._load_image(os.path.join("Shop", "Other", "Napoleondor.png"), (54, 54))
+        self.category_signs = self._load_category_signs()
+        self._category_sign_cache = {}
         self._coin_image_cache = {}
         if self.coin_image:
             self._coin_image_cache[self.coin_image.get_size()] = self.coin_image
@@ -459,6 +461,46 @@ class ShopPage(AdaptivePage):
         rect = surface.get_rect(center=center)
         self.screen.blit(surface, rect)
 
+    def _load_category_signs(self):
+        sheet = self._load_image(os.path.join(
+            "Shop", "Other", "Винтажные гравированные вывески@endsection.png"))
+        if sheet is None:
+            return {}
+        signs = {}
+        width, height = sheet.get_size()
+        for kind, column, row in (("card", 0, 0), ("special", 1, 0),
+                                  ("license", 0, 1), ("investment", 1, 1)):
+            left, top = column * width // 2, row * height // 2
+            right, bottom = (column + 1) * width // 2, (row + 1) * height // 2
+            sign = sheet.subsurface((left, top, right - left, bottom - top)).copy()
+            # Remove only the connected pale backdrop, preserving light engraving
+            # inside each frame. Keep the supplied sheet as the source artwork.
+            background = pygame.mask.from_threshold(
+                sign, (255, 255, 255, 255), (35, 35, 35, 255)
+            ).connected_component((0, 0))
+            alpha = background.to_surface(
+                setcolor=(255, 255, 255, 0), unsetcolor=(255, 255, 255, 255))
+            sign.blit(alpha, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            # Soften the dark category plaques without changing their alpha mask.
+            sign.fill((18, 18, 18), special_flags=pygame.BLEND_RGB_ADD)
+            # Retain the masked RGBA pixels when rendering at native resolution.
+            sign.invalidate_pixels()
+            signs[kind] = sign.subsurface(sign.get_bounding_rect()).copy()
+        return signs
+
+    def _category_sign(self, kind, rect):
+        source = self.category_signs.get(kind)
+        if source is None:
+            return None
+        key = (kind, rect.width, rect.height)
+        if key not in self._category_sign_cache:
+            scale = min((rect.width + 24) / source.get_width(),
+                        rect.height / source.get_height())
+            size = (max(1, round(source.get_width() * scale)),
+                    max(1, round(source.get_height() * scale)))
+            self._category_sign_cache[key] = pygame.transform.smoothscale(source, size)
+        return self._category_sign_cache[key]
+
     def _build_offer_rects(self):
         width = 176
         height = 380
@@ -500,7 +542,7 @@ class ShopPage(AdaptivePage):
         self.category_rects = []
         for kind, offers in groups:
             group_width = len(offers) * width + max(0, len(offers) - 1) * slot_gap
-            self.category_rects.append((kind, pygame.Rect(x, y - 54, group_width, 44)))
+            self.category_rects.append((kind, pygame.Rect(x, y - 84, group_width, 74)))
             for _offer in offers:
                 rects.append(pygame.Rect(x, y, width, height))
                 x += width + slot_gap
@@ -673,8 +715,9 @@ class ShopPage(AdaptivePage):
         if image:
             self.screen.blit(image, image_rect.topleft)
 
-        label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
-        self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
+        if get_language() != "ENG":
+            label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
+            self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
         self._draw_coin_amount(offer.get("cost", 0), (rect.centerx, rect.y + 360), self.small_font)
 
         if index in self.sold_offer_indexes:
@@ -703,6 +746,29 @@ class ShopPage(AdaptivePage):
                 base_cost,
                 temporary_discount,
             )
+
+    def _add_diversification_card(self):
+        existing = {offer.get("card_id") for offer in self.offers if offer.get("kind") == "card"}
+        pool = [card for card in game_state.build_shop_card_offer_pool(self.level_number)
+                if card not in existing]
+        if not pool:
+            pool = [card for card in game_state.build_all_available_shop_cards(self.level_number)
+                    if card not in existing]
+        if not pool:
+            return
+        card_id = int(game_state.random.choice(pool))
+        index = next((i for i, offer in enumerate(self.offers) if offer.get("kind") != "card"),
+                     len(self.offers))
+        self.offers.insert(index, {
+            "kind": "card", "card_id": card_id,
+            "cost": game_state.get_discounted_shop_price(
+                game_state.SHOP_CARD_COSTS.get(card_id, 1), self.discount_percent),
+        })
+        if game_state.is_gold_card(card_id):
+            game_state.seen_gold_card_ids.add(card_id)
+        self.sold_offer_indexes = {i + 1 if i >= index else i for i in self.sold_offer_indexes}
+        self.offer_image_cache.clear()
+        self.offer_rects = self._build_offer_rects()
 
     def _add_expansion_offer(self):
         special_ids = game_state.build_shop_special_offer_pool(
@@ -746,16 +812,18 @@ class ShopPage(AdaptivePage):
             {"kind": "special", "special_id": special_id, "cost": 0}
         )
         try:
-            self._buy_offer(temporary_index, refresh_expansion=False)
+            self._buy_offer(temporary_index, refresh_expansion=False, refresh_diversification=False)
             purchased = temporary_index in self.sold_offer_indexes
         finally:
             self.sold_offer_indexes.discard(temporary_index)
             self.offers.pop()
         if purchased and special_id == "expansion":
             self._add_expansion_offer()
+        if purchased and special_id == "diversification":
+            self._add_diversification_card()
         return purchased
 
-    def _buy_offer(self, index, *, refresh_expansion=True):
+    def _buy_offer(self, index, *, refresh_expansion=True, refresh_diversification=True):
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
@@ -990,6 +1058,8 @@ class ShopPage(AdaptivePage):
             card_count = game_state.get_shop_card_offer_slots(self.level_number)
             count_text = "три" if card_count == 3 else "две"
             self.message = f"В магазине теперь предлагаются {count_text} карты"
+            if refresh_diversification:
+                self._add_diversification_card()
             return
 
         if special_id == "expansion":
@@ -1236,7 +1306,6 @@ class ShopPage(AdaptivePage):
             pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
-        self._draw_centered_text("Магазин", self.title_font, (self.panel_rect.centerx, self.panel_rect.y + 145))
         self._draw_coin_amount(self.napoleondors, (self.panel_rect.right - 170, self.panel_rect.y + 150), self.balance_font)
 
         category_labels = {
@@ -1246,7 +1315,11 @@ class ShopPage(AdaptivePage):
             "investment": "Инвестиции",
         }
         for kind, rect in getattr(self, "category_rects", []):
-            self._draw_centered_text(category_labels.get(kind, kind.title()), self.small_font, rect.center)
+            sign = self._category_sign(kind, rect)
+            if sign is not None:
+                self.screen.blit(sign, sign.get_rect(center=rect.center))
+            else:
+                self._draw_centered_text(category_labels.get(kind, kind.title()), self.small_font, rect.center)
 
         for index, offer in enumerate(self.offers):
             self._draw_offer(index, offer, self.offer_rects[index])
@@ -1454,8 +1527,9 @@ class ScreeningOfferPage(ShopPage):
         image_rect.center = (rect.centerx, rect.y + 148)
         if image:
             self.screen.blit(image, image_rect.topleft)
-        label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
-        self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
+        if get_language() != "ENG":
+            label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
+            self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
         self._draw_centered_text("Бесплатно", self.small_font, (rect.centerx, rect.y + 360))
         if index == self.selected_index:
             pygame.draw.rect(

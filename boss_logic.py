@@ -485,6 +485,10 @@ def apply_boss_reward(reward_string, gameplay_instance):
             return
 
         normalized_reward = str(reward_string).strip().replace(" ", "").replace("_", "").replace("-", "").lower()
+        if normalized_reward == "disclosureuntilrunend":
+            game_state.whitney_disclosure_active = True
+            return
+
         if normalized_reward == "disclosure5rounds":
             game_state.grant_disclosure_rounds(5)
             return
@@ -558,6 +562,15 @@ def apply_boss_reward(reward_string, gameplay_instance):
             _append_last_earned_card(gameplay_instance, gain_drop_card)
 
             print(f"Applied boss reward GainDropCard: card for level {level_num}: {gain_drop_card}")
+            return
+
+        if normalized_reward == "slaterraresilvercard":
+            level_num = int(getattr(gameplay_instance, "level_number", 0) or 0)
+            pool = game_state.build_rare_silver_cards_pool(level_num, probability_limit=10)
+            if pool:
+                silver_card = game_state.add_silver_card(random.choice(pool))
+                if silver_card is not None:
+                    _append_last_earned_card(gameplay_instance, silver_card)
             return
 
         # Special reward: SilverCard (pick a random available silver card for the persistent inventory)

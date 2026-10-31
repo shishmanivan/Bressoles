@@ -25,7 +25,7 @@
   },
   {
     "Source": "Flash Issue",
-    "RU": "Flash Issue",
+    "RU": "Быстрый выпуск",
     "ENG": "Flash Issue",
     "DE": "Blitzemission",
     "HU": "Villámkibocsátás",
@@ -41,7 +41,7 @@
   },
   {
     "Source": "PriceCut",
-    "RU": "PriceCut",
+    "RU": "Снижение целей",
     "ENG": "PriceCut",
     "DE": "Zielsenkung",
     "HU": "Célcsökkentés",
@@ -73,7 +73,7 @@
   },
   {
     "Source": "Protective Put",
-    "RU": "Protective Put",
+    "RU": "Защитный пут",
     "ENG": "Protective Put",
     "DE": "Schutz-Put",
     "HU": "Védelmi put",
@@ -880,12 +880,12 @@
     "FR": "Vendez jusqu’à trois cartes : 2 napoléons d’or par carte argentée, 4 par carte dorée. Les cartes noires ne peuvent pas être vendues."
   },
   {
-    "Source": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
-    "RU": "Добавляет одну карту на продажу в каждом следующем магазине до конца забега.",
-    "ENG": "Adds one more card for sale in every subsequent shop until the end of the run.",
-    "DE": "Bis zum Ende des Durchlaufs steht in jedem weiteren Laden eine zusätzliche Karte zum Kauf.",
-    "HU": "A menet végéig minden következő boltban eggyel több eladó kártya jelenik meg.",
-    "FR": "Ajoute une carte à vendre dans chaque boutique suivante jusqu’à la fin de la partie."
+    "Source": "Сразу добавляет одну карту на продажу в текущий и каждый следующий магазин до конца забега.",
+    "RU": "Сразу добавляет одну карту на продажу в текущий и каждый следующий магазин до конца забега.",
+    "ENG": "Immediately adds one more card for sale in the current and every subsequent shop until the end of the run.",
+    "DE": "Fügt sofort eine zusätzliche Karte zum Kauf im aktuellen und jedem weiteren Laden bis zum Ende des Durchlaufs hinzu.",
+    "HU": "Azonnal eggyel több eladó kártyát ad a jelenlegi és minden következő bolthoz a menet végéig.",
+    "FR": "Ajoute immédiatement une carte à vendre dans la boutique actuelle et chaque boutique suivante jusqu’à la fin de la partie."
   },
   {
     "Source": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
@@ -1148,15 +1148,15 @@
     "RU": "Манипуляция",
     "ENG": "Manipulation",
     "DE": "Manipulation",
-    "HU": "Manipulation",
+    "HU": "Manipuláció",
     "FR": "Manipulation"
   },
   {
     "Source": "Рибейт",
     "RU": "Рибейт",
     "ENG": "Rebate",
-    "DE": "Rebate",
-    "HU": "Rebate",
+    "DE": "Rückvergütung",
+    "HU": "Visszatérítés",
     "FR": "Prime de cession"
   },
   {
@@ -1164,15 +1164,15 @@
     "RU": "Снижение долга",
     "ENG": "Debt Reduction",
     "DE": "Schuldenabbau",
-    "HU": "Debt Reduction",
+    "HU": "Adósságcsökkentés",
     "FR": "Réduction de dette"
   },
   {
     "Source": "Ролловер",
-    "RU": "Ролловер",
+    "RU": "Перенос",
     "ENG": "Rollover",
-    "DE": "Rollover",
-    "HU": "Rollover",
+    "DE": "Verlängerung",
+    "HU": "Átgörgetés",
     "FR": "Report"
   },
   {
@@ -1180,7 +1180,7 @@
     "RU": "Банкротство A",
     "ENG": "Bankruptcy A",
     "DE": "Bankrott A",
-    "HU": "Bankruptcy A",
+    "HU": "Csőd A",
     "FR": "Faillite A"
   },
   {
@@ -1188,7 +1188,7 @@
     "RU": "Банкротство B",
     "ENG": "Bankruptcy B",
     "DE": "Bankrott B",
-    "HU": "Bankruptcy B",
+    "HU": "Csőd B",
     "FR": "Faillite B"
   },
   {
@@ -1196,7 +1196,7 @@
     "RU": "Банкротство C",
     "ENG": "Bankruptcy C",
     "DE": "Bankrott C",
-    "HU": "Bankruptcy C",
+    "HU": "Csőd C",
     "FR": "Faillite C"
   },
   {
@@ -1204,15 +1204,15 @@
     "RU": "Продление",
     "ENG": "Extension",
     "DE": "Verlängerung",
-    "HU": "Extension",
+    "HU": "Hosszabbítás",
     "FR": "Prolongation"
   },
   {
     "Source": "Фьючерс",
     "RU": "Фьючерс",
     "ENG": "Futures",
-    "DE": "Futures",
-    "HU": "Futures",
+    "DE": "Terminkontrakt",
+    "HU": "Határidős kontraktus",
     "FR": "Contrats à terme"
   },
   {
@@ -1220,31 +1220,31 @@
     "RU": "Контанго",
     "ENG": "Contango",
     "DE": "Contango",
-    "HU": "Contango",
+    "HU": "Kontangó",
     "FR": "Contango"
   },
   {
     "Source": "Корзинная торговля",
     "RU": "Корзинная торговля",
     "ENG": "Basket Trading",
-    "DE": "Basket Trading",
-    "HU": "Basket Trading",
+    "DE": "Korbhandel",
+    "HU": "Kosárkereskedés",
     "FR": "Panier d’actions"
   },
   {
     "Source": "Форвардная торговля",
     "RU": "Форвардная торговля",
     "ENG": "Forward Trading",
-    "DE": "Forward Trading",
-    "HU": "Forward Trading",
+    "DE": "Terminhandel",
+    "HU": "Határidős kereskedés",
     "FR": "Opération à terme"
   },
   {
     "Source": "Грант",
     "RU": "Грант",
     "ENG": "Grant",
-    "DE": "Grant",
-    "HU": "Grant",
+    "DE": "Zuschuss",
+    "HU": "Támogatás",
     "FR": "Subvention"
   },
   {
@@ -1252,7 +1252,7 @@
     "RU": "Вексель",
     "ENG": "Bill of Exchange",
     "DE": "Wechsel",
-    "HU": "Bill of Exchange",
+    "HU": "Váltó",
     "FR": "Lettre de change"
   },
   {
@@ -1260,7 +1260,7 @@
     "RU": "Набоб",
     "ENG": "Nabob",
     "DE": "Nabob",
-    "HU": "Nabob",
+    "HU": "Nábob",
     "FR": "Nabab"
   },
   {
@@ -1268,7 +1268,7 @@
     "RU": "Облигация",
     "ENG": "Obligation",
     "DE": "Anleihe",
-    "HU": "Obligation",
+    "HU": "Kötvény",
     "FR": "Obligation"
   },
   {
@@ -1276,23 +1276,23 @@
     "RU": "Страхование",
     "ENG": "Insurance",
     "DE": "Versicherung",
-    "HU": "Insurance",
+    "HU": "Biztosítás",
     "FR": "Assurance"
   },
   {
     "Source": "Крах",
     "RU": "Крах",
     "ENG": "Crash",
-    "DE": "Crash",
-    "HU": "Crash",
+    "DE": "Börsenkrach",
+    "HU": "Összeomlás",
     "FR": "Krach"
   },
   {
     "Source": "Медведь",
     "RU": "Медведь",
     "ENG": "Bear",
-    "DE": "Bear",
-    "HU": "Bear",
+    "DE": "Bär",
+    "HU": "Medve",
     "FR": "Ours"
   },
   {
@@ -1368,12 +1368,12 @@
     "FR": "Reporte tous les tours inutilisés sur la manche suivante."
   },
   {
-    "Source": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
-    "RU": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов.",
-    "ENG": "Strengthens percentage-based card effects by 10 percentage points.",
-    "DE": "Verstärkt die in Prozent angegebenen Karteneffekte um 10 Prozentpunkte.",
-    "HU": "10 százalékponttal erősíti a százalékos kártyahatásokat.",
-    "FR": "Renforce les effets de cartes exprimés en pourcentage de 10 points de pourcentage."
+    "Source": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов (не касается карт Upside и Downside).",
+    "RU": "Усиливает числовые процентные эффекты карт на 10 процентных пунктов (не касается карт Upside и Downside).",
+    "ENG": "Increases numerical percentage effects of cards by 10 percentage points (does not apply to Upside and Downside cards).",
+    "DE": "Verstärkt numerische Prozenteffekte von Karten um 10 Prozentpunkte (gilt nicht für Upside- und Downside-Karten).",
+    "HU": "10 százalékponttal növeli a kártyák számszerű százalékos hatásait (az Upside és Downside kártyákra nem vonatkozik).",
+    "FR": "Augmente les effets numériques en pourcentage des cartes de 10 points de pourcentage (ne s’applique pas aux cartes Upside et Downside)."
   },
   {
     "Source": "Если вы вложили все деньги в акции, которые упали 5 раз, вы сразу выигрываете. Не работает на боссах",
@@ -1443,8 +1443,8 @@
     "Source": "Делистинг",
     "RU": "Делистинг",
     "ENG": "Delisting",
-    "DE": "Delisting",
-    "HU": "Delisting",
+    "DE": "Börsenrückzug",
+    "HU": "Kivezetés",
     "FR": "Retrait de cote"
   },
   {
@@ -1467,8 +1467,8 @@
     "Source": "Зеркалирование",
     "RU": "Зеркалирование",
     "ENG": "Mirroring",
-    "DE": "Mirroring",
-    "HU": "Mirroring",
+    "DE": "Spiegelung",
+    "HU": "Tükrözés",
     "FR": "Miroir"
   },
   {
@@ -1499,8 +1499,8 @@
     "Source": "Удержание",
     "RU": "Удержание",
     "ENG": "Retention",
-    "DE": "Retention",
-    "HU": "Retention",
+    "DE": "Beibehaltung",
+    "HU": "Megtartás",
     "FR": "Conservation"
   },
   {
@@ -1563,8 +1563,8 @@
     "Source": "Трейдер",
     "RU": "Трейдер",
     "ENG": "Trader",
-    "DE": "Trader",
-    "HU": "Trader",
+    "DE": "Händler",
+    "HU": "Kereskedő",
     "FR": "Négociant"
   },
   {
@@ -1595,8 +1595,8 @@
     "Source": "Коррекция",
     "RU": "Коррекция",
     "ENG": "Correction",
-    "DE": "Correction",
-    "HU": "Correction",
+    "DE": "Korrektur",
+    "HU": "Korrekció",
     "FR": "Correction"
   },
   {
@@ -1619,56 +1619,56 @@
     "Source": "Прибыль",
     "RU": "Прибыль",
     "ENG": "Profit",
-    "DE": "Profit",
-    "HU": "Profit",
+    "DE": "Gewinn",
+    "HU": "Nyereség",
     "FR": "Bénéfice"
   },
   {
     "Source": "Андеррайтер",
     "RU": "Андеррайтер",
     "ENG": "Underwriter",
-    "DE": "Underwriter",
-    "HU": "Underwriter",
+    "DE": "Emissionsgarant",
+    "HU": "Kibocsátási garanciavállaló",
     "FR": "Garant d’émission"
   },
   {
     "Source": "Бейлаут",
-    "RU": "Бейлаут",
+    "RU": "Спасение",
     "ENG": "Bailout",
-    "DE": "Bailout",
-    "HU": "Bailout",
+    "DE": "Rettung",
+    "HU": "Mentőcsomag",
     "FR": "Sauvetage"
   },
   {
     "Source": "Лонг",
-    "RU": "Лонг",
+    "RU": "Длинная позиция",
     "ENG": "Long",
-    "DE": "Long",
-    "HU": "Long",
+    "DE": "Kaufposition",
+    "HU": "Vételi pozíció",
     "FR": "Placement à terme"
   },
   {
     "Source": "Дериватив",
     "RU": "Дериватив",
     "ENG": "Derivative",
-    "DE": "Derivative",
-    "HU": "Derivative",
+    "DE": "Derivat",
+    "HU": "Származtatott ügylet",
     "FR": "Produit dérivé"
   },
   {
     "Source": "Джанк-бонд",
-    "RU": "Джанк-бонд",
+    "RU": "Мусорная облигация",
     "ENG": "Junk Bond",
-    "DE": "Junk Bond",
-    "HU": "Junk Bond",
+    "DE": "Ramschanleihe",
+    "HU": "Bóvlikötvény",
     "FR": "Obligation spéculative"
   },
   {
     "Source": "Эмитент",
     "RU": "Эмитент",
     "ENG": "Issuer",
-    "DE": "Issuer",
-    "HU": "Issuer",
+    "DE": "Emittent",
+    "HU": "Kibocsátó",
     "FR": "Émetteur"
   },
   {
@@ -1681,34 +1681,34 @@
   },
   {
     "Source": "Мультбэггер",
-    "RU": "Мультбэггер",
+    "RU": "Многократный рост",
     "ENG": "Multibagger",
-    "DE": "Multibagger",
-    "HU": "Multibagger",
+    "DE": "Kursvervielfacher",
+    "HU": "Többszöröző",
     "FR": "Valeur à fort potentiel"
   },
   {
     "Source": "Дисперсия",
     "RU": "Дисперсия",
     "ENG": "Variance",
-    "DE": "Variance",
-    "HU": "Variance",
+    "DE": "Varianz",
+    "HU": "Variancia",
     "FR": "Variance"
   },
   {
     "Source": "Ссуда",
     "RU": "Ссуда",
     "ENG": "Loan",
-    "DE": "Loan",
-    "HU": "Loan",
+    "DE": "Darlehen",
+    "HU": "Kölcsön",
     "FR": "Prêt"
   },
   {
     "Source": "Диверсификация",
     "RU": "Диверсификация",
     "ENG": "Diversification",
-    "DE": "Diversification",
-    "HU": "Diversification",
+    "DE": "Diversifikation",
+    "HU": "Diverzifikáció",
     "FR": "Diversification"
   },
   {
@@ -1716,39 +1716,39 @@
     "RU": "Экспансия",
     "ENG": "Expansion",
     "DE": "Expansion",
-    "HU": "Expansion",
+    "HU": "Bővítés",
     "FR": "Expansion"
   },
   {
     "Source": "Репликация",
     "RU": "Репликация",
     "ENG": "Replication",
-    "DE": "Replication",
-    "HU": "Replication",
+    "DE": "Replikation",
+    "HU": "Replikáció",
     "FR": "Réplication"
   },
   {
     "Source": "Репликация Плюс",
     "RU": "Репликация Плюс",
     "ENG": "Replication Plus",
-    "DE": "Replication Plus",
-    "HU": "Replication Plus",
+    "DE": "Replikation Plus",
+    "HU": "Replikáció Plusz",
     "FR": "Réplication Plus"
   },
   {
     "Source": "Скрининг",
-    "RU": "Скрининг",
+    "RU": "Отбор",
     "ENG": "Screening",
-    "DE": "Screening",
-    "HU": "Screening",
+    "DE": "Auswahl",
+    "HU": "Szűrés",
     "FR": "Sélection"
   },
   {
     "Source": "Сохранение капитала",
     "RU": "Сохранение капитала",
     "ENG": "Capital Preservation",
-    "DE": "Capital Preservation",
-    "HU": "Capital Preservation",
+    "DE": "Kapitalerhalt",
+    "HU": "Tőkemegőrzés",
     "FR": "Préservation du capital"
   },
   {
@@ -1800,12 +1800,12 @@
     "FR": "Double la probabilité de baisse des actions que vous ne détenez pas."
   },
   {
-    "Source": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
-    "RU": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов.",
-    "ENG": "Strengthens percentage-based card effects by 15 percentage points.",
-    "DE": "Verstärkt die in Prozent angegebenen Karteneffekte um 15 Prozentpunkte.",
-    "HU": "15 százalékponttal erősíti a százalékos kártyahatásokat.",
-    "FR": "Renforce les effets de cartes exprimés en pourcentage de 15 points de pourcentage."
+    "Source": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов (не касается карт Upside и Downside).",
+    "RU": "Усиливает числовые процентные эффекты карт на 15 процентных пунктов (не касается карт Upside и Downside).",
+    "ENG": "Increases numerical percentage effects of cards by 15 percentage points (does not apply to Upside and Downside cards).",
+    "DE": "Verstärkt numerische Prozenteffekte von Karten um 15 Prozentpunkte (gilt nicht für Upside- und Downside-Karten).",
+    "HU": "15 százalékponttal növeli a kártyák számszerű százalékos hatásait (az Upside és Downside kártyákra nem vonatkozik).",
+    "FR": "Augmente les effets numériques en pourcentage des cartes de 15 points de pourcentage (ne s’applique pas aux cartes Upside et Downside)."
   },
   {
     "Source": "Если игрок четыре хода подряд ничего не покупает и не продаёт, в конце четвёртого такого хода цена акций A увеличивается в 3 раза.",
@@ -3185,10 +3185,10 @@
   },
   {
     "Source": "Regulation",
-    "RU": "Regulation",
+    "RU": "Регулирование",
     "ENG": "Regulation",
-    "DE": "Regulation",
-    "HU": "Regulation",
+    "DE": "Regulierung",
+    "HU": "Szabályozás",
     "FR": "Régulation"
   },
   {
@@ -3209,311 +3209,311 @@
   },
   {
     "Source": "BID 100",
-    "RU": "BID 100",
+    "RU": "Ставка 100",
     "ENG": "BID 100",
-    "DE": "BID 100",
-    "HU": "BID 100",
+    "DE": "Gebot 100",
+    "HU": "Ajánlat 100",
     "FR": "Enchère 100"
   },
   {
     "Source": "BID 50",
-    "RU": "BID 50",
+    "RU": "Ставка 50",
     "ENG": "BID 50",
-    "DE": "BID 50",
-    "HU": "BID 50",
+    "DE": "Gebot 50",
+    "HU": "Ajánlat 50",
     "FR": "Enchère 50"
   },
   {
     "Source": "BID 30",
-    "RU": "BID 30",
+    "RU": "Ставка 30",
     "ENG": "BID 30",
-    "DE": "BID 30",
-    "HU": "BID 30",
+    "DE": "Gebot 30",
+    "HU": "Ajánlat 30",
     "FR": "Enchère 30"
   },
   {
     "Source": "BID 20",
-    "RU": "BID 20",
+    "RU": "Ставка 20",
     "ENG": "BID 20",
-    "DE": "BID 20",
-    "HU": "BID 20",
+    "DE": "Gebot 20",
+    "HU": "Ajánlat 20",
     "FR": "Enchère 20"
   },
   {
     "Source": "BID 10",
-    "RU": "BID 10",
+    "RU": "Ставка 10",
     "ENG": "BID 10",
-    "DE": "BID 10",
-    "HU": "BID 10",
+    "DE": "Gebot 10",
+    "HU": "Ajánlat 10",
     "FR": "Enchère 10"
   },
   {
     "Source": "Parity",
-    "RU": "Parity",
+    "RU": "Паритет",
     "ENG": "Parity",
-    "DE": "Parity",
-    "HU": "Parity",
+    "DE": "Parität",
+    "HU": "Paritás",
     "FR": "Parité"
   },
   {
     "Source": "Accumulation",
-    "RU": "Accumulation",
+    "RU": "Накопление",
     "ENG": "Accumulation",
-    "DE": "Accumulation",
-    "HU": "Accumulation",
+    "DE": "Akkumulation",
+    "HU": "Felhalmozás",
     "FR": "Accumulation"
   },
   {
     "Source": "Breakout",
-    "RU": "Breakout",
+    "RU": "Прорыв",
     "ENG": "Breakout",
-    "DE": "Breakout",
-    "HU": "Breakout",
+    "DE": "Ausbruch",
+    "HU": "Kitörés",
     "FR": "Percée"
   },
   {
     "Source": "Concentration",
-    "RU": "Concentration",
+    "RU": "Концентрация",
     "ENG": "Concentration",
-    "DE": "Concentration",
-    "HU": "Concentration",
+    "DE": "Konzentration",
+    "HU": "Koncentráció",
     "FR": "Concentration"
   },
   {
     "Source": "Controlling Stake",
-    "RU": "Controlling Stake",
+    "RU": "Контрольный пакет",
     "ENG": "Controlling Stake",
-    "DE": "Controlling Stake",
-    "HU": "Controlling Stake",
+    "DE": "Mehrheitsbeteiligung",
+    "HU": "Többségi részesedés",
     "FR": "Participation majoritaire"
   },
   {
     "Source": "Frugality",
-    "RU": "Frugality",
+    "RU": "Бережливость",
     "ENG": "Frugality",
-    "DE": "Frugality",
-    "HU": "Frugality",
+    "DE": "Sparsamkeit",
+    "HU": "Takarékosság",
     "FR": "Frugalité"
   },
   {
     "Source": "Catalyst",
-    "RU": "Catalyst",
+    "RU": "Катализатор",
     "ENG": "Catalyst",
-    "DE": "Catalyst",
-    "HU": "Catalyst",
+    "DE": "Katalysator",
+    "HU": "Katalizátor",
     "FR": "Catalyseur"
   },
   {
     "Source": "Short Seller",
-    "RU": "Short Seller",
+    "RU": "Продавец в короткую",
     "ENG": "Short Seller",
-    "DE": "Short Seller",
-    "HU": "Short Seller",
+    "DE": "Leerverkäufer",
+    "HU": "Fedezetlen eladó",
     "FR": "Vendeur à découvert"
   },
   {
     "Source": "Blue Chips",
-    "RU": "Blue Chips",
+    "RU": "Голубые фишки",
     "ENG": "Blue Chips",
-    "DE": "Blue Chips",
-    "HU": "Blue Chips",
+    "DE": "Standardwerte",
+    "HU": "Prémiumrészvények",
     "FR": "Valeurs de premier ordre"
   },
   {
     "Source": "Flat",
-    "RU": "Flat",
+    "RU": "Флэт",
     "ENG": "Flat",
-    "DE": "Flat",
-    "HU": "Flat",
+    "DE": "Seitwärtsmarkt",
+    "HU": "Oldalazás",
     "FR": "Stabilité"
   },
   {
     "Source": "Insider",
-    "RU": "Insider",
+    "RU": "Инсайдер",
     "ENG": "Insider",
     "DE": "Insider",
-    "HU": "Insider",
+    "HU": "Bennfentes",
     "FR": "Initié"
   },
   {
     "Source": "Gambling",
-    "RU": "Gambling",
+    "RU": "Азарт",
     "ENG": "Gambling",
-    "DE": "Gambling",
-    "HU": "Gambling",
+    "DE": "Glücksspiel",
+    "HU": "Szerencsejáték",
     "FR": "Spéculation"
   },
   {
     "Source": "Hedger",
-    "RU": "Hedger",
+    "RU": "Хеджер",
     "ENG": "Hedger",
-    "DE": "Hedger",
-    "HU": "Hedger",
+    "DE": "Absicherer",
+    "HU": "Fedezeti kereskedő",
     "FR": "Couverture"
   },
   {
     "Source": "Momentum",
-    "RU": "Momentum",
+    "RU": "Импульс",
     "ENG": "Momentum",
     "DE": "Momentum",
-    "HU": "Momentum",
+    "HU": "Lendület",
     "FR": "Élan"
   },
   {
     "Source": "Uptrend",
-    "RU": "Uptrend",
+    "RU": "Восходящий тренд",
     "ENG": "Uptrend",
-    "DE": "Uptrend",
-    "HU": "Uptrend",
+    "DE": "Aufwärtstrend",
+    "HU": "Emelkedő trend",
     "FR": "Tendance haussière"
   },
   {
     "Source": "Spoofing+",
-    "RU": "Spoofing+",
+    "RU": "Ложные заявки+",
     "ENG": "Spoofing+",
-    "DE": "Spoofing+",
-    "HU": "Spoofing+",
+    "DE": "Scheinaufträge+",
+    "HU": "Álmegbízások+",
     "FR": "Faux ordres+"
   },
   {
     "Source": "Spoofing",
-    "RU": "Spoofing",
+    "RU": "Ложные заявки",
     "ENG": "Spoofing",
-    "DE": "Spoofing",
-    "HU": "Spoofing",
+    "DE": "Scheinaufträge",
+    "HU": "Álmegbízások",
     "FR": "Faux ordres"
   },
   {
     "Source": "Shakeout",
-    "RU": "Shakeout",
+    "RU": "Вытряхивание",
     "ENG": "Shakeout",
-    "DE": "Shakeout",
-    "HU": "Shakeout",
+    "DE": "Marktbereinigung",
+    "HU": "Kirázás",
     "FR": "Secousse"
   },
   {
     "Source": "Surge",
-    "RU": "Surge",
+    "RU": "Взлёт",
     "ENG": "Surge",
-    "DE": "Surge",
-    "HU": "Surge",
+    "DE": "Kurssprung",
+    "HU": "Megugrás",
     "FR": "Envolée"
   },
   {
     "Source": "Sideway",
-    "RU": "Sideway",
+    "RU": "Боковик",
     "ENG": "Sideway",
-    "DE": "Sideway",
-    "HU": "Sideway",
+    "DE": "Seitwärtsbewegung",
+    "HU": "Oldalazó piac",
     "FR": "Marché stable"
   },
   {
     "Source": "Positioning+",
-    "RU": "Positioning+",
+    "RU": "Позиционирование+",
     "ENG": "Positioning+",
-    "DE": "Positioning+",
-    "HU": "Positioning+",
+    "DE": "Positionierung+",
+    "HU": "Pozicionálás+",
     "FR": "Positionnement+"
   },
   {
     "Source": "Positioning",
-    "RU": "Positioning",
+    "RU": "Позиционирование",
     "ENG": "Positioning",
-    "DE": "Positioning",
-    "HU": "Positioning",
+    "DE": "Positionierung",
+    "HU": "Pozicionálás",
     "FR": "Positionnement"
   },
   {
     "Source": "Continuation",
-    "RU": "Continuation",
+    "RU": "Продолжение",
     "ENG": "Continuation",
-    "DE": "Continuation",
-    "HU": "Continuation",
+    "DE": "Fortsetzung",
+    "HU": "Folytatás",
     "FR": "Poursuite"
   },
   {
     "Source": "Advance",
-    "RU": "Advance",
+    "RU": "Продвижение",
     "ENG": "Advance",
-    "DE": "Advance",
-    "HU": "Advance",
+    "DE": "Vorrücken",
+    "HU": "Előrelépés",
     "FR": "Avancée"
   },
   {
     "Source": "Issue Price",
-    "RU": "Issue Price",
+    "RU": "Цена выпуска",
     "ENG": "Issue Price",
-    "DE": "Issue Price",
-    "HU": "Issue Price",
+    "DE": "Ausgabepreis",
+    "HU": "Kibocsátási ár",
     "FR": "Prix d’émission"
   },
   {
     "Source": "Markdown",
-    "RU": "Markdown",
+    "RU": "Уценка",
     "ENG": "Markdown",
-    "DE": "Markdown",
-    "HU": "Markdown",
+    "DE": "Abwertung",
+    "HU": "Leértékelés",
     "FR": "Révision à la baisse"
   },
   {
     "Source": "Stewardship",
-    "RU": "Stewardship",
+    "RU": "Управление",
     "ENG": "Stewardship",
-    "DE": "Stewardship",
-    "HU": "Stewardship",
+    "DE": "Verwaltung",
+    "HU": "Vagyonkezelés",
     "FR": "Gestion"
   },
   {
     "Source": "Volatility+",
-    "RU": "Volatility+",
+    "RU": "Волатильность+",
     "ENG": "Volatility+",
-    "DE": "Volatility+",
-    "HU": "Volatility+",
+    "DE": "Volatilität+",
+    "HU": "Volatilitás+",
     "FR": "Volatilité+"
   },
   {
     "Source": "Volatility",
-    "RU": "Volatility",
+    "RU": "Волатильность",
     "ENG": "Volatility",
-    "DE": "Volatility",
-    "HU": "Volatility",
+    "DE": "Volatilität",
+    "HU": "Volatilitás",
     "FR": "Volatilité"
   },
   {
     "Source": "Windfall",
-    "RU": "Windfall",
+    "RU": "Неожиданная прибыль",
     "ENG": "Windfall",
-    "DE": "Windfall",
-    "HU": "Windfall",
+    "DE": "Geldsegen",
+    "HU": "Váratlan nyereség",
     "FR": "Aubaine"
   },
   {
     "Source": "Disclosure",
-    "RU": "Disclosure",
+    "RU": "Раскрытие",
     "ENG": "Disclosure",
-    "DE": "Disclosure",
-    "HU": "Disclosure",
+    "DE": "Offenlegung",
+    "HU": "Közzététel",
     "FR": "Transparence"
   },
   {
     "Source": "Disclousure",
-    "RU": "Disclousure",
+    "RU": "Раскрытие",
     "ENG": "Disclousure",
-    "DE": "Disclousure",
-    "HU": "Disclousure",
+    "DE": "Offenlegung",
+    "HU": "Közzététel",
     "FR": "Transparence"
   },
   {
     "Source": "Full Deployment",
-    "RU": "Full Deployment",
+    "RU": "Полное размещение",
     "ENG": "Full Deployment",
-    "DE": "Full Deployment",
-    "HU": "Full Deployment",
+    "DE": "Vollständiger Einsatz",
+    "HU": "Teljes bevetés",
     "FR": "Déploiement total"
   },
   {
     "Source": "Waterloo",
-    "RU": "Waterloo",
+    "RU": "Ватерлоо",
     "ENG": "Waterloo",
     "DE": "Waterloo",
     "HU": "Waterloo",
@@ -3521,66 +3521,66 @@
   },
   {
     "Source": "Risk Premium",
-    "RU": "Risk Premium",
+    "RU": "Премия за риск",
     "ENG": "Risk Premium",
-    "DE": "Risk Premium",
-    "HU": "Risk Premium",
+    "DE": "Risikoprämie",
+    "HU": "Kockázati prémium",
     "FR": "Prime de risque"
   },
   {
     "Source": "Selling Pressure",
-    "RU": "Selling Pressure",
+    "RU": "Давление продаж",
     "ENG": "Selling Pressure",
-    "DE": "Selling Pressure",
-    "HU": "Selling Pressure",
+    "DE": "Verkaufsdruck",
+    "HU": "Eladási nyomás",
     "FR": "Pression vendeuse"
   },
   {
     "Source": "Downside Risk",
-    "RU": "Downside Risk",
+    "RU": "Риск падения",
     "ENG": "Downside Risk",
-    "DE": "Downside Risk",
-    "HU": "Downside Risk",
+    "DE": "Abwärtsrisiko",
+    "HU": "Árfolyamesés kockázata",
     "FR": "Risque de baisse"
   },
   {
     "Source": "Shareholder Base",
-    "RU": "Shareholder Base",
+    "RU": "База акционеров",
     "ENG": "Shareholder Base",
-    "DE": "Shareholder Base",
-    "HU": "Shareholder Base",
+    "DE": "Aktionärsbasis",
+    "HU": "Részvényesi kör",
     "FR": "Actionnariat"
   },
   {
     "Source": "Efficiency",
-    "RU": "Efficiency",
+    "RU": "Эффективность",
     "ENG": "Efficiency",
-    "DE": "Efficiency",
-    "HU": "Efficiency",
+    "DE": "Effizienz",
+    "HU": "Hatékonyság",
     "FR": "Efficacité"
   },
   {
     "Source": "Golden Stake",
-    "RU": "Golden Stake",
+    "RU": "Золотая доля",
     "ENG": "Golden Stake",
-    "DE": "Golden Stake",
-    "HU": "Golden Stake",
+    "DE": "Goldene Beteiligung",
+    "HU": "Aranyrészesedés",
     "FR": "Participation dorée"
   },
   {
     "Source": "Cash Yield",
-    "RU": "Cash Yield",
+    "RU": "Доходность наличных",
     "ENG": "Cash Yield",
-    "DE": "Cash Yield",
-    "HU": "Cash Yield",
+    "DE": "Bargeldrendite",
+    "HU": "Készpénzhozam",
     "FR": "Rendement des liquidités"
   },
   {
     "Source": "Shareholder Value",
-    "RU": "Shareholder Value",
+    "RU": "Акционерная стоимость",
     "ENG": "Shareholder Value",
-    "DE": "Shareholder Value",
-    "HU": "Shareholder Value",
+    "DE": "Aktionärswert",
+    "HU": "Részvényesi érték",
     "FR": "Valeur actionnariale"
   },
   {
@@ -3593,18 +3593,18 @@
   },
   {
     "Source": "Compounding",
-    "RU": "Compounding",
+    "RU": "Сложные проценты",
     "ENG": "Compounding",
-    "DE": "Compounding",
-    "HU": "Compounding",
+    "DE": "Zinseszins",
+    "HU": "Kamatos kamat",
     "FR": "Capitalisation"
   },
   {
     "Source": "Deal Flow",
-    "RU": "Deal Flow",
+    "RU": "Поток сделок",
     "ENG": "Deal Flow",
-    "DE": "Deal Flow",
-    "HU": "Deal Flow",
+    "DE": "Geschäftszufluss",
+    "HU": "Ügyletáramlás",
     "FR": "Flux d’affaires"
   },
   {
@@ -3774,5 +3774,53 @@
     "DE": "Speichern wiederholen",
     "HU": "Mentés újrapróbálása",
     "FR": "Réessayer la sauvegarde"
+  },
+  {
+    "Source": "Flash Sale −40%",
+    "ENG": "Flash Sale −40%",
+    "RU": "Распродажа −40%",
+    "DE": "Sonderverkauf −40%",
+    "HU": "Villámakció −40%",
+    "FR": "Vente éclair −40%"
+  },
+  {
+    "Source": "Flash Sale −20%",
+    "ENG": "Flash Sale −20%",
+    "RU": "Распродажа −20%",
+    "DE": "Sonderverkauf −20%",
+    "HU": "Villámakció −20%",
+    "FR": "Vente éclair −20%"
+  },
+  {
+    "Source": "Flash Sale −10%",
+    "ENG": "Flash Sale −10%",
+    "RU": "Распродажа −10%",
+    "DE": "Sonderverkauf −10%",
+    "HU": "Villámakció −10%",
+    "FR": "Vente éclair −10%"
+  },
+  {
+    "Source": "Снижает цель раунда на 10%.",
+    "RU": "Снижает цель раунда на 10%.",
+    "ENG": "Reduces the round target by 10%.",
+    "DE": "Senkt das Rundenziel um 10%.",
+    "HU": "10%-kal csökkenti a forduló célját.",
+    "FR": "Réduit l’objectif de la manche de 10%."
+  },
+  {
+    "Source": "Снижает цель раунда на 20%.",
+    "RU": "Снижает цель раунда на 20%.",
+    "ENG": "Reduces the round target by 20%.",
+    "DE": "Senkt das Rundenziel um 20%.",
+    "HU": "20%-kal csökkenti a forduló célját.",
+    "FR": "Réduit l’objectif de la manche de 20%."
+  },
+  {
+    "Source": "Снижает цель раунда на 40%.",
+    "RU": "Снижает цель раунда на 40%.",
+    "ENG": "Reduces the round target by 40%.",
+    "DE": "Senkt das Rundenziel um 40%.",
+    "HU": "40%-kal csökkenti a forduló célját.",
+    "FR": "Réduit l’objectif de la manche de 40%."
   }
 ]

@@ -286,6 +286,7 @@ def _empty_progress():
         "price_cut_assistance_shown_levels": [],
         "price_cut_assistance_milestones": {},
         "disclosure_rounds_remaining": 0,
+        "whitney_disclosure_active": False,
         "active_price_support_rounds": [],
         "protective_put_charges": 0,
         "active_long_investments": [],
@@ -762,6 +763,7 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.disclosure_rounds_remaining = 0
+    game_state.whitney_disclosure_active = bool(progress.get("whitney_disclosure_active", False))
     game_state.active_price_support_rounds = [
         min(5, value) for value in _restore_int_list(progress.get("active_price_support_rounds") or []) if value > 0
     ][:3]
@@ -1054,6 +1056,7 @@ def _capture_progress():
         "price_cut_assistance_shown_levels": sorted(game_state.price_cut_assistance_shown_levels),
         "price_cut_assistance_milestones": dict(game_state.price_cut_assistance_milestones),
         "disclosure_rounds_remaining": game_state.get_disclosure_rounds_remaining(),
+        "whitney_disclosure_active": bool(game_state.whitney_disclosure_active),
         "active_price_support_rounds": game_state.get_active_price_support_rounds(),
         "protective_put_charges": game_state.get_protective_put_charges(),
         "active_long_investments": _serialize_int_list(game_state.get_active_long_investments()),

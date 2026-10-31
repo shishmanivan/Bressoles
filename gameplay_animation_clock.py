@@ -3,6 +3,7 @@
 # These are presentation clocks, not saved game state. Keep this list alongside
 # new animations so modal/focus suspension never silently consumes their time.
 SCALAR_CLOCKS = (
+    'probability_intro_started_at',
     'card_processing_start_time', 'hand_compact_start_time', 'hand_draw_start_time',
     'level6_bot_turn_started_at', 'finance_stamp_started_at', '_winlose_last_tick',
     'end_button_press_until', 'hedger_message_until', 'boss_turn_timer_last_tick',

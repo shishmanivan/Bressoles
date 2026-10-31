@@ -529,7 +529,7 @@ class UiLayoutTests(unittest.TestCase):
         )
         self.assertEqual(
             page.lang_dict["Boss5Reward"],
-            "Игра длится на два хода дольше. Случайная серебряная карта поступает в отдельный инвентарь.",
+            "Игра длится на два хода дольше. Случайная редкая серебряная карта поступает в отдельный инвентарь.",
         )
         self.assertNotIn("необязательно", page.lang_dict["Boss5Reward"])
 

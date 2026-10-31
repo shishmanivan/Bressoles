@@ -78,6 +78,47 @@ class HandCardAvailabilityTests(unittest.TestCase):
 
 
 class ExhaustedLifecycleCardTests(unittest.TestCase):
+    def test_surge_pulses_before_fourth_idle_turn_like_continuation(self):
+        page = make_page()
+        page.active_gold_cards = [415, 415, 419]
+        page.surge_turns_without_trade = 2
+        self.assertEqual(page._get_lifecycle_card_scale(0, now=500), 1.0)
+        page.surge_turns_without_trade = 3
+        for now, scale in ((0, 1.0), (250, 1.02), (500, 1.04), (1000, 1.0)):
+            for slot in (0, 1):
+                self.assertAlmostEqual(page._get_lifecycle_card_scale(slot, now=now), scale)
+        for attribute, value in (("surge_traded_this_turn", True), ("turn_resolution_active", True),
+                                 ("win_lose_state", "win"), ("surge_triggered", True)):
+            with mock.patch.object(page, attribute, value, create=True):
+                self.assertEqual(page._get_lifecycle_card_scale(0, now=500), 1.0)
+
+    def test_surge_cross_appears_only_after_effect_and_jumps_finish(self):
+        page = make_page()
+        page.active_gold_cards = [415, 415]
+        page.Aprice = 8
+        page.surge_turns_without_trade = 3
+        page.surge_traded_this_turn = False
+        page.lifecycle_card_jump_animations = {}
+        page.typewriter_sound = None
+        self.assertTrue(page._advance_surge_counter())
+        for slot in (0, 1):
+            self.assertFalse(page._is_lifecycle_card_power_lost(415, slot))
+        page.price_animation_queue = [
+            {"market": 0, "type": "rise", "price_change": 0, "source": "surge"}
+        ]
+        with mock.patch('gameplay_page.pygame.time.get_ticks', return_value=100):
+            page._start_next_price_animation(now=100)
+        self.assertEqual(page.Aprice, 72)
+        self.assertFalse(page.surge_effect_pending)
+        for slot in (0, 1):
+            self.assertIn(slot, page.lifecycle_card_jump_animations)
+            self.assertFalse(page._is_lifecycle_card_power_lost(415, slot))
+        with mock.patch('gameplay_page.pygame.time.get_ticks', return_value=2000):
+            page._advance_jump_animation_map(page.lifecycle_card_jump_animations)
+        for slot in (0, 1):
+            self.assertTrue(page._is_lifecycle_card_power_lost(415, slot))
+        self.assertFalse(page._advance_surge_counter())
+
     def test_golden_stocks_is_broken_after_triggering(self):
         page = make_page()
         with mock.patch("gameplay_page.game_state.is_golden_stocks_triggered", return_value=True):

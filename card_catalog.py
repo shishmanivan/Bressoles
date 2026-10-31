@@ -65,8 +65,8 @@ FLASH_SALE_DISCOUNTS = {222: 10, 223: 20, 224: 40}
 GOLD_UPTREND_PERCENT_PER_NAPOLEONDOR = 2
 # Explicit contract shared by Catalyst cards 210 and 414. Pool inclusion chances
 # from Cards.csv are intentionally not card effects and are not modified.
-CATALYST_AFFECTED_CARD_IDS = frozenset({1, 2, 3, 4, 125, 215, 222, 223, 224, 302, 401, 406, 407, 410, 413, 420, 430})
-CATALYST_REVERSE_PERCENTAGE_CARD_IDS = frozenset({3, 4, 215, 222, 223, 224, 401})
+CATALYST_AFFECTED_CARD_IDS = frozenset({125, 215, 222, 223, 224, 302, 401, 406, 407, 410, 413, 420, 430})
+CATALYST_REVERSE_PERCENTAGE_CARD_IDS = frozenset({215, 222, 223, 224, 401})
 
 BID_CARD_VALUES = {
     118: 10,

@@ -7,7 +7,7 @@ from sound_assets import load_sound
 
 _random = random.SystemRandom()  # Cosmetic audio must not change game rolls.
 FADE_IN_MS = 140
-FADE_OUT_MS = 400
+FADE_OUT_MS = 1800
 CROWD_VOLUME = 0.7
 
 
@@ -30,7 +30,7 @@ def start(page, duration_ms):
     frame_bytes = abs(bits) // 8 * channels
     pcm = page._bankruptcy_crowd_pcm
     total_frames = len(pcm) // frame_bytes
-    frames = round(rate * duration_ms / 1000)
+    frames = round(rate * (duration_ms + FADE_OUT_MS) / 1000)
     if total_frames < frames:
         # A replacement shorter than the animation still supplies a full clip.
         if not pcm:
@@ -59,11 +59,12 @@ def update(page, elapsed_ms):
         page._bankruptcy_crowd_playback = None
         return
     if elapsed_ms >= duration:
-        stop(page)
+        if not getattr(page, '_bankruptcy_crowd_fading', False):
+            channel.fadeout(FADE_OUT_MS)
+            page._bankruptcy_crowd_fading = True
         return
     clip.set_volume(page._bankruptcy_crowd_source.get_volume())
-    envelope = max(0, min(1, elapsed_ms / FADE_IN_MS,
-                          (duration - elapsed_ms) / FADE_OUT_MS))
+    envelope = max(0, min(1, elapsed_ms / FADE_IN_MS))
     channel.set_volume(CROWD_VOLUME * envelope)
 
 
@@ -85,3 +86,4 @@ def stop(page):
         if channel.get_sound() is clip:
             channel.stop()
     page._bankruptcy_crowd_playback = None
+    page._bankruptcy_crowd_fading = False

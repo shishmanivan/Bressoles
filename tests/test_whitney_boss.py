@@ -36,7 +36,7 @@ class WhitneyBossTests(unittest.TestCase):
     def test_category_and_only_configured_effects(self):
         self.assertEqual(BOSS_LEVELS["16_Whitney.png"], 1)
         self.assertEqual(load_boss_rewards()[16], {
-            "Reward": "Disclosure5Rounds",
+            "Reward": "DisclosureUntilRunEnd",
             "Functionalities": "NoFirstTurnTrading",
         })
         page = SimpleNamespace()
@@ -67,7 +67,7 @@ class WhitneyBossTests(unittest.TestCase):
         self.assertTrue(page._apply_arrow_trade(0, 1))
         self.assertEqual((page.Money, page.Aquantity), (90, 6))
 
-    def test_reward_survives_winning_round_then_expires_after_five_rounds(self):
+    def test_reward_survives_winning_round_and_has_no_round_limit(self):
         page = mock.MagicMock()
         page.level_number = 5
         page.is_final_boss = False
@@ -81,6 +81,7 @@ class WhitneyBossTests(unittest.TestCase):
         )
         with (
             mock.patch.object(game_state, "disclosure_rounds_remaining", 0),
+            mock.patch.object(game_state, "whitney_disclosure_active", False),
             mock.patch.object(game_state, "active_gold_cards", []),
             mock.patch.object(game_state, "ensure_napoleondor_level"),
             mock.patch.object(game_state, "consume_finance_report_income", return_value=[]),
@@ -88,14 +89,69 @@ class WhitneyBossTests(unittest.TestCase):
             mock.patch.object(game_state, "advance_bailout_round"),
         ):
             GameplayPage._finish_win_lose_result(page, "win", "last_turn")
-            self.assertEqual(game_state.get_disclosure_rounds_remaining(), 5)
-            self.assertEqual(profile_manager._capture_progress()["disclosure_rounds_remaining"], 5)
+            self.assertTrue(game_state.whitney_disclosure_active)
+            self.assertTrue(profile_manager._capture_progress()["whitney_disclosure_active"])
             page._add_reward_card_to_deck.side_effect = None
-            for remaining in (4, 3, 2, 1, 0):
+            for _ in range(20):
                 self.assertTrue(game_state.is_disclosure_active())
                 GameplayPage._finish_win_lose_result(page, "win", "last_turn")
-                self.assertEqual(game_state.get_disclosure_rounds_remaining(), remaining)
+                self.assertTrue(game_state.whitney_disclosure_active)
+            self.assertTrue(game_state.is_disclosure_active())
+            self.assertFalse(game_state.is_disclosure_offer_available())
+            game_state.clear_disclosure()
             self.assertFalse(game_state.is_disclosure_active())
+
+    def test_disclosure_offers_and_gold_card_excluded_only_after_reward(self):
+        config = {427: {"Type": 5, "Open": 1, "Variable": "100"}}
+        pools = (
+            game_state.build_gold_cards_pool,
+            game_state.build_open_gold_cards_pool,
+            game_state.build_golden_stocks_reward_pool,
+            game_state.build_multibagger_gold_fallback_pool,
+            game_state.build_shop_card_offer_pool,
+            game_state.build_all_available_shop_cards,
+        )
+        with (
+            mock.patch.object(game_state, "whitney_disclosure_active", False),
+            mock.patch.object(game_state, "disclosure_rounds_remaining", 0),
+            mock.patch.object(game_state, "active_gold_cards", []),
+            mock.patch.object(game_state, "load_cards_config", return_value=config),
+            mock.patch.object(game_state, "get_bought_shop_card_ids", return_value=set()),
+            mock.patch.object(game_state, "get_active_moratoriums", return_value=[]),
+        ):
+            self.assertTrue(game_state.is_disclosure_offer_available())
+            for pool in pools:
+                self.assertIn(427, pool(5), pool.__name__)
+            apply_boss_reward("DisclosureUntilRunEnd", SimpleNamespace())
+            self.assertFalse(game_state.is_disclosure_offer_available())
+            self.assertEqual(game_state.buy_disclosure(), 0)
+            for pool in pools:
+                self.assertNotIn(427, pool(5), pool.__name__)
+            self.assertFalse(game_state.is_gold_card_available_for_level("427"))
+            game_state.clear_disclosure()
+            self.assertTrue(game_state.is_disclosure_offer_available())
+            for pool in pools:
+                self.assertIn(427, pool(5), pool.__name__)
+
+    def test_reward_profile_round_trip_and_old_save_default(self):
+        original = profile_manager._default_profile(1)
+        original["progress"] = profile_manager._capture_progress()
+        try:
+            apply_boss_reward("DisclosureUntilRunEnd", SimpleNamespace())
+            profile = profile_manager._default_profile(1)
+            profile["progress"] = profile_manager._capture_progress()
+            game_state.whitney_disclosure_active = False
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertTrue(game_state.whitney_disclosure_active)
+            del profile["progress"]["whitney_disclosure_active"]
+            profile_manager.apply_profile_to_game_state(profile)
+            self.assertFalse(game_state.whitney_disclosure_active)
+            for finish in (game_state.reset_level_attempt, game_state.complete_level_run):
+                apply_boss_reward("DisclosureUntilRunEnd", SimpleNamespace())
+                finish(5)
+                self.assertFalse(game_state.whitney_disclosure_active)
+        finally:
+            profile_manager.apply_profile_to_game_state(original)
 
     def test_reward_refreshes_existing_visibility_without_shortening_it(self):
         for existing, expected in ((0, 5), (2, 5), (5, 5), (7, 7)):

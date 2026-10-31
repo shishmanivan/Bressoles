@@ -32,20 +32,22 @@ class BankruptcyAudioTests(unittest.TestCase):
             audio.start(page, 2400)
         rate, bits, channels = pygame.mixer.get_init()
         width = abs(bits) // 8 * channels
-        frames = round(rate * 2.4)
+        seconds = (2400 + audio.FADE_OUT_MS) / 1000
+        frames = round(rate * seconds)
         total = len(page._bankruptcy_crowd_pcm) // width
         choose.assert_called_once_with(rate, total - frames)
         channel, clip, _ = page._bankruptcy_crowd_playback
-        self.assertAlmostEqual(clip.get_length(), 2.4, places=3)
+        self.assertAlmostEqual(clip.get_length(), seconds, places=3)
         self.assertEqual(clip.get_raw(), page._bankruptcy_crowd_pcm[-frames * width:])
         self.assertEqual(channel.get_volume(), 0)
         audio.update(page, 200)
         self.assertAlmostEqual(channel.get_volume(), .7, delta=.01)
         audio.update(page, 2200)
-        self.assertAlmostEqual(channel.get_volume(), .35, delta=.01)
+        self.assertAlmostEqual(channel.get_volume(), .7, delta=.01)
         audio.update(page, 2400)
-        self.assertIsNone(page._bankruptcy_crowd_playback)
-        self.assertFalse(channel.get_busy())
+        self.assertTrue(page._bankruptcy_crowd_fading)
+        self.assertTrue(channel.get_busy())
+        self.assertIsNotNone(page._bankruptcy_crowd_playback)
 
     def test_pause_and_stop_only_touch_owned_channel(self):
         channel, clip = mock.Mock(), mock.Mock()

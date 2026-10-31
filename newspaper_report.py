@@ -370,14 +370,15 @@ class NewspaperReportMixin(OtherStatsMixin):
     def _newspaper_font(self, size, bold=False):
         return newspaper_font(size, bold)
 
-    def _newspaper_button(self, rect, label, font_size=15):
-        pygame.draw.rect(self.screen, (232, 212, 168), rect, border_radius=3)
-        pygame.draw.rect(self.screen, (66, 48, 26), rect, 1, border_radius=3)
+    def _newspaper_button(self, rect, label, font_size=15, screen=None):
+        screen = self.screen if screen is None else screen
+        pygame.draw.rect(screen, (232, 212, 168), rect, border_radius=3)
+        pygame.draw.rect(screen, (66, 48, 26), rect, 1, border_radius=3)
         size = font_size
         while size > 9 and self._newspaper_font(size, True).size(label)[0] > rect.width - 10:
             size -= 1
         surface = self._newspaper_font(size, True).render(label, True, (34, 26, 19))
-        self.screen.blit(surface, surface.get_rect(center=rect.center))
+        screen.blit(surface, surface.get_rect(center=rect.center))
 
     def _draw_newspaper(self, active=True):
         rect = self._newspaper_rect()
@@ -515,30 +516,47 @@ class NewspaperReportMixin(OtherStatsMixin):
         self._draw_finance_report()
 
     def _draw_market_report_rows(self, rect):
+        # Cache in report-local coordinates: sliding only changes the blit position.
+        scope = getattr(self, 'market_report_scope', 'round')
+        summary = None if scope == 'other' else self._market_report_summary()
+        key = (rect.size, get_language(), scope,
+               getattr(self, 'market_report_selection', 'all'), summary,
+               getattr(self, 'other_stats_run', None),
+               getattr(self, 'other_stats_lifetime', None),
+               tuple((name, id(icon)) for name, icon in
+                     getattr(self, 'market_report_icons', {}).items()))
+        cache = getattr(self, '_newspaper_market_cache', None)
+        if cache is None or cache[0] != key:
+            surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+            self._render_market_report_rows(surface.get_rect(), surface, summary)
+            cache = (deepcopy(key), surface)
+            self._newspaper_market_cache = cache
+        self.screen.blit(cache[1], rect.topleft)
+
+    def _render_market_report_rows(self, rect, screen, summary):
         ink = (38, 30, 21)
         def centered(label, center_x, top, size=17, bold=False, width=None):
             if width:
                 while size > 10 and self._newspaper_font(size, bold).size(label)[0] > width:
                     size -= 1
             surface = self._newspaper_font(size, bold).render(label, True, ink)
-            self.screen.blit(surface, surface.get_rect(centerx=center_x, top=top))
+            screen.blit(surface, surface.get_rect(centerx=center_x, top=top))
 
         centered(text('market_button'), rect.centerx, rect.top+round(rect.height*.325), 30, True, rect.width*.9)
         scope = getattr(self, 'market_report_scope', 'round')
         for tab_scope, tab in self._market_report_tabs(rect).items():
-            self._newspaper_button(tab, text('scope_' + tab_scope), font_size=16)
+            self._newspaper_button(tab, text('scope_' + tab_scope), font_size=16, screen=screen)
             if scope == tab_scope:
-                pygame.draw.line(self.screen, ink, (tab.left + 8, tab.bottom - 4),
+                pygame.draw.line(screen, ink, (tab.left + 8, tab.bottom - 4),
                                  (tab.right - 8, tab.bottom - 4), 2)
         if scope == 'other':
-            self._draw_other_report(rect)
+            self._draw_other_report(rect, screen=screen)
             return
         for selection, tab in self._market_report_selection_tabs(rect).items():
-            self._newspaper_button(tab, text('selection_' + selection), font_size=15)
+            self._newspaper_button(tab, text('selection_' + selection), font_size=15, screen=screen)
             if selection == getattr(self, 'market_report_selection', 'all'):
-                pygame.draw.line(self.screen, ink, (tab.left + 8, tab.bottom - 4),
+                pygame.draw.line(screen, ink, (tab.left + 8, tab.bottom - 4),
                                  (tab.right - 8, tab.bottom - 4), 2)
-        summary = self._market_report_summary()
         if summary is None:
             centered(text('no_roll_history'), rect.centerx, rect.top + round(rect.height * .55),
                      20, width=rect.width * .9)
@@ -548,7 +566,7 @@ class NewspaperReportMixin(OtherStatsMixin):
         group_width = table_width / 3
         table_top = rect.top + round(rect.height * .405)
         table_bottom = rect.top + round(rect.height * .77)
-        pygame.draw.line(self.screen, ink, (left_margin, table_top),
+        pygame.draw.line(screen, ink, (left_margin, table_top),
                          (left_margin + table_width, table_top), 2)
         for index, stock in enumerate('ABC'):
             left = left_margin + round(index * group_width)
@@ -557,10 +575,10 @@ class NewspaperReportMixin(OtherStatsMixin):
 
             if index:
                 for offset in (-2, 2):
-                    pygame.draw.line(self.screen, ink, (left + offset, table_top),
+                    pygame.draw.line(screen, ink, (left + offset, table_top),
                                      (left + offset, table_bottom), 1)
             divider = x(.63)
-            pygame.draw.line(self.screen, ink, (divider, table_top + 12),
+            pygame.draw.line(screen, ink, (divider, table_top + 12),
                              (divider, table_bottom - 12), 1)
             heading_y = table_top + 16
             centered(text('actual_heading'), x(.455), heading_y, 20, True, group_width * .30)
@@ -568,7 +586,7 @@ class NewspaperReportMixin(OtherStatsMixin):
             row_centers = [rect.top + round(rect.height * fraction) for fraction in (.51, .61, .71)]
             stock_font = self._newspaper_font(48, True)
             stock_image = stock_font.render(stock, True, ink)
-            self.screen.blit(stock_image, stock_image.get_rect(center=(x(.075), row_centers[1])))
+            screen.blit(stock_image, stock_image.get_rect(center=(x(.075), row_centers[1])))
             for row, outcome in enumerate(('rise', 'flat', 'fall')):
                 center_y = row_centers[row]
                 icon = getattr(self, 'market_report_icons', {}).get(outcome)
@@ -578,7 +596,7 @@ class NewspaperReportMixin(OtherStatsMixin):
                     size = (max(1, round(icon.get_width() * scale)),
                             max(1, round(icon.get_height() * scale)))
                     graph = pygame.transform.smoothscale(icon, size)
-                    self.screen.blit(graph, graph.get_rect(center=(x(.205), center_y)))
+                    screen.blit(graph, graph.get_rect(center=(x(.205), center_y)))
                 values = summary[stock]['outcomes'][outcome]
                 expected = f"{values['expected_count']:.1f}".rstrip('0').rstrip('.')
                 actual_percent = values['actual_percent']
@@ -596,15 +614,16 @@ class NewspaperReportMixin(OtherStatsMixin):
         font = self._newspaper_font(13)
         for note in ('expectation_note', 'random_only'):
             for line in wrap_lines(text(note), font, note_width):
-                self.screen.blit(font.render(line, True, ink), (left_margin, note_y))
+                screen.blit(font.render(line, True, ink), (left_margin, note_y))
                 note_y += 16
             note_y += 5
 
-    def _draw_other_report(self, rect):
+    def _draw_other_report(self, rect, screen=None):
+        screen = self.screen if screen is None else screen
         ink = (38, 30, 21)
         top = rect.top + round(rect.height * .43)
         bottom = rect.top + round(rect.height * .84)
-        pygame.draw.line(self.screen, ink, (rect.centerx, top), (rect.centerx, bottom), 1)
+        pygame.draw.line(screen, ink, (rect.centerx, top), (rect.centerx, bottom), 1)
         for index, (heading, stats) in enumerate((
                 ('scope_run', getattr(self, 'other_stats_run', None)),
                 ('scope_lifetime', getattr(self, 'other_stats_lifetime', None)))):
@@ -612,7 +631,7 @@ class NewspaperReportMixin(OtherStatsMixin):
             width = round(rect.width * .41)
             font = self._newspaper_font(23, True)
             title = font.render(text(heading), True, ink)
-            self.screen.blit(title, title.get_rect(centerx=left + width // 2, top=top))
+            screen.blit(title, title.get_rect(centerx=left + width // 2, top=top))
             y = top + 55
             if stats is None:
                 rows = [text('no_other_history')]
@@ -639,11 +658,11 @@ class NewspaperReportMixin(OtherStatsMixin):
             font = self._newspaper_font(19)
             for value in rows:
                 for line in wrap_lines(value, font, width):
-                    self.screen.blit(font.render(line, True, ink), (left, y))
+                    screen.blit(font.render(line, True, ink), (left, y))
                     y += 24
                 y += 14
         font = self._newspaper_font(14)
         y = rect.top + round(rect.height * .87)
         for line in wrap_lines(text('other_note'), font, round(rect.width * .67)):
-            self.screen.blit(font.render(line, True, ink), (rect.left + round(rect.width * .045), y))
+            screen.blit(font.render(line, True, ink), (rect.left + round(rect.width * .045), y))
             y += 18
