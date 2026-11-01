@@ -187,6 +187,9 @@ GOLD_CARD_MIN_LEVELS = {
     439: 6,
     440: 5,
     441: 5,
+    442: 6,
+    443: 3,
+    444: 5,
 }
 SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6}
 RED_CARD_MIN_LEVELS = {126: 6}
@@ -241,6 +244,9 @@ SHOP_CARD_COSTS = {
     439: 5,
     440: 4,
     441: 6,
+    442: 5,
+    443: 4,
+    444: 5,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208, 222, 223, 224}

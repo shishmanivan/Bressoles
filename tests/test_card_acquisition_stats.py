@@ -22,7 +22,7 @@ class CardAcquisitionStatsTests(unittest.TestCase):
             ("gold_cards", []), ("shop_deck_cards", []), ("napoleondors", 100),
             ("licensed_card_ids", set(game_state.DEFAULT_LICENSED_CARDS)),
             ("multibagger_bought", False), ("golden_stocks_triggered", False),
-            ("golden_stocks_chance_percent", 10), ("golden_stocks_trigger_count", 0),
+            ("golden_stocks_chance_percent", 15), ("golden_stocks_trigger_count", 0),
         ):
             patcher = mock.patch.object(game_state, field, value)
             patcher.start()

@@ -6,7 +6,7 @@ import math
 import native_render as pygame
 
 import game_state
-from gameplay_conditions import CONDITIONS, conditions_for_level
+from gameplay_conditions import CONDITIONS, conditions_for_level, active_conditions_for_page, conditions_disabled
 from deck_view import deck_layout, draw_grid, draw_panel, draw_scrollbar as draw_deck_scrollbar
 from shared_utils import wrap_text
 from shop_page import SPECIAL_ASSETS
@@ -242,7 +242,11 @@ def draw_bosses(page, content, panel):
 def draw_conditions(page, content, panel):
     rows = []
     line_height = page.collection_font.get_linesize() + 5
-    for condition_id in conditions_for_level(page.level_number):
+    if conditions_disabled(page) and conditions_for_level(page.level_number):
+        rows.extend((line, True) for line in wrap_text(
+            _tr("Все Conditions отключены активной картой Controlling Stake или Golden Stake. Раунд проходит по обычным правилам."),
+            page.collection_font, content.width - 32))
+    for condition_id in active_conditions_for_page(page):
         condition = CONDITIONS[condition_id]
         rows.append((_tr(condition["title"]), True))
         for paragraph in condition["paragraphs"]:

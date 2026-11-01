@@ -16,7 +16,7 @@ class GoldenStocksRollLogTests(unittest.TestCase):
             game_state.golden_stocks_triggered,
             list(game_state.gold_cards),
         )
-        game_state.golden_stocks_chance_percent = 10
+        game_state.golden_stocks_chance_percent = 15
         game_state.golden_stocks_triggered = False
         game_state.gold_cards = []
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -48,7 +48,7 @@ class GoldenStocksRollLogTests(unittest.TestCase):
 
         self.assertEqual(
             self.log_path.read_text(encoding="utf-8").splitlines(),
-            ["65 (10)", "88 (12)", "29 (14)"],
+            ["65 (15)", "88 (17)", "29 (19)"],
         )
 
     def test_test_calls_do_not_write_anything_by_default(self):

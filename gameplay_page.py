@@ -111,7 +111,7 @@ from gameplay_draw_helpers import (
 )
 from gameplay_hand_hover import HandHover, hand_card_rect
 from gameplay_collection_views import draw_collection_view, draw_navigation, navigation_rects
-from gameplay_conditions import SHAREHOLDERS, has_condition
+from gameplay_conditions import BOSS_SHARES, BOSS_SHARES_QUANTITY, BOSS_TRADING, SHAREHOLDERS, conditions_disabled, has_active_condition
 from gameplay_layout import (
     build_bottom_placeholders,
     build_market_placeholders,
@@ -1714,11 +1714,26 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return None
         base_value = int(self.card_actions.get(card_id, 0) or 0)
         bonus = get_card_investment_bonus(card_id)
+        gold = getattr(self, "active_gold_cards", []) or []
+        if card_id in PRICE_CARD_IDS and any(card in (443, 444) for card in gold):
+            # Start from the nominal before Contango; resolve additions and
+            # multipliers in the same left-to-right order as the equipped cards.
+            value = base_value // self._get_contango_gain_drop_multiplier()
+            value += -bonus if value < 0 else bonus
+            for modifier in self._active_lifecycle_cards():
+                if modifier == 204 or (modifier == 442 and bonus > 0):
+                    value *= 2
+                elif modifier in (443, 444):
+                    addition = 2 if modifier == 443 else 4
+                    value += -addition if value < 0 else addition
+            return value
         if bonus <= 0:
             return base_value
         # Contango multiplies the complete nominal, including Investment.
         effective_bonus = bonus * self._get_contango_gain_drop_multiplier()
-        return base_value - effective_bonus if base_value < 0 else base_value + effective_bonus
+        invested_value = base_value - effective_bonus if base_value < 0 else base_value + effective_bonus
+        leverage_count = sum(str(card) == "442" for card in getattr(self, "active_gold_cards", []) or [])
+        return invested_value * (2 ** leverage_count)
 
     def _resume_context(self):
         return {
@@ -1750,33 +1765,23 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _is_stock_bot_allowed(self):
         try:
-            return int(self.level_number or 0) in (5, 6)
+            return has_active_condition(self, BOSS_TRADING)
         except (TypeError, ValueError):
             return False
 
     def _configure_boss_stock_bot(self):
-        """Configure stock trading only for bosses that explicitly own shares."""
-        if not self._is_stock_bot_allowed() or self.boss_index is None:
-            return
-
-        boss_number = self._get_active_boss_number()
-        boss_level = get_boss_level_from_number(boss_number)
-        try:
-            level_number = int(self.level_number or 0)
-        except (TypeError, ValueError):
-            level_number = 0
-        if level_number == 5 and boss_level != 2:
+        """Trading belongs to a level condition, never to a boss category."""
+        if not self._is_stock_bot_allowed():
             self.stock_bot_enabled = False
             self.stock_bot = None
             self._stock_bot_saved_state = None
             self.stock_bot_start_quantities = None
             self.stock_bot_blocked_buy_prices = set()
-            print(
-                f"Skipped level-5 stock bot for category-{boss_level or 1} boss {boss_number}: "
-                "only category-two bosses trade against the player"
-            )
+            self.stock_bot_trade_history = []
             return
-
+        boss_number = self._get_active_boss_number()
+        boss_level = get_boss_level_from_number(boss_number)
+        level_number = int(self.level_number or 0)
         self.stock_bot_enabled = True
         if level_number == 6:
             self.stock_bot_type = "reinvestment"
@@ -1917,6 +1922,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.stock_bot_trade_history = self.stock_bot_trade_history[-8:]
 
     def _stock_bot_status_text(self):
+        if has_active_condition(self, BOSS_SHARES):
+            return f"Boss Shares: 50 A = {self._boss_shares_sale_value()}"
         if not self.stock_bot_enabled:
             return None
         self._activate_stock_bot_if_needed()
@@ -1926,13 +1933,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _is_stock_bot_boss(self):
         try:
-            return int(self.level_number or 0) in (4, 5, 6) and bool(self.stock_bot_enabled)
+            return not conditions_disabled(self) and int(self.level_number or 0) in (4, 5, 6) and bool(self.stock_bot_enabled)
         except (TypeError, ValueError):
             return False
 
     def _is_capital_race_level(self):
         try:
-            return int(getattr(self, "level_number", 0) or 0) == 6 and bool(
+            return has_active_condition(self, BOSS_TRADING) and int(getattr(self, "level_number", 0) or 0) == 6 and bool(
                 getattr(self, "is_boss_fight", False)
             )
         except (TypeError, ValueError):
@@ -1956,7 +1963,14 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return 0
         return int(self.stock_bot.portfolio_value(self._current_prices()) or 0)
 
+    def _boss_shares_sale_value(self):
+        """The fixed holding is liquidated at the round's final A price."""
+        return BOSS_SHARES_QUANTITY * int(self.Aprice or 0)
+
     def _can_win_against_current_boss(self):
+        if has_active_condition(self, BOSS_SHARES):
+            return (self._get_current_rebate_sale_percent() is not None
+                    and self._player_portfolio_value() > self._boss_shares_sale_value())
         if not self._is_stock_bot_boss():
             return True
         player_value = self._player_portfolio_value()
@@ -2340,7 +2354,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         blocked_market = state.get("shareholder_blocked_market", self.shareholder_blocked_market)
         self.shareholder_blocked_market = (
             blocked_market if blocked_market in (0, 1, 2)
-            and has_condition(self.level_number, SHAREHOLDERS) else None
+            and has_active_condition(self, SHAREHOLDERS) else None
         )
         self.stock_bot_enabled = bool(state.get("stock_bot_enabled", self.stock_bot_enabled))
         self.stock_bot_type = state.get("stock_bot_type", self.stock_bot_type) or "simple"
@@ -2609,26 +2623,14 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return min(1.0, (count + 1) * 0.05)
 
     def _has_controlling_stake(self):
-        """Return whether an equipped controlling stake neutralizes Shareholders."""
-        for card_id in getattr(self, "active_gold_cards", []) or []:
-            try:
-                if int(card_id) == GOLDEN_STAKE_CARD_ID:
-                    return True
-            except (TypeError, ValueError):
-                continue
-        for card_id in getattr(self, "active_silver_cards", []) or []:
-            try:
-                if int(card_id) == 205:
-                    return True
-            except (TypeError, ValueError):
-                continue
-        return False
+        """Return whether an equipped stake disables all level conditions."""
+        return conditions_disabled(self)
 
     def _roll_shareholder_market_shutdown(self):
         """Choose one market whose buy/sell arrows are disabled for this turn."""
         self.shareholder_blocked_market = None
         try:
-            if not has_condition(self.level_number, SHAREHOLDERS) or self.win_lose_state is not None:
+            if not has_active_condition(self, SHAREHOLDERS) or self.win_lose_state is not None:
                 return None
         except (TypeError, ValueError):
             return None
@@ -2678,7 +2680,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
     def _is_arrow_disabled(self, frame_idx, arrow_type):
         try:
             shareholder_blocked = (
-                has_condition(getattr(self, "level_number", None), SHAREHOLDERS)
+                has_active_condition(self, SHAREHOLDERS)
                 and not self._has_controlling_stake()
                 and int(frame_idx) == getattr(self, "shareholder_blocked_market", None)
             )
@@ -3278,6 +3280,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 "capital_race" if won else "stock_bot_ahead",
             )
             return
+        if has_active_condition(self, BOSS_SHARES) and self.Day < self.LastTurn:
+            return
         next_state, reason = resolve_win_lose_state(
             self.win_lose_state,
             self.Money,
@@ -3290,12 +3294,18 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         if next_state == "win" and not self._can_win_against_current_boss():
             if self.Day >= self.LastTurn:
-                next_state, reason = "lose", "list_boss_ahead"
+                next_state, reason = "lose", (
+                    "boss_shares_ahead" if has_active_condition(self, BOSS_SHARES)
+                    else "list_boss_ahead"
+                )
             else:
                 return
 
-        if reason != "list_boss_ahead":
+        if reason not in ("list_boss_ahead", "boss_shares_ahead"):
             next_state, reason = self._apply_insurance_if_needed(next_state, reason)
+        if (next_state == "win" and has_active_condition(self, BOSS_SHARES)
+                and not self._can_win_against_current_boss()):
+            next_state, reason = "lose", "boss_shares_ahead"
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
@@ -6049,6 +6059,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.cash_yield_last_applied_day = self.Day
         bonus = max(0, int(self.Money or 0)) * GOLD_CASH_YIELD_PERCENT * count // 100
         self.Money += bonus
+        if bonus > 0:
+            for slot, card_id in enumerate(self._active_lifecycle_cards()):
+                if str(card_id) == str(GOLD_CASH_YIELD_CARD_ID):
+                    self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         return bonus
 
     def _finish_turn_after_astor_cash_burn(self):

@@ -117,6 +117,7 @@ class StockBotTurnTests(unittest.TestCase):
         page.stock_bot_enabled = True
         page.stock_bot_type = "simple"
         page.level_number = 5
+        page._is_stock_bot_allowed = mock.Mock(return_value=True)
         page.stock_bot = mock.Mock()
         page.stock_bot.display_name = "Boss"
         page.stock_bot.trade.return_value = {"action": "hold"}
@@ -251,38 +252,16 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertFalse(page._is_arrow_disabled(0, 3))
         self.assertFalse(page._is_arrow_disabled(1, 0))
 
-    def test_list_effect_starts_with_twelve_b_shares(self):
-        page = self._page()
-        page.level_number = 5
-        page.stock_bot_enabled = False
-        page._get_active_boss_number = mock.Mock(return_value=8)
-
-        apply_boss_functionality("ListStockBot", page)
-
-        self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "simple")
-        self.assertEqual(
-            page.stock_bot_start_quantities,
-            {"Aquantity": 0, "Bquantity": 12, "Cquantity": 0},
-        )
-
-    def test_laffitte_effect_enables_advanced_bot_and_price_two_block(self):
-        page = self._page()
-        page.level_number = 5
-        page.stock_bot_enabled = False
-        page.stock_bot_blocked_buy_prices = set()
-        page._get_active_boss_number = mock.Mock(return_value=9)
-
-        apply_boss_functionality("Bot2Percent,NoPrice2Buys", page)
-
-        self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "advanced")
-        self.assertEqual(
-            page.stock_bot_start_quantities,
-            {"Aquantity": 0, "Bquantity": 4, "Cquantity": 0},
-        )
-        self.assertTrue(page.boss_forbid_price_2_buys)
-        self.assertEqual(page.stock_bot_blocked_buy_prices, {2})
+    def test_legacy_bot_effects_do_not_enable_trading_without_condition(self):
+        for boss, effect in ((8, "ListStockBot"), (9, "Bot2Percent,NoPrice2Buys")):
+            page = self._page()
+            page.level_number = 5
+            page.stock_bot_enabled = False
+            page._get_active_boss_number = mock.Mock(return_value=boss)
+            apply_boss_functionality(effect, page)
+            self.assertFalse(page.stock_bot_enabled)
+            if boss == 9:
+                self.assertTrue(page.boss_forbid_price_2_buys)
 
     def test_level5_first_category_boss_does_not_enable_stock_trading(self):
         page = self._page()
@@ -304,23 +283,16 @@ class BossTradingConstraintTests(unittest.TestCase):
         self.assertIsNone(page.stock_bot_start_quantities)
         self.assertEqual(page.stock_bot_blocked_buy_prices, set())
 
-    def test_category_two_bosses_use_their_balanced_b_shares_on_level5(self):
-        for boss_number, expected_b_shares in ((8, 12), (9, 4), (11, 4), (12, 4), (13, 4), (14, 4)):
+    def test_category_two_bosses_do_not_trade_without_condition(self):
+        for boss_number in (8, 9, 11, 12, 13, 14):
             with self.subTest(boss_number=boss_number):
                 page = self._page()
                 page.level_number = 5
                 page.boss_index = 0
-                page.defeated_count = 2
                 page._get_active_boss_number = mock.Mock(return_value=boss_number)
-
                 page._configure_boss_stock_bot()
-
-                self.assertTrue(page.stock_bot_enabled)
-                self.assertEqual(page.stock_bot_type, "advanced")
-                self.assertEqual(
-                    page.stock_bot_start_quantities,
-                    {"Aquantity": 0, "Bquantity": expected_b_shares, "Cquantity": 0},
-                )
+                self.assertFalse(page.stock_bot_enabled)
+                self.assertIsNone(page.stock_bot_start_quantities)
 
     def test_category_one_bosses_do_not_trade_on_level5(self):
         page = self._page()
@@ -796,7 +768,8 @@ class DisclosureGameplayTests(unittest.TestCase):
             rebate = page._get_disclosure_card_tooltip_content(407)
             uptrend = page._get_disclosure_card_tooltip_content(410)
 
-            self.assertIn("10%", golden[1])
+            # Legacy values below the current base chance are clamped to 15%.
+            self.assertIn("15%", golden[1])
         self.assertIn("156%", rebate[1])
         self.assertIn("+24%", uptrend[1])
 

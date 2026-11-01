@@ -194,6 +194,7 @@ class Level6AlternatingTurnTests(unittest.TestCase):
     def test_regular_battle_keeps_existing_bot_timing(self):
         page = self._page()
         page.level_number = 5
+        page._is_stock_bot_allowed = mock.Mock(return_value=True)
         page.is_boss_fight = True
         page.Day = 7
         page.LastTurn = 8

@@ -1,5 +1,53 @@
 [
   {
+    "Source": "Uplift",
+    "RU": "Uplift",
+    "ENG": "Uplift",
+    "DE": "Uplift",
+    "HU": "Uplift",
+    "FR": "Uplift"
+  },
+  {
+    "Source": "Добавляет 2 к Gain/Drop картам",
+    "RU": "Добавляет 2 к Gain/Drop картам",
+    "ENG": "Adds 2 to Gain/Drop cards",
+    "DE": "Verstärkt Gain/Drop-Karten um 2",
+    "HU": "2 értékkel erősíti a Gain/Drop kártyákat",
+    "FR": "Ajoute 2 aux cartes Gain/Drop"
+  },
+  {
+    "Source": "Uplift+",
+    "RU": "Uplift+",
+    "ENG": "Uplift+",
+    "DE": "Uplift+",
+    "HU": "Uplift+",
+    "FR": "Uplift+"
+  },
+  {
+    "Source": "Добавляет 4 к Gain/Drop картам",
+    "RU": "Добавляет 4 к Gain/Drop картам",
+    "ENG": "Adds 4 to Gain/Drop cards",
+    "DE": "Verstärkt Gain/Drop-Karten um 4",
+    "HU": "4 értékkel erősíti a Gain/Drop kártyákat",
+    "FR": "Ajoute 4 aux cartes Gain/Drop"
+  },
+  {
+    "Source": "Leverage",
+    "RU": "Leverage",
+    "ENG": "Leverage",
+    "DE": "Leverage",
+    "HU": "Leverage",
+    "FR": "Leverage"
+  },
+  {
+    "Source": "Удваивает полный эффект карт, усиленных инвестициями. Несколько копий умножают эффект повторно.",
+    "RU": "Удваивает полный эффект карт, усиленных инвестициями. Несколько копий умножают эффект повторно.",
+    "ENG": "Doubles the full effect of cards enhanced by investments. Multiple copies multiply the effect again.",
+    "DE": "Verdoppelt den gesamten Effekt von durch Investitionen verstärkten Karten. Mehrere Exemplare multiplizieren den Effekt erneut.",
+    "HU": "Megduplázza a befektetésekkel erősített kártyák teljes hatását. Több példány ismét megszorozza a hatást.",
+    "FR": "Double l’effet total des cartes renforcées par des investissements. Plusieurs exemplaires multiplient à nouveau l’effet."
+  },
+  {
     "Source": "Вы уже получили все красные карты колоды.",
     "RU": "Вы уже получили все красные карты колоды.",
     "ENG": "You have already received all the red cards in the deck.",
@@ -3822,5 +3870,77 @@
     "DE": "Senkt das Rundenziel um 40%.",
     "HU": "40%-kal csökkenti a forduló célját.",
     "FR": "Réduit l’objectif de la manche de 40%."
+  },
+  {
+    "Source": "В начале каждого раунда у босса есть 50 акций A. Он не покупает и не продаёт акции в течение раунда.",
+    "RU": "В начале каждого раунда у босса есть 50 акций A. Он не покупает и не продаёт акции в течение раунда.",
+    "ENG": "At the start of every round, the boss owns 50 A shares. He neither buys nor sells shares during the round.",
+    "DE": "Zu Beginn jeder Runde besitzt der Boss 50 A-Aktien. Während der Runde kauft oder verkauft er keine Aktien.",
+    "HU": "Minden forduló elején a főellenfélnek 50 A-részvénye van. A forduló során nem vesz és nem ad el részvényeket.",
+    "FR": "Au début de chaque manche, le boss possède 50 actions A. Il ne fait aucun achat ni aucune vente pendant la manche."
+  },
+  {
+    "Source": "В конце раунда босс продаёт все 50 акций A по итоговой цене. Для победы выполните денежную цель раунда и получите итоговый капитал строго больше выручки босса. Равенство считается поражением.",
+    "RU": "В конце раунда босс продаёт все 50 акций A по итоговой цене. Для победы выполните денежную цель раунда и получите итоговый капитал строго больше выручки босса. Равенство считается поражением.",
+    "ENG": "At the end of the round, the boss sells all 50 A shares at the final price. To win, meet the round’s cash goal and finish with total capital strictly greater than the boss’s proceeds. A tie is a loss.",
+    "DE": "Am Rundenende verkauft der Boss alle 50 A-Aktien zum Endkurs. Erreiche das Geldziel der Runde und ein Gesamtkapital, das seinen Verkaufserlös übersteigt. Gleichstand bedeutet Niederlage.",
+    "HU": "A forduló végén a főellenfél eladja mind az 50 A-részvényét a végső áron. A győzelemhez teljesítsd a forduló pénzcélját, és zárj az eladási bevételénél szigorúan nagyobb össztőkével. A döntetlen vereség.",
+    "FR": "En fin de manche, le boss vend ses 50 actions A au cours final. Pour gagner, atteignez l’objectif monétaire et terminez avec un capital total strictement supérieur à son produit de vente. Une égalité est une défaite."
+  },
+  {
+    "Source": "Boss Shares действует в каждом раунде уровня, включая бой с боссом. Условие не исчезает после победы над боссом или перехода к следующему раунду. Отключить его могут только специальные карты, прямо отменяющие это условие.",
+    "RU": "Boss Shares действует в каждом раунде уровня, включая бой с боссом. Условие не исчезает после победы над боссом или перехода к следующему раунду. Отключить его могут только специальные карты, прямо отменяющие это условие.",
+    "ENG": "Boss Shares applies in every round of the level, including boss fights. It does not expire after defeating a boss or advancing to the next round. Only special cards that explicitly cancel this condition can disable it.",
+    "DE": "Boss Shares gilt in jeder Runde des Levels, auch in Bosskämpfen. Es endet weder nach einem Bosssieg noch beim Rundenwechsel. Nur Spezialkarten, die diese Bedingung ausdrücklich aufheben, können sie deaktivieren.",
+    "HU": "A Boss Shares a szint minden fordulójában érvényes, a főellenfél elleni harcban is. Nem szűnik meg egy főellenfél legyőzése vagy a következő fordulóba lépés után. Csak az ezt a feltételt kifejezetten megszüntető különleges kártyák kapcsolhatják ki.",
+    "FR": "Boss Shares s’applique à chaque manche du niveau, y compris aux combats de boss. La condition persiste après une victoire sur un boss et au passage à la manche suivante. Seules les cartes spéciales qui annulent explicitement cette condition peuvent la désactiver."
+  },
+  {
+    "Source": "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
+    "RU": "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
+    "ENG": "The boss trades from the first round regardless of category. The experimental duel uses the Reinvestment bot.",
+    "DE": "Der Boss handelt ab der ersten Runde unabhängig von seiner Kategorie. Das experimentelle Duell verwendet den Reinvestitionsbot.",
+    "HU": "A főellenfél kategóriától függetlenül az első fordulótól kereskedik. A kísérleti párbaj az Újrabefektetés botot használja.",
+    "FR": "Le boss négocie dès la première manche, quelle que soit sa catégorie. Le duel expérimental utilise le bot Réinvestissement."
+  },
+  {
+    "Source": "Раунд нельзя завершить раньше последнего хода, даже если денежная цель уже выполнена. На последнем ходу босс продаёт свои 50 акций A. Акции игрока продаются только за счёт действующего Rebate, по правилам этой карты. Без действующего Rebate игрок проигрывает, даже если денежная цель уже выполнена. Boss Shares не даёт автоматической продажи акций игрока. Итоги подводятся только на последнем ходу.",
+    "RU": "Раунд нельзя завершить раньше последнего хода, даже если денежная цель уже выполнена. На последнем ходу босс продаёт свои 50 акций A. Акции игрока продаются только за счёт действующего Rebate, по правилам этой карты. Без действующего Rebate игрок проигрывает, даже если денежная цель уже выполнена. Boss Shares не даёт автоматической продажи акций игрока. Итоги подводятся только на последнем ходу.",
+    "ENG": "The round cannot end before the final turn, even if the cash goal has already been met. On the final turn, the boss sells his 50 A shares. The player’s shares are sold only through an active Rebate effect, according to that card’s rules. Without an active Rebate effect, the player loses even if the cash goal has been met. Boss Shares does not automatically sell the player’s shares. Results are calculated only on the final turn.",
+    "DE": "Die Runde kann nicht vor dem letzten Zug enden, auch wenn das Geldziel bereits erreicht ist. Im letzten Zug verkauft der Boss seine 50 A-Aktien. Die Aktien des Spielers werden nur durch einen aktiven Rebate-Effekt nach den Regeln dieser Karte verkauft. Ohne aktiven Rebate-Effekt verliert der Spieler auch bei erreichtem Geldziel. Boss Shares verkauft die Aktien des Spielers nicht automatisch. Das Ergebnis wird erst im letzten Zug berechnet.",
+    "HU": "A forduló nem érhet véget az utolsó kör előtt, még akkor sem, ha a pénzcél már teljesült. Az utolsó körben a főellenfél eladja az 50 A-részvényét. A játékos részvényeit csak aktív Rebate-hatás adja el, a kártya szabályai szerint. Aktív Rebate nélkül a játékos akkor is veszít, ha a pénzcél teljesült. A Boss Shares nem adja el automatikusan a játékos részvényeit. Az eredmény csak az utolsó körben számítódik ki.",
+    "FR": "La manche ne peut pas se terminer avant le dernier tour, même si l’objectif monétaire est déjà atteint. Au dernier tour, le boss vend ses 50 actions A. Les actions du joueur sont vendues uniquement grâce à un effet Rebate actif, selon les règles de cette carte. Sans effet Rebate actif, le joueur perd même si l’objectif monétaire est atteint. Boss Shares ne vend pas automatiquement les actions du joueur. Le résultat est calculé uniquement au dernier tour."
+  },
+  {
+    "Source": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
+    "RU": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
+    "ENG": "Disables all level Conditions while this card is active: the round follows normal rules. Also prevents Shareholder cards from entering the deck.",
+    "DE": "Deaktiviert alle Conditions des Levels, solange diese Karte aktiv ist: Die Runde folgt den normalen Regeln. Verhindert außerdem, dass Shareholder-Karten ins Deck gelangen.",
+    "HU": "A kártya hatása alatt kikapcsolja a szint összes Conditions feltételét: a forduló a szokásos szabályok szerint zajlik. Megakadályozza a Shareholder kártyák pakliba kerülését is.",
+    "FR": "Désactive toutes les Conditions du niveau pendant la durée d’effet de cette carte : la manche suit les règles normales. Empêche aussi les cartes Actionnaire d’entrer dans le deck."
+  },
+  {
+    "Source": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду каждую вторую карту Shareholder",
+    "RU": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду каждую вторую карту Shareholder",
+    "ENG": "Disables all level Conditions while this card is active: the round follows normal rules. Also prevents every second Shareholder card from entering the deck.",
+    "DE": "Deaktiviert alle Conditions des Levels, solange diese Karte aktiv ist: Die Runde folgt den normalen Regeln. Verhindert außerdem, dass jede zweite Shareholder-Karte ins Deck gelangt.",
+    "HU": "A kártya hatása alatt kikapcsolja a szint összes Conditions feltételét: a forduló a szokásos szabályok szerint zajlik. Minden második Shareholder kártya pakliba kerülését is megakadályozza.",
+    "FR": "Désactive toutes les Conditions du niveau pendant la durée d’effet de cette carte : la manche suit les règles normales. Empêche aussi une carte Actionnaire sur deux d’entrer dans le deck."
+  },
+  {
+    "Source": "Активная карта Controlling Stake или Golden Stake отключает все Conditions уровня на время своего действия.",
+    "RU": "Активная карта Controlling Stake или Golden Stake отключает все Conditions уровня на время своего действия.",
+    "ENG": "An active Controlling Stake or Golden Stake disables all level Conditions for the duration of its effect.",
+    "DE": "Eine aktive Karte Controlling Stake oder Golden Stake deaktiviert alle Conditions des Levels für ihre Wirkungsdauer.",
+    "HU": "Az aktív Controlling Stake vagy Golden Stake a hatása idejére kikapcsolja a szint összes Conditions feltételét.",
+    "FR": "Une carte Controlling Stake ou Golden Stake active désactive toutes les Conditions du niveau pendant sa durée d’effet."
+  },
+  {
+    "Source": "Все Conditions отключены активной картой Controlling Stake или Golden Stake. Раунд проходит по обычным правилам.",
+    "RU": "Все Conditions отключены активной картой Controlling Stake или Golden Stake. Раунд проходит по обычным правилам.",
+    "ENG": "All Conditions are disabled by an active Controlling Stake or Golden Stake. The round follows normal rules.",
+    "DE": "Alle Conditions sind durch eine aktive Karte Controlling Stake oder Golden Stake deaktiviert. Die Runde folgt den normalen Regeln.",
+    "HU": "Az aktív Controlling Stake vagy Golden Stake minden Conditions feltételt kikapcsolt. A forduló a szokásos szabályok szerint zajlik.",
+    "FR": "Toutes les Conditions sont désactivées par une carte Controlling Stake ou Golden Stake active. La manche suit les règles normales."
   }
 ]

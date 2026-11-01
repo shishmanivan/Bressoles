@@ -11,7 +11,7 @@ from game_stats import get_level_run_losses
 from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, draw_scrollbar, panel_rect
 import profile_manager
 from asset_loaders import load_scaled_image
-from sound_assets import load_button_sound
+from sound_assets import load_button_sound, load_sound
 from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT,
                                FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT,
                                INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT, TutorialHint)
@@ -42,6 +42,9 @@ DISABLED_OVERLAY = (238, 228, 205, 170)
 PANEL_SIZE = (1440, 900)
 PANEL_POS = ((SCREEN_WIDTH - PANEL_SIZE[0]) // 2, (SCREEN_HEIGHT - PANEL_SIZE[1]) // 2)
 GAMEPLAY_CARD_SIZE = (142, 244)
+OFFER_DROP_MS = 450
+OFFER_DROP_STAGGER_MS = 200
+OFFER_EXIT_MS = 220
 
 SPECIAL_ASSETS = {
     "moratorium": ("Мораторий", os.path.join("Shop", "Moratorium.png")),
@@ -135,8 +138,11 @@ CARD_DESCRIPTIONS = {
     439: "Даёт по 2$ за каждую сыгранную карту Shareholder",
     440: "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
     441: "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
+    442: "Удваивает полный эффект карт, усиленных инвестициями. Несколько копий умножают эффект повторно.",
+    443: "Добавляет 2 к Gain/Drop картам",
+    444: "Добавляет 4 к Gain/Drop картам",
     437: "Начисляет 20% на остаток наличных денег.",
-    205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
+    205: "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
     118: "Устанавливает цены всех акций на 10.",
     119: "Устанавливает цены всех акций на 20.",
     120: "Устанавливает цены всех акций на 30.",
@@ -249,7 +255,7 @@ CARD_DESCRIPTIONS.update(
         431: "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
         432: "Гарантирует, что за ход упадёт хотя бы одна акция.",
         433: "Гарантирует две Drop-карты в стартовой руке, если они есть в колоде.",
-        436: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду каждую вторую карту Shareholder",
+        436: "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду каждую вторую карту Shareholder",
         434: "В конце раунда даёт 1 наполеондор за каждого Shareholder в колоде.",
         435: "Добавляет 4% к итоговому эффекту Rebate если сыграна только одна карта за ход и 2% если сыграно только две карты",
     }
@@ -291,6 +297,9 @@ CARD_NAMES.update(
         439: "Shareholder Value",
         440: "Standardization",
         441: "Overvaluation",
+        442: "Leverage",
+        443: "Uplift",
+        444: "Uplift+",
     }
 )
 
@@ -313,7 +322,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     115: "Устанавливает цену акций компании C на 2.",
     203: "Добавляет 2 хода к длительности раунда.",
     204: "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
-    205: "Убирает эффект акционеров (они не будут блокировать рынки). Также блокирует попадание в колоду карт Shareholder",
+    205: "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
     207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
     209: "Переносит все неиспользованные ходы в следующий раунд.",
     210: "Усиливает числовые процентные эффекты карт на 10 процентных пунктов (не касается карт Upside и Downside).",
@@ -446,6 +455,11 @@ class ShopPage(AdaptivePage):
         self.card_offer_size = GAMEPLAY_CARD_SIZE
         self._offer_label_surface_cache = {}
         self.offer_rects = self._build_offer_rects()
+        self.offer_drop_sound = load_sound(os.path.join("Sounds", "Drop Var.wav"))
+        self._offer_animation = {
+            "started": None, "outgoing": [],
+            "incoming": list(range(len(self.offers))), "sounded": set(),
+        }
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -502,6 +516,10 @@ class ShopPage(AdaptivePage):
         return self._category_sign_cache[key]
 
     def _build_offer_rects(self):
+        # Every layout starts from the full-size artwork, including after a
+        # previous assortment change reduced the available width.
+        self.offer_image_box = (200, 296)
+        self.card_offer_size = GAMEPLAY_CARD_SIZE
         width = 176
         height = 380
         y = self.panel_rect.y + 265
@@ -708,17 +726,18 @@ class ShopPage(AdaptivePage):
             start_x = coin_rect.right + 12
         self.screen.blit(text, text.get_rect(midleft=(start_x, center[1])))
 
-    def _draw_offer(self, index, offer, rect):
+    def _draw_offer(self, index, offer, rect, *, image_offset_y=0, show_details=True):
         image = self._offer_image(offer)
         image_rect = image.get_rect() if image else pygame.Rect(0, 0, *self.offer_image_box)
-        image_rect.center = (rect.centerx, rect.y + 148)
+        image_rect.center = (rect.centerx, rect.y + 148 + image_offset_y)
         if image:
             self.screen.blit(image, image_rect.topleft)
 
-        if get_language() != "ENG":
+        if show_details and get_language() != "ENG":
             label = self._offer_label_surface(self._offer_label(offer), rect.width + 12)
             self.screen.blit(label, label.get_rect(center=(rect.centerx, rect.y + 318)))
-        self._draw_coin_amount(offer.get("cost", 0), (rect.centerx, rect.y + 360), self.small_font)
+        if show_details:
+            self._draw_coin_amount(offer.get("cost", 0), (rect.centerx, rect.y + 360), self.small_font)
 
         if index in self.sold_offer_indexes:
             overlay = pygame.Surface(image_rect.size, pygame.SRCALPHA)
@@ -728,10 +747,93 @@ class ShopPage(AdaptivePage):
             self.screen.blit(sold, sold.get_rect(center=image_rect.center))
 
     def _offer_at(self, pos):
+        if getattr(self, "_offer_animation", None) is not None:
+            return None
         for index, rect in enumerate(self.offer_rects):
             if index < len(self.offers) and rect.collidepoint(pos):
                 return index
         return None
+
+    def _capture_offer_layout(self):
+        if not hasattr(self, "_offer_animation"):
+            return None
+        layout = {}
+        screen = self.screen
+        try:
+            for index, (offer, rect) in enumerate(zip(self.offers, self.offer_rects)):
+                tile = pygame.Surface((rect.width + 12, rect.height), pygame.SRCALPHA)
+                self.screen = tile
+                self._draw_offer(index, offer, pygame.Rect(6, 0, rect.width, rect.height), show_details=False)
+                image = self._offer_image(offer)
+                layout[id(offer)] = (tile, rect.copy(), image.get_size() if image is not None else None)
+        finally:
+            self.screen = screen
+        return layout
+
+    def _animate_offer_layout(self, previous):
+        if previous is None:
+            return
+        outgoing, incoming = [], []
+        for index, (offer, rect) in enumerate(zip(self.offers, self.offer_rects)):
+            old = previous.get(id(offer))
+            image = self._offer_image(offer)
+            size = image.get_size() if image is not None else None
+            if old is None or old[1] != rect or old[2] != size:
+                incoming.append(index)
+                if old is not None:
+                    outgoing.append(old[:2])
+        self._offer_animation = ({
+            "started": None, "outgoing": outgoing,
+            "incoming": incoming, "sounded": set(),
+        } if incoming or outgoing else None)
+
+    def _draw_animated_offers(self):
+        animation = getattr(self, "_offer_animation", None)
+        now = pygame.time.get_ticks()
+        if animation is not None and animation["started"] is None:
+            animation["started"] = now
+        elapsed = now - animation["started"] if animation is not None else 0
+        exit_ms = OFFER_EXIT_MS if animation is not None and animation["outgoing"] else 0
+        incoming = {index: order for order, index in enumerate(animation["incoming"])} if animation else {}
+        clip = self.screen.get_clip()
+        inner = self.panel_rect.inflate(-64, -76)
+        self.screen.set_clip(clip.clip(inner))
+        try:
+            if animation is not None and elapsed < exit_ms:
+                progress = elapsed / exit_ms
+                for tile, rect in animation["outgoing"]:
+                    # The whole old tile leaves before its smaller replacements
+                    # enter, so a layout change never snaps between scales.
+                    y = round(rect.y + (inner.top - rect.height - rect.y) * progress ** 2)
+                    self.screen.blit(tile, (rect.x - 6, y))
+            for index, (offer, rect) in enumerate(zip(self.offers, self.offer_rects)):
+                if index not in incoming:
+                    self._draw_offer(index, offer, rect)
+                    continue
+                age = elapsed - exit_ms - incoming[index] * OFFER_DROP_STAGGER_MS
+                if age < 0:
+                    continue
+                progress = min(1.0, age / OFFER_DROP_MS)
+                if progress < .75:
+                    image = self._offer_image(offer)
+                    height = image.get_height() if image is not None else self.offer_image_box[1]
+                    start_y = inner.top - 148 - (height + 1) // 2
+                    y = round(start_y + (rect.y - start_y) * (progress / .75) ** 2)
+                else:
+                    bounce = (progress - .75) / .25
+                    y = rect.y - round(6 * 4 * bounce * (1 - bounce))
+                self._draw_offer(index, offer, rect, image_offset_y=y - rect.y,
+                                 show_details=progress >= .75)
+                if age >= OFFER_DROP_MS * .75 and index not in animation["sounded"]:
+                    animation["sounded"].add(index)
+                    if self.offer_drop_sound is not None:
+                        self.offer_drop_sound.play()
+        finally:
+            self.screen.set_clip(clip)
+        if animation is not None:
+            duration = exit_ms + max(0, len(incoming) - 1) * OFFER_DROP_STAGGER_MS + OFFER_DROP_MS
+            if elapsed >= duration:
+                self._offer_animation = None
 
     def _sync_balance(self):
         self.napoleondors = float(game_state.napoleondors or 0)
@@ -756,6 +858,7 @@ class ShopPage(AdaptivePage):
                     if card not in existing]
         if not pool:
             return
+        previous_layout = self._capture_offer_layout()
         card_id = int(game_state.random.choice(pool))
         index = next((i for i, offer in enumerate(self.offers) if offer.get("kind") != "card"),
                      len(self.offers))
@@ -769,6 +872,7 @@ class ShopPage(AdaptivePage):
         self.sold_offer_indexes = {i + 1 if i >= index else i for i in self.sold_offer_indexes}
         self.offer_image_cache.clear()
         self.offer_rects = self._build_offer_rects()
+        self._animate_offer_layout(previous_layout)
 
     def _add_expansion_offer(self):
         special_ids = game_state.build_shop_special_offer_pool(
@@ -784,6 +888,7 @@ class ShopPage(AdaptivePage):
         )
         if not special_ids:
             return
+        previous_layout = self._capture_offer_layout()
         special_id = special_ids[0]
         if special_id == "correction":
             game_state.correction_shop_cooldown = game_state.CORRECTION_SHOP_COOLDOWN
@@ -805,6 +910,7 @@ class ShopPage(AdaptivePage):
         }
         self.offer_image_cache.clear()
         self.offer_rects = self._build_offer_rects()
+        self._animate_offer_layout(previous_layout)
 
     def _activate_free_special_offer(self, special_id):
         temporary_index = len(self.offers)
@@ -1314,6 +1420,7 @@ class ShopPage(AdaptivePage):
             "license": "Лицензии",
             "investment": "Инвестиции",
         }
+        self._draw_animated_offers()
         for kind, rect in getattr(self, "category_rects", []):
             sign = self._category_sign(kind, rect)
             if sign is not None:
@@ -1321,8 +1428,6 @@ class ShopPage(AdaptivePage):
             else:
                 self._draw_centered_text(category_labels.get(kind, kind.title()), self.small_font, rect.center)
 
-        for index, offer in enumerate(self.offers):
-            self._draw_offer(index, offer, self.offer_rects[index])
         self._draw_hover_description()
 
         mouse_pos = self.mouse_pos()

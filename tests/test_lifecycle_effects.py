@@ -856,20 +856,20 @@ class LifecycleEffectTests(unittest.TestCase):
         original_trigger_count = game_state.golden_stocks_trigger_count
         original_gold_cards = list(game_state.gold_cards)
         try:
-            game_state.golden_stocks_chance_percent = 10
+            game_state.golden_stocks_chance_percent = 15
             game_state.golden_stocks_triggered = False
             game_state.golden_stocks_trigger_count = 0
             game_state.gold_cards = []
             with (
                 mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[402]),
-                mock.patch.object(game_state.random, "randint", return_value=15),
+                mock.patch.object(game_state.random, "randint", return_value=25),
                 mock.patch.object(game_state.random, "choice", return_value=402),
             ):
                 self.assertEqual(
                     game_state.resolve_golden_stocks_round([302, 210], chance_bonus=10),
                     402,
                 )
-            self.assertEqual(game_state.golden_stocks_chance_percent, 10)
+            self.assertEqual(game_state.golden_stocks_chance_percent, 15)
             self.assertEqual(game_state.golden_stocks_trigger_count, 1)
         finally:
             game_state.golden_stocks_chance_percent = original_chance
@@ -883,7 +883,7 @@ class LifecycleEffectTests(unittest.TestCase):
         original_trigger_count = game_state.golden_stocks_trigger_count
         original_gold_cards = list(game_state.gold_cards)
         try:
-            game_state.golden_stocks_chance_percent = 10
+            game_state.golden_stocks_chance_percent = 15
             game_state.golden_stocks_triggered = False
             game_state.golden_stocks_trigger_count = 0
             game_state.gold_cards = []

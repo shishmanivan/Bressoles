@@ -2,6 +2,7 @@ import math
 import random
 
 import game_state
+from gameplay_conditions import BOSS_TRADING, has_active_condition
 from boss_effects import parse_boss_functionality_spec, parse_boss_reward_spec
 from game_data import (
     get_level_rounds_required,
@@ -829,7 +830,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                     boss_number = gameplay_instance._get_active_boss_number()
             except Exception:
                 boss_number = None
-            if level_num == 5 and boss_number == 8:
+            if has_active_condition(gameplay_instance, BOSS_TRADING) and boss_number == 8:
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "simple")
                 setattr(
@@ -871,7 +872,7 @@ def apply_boss_functionality(func_string, gameplay_instance):
                     boss_number = gameplay_instance._get_active_boss_number()
             except Exception:
                 boss_number = None
-            if level_num == 5 and get_boss_level_from_number(boss_number) == 2:
+            if has_active_condition(gameplay_instance, BOSS_TRADING):
                 setattr(gameplay_instance, "stock_bot_enabled", True)
                 setattr(gameplay_instance, "stock_bot_type", "advanced")
                 start_quantities = {

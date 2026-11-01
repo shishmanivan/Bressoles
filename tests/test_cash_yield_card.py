@@ -15,6 +15,10 @@ class CashYieldTests(unittest.TestCase):
     def page(self, money=100, gold=(437,)):
         page = GameplayPage.__new__(GameplayPage)
         page.active_gold_cards = list(gold)
+        page.active_silver_cards = []
+        page.active_black_cards = []
+        page.active_lifecycle_card_order = []
+        page.lifecycle_card_jump_animations = {}
         page.Money = money
         page.Day = 1
         page.win_lose_state = None
@@ -41,6 +45,20 @@ class CashYieldTests(unittest.TestCase):
         page = self.page(gold=(437, 437))
         self.assertEqual(page._apply_cash_yield_turn_bonus(), 40)
         self.assertEqual(page.Money, 140)
+
+    def test_paying_copies_jump_in_their_displayed_slots_only_once(self):
+        page = self.page(gold=(437, 437))
+        page.active_lifecycle_card_order = [
+            {"kind": "gold", "card_id": card_id} for card_id in (437, 410, 437)
+        ]
+        with mock.patch.object(page, '_start_card_jump_animation') as jump:
+            page._apply_cash_yield_turn_bonus()
+            self.assertEqual([call.args[1] for call in jump.call_args_list], [0, 2])
+            page._apply_cash_yield_turn_bonus()
+            self.assertEqual(jump.call_count, 2)
+        page = self.page(money=0)
+        page._apply_cash_yield_turn_bonus()
+        self.assertEqual(page.lifecycle_card_jump_animations, {})
 
     def test_no_interest_without_card_or_after_round_ends(self):
         page = self.page(gold=())
