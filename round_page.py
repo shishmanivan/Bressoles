@@ -8,10 +8,13 @@ import game_state
 import profile_manager
 from asset_loaders import load_scaled_image
 from gameplay_tutorial import ROUND_CHOICE_HINT_ID, ROUND_CHOICE_HINT_TEXT, TutorialHint
+from gameplay_tutorial import CONDITIONS_ROUND_HINT_ID, CONDITIONS_ROUND_HINT_TEXT
+from gameplay_conditions import conditions_for_level
 from sound_assets import load_button_sound
 from sound_assets import play_action_click
 from boss_effects import parse_boss_functionality_spec
 from boss_logic import resolve_boss_number
+from round_condition_icons import draw_condition_icons
 from round_page_assets import (
     GRAPH_INK_COLOR,
     ROUND_GRAPH_ORIGIN,
@@ -543,8 +546,8 @@ class RoundPage(AdaptivePage):
         hint = getattr(self, "tutorial_hint", None)
         if hint is not None:
             if hint.ready_to_close():
-                if hint.dont_show_again:
-                    profile_manager.mark_tutorial_seen(self.profile_slot, ROUND_CHOICE_HINT_ID)
+                if not hint.has_checkbox or hint.dont_show_again:
+                    profile_manager.mark_tutorial_seen(self.profile_slot, hint.hint_id)
                 self.tutorial_hint = None
                 for event in self.events():
                     if event.type == pygame.QUIT:
@@ -788,6 +791,8 @@ class RoundPage(AdaptivePage):
             else:
                 self.screen.blit(self.boss_icon, self.boss_icon_rect.topleft)
 
+        draw_condition_icons(self)
+
         if self.popup_image and self.popup_y > -self.popup_image.get_height():
             popup_y_draw = int(round(self.popup_y))
             self.screen.blit(self.popup_image, (self.popup_x, popup_y_draw))
@@ -948,7 +953,16 @@ class RoundPage(AdaptivePage):
             self.clock.tick(FPS)
 
     def _prepare_tutorial(self):
-        if (self.level_number == 2 and not self.test_mode
+        if self.test_mode:
+            return
+        if (conditions_for_level(self.level_number)
+                and profile_manager.is_tutorial_pending(self.profile_slot, CONDITIONS_ROUND_HINT_ID)):
+            frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), frame, self.font_path,
+                hint_id=CONDITIONS_ROUND_HINT_ID, text=CONDITIONS_ROUND_HINT_TEXT,
+            )
+        elif (self.level_number == 2
                 and profile_manager.is_tutorial_pending(self.profile_slot, ROUND_CHOICE_HINT_ID)):
             frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
             self.tutorial_hint = TutorialHint(

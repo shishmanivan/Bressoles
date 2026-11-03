@@ -1,14 +1,28 @@
 """Level-wide conditions shared by the rules engine and the conditions menu."""
 
+BANKRUPTCY = "bankruptcy"
 SHAREHOLDERS = "shareholders"
 BOSS_SHARES = "boss_shares"
 BOSS_TRADING = "boss_trading"
 BOSS_SHARES_QUANTITY = 50
 # Content 8 is campaign level 6; content 6 is the isolated test duel.
-LEVEL_CONDITIONS = {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BOSS_SHARES,)}
+# Boss Shares remains available in the catalog, but is not assigned to any level.
+LEVEL_CONDITIONS = {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BANKRUPTCY,)}
 CONDITIONS = {
+    BANKRUPTCY: {
+        "title": "Банкротство",
+        "icon": "Conditions/bankruptcy.png",
+        "tooltip": "Сыгранные карты Банкротства и Crash могут вызвать случайное падение рынка. Чем больше таких карт сыграно, тем больше вероятность падения.",
+        "paragraphs": (
+            "Первая сыгранная Bankruptcy или Crash активирует шанс 10% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
+            "После завершения хода и применения эффектов карт проводится одна проверка. При срабатывании один случайный рынок получает эффект Bankruptcy: цена падает до 2, проигрывается анимация банкротства. Само срабатывание не увеличивает шанс.",
+            "В каждом новом раунде условие снова ожидает первую Bankruptcy или Crash. Активный Controlling Stake или Golden Stake отключает Condition, но не обычные эффекты сыгранных карт.",
+        ),
+    },
     BOSS_SHARES: {
         "title": "Boss Shares",
+        "icon": "Conditions/boss_shares.png",
+        "tooltip": "У Босса 50 акций А, которые он продаст после последнего хода. Игру нельзя завершить до последнего хода.",
         "paragraphs": (
             "В начале каждого раунда у босса есть 50 акций A. Он не покупает и не продаёт акции в течение раунда.",
             "В конце раунда босс продаёт все 50 акций A по итоговой цене. Для победы выполните денежную цель раунда и получите итоговый капитал строго больше выручки босса. Равенство считается поражением.",
@@ -18,12 +32,15 @@ CONDITIONS = {
     },
     BOSS_TRADING: {
         "title": "Boss Trading",
+        "icon": "Bosses/8_List.png",
         "paragraphs": (
             "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
         ),
     },
     SHAREHOLDERS: {
         "title": "Шейрхолдеры",
+        "icon": "Conditions/shareholders.png",
+        "tooltip": "Карты Shareholder могут отключать рынки на один ход. Чем больше этих карт, тем больше вероятность отключения.",
         "paragraphs": (
             "Акционеры могут на один ход закрыть один случайный рынок. На закрытом рынке нельзя ни покупать, ни продавать. Остальные рынки работают как обычно.",
             "Эффект зависит от числа карт Shareholder в колоде на начало раунда, а не от числа карт в руке. При 0-2 картах блокировки нет. При 3 картах шанс составляет 20% на ход.",

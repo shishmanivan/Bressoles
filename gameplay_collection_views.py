@@ -6,7 +6,7 @@ import math
 import native_render as pygame
 
 import game_state
-from gameplay_conditions import CONDITIONS, conditions_for_level, active_conditions_for_page, conditions_disabled
+from gameplay_conditions import BANKRUPTCY, CONDITIONS, conditions_for_level, active_conditions_for_page, conditions_disabled
 from deck_view import deck_layout, draw_grid, draw_panel, draw_scrollbar as draw_deck_scrollbar
 from shared_utils import wrap_text
 from shop_page import SPECIAL_ASSETS
@@ -249,6 +249,9 @@ def draw_conditions(page, content, panel):
     for condition_id in active_conditions_for_page(page):
         condition = CONDITIONS[condition_id]
         rows.append((_tr(condition["title"]), True))
+        if condition_id == BANKRUPTCY:
+            rows.append((_tr("Текущий шанс: {chance}%").format(
+                chance=getattr(page, "bankruptcy_condition_chance", 0)), False))
         for paragraph in condition["paragraphs"]:
             rows.extend((line, False) for line in wrap_text(
                 _tr(paragraph), page.collection_font, content.width - 32))

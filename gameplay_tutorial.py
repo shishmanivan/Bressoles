@@ -11,13 +11,15 @@ from shared_utils import wrap_text
 
 
 FIRST_HINT_ID = "stock_cards"
-SHAREHOLDER_HINT_ID = "level4_shareholders"
-SHAREHOLDER_HINT_TEXT = (
-    "На 4-ом уровне действует эффект акционеров. Если у вас в колоде есть 3 карты Shareholder, "
-    "есть 20% шанс того, что они запретят вам торговать на каком-то одном рынке. "
-    "Запрет действует один ход. Чем больше карт Shareholder у вас в колоде, тем больше "
-    "вероятность того, что они будут запрещать торговать. Но в игре можно встретить карты, "
-    "которые отключают этот эффект."
+CONDITIONS_ROUND_HINT_ID = "conditions_round_intro"
+CONDITIONS_ROUND_HINT_TEXT = (
+    "Теперь в игре появляется специальное условие — Condition. Наведите мышь на значок, "
+    "чтобы узнать основное правило. Более подробно условие будет расписано на игровом "
+    "экране в соответствующем разделе."
+)
+CONDITIONS_GAME_HINT_ID = "conditions_game_intro"
+CONDITIONS_GAME_HINT_TEXT = (
+    'Нажмите на иконку «Conditions», чтобы более подробно изучить специальные условия уровня.'
 )
 STORAGE_HINT_ID = "card_storage"
 BLACK_STORAGE_HINT_ID = "black_card_storage"
@@ -96,10 +98,10 @@ class TutorialHint:
     def __init__(self, screen_size, frame, font_path, ok_image=None,
                  hint_id=FIRST_HINT_ID, text=FIRST_HINT_TEXT, placement="center"):
         self.hint_id = hint_id
-        self.has_checkbox = hint_id != FIRST_HINT_ID
+        self.has_checkbox = hint_id not in (FIRST_HINT_ID, CONDITIONS_ROUND_HINT_ID, CONDITIONS_GAME_HINT_ID)
         self.dont_show_again = False
         self.panel = pygame.Rect(0, 0, 760, 470 if self.has_checkbox else 340)
-        if hint_id in (GOLD_SHOP_HINT_ID, STORAGE_HINT_ID, SILVER_STORAGE_HINT_ID, SHAREHOLDER_HINT_ID):
+        if hint_id in (GOLD_SHOP_HINT_ID, STORAGE_HINT_ID, SILVER_STORAGE_HINT_ID, CONDITIONS_ROUND_HINT_ID):
             self.panel.size = (900, 650)
         self.panel.center = (screen_size[0] // 2, screen_size[1] // 2)
         if placement == "right":

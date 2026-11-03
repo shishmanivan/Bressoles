@@ -8,7 +8,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import pygame
 
-from gameplay_conditions import CONDITIONS, SHAREHOLDERS, BOSS_SHARES, BOSS_TRADING, conditions_for_level
+from gameplay_conditions import CONDITIONS, BANKRUPTCY, SHAREHOLDERS, BOSS_SHARES, BOSS_TRADING, conditions_for_level
 from gameplay_collection_views import draw_conditions
 from gameplay_page import GameplayPage
 from localization import get_language, set_language, translate
@@ -44,7 +44,7 @@ class ConditionsTests(unittest.TestCase):
 
     def test_only_fourth_level_has_shareholders(self):
         for level in range(1, 14):
-            self.assertEqual(conditions_for_level(level), {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BOSS_SHARES,)}.get(level, ()))
+            self.assertEqual(conditions_for_level(level), {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BANKRUPTCY,)}.get(level, ()))
 
     def test_all_condition_descriptions_are_translated(self):
         language = get_language()

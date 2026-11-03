@@ -9,7 +9,6 @@ import native_render as pygame
 from asset_loaders import load_scaled_image
 import profile_manager
 from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT, TutorialHint
-from gameplay_tutorial import SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from sound_assets import load_button_sound
 from sound_assets import play_action_click
@@ -751,8 +750,6 @@ class BossPage(AdaptivePage):
             return
         if self.level_number == 2:
             hint_id, text = BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT
-        elif self.level_number == 4 and self.defeated_count == 0:
-            hint_id, text = SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
         else:
             return
         if profile_manager.is_tutorial_pending(self.profile_slot, hint_id):

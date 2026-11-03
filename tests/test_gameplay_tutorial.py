@@ -12,7 +12,9 @@ import profile_manager
 from gameplay_page import GameplayPage
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import FIRST_HINT_TEXT
-from gameplay_tutorial import SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT
+from gameplay_tutorial import CONDITIONS_ROUND_HINT_ID, CONDITIONS_ROUND_HINT_TEXT
+from gameplay_tutorial import CONDITIONS_GAME_HINT_ID, CONDITIONS_GAME_HINT_TEXT
+from round_page import RoundPage
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
 from gameplay_tutorial import BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT
 from boss_page import BossPage
@@ -21,35 +23,81 @@ from asset_loaders import find_font_path_or_exit
 
 
 class TutorialTests(unittest.TestCase):
-    def test_shareholder_hint_on_first_level_four_boss_selection(self):
+    def test_old_shareholder_hint_no_longer_appears_on_boss_selection(self):
         page = BossPage.__new__(BossPage)
         page.profile_slot = 1
+        page.test_mode = False
+        page.level_number = 4
+        page.defeated_count = 0
+        with mock.patch("boss_page.TutorialHint") as factory:
+            page._prepare_tutorial()
+        factory.assert_not_called()
+
+    def test_conditions_round_intro_is_profile_scoped_and_not_level_four_specific(self):
+        page = RoundPage.__new__(RoundPage)
+        page.profile_slot = 1
+        page.test_mode = False
         page.screen = mock.Mock()
         page.font_path = None
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(
             profile_manager, "PROFILES_DIR", directory
-        ), mock.patch("boss_page.load_scaled_image"), mock.patch("boss_page.TutorialHint") as factory:
-            for level, defeated, test_mode, expected in (
-                (3, 0, False, False), (4, 1, False, False),
-                (4, 0, True, False), (4, 0, False, True),
-            ):
-                page.level_number, page.defeated_count, page.test_mode = level, defeated, test_mode
-                factory.reset_mock()
-                page._prepare_tutorial()
-                self.assertEqual(factory.called, expected)
-            self.assertEqual(factory.call_args.kwargs["hint_id"], SHAREHOLDER_HINT_ID)
+        ), mock.patch("round_page.load_scaled_image"), mock.patch("round_page.TutorialHint") as factory:
+            page.level_number = 3
+            page._prepare_tutorial()
+            factory.assert_not_called()
+            page.level_number = 8
+            page._prepare_tutorial()
+            self.assertEqual(factory.call_args.kwargs["hint_id"], CONDITIONS_ROUND_HINT_ID)
             hint = factory.return_value
-            hint.hint_id = SHAREHOLDER_HINT_ID
+            hint.hint_id = CONDITIONS_ROUND_HINT_ID
+            hint.has_checkbox = False
             hint.ready_to_close.return_value = True
-            hint.dont_show_again = True
-            with mock.patch.object(pygame.event, "get", return_value=[]):
+            with mock.patch.object(page, "events", return_value=[]):
                 page.handle_input()
-            self.assertFalse(profile_manager.is_tutorial_pending(1, SHAREHOLDER_HINT_ID))
+            self.assertFalse(profile_manager.is_tutorial_pending(1, CONDITIONS_ROUND_HINT_ID))
             factory.reset_mock()
+            page.level_number = 4
             page._prepare_tutorial()
             factory.assert_not_called()
             page.profile_slot = 2
             page._prepare_tutorial()
+            factory.assert_called_once()
+
+    def test_conditions_game_intro_is_separate_and_shown_once(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.profile_slot = 1
+        page.test_mode = False
+        page.level_number = 8
+        page.tutorial_hint = None
+        page.win_lose_state = None
+        page.tutorial_dismissed_this_round = set()
+        page.pause_menu_active = page.deck_view_active = False
+        page._is_turn_resolution_active = mock.Mock(return_value=False)
+        page._is_hand_transition_active = mock.Mock(return_value=False)
+        page.screen = mock.Mock()
+        page.frame = page.font_path = page.ok1_button = None
+        page._save_active_game = mock.Mock()
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            profile_manager, "PROFILES_DIR", directory
+        ), mock.patch("gameplay_page.TutorialHint") as factory:
+            profile_manager.mark_tutorial_seen(1, CONDITIONS_ROUND_HINT_ID)
+            page._maybe_show_conditions_tutorial()
+            self.assertEqual(factory.call_args.kwargs["hint_id"], CONDITIONS_GAME_HINT_ID)
+            hint = factory.return_value
+            hint.hint_id = CONDITIONS_GAME_HINT_ID
+            hint.has_checkbox = False
+            page._dismiss_tutorial_hint()
+            self.assertFalse(profile_manager.is_tutorial_pending(1, CONDITIONS_GAME_HINT_ID))
+            page.tutorial_dismissed_this_round.clear()
+            factory.reset_mock()
+            page._maybe_show_conditions_tutorial()
+            factory.assert_not_called()
+            page.profile_slot = 2
+            page.level_number = 3
+            page._maybe_show_conditions_tutorial()
+            factory.assert_not_called()
+            page.level_number = 4
+            page._maybe_show_conditions_tutorial()
             factory.assert_called_once()
 
     def test_boss_choice_hint_level_gate_and_profile_suppression(self):
@@ -92,7 +140,8 @@ class TutorialTests(unittest.TestCase):
                 set_language(language)
                 for hint_id, text in ((FIRST_HINT_ID, FIRST_HINT_TEXT), (SELL_HINT_ID, SELL_HINT_TEXT),
                                       (LOGO_HINT_ID, LOGO_HINT_TEXT), (BOSS_CHOICE_HINT_ID, BOSS_CHOICE_HINT_TEXT),
-                                      (SHAREHOLDER_HINT_ID, SHAREHOLDER_HINT_TEXT)):
+                                      (CONDITIONS_ROUND_HINT_ID, CONDITIONS_ROUND_HINT_TEXT),
+                                      (CONDITIONS_GAME_HINT_ID, CONDITIONS_GAME_HINT_TEXT)):
                     with self.subTest(language=language, hint=hint_id):
                         translated = translate(text)
                         label = translate("Больше не показывать")

@@ -3942,5 +3942,85 @@
     "DE": "Alle Conditions sind durch eine aktive Karte Controlling Stake oder Golden Stake deaktiviert. Die Runde folgt den normalen Regeln.",
     "HU": "Az aktív Controlling Stake vagy Golden Stake minden Conditions feltételt kikapcsolt. A forduló a szokásos szabályok szerint zajlik.",
     "FR": "Toutes les Conditions sont désactivées par une carte Controlling Stake ou Golden Stake active. La manche suit les règles normales."
+  },
+  {
+    "Source": "Банкротство",
+    "RU": "Банкротство",
+    "ENG": "Bankruptcy",
+    "DE": "Bankrott",
+    "HU": "Csőd",
+    "FR": "Faillite"
+  },
+  {
+    "Source": "Первая сыгранная Bankruptcy или Crash активирует шанс 10% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
+    "RU": "Первая сыгранная Bankruptcy или Crash активирует шанс 10% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
+    "ENG": "The first Bankruptcy or Crash played activates a 10% chance with no additional increase. Each subsequent Bankruptcy adds 1 percentage point; Crash adds 2 percentage points. Maximum chance: 100%.",
+    "DE": "Die erste gespielte Bankruptcy oder Crash aktiviert eine Chance von 10% ohne zusätzlichen Anstieg. Jede weitere Bankruptcy erhöht sie um 1 Prozentpunkt, Crash um 2 Prozentpunkte. Maximum: 100%.",
+    "HU": "Az első kijátszott Bankruptcy vagy Crash 10%-os esélyt aktivál további növelés nélkül. Minden további Bankruptcy 1, a Crash 2 százalékponttal növeli az esélyt. Maximum: 100%.",
+    "FR": "La première carte Bankruptcy ou Crash jouée active une probabilité de 10%, sans augmentation supplémentaire. Chaque Bankruptcy suivante ajoute 1 point de pourcentage, Crash en ajoute 2. Maximum : 100%."
+  },
+  {
+    "Source": "После завершения хода и применения эффектов карт проводится одна проверка. При срабатывании один случайный рынок получает эффект Bankruptcy: цена падает до 2, проигрывается анимация банкротства. Само срабатывание не увеличивает шанс.",
+    "RU": "После завершения хода и применения эффектов карт проводится одна проверка. При срабатывании один случайный рынок получает эффект Bankruptcy: цена падает до 2, проигрывается анимация банкротства. Само срабатывание не увеличивает шанс.",
+    "ENG": "One check occurs after ending the turn and resolving card effects. If triggered, one random market receives the Bankruptcy effect: its price falls to 2 and the bankruptcy animation plays. The trigger itself does not increase the chance.",
+    "DE": "Nach dem Zugende und den Karteneffekten erfolgt eine Prüfung. Bei Auslösung erhält ein zufälliger Markt den Bankruptcy-Effekt: Der Kurs fällt auf 2 und die Bankrottanimation wird abgespielt. Die Auslösung selbst erhöht die Chance nicht.",
+    "HU": "A kör lezárása és a kártyahatások után egy ellenőrzés történik. Aktiválódáskor egy véletlen piac Bankruptcy-hatást kap: az ár 2-re esik, és lejátszódik a csődanimáció. Az aktiválódás nem növeli az esélyt.",
+    "FR": "Une vérification a lieu après la fin du tour et la résolution des cartes. En cas de déclenchement, un marché aléatoire subit Bankruptcy : son cours tombe à 2 et l’animation de faillite est jouée. Le déclenchement lui-même n’augmente pas la probabilité."
+  },
+  {
+    "Source": "В каждом новом раунде условие снова ожидает первую Bankruptcy или Crash. Активный Controlling Stake или Golden Stake отключает Condition, но не обычные эффекты сыгранных карт.",
+    "RU": "В каждом новом раунде условие снова ожидает первую Bankruptcy или Crash. Активный Controlling Stake или Golden Stake отключает Condition, но не обычные эффекты сыгранных карт.",
+    "ENG": "Each new round waits for its first Bankruptcy or Crash again. An active Controlling Stake or Golden Stake disables this Condition, but not the normal effects of played cards.",
+    "DE": "Jede neue Runde wartet erneut auf die erste Bankruptcy oder Crash. Eine aktive Controlling Stake oder Golden Stake deaktiviert diese Condition, aber nicht die normalen Effekte gespielter Karten.",
+    "HU": "Minden új forduló ismét az első Bankruptcy vagy Crash kártyára vár. Az aktív Controlling Stake vagy Golden Stake kikapcsolja ezt a Condition feltételt, de a kijátszott kártyák szokásos hatásait nem.",
+    "FR": "Chaque nouvelle manche attend à nouveau sa première Bankruptcy ou Crash. Une carte Controlling Stake ou Golden Stake active désactive cette Condition, mais pas les effets normaux des cartes jouées."
+  },
+  {
+    "Source": "Текущий шанс: {chance}%",
+    "RU": "Текущий шанс: {chance}%",
+    "ENG": "Current chance: {chance}%",
+    "DE": "Aktuelle Chance: {chance}%",
+    "HU": "Jelenlegi esély: {chance}%",
+    "FR": "Probabilité actuelle : {chance}%"
+  },
+  {
+    "Source": "Карты Shareholder могут отключать рынки на один ход. Чем больше этих карт, тем больше вероятность отключения.",
+    "RU": "Карты Shareholder могут отключать рынки на один ход. Чем больше этих карт, тем больше вероятность отключения.",
+    "ENG": "Shareholder cards can close markets for one turn. The more of these cards there are, the higher the chance of a closure.",
+    "DE": "Shareholder-Karten können Märkte für einen Zug schließen. Je mehr dieser Karten vorhanden sind, desto höher ist die Wahrscheinlichkeit einer Schließung.",
+    "HU": "A Shareholder kártyák egy körre lezárhatják a piacokat. Minél több ilyen kártya van, annál nagyobb a lezárás esélye.",
+    "FR": "Les cartes Actionnaire peuvent fermer des marchés pendant un tour. Plus ces cartes sont nombreuses, plus la probabilité de fermeture est élevée."
+  },
+  {
+    "Source": "У Босса 50 акций А, которые он продаст после последнего хода. Игру нельзя завершить до последнего хода.",
+    "RU": "У Босса 50 акций А, которые он продаст после последнего хода. Игру нельзя завершить до последнего хода.",
+    "ENG": "The Boss owns 50 A shares, which he will sell after the final turn. The game cannot end before the final turn.",
+    "DE": "Der Boss besitzt 50 A-Aktien, die er nach dem letzten Zug verkauft. Das Spiel kann nicht vor dem letzten Zug enden.",
+    "HU": "A főellenfélnek 50 A-részvénye van, amelyeket az utolsó kör után ad el. A játék nem érhet véget az utolsó kör előtt.",
+    "FR": "Le boss possède 50 actions A, qu’il vendra après le dernier tour. La partie ne peut pas se terminer avant le dernier tour."
+  },
+  {
+    "Source": "Сыгранные карты Банкротства и Crash могут вызвать случайное падение рынка. Чем больше таких карт сыграно, тем больше вероятность падения.",
+    "RU": "Сыгранные карты Банкротства и Crash могут вызвать случайное падение рынка. Чем больше таких карт сыграно, тем больше вероятность падения.",
+    "ENG": "Played Bankruptcy and Crash cards can cause a random market crash. The more of these cards have been played, the higher the chance of a crash.",
+    "DE": "Gespielte Bankruptcy- und Crash-Karten können einen zufälligen Markteinbruch auslösen. Je mehr dieser Karten gespielt wurden, desto höher ist die Wahrscheinlichkeit eines Einbruchs.",
+    "HU": "A kijátszott Bankruptcy és Crash kártyák véletlenszerű piaci összeomlást okozhatnak. Minél több ilyen kártyát játszottál ki, annál nagyobb az összeomlás esélye.",
+    "FR": "Les cartes Bankruptcy et Crash jouées peuvent provoquer un effondrement aléatoire du marché. Plus ces cartes ont été jouées, plus la probabilité d’un effondrement est élevée."
+  },
+  {
+    "Source": "Теперь в игре появляется специальное условие — Condition. Наведите мышь на значок, чтобы узнать основное правило. Более подробно условие будет расписано на игровом экране в соответствующем разделе.",
+    "RU": "Теперь в игре появляется специальное условие — Condition. Наведите мышь на значок, чтобы узнать основное правило. Более подробно условие будет расписано на игровом экране в соответствующем разделе.",
+    "ENG": "The game now introduces a special rule — a Condition. Hover over the icon to learn the basic rule. You can find a more detailed explanation in the corresponding section on the gameplay screen.",
+    "DE": "Jetzt kommt eine besondere Regel ins Spiel — eine Condition. Fahre mit der Maus über das Symbol, um die Grundregel kennenzulernen. Eine ausführlichere Erklärung findest du im entsprechenden Bereich auf dem Spielbildschirm.",
+    "HU": "Most egy különleges feltétel jelenik meg a játékban — a Condition. Vidd az egeret az ikon fölé az alapszabály megismeréséhez. A feltétel részletesebb leírását a játékképernyő megfelelő részében találod.",
+    "FR": "Une règle spéciale apparaît maintenant dans le jeu : une Condition. Survolez son icône pour découvrir la règle de base. Vous trouverez une explication plus détaillée dans la section correspondante de l’écran de jeu."
+  },
+  {
+    "Source": "Нажмите на иконку «Conditions», чтобы более подробно изучить специальные условия уровня.",
+    "RU": "Нажмите на иконку «Conditions», чтобы более подробно изучить специальные условия уровня.",
+    "ENG": "Click the “Conditions” icon to learn more about the level’s special rules.",
+    "DE": "Klicke auf das Symbol „Conditions“, um mehr über die besonderen Regeln des Levels zu erfahren.",
+    "HU": "Kattints a „Conditions” ikonra, hogy részletesebben megismerd a szint különleges feltételeit.",
+    "FR": "Cliquez sur l’icône « Conditions » pour découvrir en détail les règles spéciales du niveau."
   }
 ]

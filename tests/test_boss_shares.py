@@ -11,6 +11,12 @@ from level_routes import get_campaign_content_level
 
 
 class BossSharesTests(unittest.TestCase):
+    def setUp(self):
+        # Exercise the reusable condition explicitly, independent of campaign assignments.
+        assignment = mock.patch.dict(LEVEL_CONDITIONS, {get_campaign_content_level(6): (BOSS_SHARES,)})
+        assignment.start()
+        self.addCleanup(assignment.stop)
+
     def page(self, money=201, goal=150, day=8, boss_fight=False):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = get_campaign_content_level(6)
@@ -38,6 +44,25 @@ class BossSharesTests(unittest.TestCase):
                     self.assertTrue(has_condition(page.level_number, BOSS_SHARES))
                     page._check_win_lose()
                     self.assertEqual(page._finish_win_lose_result.call_args.args[0], result)
+
+    def test_unassigned_condition_restores_normal_round_without_rebate(self):
+        with mock.patch.dict(LEVEL_CONDITIONS, {get_campaign_content_level(6): ()}):
+            for boss_fight in (False, True):
+                page = self.page(money=150, goal=150, day=6, boss_fight=boss_fight)
+                page._get_current_rebate_sale_percent.return_value = None
+                page._check_win_lose()
+                self.assertEqual(page._finish_win_lose_result.call_args.args[0], "win")
+                self.assertIsNone(page._stock_bot_status_text())
+
+    def test_boss_shares_can_be_assigned_to_a_different_level(self):
+        with mock.patch.dict(LEVEL_CONDITIONS, {3: (BOSS_SHARES,)}):
+            page = self.page(money=201, goal=150, day=6)
+            page.level_number = 3
+            page._check_win_lose()
+            page._finish_win_lose_result.assert_not_called()
+            page.Day = page.LastTurn
+            page._check_win_lose()
+            self.assertEqual(page._finish_win_lose_result.call_args.args[0], "win")
 
     def test_goal_reached_early_still_waits_for_final_price(self):
         page = self.page(day=3)

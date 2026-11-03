@@ -12,6 +12,7 @@ import os
 from copy import deepcopy
 
 import game_state
+import gameplay_bankruptcy_condition as bankruptcy_condition
 import gameplay_bankruptcy_animation as bankruptcy_animation
 import gameplay_bankruptcy_audio as bankruptcy_audio
 import gameplay_parity_animation as parity_animation
@@ -111,7 +112,7 @@ from gameplay_draw_helpers import (
 )
 from gameplay_hand_hover import HandHover, hand_card_rect
 from gameplay_collection_views import draw_collection_view, draw_navigation, navigation_rects
-from gameplay_conditions import BOSS_SHARES, BOSS_SHARES_QUANTITY, BOSS_TRADING, SHAREHOLDERS, conditions_disabled, has_active_condition
+from gameplay_conditions import BOSS_SHARES, BOSS_SHARES_QUANTITY, BOSS_TRADING, SHAREHOLDERS, conditions_disabled, has_active_condition, conditions_for_level
 from gameplay_layout import (
     build_bottom_placeholders,
     build_market_placeholders,
@@ -134,6 +135,7 @@ from gameplay_price_helpers import (
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
+from gameplay_tutorial import CONDITIONS_GAME_HINT_ID, CONDITIONS_GAME_HINT_TEXT
 from gameplay_tutorial import RED_CARD_HINT_ID, RED_CARD_HINT_TEXT
 from gameplay_tutorial import LATE_END_TURN_HINT_ID, LATE_END_TURN_HINT_TEXT
 from gameplay_stock_tooltips import draw_stock_tooltip, stock_tooltip_font
@@ -788,6 +790,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         for card_id in self.hand_cards:
             if card_id is not None:
                 self._newspaper_event('deal', card_id=card_id)
+        bankruptcy_condition.restore(self, {})
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
         )
@@ -2128,6 +2131,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             ),
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
+            "bankruptcy_condition": bankruptcy_condition.serialize(self),
             "shareholder_effect_count": int(self.shareholder_effect_count or 0),
             "shareholder_blocked_market": self.shareholder_blocked_market,
             "stock_bot_enabled": bool(self.stock_bot_enabled),
@@ -2346,6 +2350,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.forward_trading_shareholder_count = int(
             state.get("forward_trading_shareholder_count", self.forward_trading_shareholder_count) or 0
         )
+        bankruptcy_condition.restore(self, state.get("bankruptcy_condition") or {})
         self.shareholder_effect_count = int(
             state.get("shareholder_effect_count", self.shareholder_effect_count) or 0
         )
@@ -5636,6 +5641,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._commit_other_stats_cards()
         self.turn_resolution_active = True
         self.effect_finalize_pending = False
+        self.bankruptcy_condition_cards_counted = False
         self.red_effects_applied_this_resolution = False
         self._red_effect_stage = 0
         self._red_price_next_slot = 0
@@ -6020,6 +6026,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self.price_animation_queue.extend(continuation_movements)
                 self._start_next_price_animation()
                 return
+
+        if bankruptcy_condition.resolve_turn(self):
+            self.effect_finalize_pending = True
+            return
 
         self._finalize_turn_resolution()
 
@@ -6610,6 +6620,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _apply_red_card_effects_if_needed(self):
         """Apply one-shot effects for freshly played Type=2 red cards."""
+        bankruptcy_condition.register_fresh_cards(self)
         effects = (
             self._apply_shareholder_value_effect_if_needed,
             self._apply_forward_trading_effect_if_needed,
@@ -8687,6 +8698,21 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.tutorial_hint.draw(self.screen)
         self._draw_protective_put()
 
+    def _maybe_show_conditions_tutorial(self):
+        if (self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+                or not conditions_for_level(self.level_number)
+                or self.win_lose_state is not None
+                or CONDITIONS_GAME_HINT_ID in self.tutorial_dismissed_this_round
+                or self.pause_menu_active or self.deck_view_active
+                or self._is_turn_resolution_active() or self._is_hand_transition_active()
+                or self._is_level6_alternating_battle()):
+            return
+        if profile_manager.is_tutorial_pending(self.profile_slot, CONDITIONS_GAME_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=CONDITIONS_GAME_HINT_ID, text=CONDITIONS_GAME_HINT_TEXT,
+            )
+
     def _maybe_show_late_end_turn_tutorial(self):
         if (
             self.test_mode or not self.profile_slot or self.tutorial_hint is not None
@@ -8832,6 +8858,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
             )
         while True:
+            self._maybe_show_conditions_tutorial()
             self._maybe_show_red_card_tutorial()
             self._maybe_show_sell_tutorial()
             self._maybe_show_logo_tutorial()
