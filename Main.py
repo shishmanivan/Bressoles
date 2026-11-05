@@ -183,7 +183,7 @@ def main():
         try:
             return run_page(gameplay_page)
         finally:
-            menu_music.play()
+            menu_music.return_to_menu()
 
     def open_shop(level_number, test_mode=False):
         discount_percent = game_state.consume_pending_shop_discount()
