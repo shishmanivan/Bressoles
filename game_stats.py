@@ -1,4 +1,7 @@
+import disk_storage
 import csv
+import copy
+from contextlib import contextmanager
 import functools
 import os
 
@@ -9,6 +12,25 @@ from game_data import get_level_rounds_required, load_levels_config
 STATS_FILE = "GameStats.csv"
 LEVEL6_EXPERIMENT_STATS_FILE = None
 _ACTIVE_STATS_FILE = None
+_pending_rows = None
+
+
+@contextmanager
+def statistics_transaction():
+    """Publish related counters together, once per destination file."""
+    global _pending_rows
+    if _pending_rows is not None:
+        yield
+        return
+    pending = {}
+    _pending_rows = pending
+    try:
+        yield
+        for path, rows in pending.items():
+            write_semicolon_csv_atomically(path, FIELDNAMES, sorted(rows, key=_sort_key))
+    finally:
+        _pending_rows = None
+
 ARKWRIGHT_STAT_FIELDS = {
     "none": "АркрайтНеСыграл",
     "steal_50": "АркрайтУкрал50",
@@ -427,8 +449,8 @@ def ensure_stats_file(path=None):
     target_path = _get_active_stats_file(path)
     stats_dir = os.path.dirname(target_path)
     if stats_dir:
-        os.makedirs(stats_dir, exist_ok=True)
-    if not os.path.exists(target_path):
+        disk_storage.ensure_directory(stats_dir)
+    if not disk_storage.exists(target_path):
         _write_rows([], target_path)
     elif not _has_current_schema(target_path):
         _write_rows(_read_rows(target_path), target_path)
@@ -436,7 +458,7 @@ def ensure_stats_file(path=None):
 
 def _has_current_schema(path):
     try:
-        with open(path, "r", encoding="utf-8-sig", newline="") as stats_file:
+        with disk_storage.open_text(path, "r", encoding="utf-8-sig", newline="") as stats_file:
             return next(csv.reader(stats_file, delimiter=";"), []) == FIELDNAMES
     except OSError:
         return False
@@ -456,9 +478,11 @@ def get_level_run_losses(level_number, path=None):
 
 def _read_rows(path=None):
     target_path = _get_active_stats_file(path)
-    if not os.path.exists(target_path):
+    if _pending_rows is not None and target_path in _pending_rows:
+        return copy.deepcopy(_pending_rows[target_path])
+    if not disk_storage.exists(target_path):
         return []
-    with open(target_path, "r", encoding="utf-8-sig", newline="") as stats_file:
+    with disk_storage.open_text(target_path, "r", encoding="utf-8-sig", newline="") as stats_file:
         reader = csv.DictReader(stats_file, delimiter=";")
         rows = []
         for row in reader:
@@ -562,6 +586,9 @@ def _normalize_sequential_round_number(value):
 def _write_rows(rows, path=None):
     target_path = _get_active_stats_file(path)
     rows = sorted(rows, key=_sort_key)
+    if _pending_rows is not None:
+        _pending_rows[target_path] = copy.deepcopy(rows)
+        return
     write_semicolon_csv_atomically(target_path, FIELDNAMES, rows)
 
 

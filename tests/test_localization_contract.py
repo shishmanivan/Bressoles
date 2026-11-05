@@ -49,8 +49,8 @@ class LocalizationContractTests(unittest.TestCase):
         russian = load_language("RU")
         english = load_language("ENG")
 
-        self.assertIn("добавляется в колоду", russian["Boss2Reward"])
-        self.assertIn("dealt normally", english["Boss2Reward"])
+        self.assertEqual("После хода вы добираете две карты.", russian["Boss2Reward"])
+        self.assertEqual("After each turn, you draw two cards.", english["Boss2Reward"])
         self.assertIn("отдельный инвентарь", russian["Boss5Reward"])
         self.assertEqual(
             russian["Boss6Reward"],

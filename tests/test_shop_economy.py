@@ -1872,7 +1872,10 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(CARD_NAMES[426], "Windfall")
 
         cards = {426: {"Type": 5, "Open": 1, "Variable": 12}}
-        with mock.patch.object(game_state, "load_cards_config", return_value=cards):
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "level_3_boss_defeated", True),
+        ):
             with mock.patch.object(game_state.random, "randint", return_value=1) as roll:
                 self.assertEqual(game_state.build_gold_cards_pool(4), [])
                 roll.assert_not_called()
@@ -1888,6 +1891,34 @@ class ShopTransactionTests(ShopEconomyTestCase):
             self.assertIn(426, game_state.build_all_available_shop_cards(5))
 
         self.assertNotIn("12%", CARD_DESCRIPTIONS[426])
+
+    def test_windfall_requires_permanent_rebate_for_shop_offers_and_purchase(self):
+        cards = {426: {"Type": 5, "Open": 1, "Variable": 12}}
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "level_3_boss_defeated", False),
+            mock.patch.object(game_state, "round_reward_cards", {5: [110]}),
+            mock.patch.object(game_state.random, "randint", return_value=1),
+        ):
+            self.assertNotIn(426, game_state.build_shop_card_offer_pool(5))
+            self.assertNotIn(426, game_state.build_all_available_shop_cards(5))
+        with mock.patch.object(game_state, "level_3_boss_defeated", True):
+            shop = self._shop({"kind": "card", "card_id": 426, "cost": 6})
+            game_state.napoleondors = 6
+            self.assertTrue(game_state.remove_card_from_level_deck(5, 110))
+            self.assertNotIn(426, game_state.build_all_available_shop_cards(5))
+            shop._buy_offer(0)
+            self.assertEqual(shop.message, "Карта недоступна")
+            self.assertEqual(game_state.napoleondors, 6)
+            self.assertNotIn(426, game_state.gold_cards)
+
+    def test_owned_windfall_allows_rebate_sale(self):
+        game_state.gold_cards = [426]
+        with mock.patch.object(game_state, "level_3_boss_defeated", True):
+            self.assertFalse(game_state.remove_card_from_level_deck(5, 110))
+            self.assertEqual(game_state.sell_cards_from_level_deck(5, [110]), (3, [110]))
+            self.assertEqual(game_state.napoleondors, 3)
+            self.assertNotIn(110, game_state.build_permanent_level_deck(5))
 
     def test_gold_disclosure_costs_three_and_has_thirty_percent_pool_chance(self):
         self.assertEqual(game_state.SHOP_CARD_COSTS[427], 3)
@@ -2048,7 +2079,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
                 self.assertTrue(game_state.is_gold_card_available_for_level(card_id, 4))
 
         for card_id in level_five_cards:
-            with self.subTest(card_id=card_id):
+            with self.subTest(card_id=card_id), mock.patch.object(game_state, "level_3_boss_defeated", True):
                 self.assertFalse(game_state.is_gold_card_available_for_level(card_id, 4))
                 self.assertTrue(game_state.is_gold_card_available_for_level(card_id, 5))
 

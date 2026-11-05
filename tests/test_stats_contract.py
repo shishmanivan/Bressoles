@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+import disk_storage
 import csv_storage
 import game_stats
 import shop_card_stats
@@ -314,7 +315,7 @@ class StatsContractTests(unittest.TestCase):
         with open(self.game_stats_path, "rb") as stats_file:
             original = stats_file.read()
 
-        with mock.patch.object(csv_storage.os, "replace", side_effect=OSError("replace failed")):
+        with mock.patch.object(disk_storage.os, "replace", side_effect=OSError("replace failed")):
             with self.assertRaises(OSError):
                 game_stats.update_game_stats(1, 1, "Раунд 1", False, "E")
 

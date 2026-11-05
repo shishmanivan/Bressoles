@@ -1,3 +1,4 @@
+import disk_storage
 from localization import SUPPORTED_LANGUAGES
 import csv
 import os
@@ -80,7 +81,7 @@ def _read_csv_rows(csv_dir, filename, required_columns, key_columns, errors):
         errors.append(f"{filename}: file is missing")
         return []
     try:
-        with open(path, "r", encoding="utf-8-sig", newline="") as source_file:
+        with disk_storage.open_text(path, "r", encoding="utf-8-sig", newline="") as source_file:
             reader = csv.DictReader(source_file, delimiter=";")
             fieldnames = set(reader.fieldnames or [])
             missing_columns = [column for column in required_columns if column not in fieldnames]

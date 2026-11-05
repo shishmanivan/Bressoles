@@ -118,7 +118,7 @@ class CardAcquisitionStatsTests(unittest.TestCase):
         stats.record_card_acquisitions("offered", [401])
         with open(self.path, "rb") as source:
             original = source.read()
-        with mock.patch("csv_storage.os.replace", side_effect=OSError("locked")), \
+        with mock.patch("disk_storage.os.replace", side_effect=OSError("locked")), \
              self.assertLogs("card_acquisition_stats", level="ERROR"):
             stats.record_card_acquisitions("purchased", [401])
         with open(self.path, "rb") as source:

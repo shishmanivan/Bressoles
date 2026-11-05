@@ -1944,12 +1944,20 @@
     "FR": "Augmente de 4 l’amplitude des hausses et des baisses sur chaque marché."
   },
   {
-    "Source": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
-    "RU": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
-    "ENG": "Each victory over a boss adds 50 percentage points to the final Rebate effect.",
-    "DE": "Verstärkt nach jedem Sieg über einen Boss den endgültigen Rebate-Effekt um 50 Prozentpunkte.",
-    "HU": "Minden legyőzött főellenfél 50 százalékponttal erősíti a Rebate végső hatását.",
-    "FR": "Chaque victoire contre un adversaire ajoute 50 points de pourcentage à l’effet final de la carte Prime de cession."
+    "Source": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate. Гарантирует, что красная карта Rebate будет в стартовой руке.",
+    "RU": "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate. Гарантирует, что красная карта Rebate будет в стартовой руке.",
+    "ENG": "Each victory over a boss adds 50 percentage points to the final Rebate effect. Guarantees that the red Rebate card is in your starting hand.",
+    "DE": "Verstärkt nach jedem Sieg über einen Boss den endgültigen Rebate-Effekt um 50 Prozentpunkte. Garantiert, dass die rote Rebate-Karte in deiner Starthand liegt.",
+    "HU": "Minden legyőzött főellenfél 50 százalékponttal erősíti a Rebate végső hatását. A piros Rebate kártya garantáltan a kezdőkezedben lesz.",
+    "FR": "Chaque victoire contre un adversaire ajoute 50 points de pourcentage à l’effet final de la carte Prime de cession. Garantit la présence de la carte rouge Prime de cession dans la main de départ."
+  },
+  {
+    "Source": "Текущий бонус Rebate: +{v0} п. п.",
+    "RU": "Текущий бонус Rebate: +{v0} п. п.",
+    "ENG": "Current Rebate bonus: +{v0} pp.",
+    "DE": "Aktueller Rebate-Bonus: +{v0} Prozentpunkte.",
+    "HU": "Jelenlegi Rebate-bónusz: +{v0} százalékpont.",
+    "FR": "Bonus actuel de Prime de cession : +{v0} points de pourcentage."
   },
   {
     "Source": "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
@@ -3912,12 +3920,12 @@
     "FR": "La manche ne peut pas se terminer avant le dernier tour, même si l’objectif monétaire est déjà atteint. Au dernier tour, le boss vend ses 50 actions A. Les actions du joueur sont vendues uniquement grâce à un effet Rebate actif, selon les règles de cette carte. Sans effet Rebate actif, le joueur perd même si l’objectif monétaire est atteint. Boss Shares ne vend pas automatiquement les actions du joueur. Le résultat est calculé uniquement au dernier tour."
   },
   {
-    "Source": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
-    "RU": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
-    "ENG": "Disables all level Conditions while this card is active: the round follows normal rules. Also prevents Shareholder cards from entering the deck.",
-    "DE": "Deaktiviert alle Conditions des Levels, solange diese Karte aktiv ist: Die Runde folgt den normalen Regeln. Verhindert außerdem, dass Shareholder-Karten ins Deck gelangen.",
-    "HU": "A kártya hatása alatt kikapcsolja a szint összes Conditions feltételét: a forduló a szokásos szabályok szerint zajlik. Megakadályozza a Shareholder kártyák pakliba kerülését is.",
-    "FR": "Désactive toutes les Conditions du niveau pendant la durée d’effet de cette carte : la manche suit les règles normales. Empêche aussi les cartes Actionnaire d’entrer dans le deck."
+    "Source": "Отключает все Conditions уровня на время действия карты. Также блокирует попадание в колоду карт Shareholder",
+    "RU": "Отключает все Conditions уровня на время действия карты. Также блокирует попадание в колоду карт Shareholder",
+    "ENG": "Disables all level Conditions while this card is active. Also prevents Shareholder cards from entering the deck.",
+    "DE": "Deaktiviert alle Conditions des Levels, solange diese Karte aktiv ist. Verhindert außerdem, dass Shareholder-Karten ins Deck gelangen.",
+    "HU": "A kártya hatása alatt kikapcsolja a szint összes Conditions feltételét. Megakadályozza a Shareholder kártyák pakliba kerülését is.",
+    "FR": "Désactive toutes les Conditions du niveau pendant la durée d’effet de cette carte. Empêche aussi les cartes Actionnaire d’entrer dans le deck."
   },
   {
     "Source": "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду каждую вторую карту Shareholder",

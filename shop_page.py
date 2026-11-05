@@ -1,5 +1,6 @@
 from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
+from next_button import create_next_button
 from localization import get_language, translate as _tr
 import os
 import sys
@@ -27,7 +28,12 @@ from shared_utils import wrap_text
 from shop_card_stats import record_shop_card_offers
 from card_acquisition_stats import record_card_offers
 from shop_purchases import buy_card_or_license
-from silver_black_page import CARD_TOOLTIPS, ReplicationGoldPage, ReplicationSilverPage
+from silver_black_page import (
+    CARD_TOOLTIPS,
+    ReplicationGoldPage,
+    ReplicationSilverPage,
+    windfall_tooltip_description,
+)
 
 
 SCREEN_WIDTH = 1680
@@ -142,7 +148,7 @@ CARD_DESCRIPTIONS = {
     443: "Добавляет 2 к Gain/Drop картам",
     444: "Добавляет 4 к Gain/Drop картам",
     437: "Начисляет 20% на остаток наличных денег.",
-    205: "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
+    205: "Отключает все Conditions уровня на время действия карты. Также блокирует попадание в колоду карт Shareholder",
     118: "Устанавливает цены всех акций на 10.",
     119: "Устанавливает цены всех акций на 20.",
     120: "Устанавливает цены всех акций на 30.",
@@ -247,7 +253,7 @@ CARD_DESCRIPTIONS.update(
         423: "Каждый Shareholder в руке добавляет 20 процентных пунктов к итоговому эффекту Rebate.",
         424: "Увеличивает шаг роста и падения каждого рынка на 2.",
         425: "Увеличивает шаг роста и падения каждого рынка на 4.",
-        426: "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+        game_state.WINDFALL_CARD_ID: CARD_TOOLTIPS[game_state.WINDFALL_CARD_ID][1],
         427: "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
         428: "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
         429: "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
@@ -322,7 +328,7 @@ LICENSE_EFFECT_DESCRIPTIONS = {
     115: "Устанавливает цену акций компании C на 2.",
     203: "Добавляет 2 хода к длительности раунда.",
     204: "Удваивает силу всех карт роста и падения. Несколько копий умножают эффект повторно.",
-    205: "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
+    205: "Отключает все Conditions уровня на время действия карты. Также блокирует попадание в колоду карт Shareholder",
     207: "За каждые две сыгранные карты акционера добавляет 1 ход к раунду.",
     209: "Переносит все неиспользованные ходы в следующий раунд.",
     210: "Усиливает числовые процентные эффекты карт на 10 процентных пунктов (не касается карт Upside и Downside).",
@@ -428,24 +434,7 @@ class ShopPage(AdaptivePage):
         self.title_font = pygame.font.Font(font_path, 72)
         self.balance_font = pygame.font.Font(font_path, 48)
         self.small_font = pygame.font.Font(font_path, 30)
-        self.button_font = pygame.font.Font(font_path, 28)
-        artwork = load_scaled_image(os.path.join("UI", "Ornate Button Blank.png"))
-        artwork = artwork.subsurface(artwork.get_bounding_rect())
-        button_width = 167  # Same visible width as End Turn and the level Back button.
-        self.next_button = pygame.transform.smoothscale(
-            artwork, (button_width, round(button_width * artwork.get_height() / artwork.get_width()))
-        )
-        label = {"RU": "Далее", "ENG": "Next", "DE": "Weiter",
-                 "HU": "Tovább", "FR": "Suivant"}[get_language()]
-        text = self.button_font.render(label, True, (62, 36, 9))
-        # Align visible letters, excluding the font's empty line margins.
-        text = text.subsurface(text.get_bounding_rect())
-        text_center = (self.next_button.get_width() // 2, self.next_button.get_height() // 2 - 7)
-        self.next_button.blit(text, text.get_rect(center=text_center))
-        self.next_button_pressed = pygame.transform.smoothscale(
-            self.next_button,
-            tuple(max(1, int(size * 0.96)) for size in self.next_button.get_size()),
-        )
+        self.next_button, self.next_button_pressed = create_next_button(font_path)
         self._next_pending = False
         self._next_press_until = None
         self.button_rect = self.next_button.get_rect()
@@ -669,6 +658,8 @@ class ShopPage(AdaptivePage):
             )
         if offer.get("kind") == "card":
             card_id = int(offer.get("card_id", 0) or 0)
+            if card_id == game_state.WINDFALL_CARD_ID:
+                return windfall_tooltip_description()
             description = CARD_DESCRIPTIONS.get(card_id, f"Добавляет карту {card_id} в вашу колоду.")
             if card_id == 431:
                 description = (
@@ -943,6 +934,8 @@ class ShopPage(AdaptivePage):
                 self.message = "Недостаточно монет"
             elif purchase.status == "no_space":
                 self.message = "Нет места для карты"
+            elif purchase.status == "unavailable":
+                self.message = "Карта недоступна"
             elif offer["kind"] == "card":
                 self.message = "Карта куплена" if purchase.purchased else "Карта уже куплена"
             elif purchase.purchased:
@@ -2015,6 +2008,9 @@ class DelistingDeckPage(DeckCardPage):
     prompt = "Выберите карту для удаления"
     empty_text = "В колоде нет карт"
     confirm_text = "Удалить"
+
+    def _is_selectable(self, card):
+        return not game_state.is_rebate_protected_by_windfall(card)
 
     def confirm_message(self, card_id):
         return f"Удалить карту {card_id}?"

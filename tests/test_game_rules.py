@@ -15,6 +15,7 @@ from gameplay_deck import (
     get_card_investment_bonus,
     restore_card_instance,
     serialize_card_instance,
+    setup_starting_deck_and_hand,
 )
 from gameplay_price_helpers import (
     build_market_probabilities,
@@ -317,6 +318,37 @@ class DeckRulesTests(unittest.TestCase):
         self.assertEqual(hand[:2], [112, 113])
         self.assertNotIn(112, remaining)
         self.assertNotIn(113, remaining)
+
+    def test_windfall_does_not_supply_a_missing_rebate_or_prioritize_a_temporary_one(self):
+        for temporary_cards in ({}, {5: [110]}):
+            with self.subTest(temporary_cards=temporary_cards):
+                deck, hand = setup_starting_deck_and_hand(
+                    5, 1, {}, shop_deck_cards=[22],
+                    temporary_reward_cards_by_level=temporary_cards, windfall_active=True,
+                )
+                self.assertEqual(hand, [22])
+                self.assertEqual(deck.count(110), int(bool(temporary_cards)))
+
+    def test_windfall_gives_permanent_rebate_priority_in_the_starting_hand(self):
+        deck, hand = setup_starting_deck_and_hand(
+            5, 1, {}, level_completion_reward_cards=[110], shop_deck_cards=[22],
+            round_guaranteed_cards=[100], windfall_active=True,
+        )
+        self.assertEqual(hand, [110])
+        self.assertEqual(hand[0].deck_origin, "permanent")
+        self.assertNotIn(110, deck)
+        self.assertIn(22, deck)
+
+    def test_windfall_reuses_existing_rebate_and_its_guarantee(self):
+        deck, hand = setup_starting_deck_and_hand(
+            5, 2, {}, level_completion_reward_cards=[110],
+            investment_card_bonuses={110: 4},
+            round_guaranteed_cards=[110, 100], windfall_active=True,
+        )
+        self.assertEqual(hand, [110, 100])
+        self.assertEqual(hand[0].deck_origin, "permanent")
+        self.assertEqual(get_card_investment_bonus(hand[0]), 4)
+        self.assertNotIn(110, deck)
 
 
 class TurnAndBossRulesTests(unittest.TestCase):

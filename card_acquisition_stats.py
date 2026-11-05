@@ -1,4 +1,5 @@
 """Three acquisition counters, independent of inventory and run resets."""
+import disk_storage
 
 import csv
 import logging
@@ -30,8 +31,8 @@ class CardAcquisitionStats:
         field = COUNTERS[event]
         try:
             rows = {}
-            if os.path.exists(self.path):
-                with open(self.path, encoding="utf-8-sig", newline="") as source:
+            if disk_storage.exists(self.path):
+                with disk_storage.open_text(self.path, encoding="utf-8-sig", newline="") as source:
                     reader = csv.DictReader(source, delimiter=";")
                     if reader.fieldnames != FIELDNAMES:
                         raise ValueError("Unexpected card acquisition statistics schema")
@@ -70,11 +71,11 @@ def record_card_acquisitions(event, card_ids):
 
 def get_encountered_card_ids(profile_slot, path=STATS_FILE):
     """Recover encounters recorded before profile encounter history was added."""
-    if profile_slot is None or not os.path.exists(path):
+    if profile_slot is None or not disk_storage.exists(path):
         return set()
     result = set()
     try:
-        with open(path, encoding="utf-8-sig", newline="") as source:
+        with disk_storage.open_text(path, encoding="utf-8-sig", newline="") as source:
             for row in csv.DictReader(source, delimiter=";"):
                 if row.get("Профиль") != str(profile_slot):
                     continue

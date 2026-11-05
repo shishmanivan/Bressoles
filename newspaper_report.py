@@ -3,6 +3,7 @@ from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 import json
+import disk_storage
 
 import native_render as pygame
 import game_state
@@ -15,7 +16,7 @@ from localization import get_language, translate
 
 @lru_cache(maxsize=1)
 def catalog():
-    return json.loads((Path(__file__).parent / 'locales' / 'newspaper.json').read_text(encoding='utf-8'))
+    return json.loads(disk_storage.read_text(Path(__file__).parent / 'locales' / 'newspaper.json'))
 
 
 def text(key, **values):

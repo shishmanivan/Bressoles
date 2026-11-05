@@ -1,3 +1,4 @@
+import disk_storage
 import csv
 import os
 
@@ -25,8 +26,8 @@ def set_shop_card_stats_file(path):
 def ensure_shop_card_stats_file():
     stats_dir = os.path.dirname(STATS_FILE)
     if stats_dir:
-        os.makedirs(stats_dir, exist_ok=True)
-    if not os.path.exists(STATS_FILE):
+        disk_storage.ensure_directory(stats_dir)
+    if not disk_storage.exists(STATS_FILE):
         _write_rows([])
 
 
@@ -74,9 +75,9 @@ def record_shop_card_offers(level_number, offers, card_names=None):
 
 
 def _read_rows():
-    if not os.path.exists(STATS_FILE):
+    if not disk_storage.exists(STATS_FILE):
         return []
-    with open(STATS_FILE, "r", encoding="utf-8-sig", newline="") as stats_file:
+    with disk_storage.open_text(STATS_FILE, "r", encoding="utf-8-sig", newline="") as stats_file:
         reader = csv.DictReader(stats_file, delimiter=";")
         rows = []
         for row in reader:

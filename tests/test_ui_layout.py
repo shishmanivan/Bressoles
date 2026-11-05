@@ -16,6 +16,7 @@ from asset_loaders import find_font_path_or_exit
 from boss_page import (
     BOSS_CHOICE_VERTICAL_SPACING,
     LEVEL5_BOSS_STAGE_RISE,
+    POPUP_SIZE,
     POPUP_TEXT_BOTTOM_PADDING,
     build_boss_popup_text_layout,
     build_boss_stage_positions,
@@ -434,7 +435,7 @@ class UiLayoutTests(unittest.TestCase):
                 "Временная карта. Пропадёт после победы над боссом.",
                 "Серебряная карта. Пропадёт только тогда, когда вы её используете.",
                 "Пропадёт после поражения.",
-                "Вы получили постоянную карту, теперь она всегда будет в вашей стартовой колоде",
+                "Вы получили чёрную карту. Теперь она всегда будет в вашем хранилище.",
             ],
         )
         self.assertEqual(
@@ -604,7 +605,7 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(page.newspaper_y, 12)
 
     def test_all_localized_boss_popup_text_fits_the_newspaper_card(self):
-        popup_height = 375
+        popup_height = POPUP_SIZE[1]
         for language in ("RU", "ENG"):
             lang = load_language(language)
             for boss_number in range(1, 11):
@@ -883,12 +884,11 @@ class UiLayoutTests(unittest.TestCase):
         page._handle_positioning_mouse_down(page.positioning_card_rects[2].center)
 
         self.assertEqual(page.selected_card_indices, [0, 1])
-        self.assertEqual(
-            page._handle_positioning_mouse_down(page.positioning_continue_button_rect.center),
-            [1, 2],
-        )
         page._handle_positioning_mouse_down(page.positioning_next_button_rect.center)
         self.assertEqual(page.positioning_page_index, 1)
+        page._handle_positioning_mouse_down(page.positioning_continue_button_rect.center)
+        self.assertTrue(page._next_pending)
+        self.assertEqual(page.run(), [1, 2])
 
     def test_positioning_keeps_up_to_twenty_four_cards_on_one_page(self):
         page = PositioningPage(
@@ -905,7 +905,6 @@ class UiLayoutTests(unittest.TestCase):
         self.assertFalse(
             any(
                 rect.colliderect(page.positioning_continue_button_rect)
-                or rect.colliderect(page.positioning_back_button_rect)
                 for rect in page.positioning_card_rects
             )
         )

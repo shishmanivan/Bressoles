@@ -9,7 +9,7 @@ from card_acquisition_stats import record_card_acquisitions
 
 @dataclass(frozen=True)
 class PurchaseResult:
-    status: Literal["purchased", "already_owned", "no_space", "insufficient_funds"]
+    status: Literal["purchased", "already_owned", "no_space", "insufficient_funds", "unavailable"]
     card_id: int | None = None
 
     @property
@@ -18,7 +18,7 @@ class PurchaseResult:
 
     @property
     def offer_exhausted(self):
-        return self.status in ("purchased", "already_owned")
+        return self.status in ("purchased", "already_owned", "unavailable")
 
 
 def buy_card_or_license(level_number, offer):
@@ -36,6 +36,10 @@ def buy_card_or_license(level_number, offer):
     if kind == "card":
         if game_state.is_shop_card_already_bought(card_id):
             return PurchaseResult("already_owned", card_id)
+        if card_id == game_state.WINDFALL_CARD_ID and not game_state.is_gold_card_available_for_level(
+            card_id, level_number,
+        ):
+            return PurchaseResult("unavailable", card_id)
         if game_state.add_shop_card_to_level(level_number, card_id) is None:
             return PurchaseResult("no_space", card_id)
     else:

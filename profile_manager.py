@@ -1,3 +1,4 @@
+import disk_storage
 import copy
 import json
 import math
@@ -78,7 +79,7 @@ def _read_profile_data(path):
     def reject_nonfinite(value):
         raise ValueError(f"non-finite JSON number: {value}")
 
-    with open(path, "r", encoding="utf-8") as source:
+    with disk_storage.open_text(path, encoding="utf-8") as source:
         data = json.load(source, parse_constant=reject_nonfinite)
     _validate_profile_data(data)
     return data
@@ -134,37 +135,12 @@ def _load_profile_data_with_recovery(path):
 
 
 def ensure_profiles_dir():
-    os.makedirs(PROFILES_DIR, exist_ok=True)
+    disk_storage.ensure_directory(PROFILES_DIR)
 
 
 def _write_json_atomically(path, data):
-    directory = os.path.dirname(path) or "."
-    os.makedirs(directory, exist_ok=True)
-    file_descriptor, temporary_path = tempfile.mkstemp(
-        prefix=f".{os.path.basename(path)}.",
-        suffix=".tmp",
-        dir=directory,
-    )
-    try:
-        with os.fdopen(file_descriptor, "w", encoding="utf-8") as output_file:
-            json.dump(data, output_file, ensure_ascii=False, indent=2, allow_nan=False)
-            output_file.flush()
-            os.fsync(output_file.fileno())
-        for attempt in range(5):
-            try:
-                os.replace(temporary_path, path)
-                break
-            except PermissionError:
-                if attempt == 4:
-                    raise
-                logger.warning("Save replacement busy; retry %s: %s", attempt + 1, path)
-                time.sleep(0.05 * (2 ** attempt))
-    except Exception:
-        try:
-            os.remove(temporary_path)
-        except OSError:
-            pass
-        raise
+    # save_profile owns recovery of the complete profile (including backups).
+    disk_storage.write_json(path, data, interactive=False)
 
 
 def get_profile_path(slot):
@@ -188,10 +164,10 @@ def get_shop_card_stats_file(slot):
 
 def load_index():
     ensure_profiles_dir()
-    if not os.path.exists(INDEX_FILE):
+    if not disk_storage.exists(INDEX_FILE):
         return {"selected_slot": None}
     try:
-        with open(INDEX_FILE, "r", encoding="utf-8") as index_file:
+        with disk_storage.open_text(INDEX_FILE, encoding="utf-8") as index_file:
             data = json.load(index_file)
             return data if isinstance(data, dict) else {"selected_slot": None}
     except Exception:
@@ -200,7 +176,7 @@ def load_index():
 
 def save_index(index_data):
     ensure_profiles_dir()
-    _write_json_atomically(INDEX_FILE, index_data)
+    disk_storage.write_json(INDEX_FILE, index_data)
 
 
 def get_selected_slot():
@@ -499,7 +475,7 @@ def _save_profile_once(profile):
     try:
         previous = _read_profile_data(path)
     except FileNotFoundError:
-        if os.path.exists(path + ".bak"):
+        if disk_storage.exists(path + ".bak"):
             raise ProfileLoadError(f"Load the backup before saving profile: {path}")
         previous = profile
     except (OSError, ValueError, UnicodeError) as error:
@@ -533,7 +509,7 @@ def delete_profile(slot):
     # Remove the recovery copy first so the deleted save cannot reappear.
     for target in (path + ".bak", path):
         try:
-            os.remove(target)
+            disk_storage.disk_operation(lambda: os.remove(target), missing_ok=True)
         except FileNotFoundError:
             pass
     _recovered_profile_paths.discard(os.path.abspath(path))
@@ -894,7 +870,7 @@ def record_player_market_rolls(slot, rolls, quantities, *, test_mode=False):
     if not slot or test_mode or not rolls:
         return
     # A gameplay callback must not create an unselected/missing profile.
-    if not os.path.exists(get_profile_path(slot)):
+    if not disk_storage.exists(get_profile_path(slot)):
         return
     profile = load_profile(slot)
     stats = profile.get("market_roll_stats")
@@ -905,7 +881,7 @@ def record_player_market_rolls(slot, rolls, quantities, *, test_mode=False):
 
 
 def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None, result=None):
-    if not slot or not os.path.exists(get_profile_path(slot)):
+    if not slot or not disk_storage.exists(get_profile_path(slot)):
         return None
     profile = load_profile(slot)
     stats = profile.get("other_stats")
@@ -917,7 +893,7 @@ def record_player_other_stats(slot, round_id, cards, *, earned=None, label=None,
 
 
 def record_player_time(slot, level, round_id, seconds, *, test_mode=False):
-    if not slot or test_mode or not os.path.exists(get_profile_path(slot)):
+    if not slot or test_mode or not disk_storage.exists(get_profile_path(slot)):
         return None
     profile = load_profile(slot)
     stats = profile.get("play_time_stats")
@@ -930,7 +906,7 @@ def record_player_time(slot, level, round_id, seconds, *, test_mode=False):
 
 def record_player_lifecycle_cards(slot, round_id, cards, *, test_mode=False):
     """Count each equipped copy once per round; replaying a save adds nothing."""
-    if not slot or test_mode or not round_id or not os.path.exists(get_profile_path(slot)):
+    if not slot or test_mode or not round_id or not disk_storage.exists(get_profile_path(slot)):
         return
     from collections import Counter
     profile = load_profile(slot)

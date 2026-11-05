@@ -11,7 +11,7 @@ SCALAR_CLOCKS = (
 ANIMATION_CLOCKS = (
     'card_jump_animations', 'side_card_jump_animations', 'lifecycle_card_jump_animations',
     'lifecycle_card_scale_animations', 'lifecycle_card_shake_animations',
-    'market_clear_animations', 'current_price_animation', 'arrow_entries',
+    'market_clear_animations', 'condition_coins', 'current_price_animation', 'arrow_entries',
     'final_auto_liquidation_animation', 'astor_cash_burn_animation',
     'arkwright_share_theft_animation', 'bankruptcy_animations', 'parity_animation',
 )

@@ -13,6 +13,7 @@ from copy import deepcopy
 
 import game_state
 import gameplay_bankruptcy_condition as bankruptcy_condition
+import gameplay_condition_coins as condition_coins
 import gameplay_bankruptcy_animation as bankruptcy_animation
 import gameplay_bankruptcy_audio as bankruptcy_audio
 import gameplay_parity_animation as parity_animation
@@ -159,6 +160,7 @@ from shared_utils import _clamp_dt_seconds, move_towards, wrap_text
 from silver_black_page import (
     CARD_TOOLTIPS as LIFECYCLE_CARD_TOOLTIPS,
     is_markdown_effective_for_round,
+    windfall_tooltip_description,
 )
 from shop_page import SPECIAL_ASSETS as SHOP_SPECIAL_ASSETS
 from shop_page import SPECIAL_DESCRIPTIONS as SHOP_SPECIAL_DESCRIPTIONS
@@ -783,6 +785,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             concentration_active=concentration_active,
             concentration_removes_starting_shareholder=gold_concentration_active,
             guaranteed_drop_count=self._get_downside_risk_guaranteed_drop_count(),
+            windfall_active=game_state.WINDFALL_CARD_ID in self.active_gold_cards,
         )
         if self._is_level6_alternating_battle():
             self.deck = []
@@ -2648,6 +2651,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         )
         if chance > 0 and random.random() < chance:
             self.shareholder_blocked_market = random.choice((0, 1, 2))
+            condition_coins.show(self, SHAREHOLDERS, self.shareholder_blocked_market)
             self._start_shareholder_jump_animations()
             print(
                 f"Level {self.level_number} Shareholder effect disabled market "
@@ -4047,14 +4051,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return stewardship_count * shareholder_count * 20
 
     def _get_windfall_rebate_bonus_percent(self):
-        windfall_count = self._count_active_card_safely(426)
+        windfall_count = self._count_active_card_safely(game_state.WINDFALL_CARD_ID)
         if windfall_count <= 0:
             return 0
-        return (
-            windfall_count
-            * game_state.get_windfall_boss_victories()
-            * game_state.WINDFALL_REBATE_BONUS_PER_BOSS
-        )
+        return windfall_count * game_state.get_windfall_card_bonus_percent()
 
     def _apply_risk_premium_round_start_bonus(self):
         if self._initial_saved_state is not None:
@@ -4564,6 +4564,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 label = _tr("Вы получили чёрную карту «100%». В три раза увеличивает Rebate эффект.")
             elif normalized == 304:
                 label = _tr("Чёрная карта. Никто не знает, что эта карта делает.")
+            elif isinstance(normalized, int) and 300 <= normalized < 400:
+                label = self._get_text(
+                    "CardReportBlack",
+                    "Вы получили чёрную карту. Теперь она всегда будет в вашем хранилище.",
+                )
             elif game_state.is_silver_card(normalized):
                 label = self._get_text(
                     "CardReportSilver",
@@ -7422,6 +7427,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             detail = f"Сейчас {self._get_uptrend_rebate_bonus_percent()}%"
             return title, f"{description} {detail}"
+        if normalized == game_state.WINDFALL_CARD_ID:
+            return FIELD_CARD_TOOLTIPS[normalized][0], windfall_tooltip_description()
         if normalized == 415:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             if getattr(self, "surge_triggered", False) and not getattr(self, "surge_effect_pending", False):
@@ -8338,6 +8345,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             bankruptcy_animation.draw(self, market_layout)
             parity_animation.draw(self, parity_labels)
             self._draw_market_clear_animations()
+            condition_coins.draw(self, market_layout)
 
             # ------------------------------------------------------------
             # Draw placeholders inside the right-side framed areas

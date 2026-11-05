@@ -1,3 +1,4 @@
+import disk_storage
 import csv
 import os
 
@@ -77,7 +78,7 @@ def load_cards_config():
         return config
 
     try:
-        with open(cards_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(cards_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 try:
@@ -113,7 +114,7 @@ def load_language(lang_code="RU"):
     if lang_code not in SUPPORTED_LANGUAGES:
         raise ValueError(f"Unsupported language: {lang_code}")
     lang = {}
-    with open("Lang.csv", "r", encoding="utf-8-sig", newline="") as source:
+    with disk_storage.open_text("Lang.csv", "r", encoding="utf-8-sig", newline="") as source:
         for row in csv.DictReader(source, delimiter=";"):
             key = row.get("Key", "").strip()
             if not key:
@@ -141,7 +142,7 @@ def load_levels_config():
         return config
 
     try:
-        with open(levels_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(levels_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 try:
@@ -190,7 +191,7 @@ def load_goals_level2():
         return goals
 
     try:
-        with open(goals_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(goals_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 button = row.get("", "").strip().upper()
@@ -248,7 +249,7 @@ def load_goals_level3():
         return goals
 
     try:
-        with open(goals_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(goals_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 button = (row.get("", "") or "").strip().upper()
@@ -315,7 +316,7 @@ def _load_staged_goals(goals_file):
         return goals
 
     try:
-        with open(goals_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(goals_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 button = (row.get("", "") or "").strip().upper()
@@ -429,7 +430,7 @@ def load_goals_level6():
         return goals
 
     try:
-        with open(goals_file, "r", encoding="utf-8-sig") as source_file:
+        with disk_storage.open_text(goals_file, "r", encoding="utf-8-sig") as source_file:
             reader = csv.DictReader(source_file, delimiter=";")
             for row in reader:
                 button = (row.get("", "") or "").strip().upper()
@@ -499,7 +500,7 @@ def load_goals_level8():
         return goals
 
     try:
-        with open(goals_file, "r", encoding="utf-8-sig") as source_file:
+        with disk_storage.open_text(goals_file, "r", encoding="utf-8-sig") as source_file:
             reader = csv.DictReader(source_file, delimiter=";")
             for row in reader:
                 button = (row.get("", "") or "").strip().upper()
@@ -581,7 +582,7 @@ def load_rounds_config():
         return config
 
     try:
-        with open(rounds_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(rounds_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 try:
@@ -619,7 +620,7 @@ def load_rewards_config():
         return rewards
 
     try:
-        with open(rewards_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(rewards_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 try:
@@ -701,7 +702,7 @@ def load_boss_rewards():
         return rewards
 
     try:
-        with open(rewards_file, "r", encoding="utf-8-sig") as f:
+        with disk_storage.open_text(rewards_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 boss_str = (row.get("Boss", "") or "").strip()

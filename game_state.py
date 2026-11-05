@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 from card_acquisition_stats import record_card_acquisitions
 
-from card_catalog import GOLDEN_STAKE_CARD_ID, MARKET_COPY_CARD_IDS, MARKET_COPY_MIN_LEVEL, PRICE_CARD_IDS, get_price_card_spec
+from card_catalog import GOLDEN_STAKE_CARD_ID, MARKET_COPY_CARD_IDS, MARKET_COPY_MIN_LEVEL, PRICE_CARD_IDS, RED_REBATE_CARD_ID, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
 from level_routes import get_campaign_content_level
 
@@ -312,7 +312,7 @@ guaranteed_start_hand_cards_by_level = {}
 LEVEL_COMPLETION_REWARD_CARDS = {
     1: [15],
     2: [13],
-    3: [110],
+    3: [RED_REBATE_CARD_ID],
 }
 LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
     3: [301],
@@ -380,13 +380,17 @@ def is_gold_card_available_for_level(card_id, level_number=None):
     if normalized is None or not is_gold_card(normalized):
         return False
     minimum_level = GOLD_CARD_MIN_LEVELS.get(normalized, 1)
-    if level_number is None:
+    if level_number is None and normalized != WINDFALL_CARD_ID:
         return True
+    if level_number is None:
+        level_number = napoleondor_level or minimum_level
     try:
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
-    return level >= minimum_level
+    if level < minimum_level:
+        return False
+    return normalized != WINDFALL_CARD_ID or RED_REBATE_CARD_ID in build_permanent_level_deck(level)
 
 
 def is_silver_card_available_for_level(card_id, level_number=None):
@@ -1250,6 +1254,10 @@ def get_windfall_boss_victories():
         return max(0, int(windfall_boss_victories or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def get_windfall_card_bonus_percent():
+    return get_windfall_boss_victories() * WINDFALL_REBATE_BONUS_PER_BOSS
 
 
 def record_windfall_boss_victory(active_cards=None):
@@ -2964,11 +2972,17 @@ def get_discounted_shop_price(base_cost, temporary_discount_percent=0):
     return discounted_cost
 
 
+def is_rebate_protected_by_windfall(card_id):
+    return card_id == RED_REBATE_CARD_ID and WINDFALL_CARD_ID in gold_cards
+
+
 def remove_card_from_level_deck(level_number, card_id):
     try:
         level = int(level_number or 0)
         normalized = int(card_id)
     except (TypeError, ValueError):
+        return False
+    if is_rebate_protected_by_windfall(normalized):
         return False
     current_deck = build_permanent_level_deck(level)
     if normalized not in current_deck:

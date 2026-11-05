@@ -1,6 +1,7 @@
 """Round-local Bankruptcy condition; independent of campaign level numbers."""
 
 import random
+import gameplay_condition_coins as condition_coins
 
 import gameplay_bankruptcy_animation as animation
 from gameplay_conditions import BANKRUPTCY, has_active_condition
@@ -59,6 +60,7 @@ def resolve_turn(page):
     if chance <= 0 or random.random() >= chance / 100:
         return False
     market = random.choice((0, 1, 2))
+    condition_coins.show(page, BANKRUPTCY, market)
     page._set_market_price_to_minimum(market)
     if getattr(page, "win_lose_state", None) is not None:
         return False

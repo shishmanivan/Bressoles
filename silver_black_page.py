@@ -13,6 +13,7 @@ from asset_loaders import load_scaled_image
 from gameplay_tutorial import (STORAGE_HINT_ID, STORAGE_HINT_TEXT,
                                SILVER_STORAGE_HINT_ID, SILVER_STORAGE_HINT_TEXT,
                                BLACK_STORAGE_HINT_ID, BLACK_STORAGE_HINT_TEXT, TutorialHint)
+from next_button import create_next_button
 from sound_assets import load_button_sound
 from card_catalog import MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
@@ -92,7 +93,7 @@ CARD_TOOLTIPS = {
     ),
     205: (
         "Controlling Stake",
-        "Отключает все Conditions уровня на время действия карты: раунд проходит по обычным правилам. Также блокирует попадание в колоду карт Shareholder",
+        "Отключает все Conditions уровня на время действия карты. Также блокирует попадание в колоду карт Shareholder",
     ),
     206: (
         "Basket Trading",
@@ -273,7 +274,8 @@ CARD_TOOLTIPS.update(
         ),
         426: (
             "Windfall",
-            "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate.",
+            "После каждой победы над боссом добавляет 50 процентных пунктов к итоговому эффекту Rebate. "
+            "Гарантирует, что красная карта Rebate будет в стартовой руке.",
         ),
         427: (
             "Disclosure",
@@ -343,6 +345,12 @@ CARD_TOOLTIPS.update(
         ),
     }
 )
+
+
+def windfall_tooltip_description():
+    description = CARD_TOOLTIPS[game_state.WINDFALL_CARD_ID][1]
+    bonus = game_state.get_windfall_card_bonus_percent()
+    return f"{description} Текущий бонус Rebate: +{bonus} п. п."
 
 
 class SilverBlackPage(AdaptivePage):
@@ -811,7 +819,9 @@ class SilverBlackPage(AdaptivePage):
             return "Случайная серебряная карта", "При получении превращается в случайную доступную серебряную карту."
         if normalized in CARD_TOOLTIPS:
             title, description = CARD_TOOLTIPS[normalized]
-            if normalized == 431:
+            if normalized == game_state.WINDFALL_CARD_ID:
+                description = windfall_tooltip_description()
+            elif normalized == 431:
                 description = (
                     f"{description} Текущий бонус карты: "
                     f"+{game_state.get_risk_premium_card_bonus_percent()}%."
@@ -1027,12 +1037,14 @@ class PositioningPage(SilverBlackPage):
         self.positioning_card_rects = [rect for _, _, rect in slots]
 
         button_y = self.panel_rect.bottom - 82
-        self.positioning_back_button_rect = pygame.Rect(self.panel_rect.x + 42, button_y, 210, 54)
-        self.positioning_continue_button_rect = pygame.Rect(
-            self.panel_rect.right - 302,
-            button_y,
-            260,
-            54,
+        self.next_button, self.next_button_pressed = create_next_button(font_path)
+        self.next_button_disabled = self.next_button.copy()
+        self.next_button_disabled.set_alpha(110)
+        self.next_button_sound = load_button_sound()
+        self._next_pending = False
+        self._next_press_until = None
+        self.positioning_continue_button_rect = self.next_button.get_rect(
+            center=(self.panel_rect.centerx, self.panel_rect.bottom - 120)
         )
         self.positioning_prev_button_rect = pygame.Rect(self.panel_rect.centerx - 190, button_y, 120, 54)
         self.positioning_next_button_rect = pygame.Rect(self.panel_rect.centerx + 70, button_y, 120, 54)
@@ -1177,12 +1189,19 @@ class PositioningPage(SilverBlackPage):
         draw_grid(self.screen, self.positioning_content, [], self._visible_positioning_entries(),
                   0, self.prompt_font, draw_card)
 
-        self._draw_positioning_button(self.positioning_back_button_rect, "Назад")
-        self._draw_positioning_button(
-            self.positioning_continue_button_rect,
-            "Продолжить",
-            enabled=self._positioning_selection_complete(),
-        )
+        rect = self.positioning_continue_button_rect
+        button = self.next_button
+        if self._next_pending:
+            if self._next_press_until is None:
+                self._next_press_until = pygame.time.get_ticks() + 110
+            button = self.next_button_pressed
+            rect = button.get_rect(center=rect.move(0, 3).center)
+        elif not self._positioning_selection_complete():
+            button = self.next_button_disabled
+        elif rect.collidepoint(self.mouse_pos()):
+            button = button.copy()
+            button.fill((230, 230, 230, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(button, rect)
         if self.positioning_page_count > 1:
             has_previous = self.positioning_page_index > 0
             has_next = self.positioning_page_index + 1 < self.positioning_page_count
@@ -1200,12 +1219,15 @@ class PositioningPage(SilverBlackPage):
         self._draw_card_tooltip()
         self.present()
 
+    def _press_next(self):
+        if self._positioning_selection_complete() and not self._next_pending:
+            self._next_pending = True
+            if self.next_button_sound:
+                self.next_button_sound.play()
+
     def _handle_positioning_mouse_down(self, position):
-        if self.positioning_back_button_rect.collidepoint(position):
-            return "back"
         if self.positioning_continue_button_rect.collidepoint(position):
-            if self._positioning_selection_complete():
-                return self._selected_positioning_cards()
+            self._press_next()
             return None
         if self.positioning_prev_button_rect.collidepoint(position):
             if self.positioning_page_index > 0:
@@ -1227,12 +1249,11 @@ class PositioningPage(SilverBlackPage):
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if self._next_pending:
+                    continue
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return "back"
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-                        if self._positioning_selection_complete():
-                            return self._selected_positioning_cards()
+                        self._press_next()
                     if event.key == pygame.K_LEFT and self.positioning_page_index > 0:
                         self.positioning_page_index -= 1
                     if (
@@ -1241,11 +1262,11 @@ class PositioningPage(SilverBlackPage):
                     ):
                         self.positioning_page_index += 1
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    result = self._handle_positioning_mouse_down(event.pos)
-                    if result is not None:
-                        return result
+                    self._handle_positioning_mouse_down(event.pos)
 
             self.draw()
+            if self._next_press_until is not None and pygame.time.get_ticks() >= self._next_press_until:
+                return self._selected_positioning_cards()
             self.clock.tick(FPS)
 
 

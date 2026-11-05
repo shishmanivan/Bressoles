@@ -7,8 +7,8 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import game_state
 import gameplay_page
 from gameplay_page import GameplayPage
-from shop_page import CARD_DESCRIPTIONS
-from silver_black_page import CARD_TOOLTIPS, get_positioning_selection_limit
+from shop_page import CARD_DESCRIPTIONS, ShopPage
+from silver_black_page import CARD_TOOLTIPS, SilverBlackPage, get_positioning_selection_limit
 
 
 class LifecycleEffectTests(unittest.TestCase):
@@ -556,6 +556,24 @@ class LifecycleEffectTests(unittest.TestCase):
 
         page.active_gold_cards.append(426)
         self.assertEqual(page._get_current_rebate_sale_percent(), 380)
+
+    def test_windfall_hover_shows_the_current_bonus_in_each_view(self):
+        page = self._page(gold=[426])
+        page.is_boss_fight = True
+        inventory = SilverBlackPage.__new__(SilverBlackPage)
+        inventory.is_boss_fight = False
+        shop = ShopPage.__new__(ShopPage)
+        for bonus in (0, 50, 100, 150):
+            descriptions = [
+                page._get_field_card_tooltip_content(426)[1],
+                inventory._tooltip_content(426, "gold")[1],
+                shop._offer_description({"kind": "card", "card_id": 426}),
+            ]
+            for description in descriptions:
+                self.assertIn("Гарантирует, что красная карта Rebate будет в стартовой руке.", description)
+                self.assertIn(f"Текущий бонус Rebate: +{bonus} п. п.", description)
+            if bonus < 150:
+                self.assertTrue(page._record_windfall_boss_victory_progress())
 
     def test_windfall_progress_requires_a_boss_fight_and_an_active_card(self):
         page = self._page(gold=[426])

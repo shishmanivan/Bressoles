@@ -31,11 +31,13 @@ ANIMATION_SCALE_OVERRIDES = {
     "9_Laffitte": 0.95,
 }
 _boss_animation_frames_cache = {}
-POPUP_FONT_MAX_SIZE = 24
+POPUP_SIZE = (500, 750)
+POPUP_FONT_MAX_SIZE = 28
 POPUP_FONT_MIN_SIZE = 14
-POPUP_TEXT_TOP = 120
-POPUP_TEXT_BOTTOM_PADDING = 14
-POPUP_TEXT_WIDTH = 200
+POPUP_TEXT_TOP = 225
+POPUP_TEXT_BOTTOM_PADDING = 75
+POPUP_TEXT_LEFT = 30
+POPUP_TEXT_WIDTH = POPUP_SIZE[0] - 2 * POPUP_TEXT_LEFT
 
 
 def get_boss_stage_rise(level_number, bosses_required):
@@ -329,7 +331,7 @@ class BossPage(AdaptivePage):
         popup_path = os.path.join("Bosses", "PopUp.png")
         self.popup_image = load_scaled_image(
             popup_path,
-            target_size=(250, 375),
+            target_size=POPUP_SIZE,
             warning_message="WARNING: PopUp.png not found:",
         )
 
@@ -386,7 +388,7 @@ class BossPage(AdaptivePage):
                     reward_key = f"Boss{boss_number}Reward"
                     self.boss_rewards[boss_idx] = self._get_text(reward_key, reward_key)
 
-        popup_height = self.popup_image.get_height() if self.popup_image else 375
+        popup_height = self.popup_image.get_height() if self.popup_image else POPUP_SIZE[1]
         for boss_idx, condition_text in self.boss_texts.items():
             self.boss_popup_text_layouts[boss_idx] = build_boss_popup_text_layout(
                 font_path,
@@ -580,6 +582,9 @@ class BossPage(AdaptivePage):
             desired_y = float(boss_rect.y - 250)
             self.popup_target_y = clamp_popup_y(desired_y, self.popup_image, SCREEN_HEIGHT, margin=10.0)
             self.popup_x = boss_rect.x + 100
+            popup_width = self.popup_image.get_width() if self.popup_image else POPUP_SIZE[0]
+            if self.popup_x + popup_width > SCREEN_WIDTH - 10:
+                self.popup_x = max(10, boss_rect.left - popup_width)
             self.current_hovered_boss_index = hovered_boss
             self.popup_boss_index = hovered_boss
 
@@ -699,7 +704,7 @@ class BossPage(AdaptivePage):
                 lines = layout["condition_lines"] if layout else wrap_text(
                     self.boss_texts[self.popup_boss_index], font, POPUP_TEXT_WIDTH
                 )
-                text_start_x = self.popup_x + 15
+                text_start_x = self.popup_x + POPUP_TEXT_LEFT
                 text_start_y = popup_y_draw + (layout["condition_y"] if layout else POPUP_TEXT_TOP)
                 line_height = layout["line_height"] if layout else font.get_height() + 4
 

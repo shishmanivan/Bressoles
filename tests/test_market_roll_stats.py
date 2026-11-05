@@ -111,7 +111,12 @@ class MarketRollStatsTests(unittest.TestCase):
 
     def test_locked_report_preserves_journal_and_rebuild_does_not_duplicate_rolls(self):
         _, rolls = self._rolls()
-        with mock.patch("market_roll_stats.write_semicolon_csv_atomically", side_effect=PermissionError("locked")):
+        original_write = __import__("csv_storage").write_semicolon_csv_atomically
+        def write(path, fields, rows):
+            if path == self.summary:
+                raise PermissionError("locked")
+            return original_write(path, fields, rows)
+        with mock.patch("market_roll_stats.write_semicolon_csv_atomically", side_effect=write):
             with self.assertLogs("market_roll_stats", level="ERROR"):
                 self.stats.record(rolls, profile_slot=1)
         self.assertEqual(len(self._read(self.journal)), 3)

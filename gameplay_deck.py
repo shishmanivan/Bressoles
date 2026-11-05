@@ -1,6 +1,6 @@
 import random
 
-from card_catalog import BLUE_CHIPS_CARD_ID, DROP_CARD_IDS
+from card_catalog import BLUE_CHIPS_CARD_ID, DROP_CARD_IDS, RED_REBATE_CARD_ID
 from game_data import REWARD_TOKEN_RANDOM_SILVER
 
 
@@ -283,6 +283,7 @@ def setup_starting_deck_and_hand(
     concentration_active=False,
     concentration_removes_starting_shareholder=True,
     guaranteed_drop_count=0,
+    windfall_active=False,
 ):
     """Build, shuffle, and deal the starting deck/hand for GameplayPage."""
     deck = build_initial_deck(
@@ -311,4 +312,10 @@ def setup_starting_deck_and_hand(
     )
     guaranteed_cards.extend(round_guaranteed_cards or [])
     guaranteed_cards.extend((guaranteed_cards_by_level or {}).get(level_number, []) or [])
+    if windfall_active and any(
+        card == RED_REBATE_CARD_ID and card.deck_origin != "temporary" for card in deck
+    ):
+        if RED_REBATE_CARD_ID in guaranteed_cards:
+            guaranteed_cards.remove(RED_REBATE_CARD_ID)
+        guaranteed_cards.insert(0, RED_REBATE_CARD_ID)
     return deal_starting_hand(deck, hand_size, guaranteed_cards)

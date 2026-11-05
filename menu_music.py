@@ -1,6 +1,9 @@
+from array import array
+from io import BytesIO
 import os
 import threading
 import time
+import wave
 
 import pygame
 
@@ -15,11 +18,41 @@ KOLBE_BOSS_MUSIC_PATH = os.path.join(
     "Music",
     "01 Allegro con brio.flac",
 )
+BOSS_ROUND_MUSIC_PATHS = {
+    3: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Anitas Dance.wav"),
+    9: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Sommernachtstraum.wav"),
+}
 MENU_MUSIC_FADE_MS = 800
 
 
+def build_boss_music_loop(path) -> bytes:
+    """Overlap the ending and opening in PCM so the mixer can loop the seam."""
+    with wave.open(path, "rb") as source:
+        params = source.getparams()
+        rate = params.framerate
+        # Both recordings have a quiet decay and near-silence in the last 3.25 s.
+        end_frame = params.nframes - round(3.25 * rate)
+        if params.sampwidth != 2 or end_frame <= 2 * rate:
+            raise ValueError("Expected a 16-bit WAV with enough audio to crossfade")
+
+        opening = array("h", source.readframes(rate))
+        middle = source.readframes(end_frame - 2 * rate)
+        ending = array("h", source.readframes(rate))
+
+    for index, sample in enumerate(opening):
+        blend = (index // params.nchannels) / (rate - 1)
+        ending[index] = round(ending[index] * (1 - blend) + sample * blend)
+
+    loop = BytesIO()
+    with wave.open(loop, "wb") as output:
+        output.setparams(params)
+        output.writeframesraw(ending.tobytes())
+        output.writeframes(middle)
+    return loop.getvalue()
+
+
 class MenuMusic:
-    """Keep one looping music track active outside gameplay."""
+    """Manage the looping menu and gameplay music."""
 
     def __init__(self, path=DEFAULT_MENU_MUSIC_PATH, fade_ms=MENU_MUSIC_FADE_MS, volume=1.0):
         self.menu_path = path
@@ -33,6 +66,7 @@ class MenuMusic:
         self._target_volume = max(0.0, min(1.0, float(volume)))
         self._fade_generation = 0
         self._lock = threading.Lock()
+        self._boss_loops = {}
 
     def _fade_to(self, target_volume, pause_at_end=False):
         target_volume = max(0.0, min(1.0, float(target_volume)))
@@ -97,7 +131,12 @@ class MenuMusic:
                 self._volume = 0.0
 
             if not self._loaded:
-                pygame.mixer.music.load(requested_path)
+                if requested_path in BOSS_ROUND_MUSIC_PATHS.values():
+                    if requested_path not in self._boss_loops:
+                        self._boss_loops[requested_path] = build_boss_music_loop(requested_path)
+                    pygame.mixer.music.load(BytesIO(self._boss_loops[requested_path]), "wav")
+                else:
+                    pygame.mixer.music.load(requested_path)
                 pygame.mixer.music.set_volume(0.0)
                 pygame.mixer.music.play(-1)
                 self.path = requested_path
@@ -119,7 +158,7 @@ class MenuMusic:
                 pygame.mixer.music.play(-1)
                 self._volume = 0.0
                 self._fade_to(self._target_volume)
-        except (OSError, pygame.error) as error:
+        except (OSError, ValueError, wave.Error, pygame.error) as error:
             self._disabled = True
             print(f"WARNING: Menu music could not be played: {error}")
 

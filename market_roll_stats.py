@@ -3,6 +3,7 @@
 The append-only journal is authoritative; the small summary is rebuildable.
 No calls to the game's random generator are made here.
 """
+import disk_storage
 
 import csv
 from datetime import datetime, timezone
@@ -42,7 +43,7 @@ class MarketRollStats:
 
     def _file_signature(self):
         try:
-            stat = os.stat(self.rolls_file)
+            stat = disk_storage.disk_operation(lambda: os.stat(self.rolls_file), missing_ok=True)
             return stat.st_size, stat.st_mtime_ns
         except FileNotFoundError:
             return 0, 0
@@ -67,7 +68,7 @@ class MarketRollStats:
             return
         self._groups = {}
         if signature[0]:
-            with open(self.rolls_file, encoding="utf-8-sig", newline="") as source:
+            with disk_storage.open_text(self.rolls_file, encoding="utf-8-sig", newline="") as source:
                 reader = csv.DictReader(source, delimiter=";")
                 if reader.fieldnames != FIELDS:
                     raise ValueError("Unexpected market roll journal schema")
@@ -112,15 +113,13 @@ class MarketRollStats:
             })
         try:
             self._load_if_changed()
-            needs_header = self._signature[0] == 0
-            os.makedirs(os.path.dirname(self.rolls_file) or ".", exist_ok=True)
-            with open(self.rolls_file, "a", encoding="utf-8-sig", newline="") as target:
-                writer = csv.DictWriter(target, fieldnames=FIELDS, delimiter=";")
-                if needs_header:
-                    writer.writeheader()
-                writer.writerows(rows)
-                target.flush()
-                os.fsync(target.fileno())
+            # Rewrite a fixed snapshot atomically: retrying an append after a
+            # failed flush could duplicate a partially committed batch.
+            previous = []
+            if self._signature[0]:
+                with disk_storage.open_text(self.rolls_file, encoding="utf-8-sig", newline="") as source:
+                    previous = list(csv.DictReader(source, delimiter=";"))
+            write_semicolon_csv_atomically(self.rolls_file, FIELDS, previous + rows)
             self._add_rows(rows)
             self._signature = self._file_signature()
             self.rebuild_summary()

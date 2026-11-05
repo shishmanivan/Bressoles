@@ -4,6 +4,7 @@ Card IDs, save data, names entered by players and game rules are never translate
 The active locale is changed only by the main application, not by catalog reads.
 """
 import csv
+import disk_storage
 import json
 import re
 from functools import lru_cache
@@ -35,11 +36,11 @@ def translate(text):
 def _catalog(language):
     path = Path(__file__).parent / 'locales' / 'ui.json'
     data = {}
-    with (path.parent.parent / 'Lang.csv').open(encoding='utf-8-sig', newline='') as source:
+    with disk_storage.open_text(path.parent.parent / 'Lang.csv', encoding='utf-8-sig', newline='') as source:
         for row in csv.DictReader(source, delimiter=';'):
             for code in SUPPORTED_LANGUAGES:
                 data[row[code]] = row[language]
-    for row in json.loads(path.read_text(encoding='utf-8')):
+    for row in json.loads(disk_storage.read_text(path)):
         for code in ('Source', *SUPPORTED_LANGUAGES):
             data[row[code]] = row[language]
     templates = []
