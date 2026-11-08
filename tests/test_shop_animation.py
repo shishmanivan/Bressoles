@@ -10,6 +10,26 @@ from shop_page import ShopPage
 
 
 class ShopAnimationTests(unittest.TestCase):
+    def test_hover_click_survives_purchase_and_reentry(self):
+        page = self.make_page()
+        page._offer_animation = None
+        page.sold_offer_indexes = set()
+        page.card_hover_sound = Mock()
+        page.mouse_pos = Mock(return_value=(450, 400))
+        page._update_offer_hover_sound()
+        page._update_offer_hover_sound()
+        self.assertEqual(page.card_hover_sound.play.call_count, 1)
+        page.sold_offer_indexes.add(0)
+        page._update_offer_hover_sound()
+        page.mouse_pos.return_value = (850, 400)
+        page._update_offer_hover_sound()
+        self.assertEqual(page.card_hover_sound.play.call_count, 2)
+        page.mouse_pos.return_value = (100, 100)
+        page._update_offer_hover_sound()
+        page.mouse_pos.return_value = (850, 400)
+        page._update_offer_hover_sound()
+        self.assertEqual(page.card_hover_sound.play.call_count, 3)
+
     def make_page(self):
         page = ShopPage.__new__(ShopPage)
         page.screen = pygame.Surface((1680, 1050), pygame.SRCALPHA)

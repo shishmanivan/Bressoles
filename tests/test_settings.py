@@ -28,6 +28,7 @@ class MusicSettingsTests(unittest.TestCase):
             mock.patch("menu_music.time.sleep"),
         ):
             music.play(track)
+            player.set_volume.assert_called_with(0.7)
             music.return_to_menu()
             self.assertEqual(music.path, track)
             player.stop.assert_not_called()
@@ -92,7 +93,7 @@ class MusicSettingsTests(unittest.TestCase):
 
         self.assertEqual(music.volume, 0.4)
         self.assertEqual(music._volume, 0.4)
-        set_volume.assert_called_once_with(0.4)
+        set_volume.assert_called_once_with(0.4 * 0.7)
 
     def test_slider_updates_volume_and_callback(self):
         changed = []

@@ -4,6 +4,7 @@ from next_button import create_next_button
 from localization import get_language, translate as _tr
 import os
 import sys
+from gameplay_hand_hover import HAND_HOVER_SCALE
 
 import native_render as pygame
 
@@ -12,7 +13,7 @@ from game_stats import get_level_run_losses
 from deck_view import CARD_SIZE, deck_layout, draw_grid, draw_panel, draw_scrollbar, panel_rect
 import profile_manager
 from asset_loaders import load_scaled_image
-from sound_assets import load_button_sound, load_sound
+from sound_assets import load_button_sound, load_sound, load_card_hover_sound
 from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT,
                                FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT,
                                INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT, TutorialHint)
@@ -445,6 +446,12 @@ class ShopPage(AdaptivePage):
         self._offer_label_surface_cache = {}
         self.offer_rects = self._build_offer_rects()
         self.offer_drop_sound = load_sound(os.path.join("Sounds", "Drop Var.wav"))
+        self.sold_stamp = self._load_image(os.path.join("Shop", "Other", "SoldStamp.png"))
+        self.purchase_stamp_sound = load_sound(os.path.join("Sounds", "Stamp.wav"))
+        self._purchase_stamps = {}
+        self.card_hover_sound = load_card_hover_sound()
+        self._hovered_offer = None
+        self._pending_assortment = None
         self._offer_animation = {
             "started": None, "outgoing": [],
             "incoming": list(range(len(self.offers))), "sounded": set(),
@@ -719,8 +726,14 @@ class ShopPage(AdaptivePage):
 
     def _draw_offer(self, index, offer, rect, *, image_offset_y=0, show_details=True):
         image = self._offer_image(offer)
+        stamp_age = pygame.time.get_ticks() - getattr(self, "_purchase_stamps", {}).get(id(offer), -10000)
+        if image is not None and show_details and index not in self.sold_offer_indexes and self._offer_at(self.mouse_pos()) == index:
+            image = pygame.transform.smoothscale(image, tuple(round(v * HAND_HOVER_SCALE) for v in image.get_size()))
         image_rect = image.get_rect() if image else pygame.Rect(0, 0, *self.offer_image_box)
         image_rect.center = (rect.centerx, rect.y + 148 + image_offset_y)
+        if 170 <= stamp_age < 350:
+            from gameplay_page import GameplayPage
+            image_rect.move_ip(*GameplayPage._get_finance_report_shake("flying", stamp_age - 170))
         if image:
             self.screen.blit(image, image_rect.topleft)
 
@@ -731,11 +744,18 @@ class ShopPage(AdaptivePage):
             self._draw_coin_amount(offer.get("cost", 0), (rect.centerx, rect.y + 360), self.small_font)
 
         if index in self.sold_offer_indexes:
-            overlay = pygame.Surface(image_rect.size, pygame.SRCALPHA)
-            overlay.fill((238, 228, 205, 190))
-            self.screen.blit(overlay, image_rect.topleft)
-            sold = self.small_font.render(_tr("Куплено"), True, SOLD_COLOR)
-            self.screen.blit(sold, sold.get_rect(center=image_rect.center))
+            self._draw_sold_stamp(image_rect, stamp_age)
+        elif stamp_age < 500:
+            self._draw_sold_stamp(image_rect, stamp_age)
+
+    def _draw_sold_stamp(self, rect, age):
+        stamp = getattr(self, "sold_stamp", None)
+        if stamp is None:
+            return
+        scale = 1 + 1.4 * (1 - min(1, max(0, age) / 170)) ** 2
+        width = max(1, round(rect.width * .88 * scale))
+        mark = pygame.transform.smoothscale(stamp, (width, max(1, round(width * stamp.get_height() / stamp.get_width()))))
+        self.screen.blit(mark, mark.get_rect(center=rect.center))
 
     def _offer_at(self, pos):
         if getattr(self, "_offer_animation", None) is not None:
@@ -744,6 +764,16 @@ class ShopPage(AdaptivePage):
             if index < len(self.offers) and rect.collidepoint(pos):
                 return index
         return None
+
+    def _update_offer_hover_sound(self):
+        index = self._offer_at(self.mouse_pos())
+        offer = (self.offers[index] if index is not None
+                 and index not in self.sold_offer_indexes else None)
+        if offer is not None and offer is not getattr(self, "_hovered_offer", None):
+            sound = getattr(self, "card_hover_sound", None)
+            if sound is not None:
+                sound.play()
+        self._hovered_offer = offer
 
     def _capture_offer_layout(self):
         if not hasattr(self, "_offer_animation"):
@@ -921,12 +951,34 @@ class ShopPage(AdaptivePage):
         return purchased
 
     def _buy_offer(self, index, *, refresh_expansion=True, refresh_diversification=True):
+        if not hasattr(self, "_purchase_stamps"):
+            return self._perform_buy_offer(index, refresh_expansion=refresh_expansion, refresh_diversification=refresh_diversification)
+        if self._pending_assortment or index >= len(self.offers):
+            return
+        offer = self.offers[index]
+        self._purchase_paid = False
+        self._perform_buy_offer(index, refresh_expansion=False, refresh_diversification=False)
+        if self._purchase_paid:
+            now = pygame.time.get_ticks()
+            self._purchase_stamps[id(offer)] = now
+            if self.purchase_stamp_sound:
+                self.purchase_stamp_sound.play()
+            special = offer.get("special_id")
+            if (special == "expansion" and refresh_expansion) or (special == "diversification" and refresh_diversification):
+                self._pending_assortment = (now + 500, special)
+
+    def _charge_offer(self, cost):
+        game_state.spend_napoleondors(cost)
+        self._purchase_paid = True
+
+    def _perform_buy_offer(self, index, *, refresh_expansion=True, refresh_diversification=True):
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
         if offer.get("kind") in ("card", "license"):
             purchase = buy_card_or_license(self.level_number, offer)
             if purchase.purchased:
+                self._purchase_paid = True
                 self._sync_balance()
             if purchase.offer_exhausted:
                 self.sold_offer_indexes.add(index)
@@ -956,7 +1008,7 @@ class ShopPage(AdaptivePage):
                 self.message = ""
                 return
             if game_state.invest_gain_drop_card(selected_card, self.level_number):
-                game_state.spend_napoleondors(cost)
+                self._charge_offer(cost)
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
                 amount = game_state.get_investment_upgrade_amount()
@@ -982,7 +1034,7 @@ class ShopPage(AdaptivePage):
             if selected_card not in candidates or not game_state.buy_moratorium(selected_card, self.level_number):
                 self.message = "Мораторий недоступен"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = f"Мораторий: {CARD_NAMES.get(selected_card, selected_card)}. Осталось: 20 забегов."
@@ -993,7 +1045,7 @@ class ShopPage(AdaptivePage):
                 self.message = ""
                 return
             if game_state.remove_card_from_level_deck(self.level_number, selected_card):
-                game_state.spend_napoleondors(cost)
+                self._charge_offer(cost)
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
                 self.message = "Карта удалена"
@@ -1015,7 +1067,7 @@ class ShopPage(AdaptivePage):
             return
 
         if special_id == "profit":
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             game_state.buy_profit_bonus()
             self._sync_balance()
             self.sold_offer_indexes.add(index)
@@ -1027,7 +1079,7 @@ class ShopPage(AdaptivePage):
             if not received_cards:
                 self.message = "Нужно два свободных места"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             cards_text = ", ".join(str(card_id) for card_id in received_cards)
@@ -1035,7 +1087,7 @@ class ShopPage(AdaptivePage):
             return
 
         if special_id == "bailout":
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             game_state.buy_bailout()
             self._sync_balance()
             self.sold_offer_indexes.add(index)
@@ -1045,7 +1097,7 @@ class ShopPage(AdaptivePage):
         if special_id == "flash_issue":
             if not game_state.buy_flash_issue(self.level_number):
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = SPECIAL_DESCRIPTIONS["flash_issue"]
@@ -1054,7 +1106,7 @@ class ShopPage(AdaptivePage):
         if special_id == "price_cut":
             if not game_state.buy_price_cut(self.level_number):
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = SPECIAL_DESCRIPTIONS["price_cut"]
@@ -1074,14 +1126,14 @@ class ShopPage(AdaptivePage):
                 self.message = "Уже активны два Long"
                 self.sold_offer_indexes.add(index)
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Long активирован"
             return
 
         if special_id == "junk_bond":
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             outcome = game_state.resolve_junk_bond(self.level_number)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
@@ -1096,7 +1148,7 @@ class ShopPage(AdaptivePage):
             if new_slot_limit is None:
                 self.sold_offer_indexes.add(index)
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = f"Открыто слотов: {new_slot_limit}"
@@ -1106,7 +1158,7 @@ class ShopPage(AdaptivePage):
             if not game_state.buy_bank_offer():
                 self.sold_offer_indexes.add(index)
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Банк открыт"
@@ -1124,14 +1176,14 @@ class ShopPage(AdaptivePage):
                 self.message = "Нет доступных золотых карт"
                 self.sold_offer_indexes.add(index)
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Карта добавлена"
             return
 
         if special_id == "variance":
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             game_state.buy_variance_offer(1)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
@@ -1139,7 +1191,7 @@ class ShopPage(AdaptivePage):
             return
 
         if special_id == "deal_flow":
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             bonus = game_state.buy_deal_flow()
             self._sync_balance()
             self.sold_offer_indexes.add(index)
@@ -1151,7 +1203,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Диверсификация уже куплена"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             card_count = game_state.get_shop_card_offer_slots(self.level_number)
@@ -1166,7 +1218,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Экспансия уже куплена"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "В магазине теперь больше предложений"
@@ -1179,7 +1231,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Вексель уже куплен"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self._refresh_current_shop_prices()
@@ -1191,7 +1243,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Disclousure уже действует"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Вероятности открыты на 5 раундов"
@@ -1200,7 +1252,7 @@ class ShopPage(AdaptivePage):
         if special_id == "price_support":
             if not game_state.buy_price_support():
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = SPECIAL_DESCRIPTIONS["price_support"]
@@ -1209,7 +1261,7 @@ class ShopPage(AdaptivePage):
         if special_id == "protective_put":
             if not game_state.buy_protective_put(self.level_number):
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = SPECIAL_DESCRIPTIONS["protective_put"]
@@ -1220,7 +1272,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Compounding уже куплен"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Инвестиции теперь усиливают карты на 2"
@@ -1243,7 +1295,7 @@ class ShopPage(AdaptivePage):
             if game_state.buy_replication_card(selected_card) is None:
                 self.message = "Карта недоступна"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Серебряная карта добавлена"
@@ -1266,7 +1318,7 @@ class ShopPage(AdaptivePage):
             if game_state.buy_replication_plus_card(selected_card) is None:
                 self.message = "Карта недоступна"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Золотая карта добавлена"
@@ -1288,7 +1340,7 @@ class ShopPage(AdaptivePage):
             if game_state.buy_mirroring_card(self.level_number, selected_card) is None:
                 self.message = "Карта недоступна"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Карта продублирована"
@@ -1302,7 +1354,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Удержание недоступно"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Удержание активно до победы над боссом"
@@ -1331,7 +1383,7 @@ class ShopPage(AdaptivePage):
                 return
             if not self._activate_free_special_offer(selected_offer):
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             return
@@ -1341,7 +1393,7 @@ class ShopPage(AdaptivePage):
                 self.sold_offer_indexes.add(index)
                 self.message = "Сохранение капитала уже куплено"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Золотые карты защищены"
@@ -1369,7 +1421,7 @@ class ShopPage(AdaptivePage):
             if not sold_cards:
                 self.message = "Карта недоступна"
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = (
@@ -1382,7 +1434,7 @@ class ShopPage(AdaptivePage):
             if not game_state.is_derivative_offer_available():
                 self.sold_offer_indexes.add(index)
                 return
-            game_state.spend_napoleondors(cost)
+            self._charge_offer(cost)
             if game_state.buy_derivative_hand_bonus() is None:
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
@@ -1396,6 +1448,13 @@ class ShopPage(AdaptivePage):
 
     @adaptive_draw
     def draw(self):
+        pending = getattr(self, "_pending_assortment", None)
+        if pending and pygame.time.get_ticks() >= pending[0]:
+            self._pending_assortment = None
+            if pending[1] == "expansion":
+                self._add_expansion_offer()
+            else:
+                self._add_diversification_card()
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
 
@@ -1413,6 +1472,7 @@ class ShopPage(AdaptivePage):
             "license": "Лицензии",
             "investment": "Инвестиции",
         }
+        self._update_offer_hover_sound()
         self._draw_animated_offers()
         for kind, rect in getattr(self, "category_rects", []):
             sign = self._category_sign(kind, rect)

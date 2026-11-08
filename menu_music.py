@@ -30,6 +30,7 @@ BOSS_MUSIC_TAIL_TRIM_SECONDS = {
 }
 MENU_MUSIC_FADE_MS = 800
 ROUND_END_FADE_MS = 2400
+MUSIC_VOLUME_SCALE = 0.7
 
 
 def build_boss_music_loop(path) -> bytes:
@@ -133,7 +134,7 @@ class MenuMusic:
                     progress = progress * progress * (3 - 2 * progress)
                     volume = start_volume + (target_volume - start_volume) * progress
                     try:
-                        pygame.mixer.music.set_volume(volume)
+                        pygame.mixer.music.set_volume(volume * MUSIC_VOLUME_SCALE)
                     except pygame.error:
                         return
                     self._volume = volume
@@ -226,7 +227,7 @@ class MenuMusic:
                 return target_volume
             self._fade_generation += 1
             try:
-                pygame.mixer.music.set_volume(target_volume)
+                pygame.mixer.music.set_volume(target_volume * MUSIC_VOLUME_SCALE)
                 self._volume = target_volume
             except pygame.error:
                 pass
