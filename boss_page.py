@@ -31,12 +31,12 @@ ANIMATION_SCALE_OVERRIDES = {
     "9_Laffitte": 0.95,
 }
 _boss_animation_frames_cache = {}
-POPUP_SIZE = (500, 750)
-POPUP_FONT_MAX_SIZE = 28
+POPUP_SIZE = (380, 450)
+POPUP_FONT_MAX_SIZE = 24
 POPUP_FONT_MIN_SIZE = 14
-POPUP_TEXT_TOP = 225
-POPUP_TEXT_BOTTOM_PADDING = 75
-POPUP_TEXT_LEFT = 30
+POPUP_TEXT_TOP = 171
+POPUP_TEXT_BOTTOM_PADDING = 45
+POPUP_TEXT_LEFT = 24
 POPUP_TEXT_WIDTH = POPUP_SIZE[0] - 2 * POPUP_TEXT_LEFT
 
 
@@ -191,6 +191,24 @@ def normalize_boss_animation_frame(frame_image, base_name):
     return canvas
 
 
+def load_boss_popup_image():
+    # Keep the masthead and character proportional; shorten only blank paper.
+    original_size = (POPUP_SIZE[0], POPUP_SIZE[0] * 3 // 2)
+    source = load_scaled_image(
+        os.path.join("Bosses", "PopUp.png"), target_size=original_size,
+        warning_message="WARNING: PopUp.png not found:",
+    )
+    if source is None:
+        return None
+    image = pygame.Surface(POPUP_SIZE, pygame.SRCALPHA)
+    footer_height = 65
+    seam = POPUP_SIZE[1] - footer_height
+    image.blit(source.subsurface((0, 0, POPUP_SIZE[0], seam)), (0, 0))
+    image.blit(source.subsurface((0, original_size[1] - footer_height,
+                                   POPUP_SIZE[0], footer_height)), (0, seam))
+    return image
+
+
 def build_boss_popup_text_layout(font_path, popup_height, condition_text, reward_header, reward_text):
     last_layout = None
     for font_size in range(POPUP_FONT_MAX_SIZE, POPUP_FONT_MIN_SIZE - 1, -1):
@@ -328,18 +346,13 @@ class BossPage(AdaptivePage):
         self.animation_frame_duration = 100
         self.boss_hover_states = {}
 
-        popup_path = os.path.join("Bosses", "PopUp.png")
-        self.popup_image = load_scaled_image(
-            popup_path,
-            target_size=POPUP_SIZE,
-            warning_message="WARNING: PopUp.png not found:",
-        )
+        self.popup_image = load_boss_popup_image()
 
         self.popup_hidden_y = -float(self.popup_image.get_height()) - 50.0 if self.popup_image else -400.0
         self.popup_y = float(self.popup_hidden_y)
         self.popup_x = 0
         self.popup_target_y = float(self.popup_hidden_y)
-        self.popup_speed_pps = 1400.0
+        self.popup_speed_pps = 6000.0
         self._popup_last_tick = pygame.time.get_ticks()
         self.current_hovered_boss_index = None
         self.popup_boss_index = None

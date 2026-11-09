@@ -1363,7 +1363,7 @@ class LifecycleEffectTests(unittest.TestCase):
         self.assertTrue(page._start_next_price_animation(now=100))
         self.assertEqual(page.Aprice, 72)
 
-    def test_advance_doubles_owned_markets_and_uses_catalyst_bonus(self):
+    def test_advance_multiplies_owned_markets_by_one_point_five_and_uses_catalyst_bonus(self):
         page = self._page(silver=[210], gold=[420])
         page.Aquantity, page.Bquantity, page.Cquantity = 2, 0, 1
         page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
@@ -1389,7 +1389,7 @@ class LifecycleEffectTests(unittest.TestCase):
         )
         page.price_animation_queue = movements
         self.assertTrue(page._start_next_price_animation(now=100))
-        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (20, 20, 60))
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (15, 20, 45))
         page._start_card_jump_animation.assert_called_once_with(
             page.lifecycle_card_jump_animations,
             1,
@@ -1414,7 +1414,7 @@ class LifecycleEffectTests(unittest.TestCase):
 
         roll.assert_not_called()
 
-    def test_duplicate_advance_rolls_and_doubles_independently(self):
+    def test_duplicate_advance_rolls_and_multiplies_independently(self):
         page = self._page(gold=[420, 420])
         page.Aquantity, page.Bquantity, page.Cquantity = 1, 0, 0
         page.Aprice = page.BPrice = page.CPrice = 10
@@ -1430,7 +1430,7 @@ class LifecycleEffectTests(unittest.TestCase):
         page.price_animation_queue = movements
         self.assertTrue(page._start_next_price_animation(now=100))
         self.assertTrue(page._start_next_price_animation(now=200))
-        self.assertEqual(page.Aprice, 40)
+        self.assertEqual(page.Aprice, 22)
 
     def test_sideway_rewards_all_flat_base_market_results_once(self):
         page = self._page(gold=[416])

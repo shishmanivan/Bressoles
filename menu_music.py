@@ -19,14 +19,26 @@ KOLBE_BOSS_MUSIC_PATH = os.path.join(
     "01 Allegro con brio.flac",
 )
 BOSS_ROUND_MUSIC_PATHS = {
+    1: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Tch 35-B -First Boss.wav"),
     2: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Romanze Opus40.wav"),
     3: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Anitas Dance.wav"),
     4: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "DvorakSymph7.wav"),
+    5: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 2.wav"),
+    6: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 4.wav"),
     9: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Sommernachtstraum.wav"),
+    10: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Violin Concerto 2.wav"),
+    15: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Opus 50.wav"),
+    16: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Elegy Tchaikovsky.wav"),
 }
 BOSS_MUSIC_TAIL_TRIM_SECONDS = {
+    BOSS_ROUND_MUSIC_PATHS[1]: 0.0,
     BOSS_ROUND_MUSIC_PATHS[2]: 2.25,
     BOSS_ROUND_MUSIC_PATHS[4]: 2.75,
+    BOSS_ROUND_MUSIC_PATHS[5]: 2.5,
+    BOSS_ROUND_MUSIC_PATHS[6]: 2.5,
+    BOSS_ROUND_MUSIC_PATHS[10]: 2.75,
+    BOSS_ROUND_MUSIC_PATHS[15]: 4.25,
+    BOSS_ROUND_MUSIC_PATHS[16]: 5.5,
 }
 MENU_MUSIC_FADE_MS = 800
 ROUND_END_FADE_MS = 2400

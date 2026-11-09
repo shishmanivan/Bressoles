@@ -102,7 +102,7 @@ class WhitneyBossTests(unittest.TestCase):
             self.assertFalse(game_state.is_disclosure_active())
 
     def test_disclosure_offers_and_gold_card_excluded_only_after_reward(self):
-        config = {427: {"Type": 5, "Open": 1, "Variable": "100"}}
+        config = {427: {"Type": 5, "Open": 1, "Variable": "10"}}
         pools = (
             game_state.build_gold_cards_pool,
             game_state.build_open_gold_cards_pool,
@@ -118,6 +118,7 @@ class WhitneyBossTests(unittest.TestCase):
             mock.patch.object(game_state, "load_cards_config", return_value=config),
             mock.patch.object(game_state, "get_bought_shop_card_ids", return_value=set()),
             mock.patch.object(game_state, "get_active_moratoriums", return_value=[]),
+            mock.patch.object(game_state.random, "randint", return_value=1),
         ):
             self.assertTrue(game_state.is_disclosure_offer_available())
             for pool in pools:

@@ -223,7 +223,7 @@ FIELD_CARD_TOOLTIPS.update(LIFECYCLE_CARD_TOOLTIPS)
 DISCLOSURE_CARD_TOOLTIPS = {
     302: (
         "Golden Stocks",
-        "В конце победного раунда может дать случайную золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
+        "В конце победного раунда может дать случайную редкую золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
     ),
     407: (
         "Rebate",
@@ -3561,6 +3561,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
     def _get_probability_amplifier_bonus(self):
         return self._get_percentage_amplifier_bonus() + self._get_disclosure_probability_bonus()
 
+    def _get_advance_chance(self):
+        return min(100, GOLD_ADVANCE_BASE_CHANCE + self._get_probability_amplifier_bonus())
+
     def _get_waterloo_chance(self):
         return min(100, GOLD_WATERLOO_BASE_CHANCE + self._get_probability_amplifier_bonus())
 
@@ -5493,7 +5496,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return True
 
     def _build_advance_movements(self):
-        """Gold card 420: possibly double every market in which the player owns shares."""
+        """Gold card 420: possibly multiply owned stock prices by 1.5."""
         advance_slots = []
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
@@ -5512,7 +5515,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if not owned_markets:
             return []
 
-        chance = min(100, GOLD_ADVANCE_BASE_CHANCE + self._get_probability_amplifier_bonus())
+        chance = self._get_advance_chance()
         movements = []
         for slot in advance_slots:
             roll = random.randint(1, 100)
@@ -5561,13 +5564,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self._start_card_jump_animation(self.lifecycle_card_jump_animations, advance_slot)
             for market in target_markets:
                 if market == 0:
-                    self.Aprice = max(2, int(self.Aprice or 0) * 2)
+                    self.Aprice = max(2, int(round(int(self.Aprice or 0) * 1.5)))
                 elif market == 1:
-                    self.BPrice = max(2, int(self.BPrice or 0) * 2)
+                    self.BPrice = max(2, int(round(int(self.BPrice or 0) * 1.5)))
                 elif market == 2:
-                    self.CPrice = max(2, int(self.CPrice or 0) * 2)
+                    self.CPrice = max(2, int(round(int(self.CPrice or 0) * 1.5)))
             print(
-                "Gold card 420 Advance doubled owned stock prices: "
+                "Gold card 420 Advance multiplied owned stock prices by 1.5: "
                 f"markets={list(target_markets)}, A={self.Aprice}, B={self.BPrice}, C={self.CPrice}"
             )
         else:
@@ -7423,6 +7426,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         except (TypeError, ValueError):
             return None
 
+        if normalized == 420:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            return title, f"{description} Сейчас {self._get_advance_chance()}%"
         if normalized == 410:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             detail = f"Сейчас {self._get_uptrend_rebate_bonus_percent()}%"

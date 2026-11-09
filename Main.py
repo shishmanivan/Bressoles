@@ -174,7 +174,7 @@ def main():
     def run_gameplay(gameplay_page):
         boss_number = get_boss_number_from_filename(getattr(gameplay_page, "boss_filename", None))
         music_path = BOSS_ROUND_MUSIC_PATHS.get(boss_number)
-        if boss_number == 7 and getattr(gameplay_page, "is_boss_fight", False):
+        if boss_number == 7:
             music_path = KOLBE_BOSS_MUSIC_PATH
         if music_path:
             menu_music.play(music_path)

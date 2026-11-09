@@ -358,6 +358,30 @@ class SilverRewardPoolTests(RewardPoolTestCase):
         self.assertEqual(gameplay.last_earned_cards, [100])
 
 
+class GoldRewardPoolTests(RewardPoolTestCase):
+    def test_golden_stocks_uses_base_chance_and_preserves_availability_rules(self):
+        cards = {
+            401: {"Open": 1, "Variable": "11"},
+            402: {"Open": 1, "Variable": "10"},
+            403: {"Open": 1, "Variable": "5"},
+            404: {"Open": 1, "Variable": "0"},
+            405: {"Open": 0, "Variable": "5"},
+            406: {"Open": 1, "Variable": "5"},
+            407: {"Open": 1, "Variable": "5"},
+            408: {"Open": 1, "Variable": None},
+            410: {"Open": 1, "Variable": "5"},
+        }
+        with (
+            mock.patch.object(game_state, "load_cards_config", return_value=cards),
+            mock.patch.object(game_state, "get_bought_shop_card_ids", return_value={406}),
+            mock.patch.object(game_state, "get_active_moratoriums", return_value=[407]),
+            mock.patch.object(game_state, "get_boss_rare_card_pool_bonus", return_value=10),
+            mock.patch.object(game_state.random, "randint") as roll,
+        ):
+            self.assertEqual(game_state.build_golden_stocks_reward_pool(4), [402, 403])
+        roll.assert_not_called()
+
+
 class RewardSelectionTests(RewardPoolTestCase):
     def test_gain_drop_reward_lists_use_the_declared_weights(self):
         with mock.patch.object(

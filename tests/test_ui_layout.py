@@ -606,7 +606,7 @@ class UiLayoutTests(unittest.TestCase):
 
     def test_all_localized_boss_popup_text_fits_the_newspaper_card(self):
         popup_height = POPUP_SIZE[1]
-        for language in ("RU", "ENG"):
+        for language in ("RU", "ENG", "DE", "HU", "FR"):
             lang = load_language(language)
             for boss_number in range(1, 11):
                 with self.subTest(language=language, boss=boss_number):
@@ -617,7 +617,7 @@ class UiLayoutTests(unittest.TestCase):
                         lang["PopUpReward"],
                         lang[f"Boss{boss_number}Reward"],
                     )
-                    self.assertGreaterEqual(layout["font_size"], 18)
+                    self.assertEqual(layout["font_size"], 24)
                     self.assertLessEqual(
                         layout["content_bottom"],
                         popup_height - POPUP_TEXT_BOTTOM_PADDING,

@@ -149,6 +149,7 @@ SHOP_PRICE_STEP = 0.5
 GOLDEN_STOCKS_CARD_ID = 302
 GOLDEN_STOCKS_BASE_CHANCE = 15
 GOLDEN_STOCKS_MISS_INCREASE = 2
+GOLDEN_STOCKS_MAX_POOL_CHANCE = 10
 GOLDEN_STOCKS_AUDIT_PATH = Path(__file__).resolve().with_name("GoldenStockChecks.log")
 LOAN_PAYOUT = 5
 LOAN_MAX_PER_RUN = 2
@@ -1784,8 +1785,8 @@ def reset_golden_stocks_for_run():
     golden_stocks_triggered = False
 
 
-def build_open_gold_cards_pool(level_number=None):
-    """Return every open gold card, without applying Cards.csv Variable chance."""
+def build_open_gold_cards_pool(level_number=None, *, max_pool_chance=None):
+    """Return open gold cards without rolling for inclusion, optionally filtered by base chance."""
     cfg = load_cards_config() or {}
     pool = []
     for card_id, row in cfg.items():
@@ -1801,17 +1802,27 @@ def build_open_gold_cards_pool(level_number=None):
             is_open = int(row.get("Open") if isinstance(row, dict) else 0) == 1
         except (TypeError, ValueError):
             is_open = False
-        if is_open:
-            pool.append(cid)
+        if not is_open:
+            continue
+        if max_pool_chance is not None:
+            try:
+                pool_chance = int(row.get("Variable"))
+            except (TypeError, ValueError):
+                continue
+            if not 0 < pool_chance <= max_pool_chance:
+                continue
+        pool.append(cid)
     return sorted(set(pool))
 
 
 def build_golden_stocks_reward_pool(level_number=None):
-    """Return open gold cards not already bought or awarded this run."""
+    """Return rare open gold cards not already bought or awarded this run."""
     unavailable = get_bought_shop_card_ids()
     return [
         card_id
-        for card_id in build_open_gold_cards_pool(level_number)
+        for card_id in build_open_gold_cards_pool(
+            level_number, max_pool_chance=GOLDEN_STOCKS_MAX_POOL_CHANCE
+        )
         if card_id not in unavailable
     ]
 
@@ -1840,7 +1851,7 @@ def resolve_golden_stocks_round(
 
     pool = build_golden_stocks_reward_pool(level_number)
     if not pool:
-        print("Golden Stocks skipped: no available gold cards.")
+        print("Golden Stocks skipped: no available rare gold cards.")
         return None
 
     base_chance = get_golden_stocks_chance_percent()

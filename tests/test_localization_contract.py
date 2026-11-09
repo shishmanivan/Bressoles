@@ -93,8 +93,11 @@ class LocalizationContractTests(unittest.TestCase):
         self.assertIn("level six unlocked", reward_text)
         self.assertNotIn("seven", reward_text)
         self.assertNotIn("eight", reward_text)
-        self.assertIn("commission", page._get_final_boss_reward_text().lower())
-        self.assertIn("4 silver, black, or gold cards", page._get_final_boss_reward_text().lower())
+        self.assertNotIn("commission", reward_text)
+        self.assertNotIn("25%", reward_text)
+        self.assertNotIn("«Комиссия»", russian["RewardLevel5FinalBoss"])
+        self.assertNotIn("25%", russian["RewardLevel5FinalBoss"])
+        self.assertIn("4 silver, black, or gold cards", reward_text)
         self.assertIn("магазин с самого начала предлагает две карты", russian["RewardLevel5FinalBoss"])
         self.assertIn("shops offer two cards for sale from the start", english["RewardLevel5FinalBoss"])
 
