@@ -1,9 +1,6 @@
-from array import array
-from io import BytesIO
 import os
 import threading
 import time
-import wave
 
 import pygame
 
@@ -18,64 +15,24 @@ KOLBE_BOSS_MUSIC_PATH = os.path.join(
     "Music",
     "01 Allegro con brio.flac",
 )
+# The Ogg files contain the prepared loop transitions.
 BOSS_ROUND_MUSIC_PATHS = {
-    1: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Tch 35-B -First Boss.wav"),
-    2: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Romanze Opus40.wav"),
-    3: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Anitas Dance.wav"),
-    4: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "DvorakSymph7.wav"),
-    5: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 2.wav"),
-    6: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 4.wav"),
-    9: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Sommernachtstraum.wav"),
-    10: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Violin Concerto 2.wav"),
-    15: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Opus 50.wav"),
-    16: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Elegy Tchaikovsky.wav"),
-}
-BOSS_MUSIC_TAIL_TRIM_SECONDS = {
-    BOSS_ROUND_MUSIC_PATHS[1]: 0.0,
-    BOSS_ROUND_MUSIC_PATHS[2]: 2.25,
-    BOSS_ROUND_MUSIC_PATHS[4]: 2.75,
-    BOSS_ROUND_MUSIC_PATHS[5]: 2.5,
-    BOSS_ROUND_MUSIC_PATHS[6]: 2.5,
-    BOSS_ROUND_MUSIC_PATHS[10]: 2.75,
-    BOSS_ROUND_MUSIC_PATHS[15]: 4.25,
-    BOSS_ROUND_MUSIC_PATHS[16]: 5.5,
+    1: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Tch 35-B -First Boss.ogg"),
+    2: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Romanze Opus40.ogg"),
+    3: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Anitas Dance.ogg"),
+    4: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "DvorakSymph7.ogg"),
+    5: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Shylock5.ogg"),
+    6: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 4.ogg"),
+    8: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Chaikovsky Serenada.ogg"),
+    9: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Sommernachtstraum.ogg"),
+    10: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Violin Concerto 2.ogg"),
+    13: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Dvorzhak Serenada.ogg"),
+    15: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Opus 50.ogg"),
+    16: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Elegy Tchaikovsky.ogg"),
 }
 MENU_MUSIC_FADE_MS = 800
 ROUND_END_FADE_MS = 2400
-MUSIC_VOLUME_SCALE = 0.7
-
-
-def build_boss_music_loop(path) -> bytes:
-    """Overlap the ending and opening in PCM so the mixer can loop the seam."""
-    with wave.open(path, "rb") as source:
-        params = source.getparams()
-        rate = params.framerate
-        # Keep the end of each musical phrase, trimming its quiet decay before the overlap.
-        trim_seconds = BOSS_MUSIC_TAIL_TRIM_SECONDS.get(os.path.abspath(path), 3.25)
-        end_frame = params.nframes - round(trim_seconds * rate)
-        if params.sampwidth != 2 or end_frame <= 2 * rate:
-            raise ValueError("Expected a 16-bit WAV with enough audio to crossfade")
-
-        opening = array("h", source.readframes(rate))
-        source.setpos(end_frame - rate)
-        ending = array("h", source.readframes(rate))
-
-        for index, sample in enumerate(opening):
-            blend = (index // params.nchannels) / (rate - 1)
-            ending[index] = round(ending[index] * (1 - blend) + sample * blend)
-
-        loop = BytesIO()
-        with wave.open(loop, "wb") as output:
-            output.setparams(params)
-            output.writeframesraw(ending.tobytes())
-            # Copy in chunks so the long Romance does not need a second full PCM buffer.
-            source.setpos(rate)
-            remaining = end_frame - 2 * rate
-            while remaining:
-                count = min(remaining, 4 * rate)
-                output.writeframesraw(source.readframes(count))
-                remaining -= count
-    return loop.getvalue()
+MUSIC_VOLUME_SCALE = 0.49
 
 
 class MenuMusic:
@@ -93,25 +50,19 @@ class MenuMusic:
         self._target_volume = max(0.0, min(1.0, float(volume)))
         self._fade_generation = 0
         self._lock = threading.RLock()
-        self._boss_loops = {}
         self._boss_positions = {}
         self._boss_durations = {}
         self._play_start_offset = 0.0
 
     def _remember_boss_position(self):
         path = self.path
-        if path not in self._boss_loops and path != KOLBE_BOSS_MUSIC_PATH:
+        if path not in BOSS_ROUND_MUSIC_PATHS.values() and path != KOLBE_BOSS_MUSIC_PATH:
             return
         elapsed_ms = pygame.mixer.music.get_pos()
         if elapsed_ms < 0:
             return
         if path not in self._boss_durations:
-            if path in self._boss_loops:
-                with wave.open(BytesIO(self._boss_loops[path]), "rb") as loop:
-                    duration = loop.getnframes() / loop.getframerate()
-            else:
-                duration = pygame.mixer.Sound(path).get_length()
-            self._boss_durations[path] = duration
+            self._boss_durations[path] = pygame.mixer.Sound(path).get_length()
         duration = self._boss_durations[path]
         # get_pos measures elapsed playback, excluding the original seek offset.
         self._boss_positions[path] = (self._play_start_offset + elapsed_ms / 1000) % duration
@@ -196,12 +147,7 @@ class MenuMusic:
                 self._volume = 0.0
 
             if not self._loaded:
-                if requested_path in BOSS_ROUND_MUSIC_PATHS.values():
-                    if requested_path not in self._boss_loops:
-                        self._boss_loops[requested_path] = build_boss_music_loop(requested_path)
-                    pygame.mixer.music.load(BytesIO(self._boss_loops[requested_path]), "wav")
-                else:
-                    pygame.mixer.music.load(requested_path)
+                pygame.mixer.music.load(requested_path)
                 pygame.mixer.music.set_volume(0.0)
                 self._start_playback(requested_path)
                 self.path = requested_path
@@ -223,7 +169,7 @@ class MenuMusic:
                 self._start_playback(requested_path)
                 self._volume = 0.0
                 self._fade_to(self._target_volume)
-        except (OSError, ValueError, wave.Error, pygame.error) as error:
+        except (OSError, ValueError, pygame.error) as error:
             self._disabled = True
             print(f"WARNING: Menu music could not be played: {error}")
 

@@ -342,6 +342,7 @@ windfall_boss_victories = 0
 overvaluation_multiplier = 1
 risk_premium_h_rounds = 0
 golden_stake_shareholder_parity = 0
+bankruptcy_condition_chance = 0
 insurance_goal_debt = 0
 # Unused turns banked by silver card 209 for the immediately following round.
 Frugality = 0
@@ -1271,6 +1272,16 @@ def record_windfall_boss_victory(active_cards=None):
     return True
 
 
+def set_bankruptcy_condition_chance(value):
+    """Store the accumulated chance for the current run."""
+    global bankruptcy_condition_chance
+    try:
+        bankruptcy_condition_chance = max(0, min(100, int(value or 0)))
+    except (TypeError, ValueError):
+        bankruptcy_condition_chance = 0
+    return bankruptcy_condition_chance
+
+
 def get_golden_stake_shareholder_parity():
     try:
         return max(0, int(golden_stake_shareholder_parity or 0)) % 2
@@ -2091,6 +2102,7 @@ def reset_level_attempt(level_number):
     except (TypeError, ValueError):
         level = 0
     _reset_run_bonuses()
+    set_bankruptcy_condition_chance(0)
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
     clear_removed_deck_cards(level_number)
@@ -2137,6 +2149,7 @@ def complete_level_run(level_number):
         level = 0
 
     _reset_run_bonuses()
+    set_bankruptcy_condition_chance(0)
     capital_preservation_bought = False
 
     if level in earned_reward_cards:

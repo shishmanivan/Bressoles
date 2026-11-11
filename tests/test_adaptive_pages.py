@@ -12,7 +12,7 @@ import boss_logic
 from adaptive_page import AdaptivePage, adaptive_draw, content_rect
 from asset_loaders import find_font_path_or_exit
 from boss_page import BossPage
-from round_page import RoundPage
+from round_page import ROUND_BUTTON_PRESS_MS, RoundPage
 from gameplay_page import GameplayPage
 from gameplay_layout import compute_bottom_hand_layout
 from profile_page import ProfilePage
@@ -107,7 +107,17 @@ class AdaptivePagesTests(unittest.TestCase):
                     if isinstance(page, RoundPage):
                         page.round_selections.clear()
                         self.assertIsNotNone(page.button_e_rect)
-                        self.assertEqual(self.click(page, page.button_e_rect.center), "button_e")
+                        self.assertIsNone(self.click(page, page.button_e_rect.center))
+                        self.assertFalse(page.round_selections)
+                        with mock.patch("pygame.event.get", return_value=[]), mock.patch(
+                            "pygame.time.get_ticks", return_value=1000
+                        ) as ticks:
+                            self.assertIsNone(page.handle_input())
+                            page.draw()
+                            ticks.return_value += ROUND_BUTTON_PRESS_MS - 1
+                            self.assertIsNone(page.handle_input())
+                            ticks.return_value += 1
+                            self.assertEqual(page.handle_input(), "button_e")
                     if isinstance(page, GameplayPage):
                         with mock.patch.object(page, "_is_hand_transition_active", return_value=False), mock.patch.object(page, "_start_turn_resolution") as end_turn:
                             self.click(page, page.end_button_rect.center)

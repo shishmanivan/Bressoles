@@ -40,6 +40,7 @@ from shared_utils import _clamp_dt_seconds, clamp_popup_y, move_towards, wrap_te
 SCREEN_WIDTH = 1680
 SCREEN_HEIGHT = 1050
 FPS = 60
+ROUND_BUTTON_PRESS_MS = 130
 
 BLACK = (0, 0, 0)
 PAPER_COLOR = (83, 76, 70)
@@ -251,6 +252,8 @@ class RoundPage(AdaptivePage):
         self.last_hovered_button = None
         self.round_button_hover_scale = 0.96
         self._round_button_hover_images = {}
+        self._pending_round_press = None
+        self._round_press_started_at = None
 
         self.hovered_button = None
         self.last_selected_round = None
@@ -319,7 +322,9 @@ class RoundPage(AdaptivePage):
         if not img or not rect:
             return
 
-        if shrink_on_hover and key == self.hovered_button:
+        pending = getattr(self, "_pending_round_press", None)
+        pressed = shrink_on_hover and pending is not None and pending[0] == key
+        if shrink_on_hover and (pressed or key == self.hovered_button):
             cache_key = (key, img.get_width(), img.get_height(), self.round_button_hover_scale)
             hover_img = self._round_button_hover_images.get(cache_key)
             if hover_img is None:
@@ -330,6 +335,12 @@ class RoundPage(AdaptivePage):
                 hover_img = pygame.transform.smoothscale(img, hover_size).convert_alpha()
                 self._round_button_hover_images[cache_key] = hover_img
             hover_rect = hover_img.get_rect(center=rect.center)
+            if pressed:
+                now = pygame.time.get_ticks()
+                if self._round_press_started_at is None:
+                    self._round_press_started_at = now
+                progress = min(1, (now - self._round_press_started_at) / ROUND_BUTTON_PRESS_MS)
+                hover_rect.y += round(2 + 3 * progress)
             self.screen.blit(hover_img, hover_rect.topleft)
             return
 
@@ -543,6 +554,26 @@ class RoundPage(AdaptivePage):
         return None
 
     def handle_input(self):
+        pending = getattr(self, "_pending_round_press", None)
+        if pending is not None:
+            for event in self.events():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    self._pending_round_press = None
+                    return "back"
+            started = self._round_press_started_at
+            if started is None or pygame.time.get_ticks() - started < ROUND_BUTTON_PRESS_MS:
+                return None
+            key, round_num, goal, line = pending
+            self._pending_round_press = None
+            if line:
+                self.saved_lines.append(line)
+            self.Goal = goal
+            self.last_selected_round = round_num
+            self.round_selections[round_num] = {"key": key}
+            return f"button_{key}"
+
         hint = getattr(self, "tutorial_hint", None)
         if hint is not None:
             if hint.ready_to_close():
@@ -648,45 +679,19 @@ class RoundPage(AdaptivePage):
                     return "back"
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    if can_play_round and self.button_e_rect and self.button_e_rect.collidepoint(mouse_pos) and self.button_goals.get("e") is not None:
-                        if self.current_line:
-                            self.saved_lines.append(self.current_line)
-                        if self.test_mode:
-                            self.Goal = 2
-                        else:
-                            goal_value = self.button_goals.get("e")
-                            if goal_value is not None:
-                                self.Goal = goal_value
-                        self.last_selected_round = current_active_round
-                        self.round_selections[current_active_round] = {"key": "e"}
-                        play_action_click()
-                        return "button_e"
-                    if can_play_round and self.button_m_rect and self.button_m_rect.collidepoint(mouse_pos) and self.button_goals.get("m") is not None:
-                        if self.current_line:
-                            self.saved_lines.append(self.current_line)
-                        if self.test_mode:
-                            self.Goal = 2
-                        else:
-                            goal_value = self.button_goals.get("m")
-                            if goal_value is not None:
-                                self.Goal = goal_value
-                        self.last_selected_round = current_active_round
-                        self.round_selections[current_active_round] = {"key": "m"}
-                        play_action_click()
-                        return "button_m"
-                    if can_play_round and self.button_h_rect and self.button_h_rect.collidepoint(mouse_pos) and self.button_goals.get("h") is not None:
-                        if self.current_line:
-                            self.saved_lines.append(self.current_line)
-                        if self.test_mode:
-                            self.Goal = 2
-                        else:
-                            goal_value = self.button_goals.get("h")
-                            if goal_value is not None:
-                                self.Goal = goal_value
-                        self.last_selected_round = current_active_round
-                        self.round_selections[current_active_round] = {"key": "h"}
-                        play_action_click()
-                        return "button_h"
+                    for key, rect in (
+                        ("e", self.button_e_rect),
+                        ("m", self.button_m_rect),
+                        ("h", self.button_h_rect),
+                    ):
+                        goal = self.button_goals.get(key)
+                        if can_play_round and rect and rect.collidepoint(event.pos) and goal is not None:
+                            self._pending_round_press = (
+                                key, current_active_round, 2 if self.test_mode else goal, self.current_line,
+                            )
+                            self._round_press_started_at = None
+                            play_action_click()
+                            return None
                     current_active_round = self.get_current_active_round()
                     all_rounds_completed = current_active_round is None
                     if self.boss_icon_rect and self.boss_icon_rect.collidepoint(mouse_pos) and all_rounds_completed:

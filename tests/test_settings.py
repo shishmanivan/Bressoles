@@ -9,7 +9,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
-from app_settings import load_music_volume, save_music_volume
+from app_settings import load_music_volume, load_settings, save_music_volume
 from menu_music import BOSS_ROUND_MUSIC_PATHS, MenuMusic
 from settings_page import SettingsPage
 from start_page import StartPage
@@ -23,12 +23,11 @@ class MusicSettingsTests(unittest.TestCase):
         with (
             mock.patch("menu_music.pygame.mixer.get_init", return_value=True),
             mock.patch("menu_music.pygame.mixer.music") as player,
-            mock.patch("menu_music.build_boss_music_loop", return_value=b""),
             mock.patch("menu_music.threading.Thread") as worker,
             mock.patch("menu_music.time.sleep"),
         ):
             music.play(track)
-            player.set_volume.assert_called_with(0.7)
+            player.set_volume.assert_called_with(0.49)
             music.return_to_menu()
             self.assertEqual(music.path, track)
             player.stop.assert_not_called()
@@ -56,7 +55,6 @@ class MusicSettingsTests(unittest.TestCase):
         with (
             mock.patch("menu_music.pygame.mixer.get_init", return_value=True),
             mock.patch("menu_music.pygame.mixer.music") as player,
-            mock.patch("menu_music.build_boss_music_loop", return_value=b""),
         ):
             music.play(appert)
             player.get_pos.return_value = 180_000
@@ -77,9 +75,12 @@ class MusicSettingsTests(unittest.TestCase):
     def test_music_volume_round_trip_and_clamping(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = os.path.join(temp_dir, "settings.json")
-            self.assertEqual(load_music_volume(path), 1.0)
+            self.assertEqual(load_music_volume(path), 0.8)
+            self.assertEqual(load_settings(path)["music_volume"], 0.8)
+            self.assertEqual(load_settings(path)["sound_volume"], 1.0)
             self.assertEqual(save_music_volume(0.35, path), 0.35)
             self.assertEqual(load_music_volume(path), 0.35)
+            self.assertEqual(load_settings(path)["music_volume"], 0.35)
             save_music_volume(4, path)
             self.assertEqual(load_music_volume(path), 1.0)
 
@@ -93,7 +94,7 @@ class MusicSettingsTests(unittest.TestCase):
 
         self.assertEqual(music.volume, 0.4)
         self.assertEqual(music._volume, 0.4)
-        set_volume.assert_called_once_with(0.4 * 0.7)
+        set_volume.assert_called_once_with(0.4 * 0.49)
 
     def test_slider_updates_volume_and_callback(self):
         changed = []

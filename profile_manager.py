@@ -281,6 +281,7 @@ def _empty_progress():
         "overvaluation_multiplier": 1,
         "risk_premium_h_rounds": 0,
         "golden_stake_shareholder_parity": 0,
+        "bankruptcy_condition_chance": 0,
         "insurance_goal_debt": 0,
         "Frugality": 0,
         "guaranteed_start_hand_cards_by_level": {},
@@ -790,6 +791,7 @@ def apply_profile_to_game_state(profile_or_slot):
         )
     except (TypeError, ValueError):
         game_state.windfall_boss_victories = 0
+    game_state.set_bankruptcy_condition_chance(progress.get("bankruptcy_condition_chance", 0))
     try:
         game_state.golden_stake_shareholder_parity = max(0, int(progress.get("golden_stake_shareholder_parity", 0) or 0)) % 2
     except (TypeError, ValueError):
@@ -1051,6 +1053,7 @@ def _capture_progress():
         "overvaluation_multiplier": game_state.get_overvaluation_multiplier(),
         "risk_premium_h_rounds": game_state.get_risk_premium_h_rounds(),
         "golden_stake_shareholder_parity": game_state.get_golden_stake_shareholder_parity(),
+        "bankruptcy_condition_chance": game_state.bankruptcy_condition_chance,
         "insurance_goal_debt": game_state.get_insurance_goal_debt(),
         "Frugality": max(0, int(game_state.Frugality or 0)),
         "guaranteed_start_hand_cards_by_level": _serialize_int_key_lists(

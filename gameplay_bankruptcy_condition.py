@@ -1,6 +1,7 @@
-"""Round-local Bankruptcy condition; independent of campaign level numbers."""
+"""Run-wide Bankruptcy condition; independent of campaign level numbers."""
 
 import random
+import game_state
 import gameplay_condition_coins as condition_coins
 
 import gameplay_bankruptcy_animation as animation
@@ -20,7 +21,10 @@ def restore(page, state):
         chance = int(state.get("chance", 0) or 0)
     except (TypeError, ValueError):
         chance = 0
-    page.bankruptcy_condition_chance = max(0, min(100, chance))
+    # Legacy active-game snapshots may contain the only saved accumulated chance.
+    page.bankruptcy_condition_chance = game_state.set_bankruptcy_condition_chance(
+        max(game_state.bankruptcy_condition_chance, chance)
+    )
     page.bankruptcy_condition_last_roll_day = state.get("last_roll_day")
     page.bankruptcy_condition_cards_counted = bool(state.get("cards_counted", False))
 
@@ -43,8 +47,8 @@ def register_fresh_cards(page):
             continue
         if card not in (113, 114, 115, 117):
             continue
-        chance = 10 if chance == 0 else min(100, chance + (2 if card == 117 else 1))
-    page.bankruptcy_condition_chance = chance
+        chance = 5 if chance == 0 else min(100, chance + (2 if card == 117 else 1))
+    page.bankruptcy_condition_chance = game_state.set_bankruptcy_condition_chance(chance)
 
 
 def resolve_turn(page):
@@ -60,9 +64,9 @@ def resolve_turn(page):
     if chance <= 0 or random.random() >= chance / 100:
         return False
     market = random.choice((0, 1, 2))
-    condition_coins.show(page, BANKRUPTCY, market)
-    page._set_market_price_to_minimum(market)
-    if getattr(page, "win_lose_state", None) is not None:
+    changed = page._set_market_price_to_minimum(market)
+    if not changed or getattr(page, "win_lose_state", None) is not None:
         return False
+    condition_coins.show(page, BANKRUPTCY, market)
     animation.start(page, market)
     return True

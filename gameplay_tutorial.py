@@ -11,6 +11,44 @@ from shared_utils import wrap_text
 
 
 FIRST_HINT_ID = "stock_cards"
+SIXTH_LEVEL_LOSSES_HINT_ID = "level6_five_losses"
+SIXTH_LEVEL_LOSSES_HINT_TEXT = (
+    'Вы всё время проигрываете. Возможно вам нужно снять галочку с пункта '
+    '"Всегда проигрывать" в настройках.'
+)
+
+
+def record_level6_tutorial_result(slot, won):
+    import profile_manager
+    if not slot:
+        return False
+    profile = profile_manager.load_profile(slot)
+    count = 0 if won else max(0, int(profile.get("level6_loss_streak", 0))) + 1
+    profile["level6_loss_streak"] = count
+    profile_manager.save_profile(profile)
+    return count == 5
+
+FIVE_LOSSES_HINT_ID = "level4_five_losses"
+FIVE_LOSSES_HINT_TEXT = (
+    "Не нужно пытаться разбить экран рукой или ногой. Вы можете поранить себя. "
+    "Если вы хотите разбить экран, вынесите его на улицу, положите на землю и разбейте "
+    "специальным предметом — молотком или топором. Будьте осторожны!"
+)
+
+
+def record_level4_tutorial_result(slot, won, final_boss=False):
+    """Count failed level attempts, not intermediate round victories."""
+    import profile_manager
+    if not slot:
+        return False
+    if won and not final_boss:
+        return False
+    profile = profile_manager.load_profile(slot)
+    count = 0 if won else max(0, int(profile.get("level4_loss_streak", 0))) + 1
+    profile["level4_loss_streak"] = count
+    profile_manager.save_profile(profile)
+    return count == 5
+
 CONDITIONS_ROUND_HINT_ID = "conditions_round_intro"
 CONDITIONS_ROUND_HINT_TEXT = (
     "Теперь в игре появляется специальное условие — Condition. Наведите мышь на значок, "
@@ -101,7 +139,7 @@ class TutorialHint:
         self.has_checkbox = hint_id not in (FIRST_HINT_ID, CONDITIONS_ROUND_HINT_ID, CONDITIONS_GAME_HINT_ID)
         self.dont_show_again = False
         self.panel = pygame.Rect(0, 0, 760, 470 if self.has_checkbox else 340)
-        if hint_id in (GOLD_SHOP_HINT_ID, STORAGE_HINT_ID, SILVER_STORAGE_HINT_ID, CONDITIONS_ROUND_HINT_ID):
+        if hint_id in (GOLD_SHOP_HINT_ID, STORAGE_HINT_ID, SILVER_STORAGE_HINT_ID, CONDITIONS_ROUND_HINT_ID, FIVE_LOSSES_HINT_ID):
             self.panel.size = (900, 650)
         self.panel.center = (screen_size[0] // 2, screen_size[1] // 2)
         if placement == "right":

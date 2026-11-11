@@ -3960,12 +3960,12 @@
     "FR": "Faillite"
   },
   {
-    "Source": "Первая сыгранная Bankruptcy или Crash активирует шанс 10% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
-    "RU": "Первая сыгранная Bankruptcy или Crash активирует шанс 10% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
-    "ENG": "The first Bankruptcy or Crash played activates a 10% chance with no additional increase. Each subsequent Bankruptcy adds 1 percentage point; Crash adds 2 percentage points. Maximum chance: 100%.",
-    "DE": "Die erste gespielte Bankruptcy oder Crash aktiviert eine Chance von 10% ohne zusätzlichen Anstieg. Jede weitere Bankruptcy erhöht sie um 1 Prozentpunkt, Crash um 2 Prozentpunkte. Maximum: 100%.",
-    "HU": "Az első kijátszott Bankruptcy vagy Crash 10%-os esélyt aktivál további növelés nélkül. Minden további Bankruptcy 1, a Crash 2 százalékponttal növeli az esélyt. Maximum: 100%.",
-    "FR": "La première carte Bankruptcy ou Crash jouée active une probabilité de 10%, sans augmentation supplémentaire. Chaque Bankruptcy suivante ajoute 1 point de pourcentage, Crash en ajoute 2. Maximum : 100%."
+    "Source": "Первая сыгранная Bankruptcy или Crash активирует шанс 5% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
+    "RU": "Первая сыгранная Bankruptcy или Crash активирует шанс 5% без дополнительной прибавки. Каждая следующая Bankruptcy добавляет 1 процентный пункт, Crash — 2 процентных пункта. Максимальный шанс — 100%.",
+    "ENG": "The first Bankruptcy or Crash played activates a 5% chance with no additional increase. Each subsequent Bankruptcy adds 1 percentage point; Crash adds 2 percentage points. Maximum chance: 100%.",
+    "DE": "Die erste gespielte Bankruptcy oder Crash aktiviert eine Chance von 5% ohne zusätzlichen Anstieg. Jede weitere Bankruptcy erhöht sie um 1 Prozentpunkt, Crash um 2 Prozentpunkte. Maximum: 100%.",
+    "HU": "Az első kijátszott Bankruptcy vagy Crash 5%-os esélyt aktivál további növelés nélkül. Minden további Bankruptcy 1, a Crash 2 százalékponttal növeli az esélyt. Maximum: 100%.",
+    "FR": "La première carte Bankruptcy ou Crash jouée active une probabilité de 5%, sans augmentation supplémentaire. Chaque Bankruptcy suivante ajoute 1 point de pourcentage, Crash en ajoute 2. Maximum : 100%."
   },
   {
     "Source": "После завершения хода и применения эффектов карт проводится одна проверка. При срабатывании один случайный рынок получает эффект Bankruptcy: цена падает до 2, проигрывается анимация банкротства. Само срабатывание не увеличивает шанс.",
@@ -3976,12 +3976,12 @@
     "FR": "Une vérification a lieu après la fin du tour et la résolution des cartes. En cas de déclenchement, un marché aléatoire subit Bankruptcy : son cours tombe à 2 et l’animation de faillite est jouée. Le déclenchement lui-même n’augmente pas la probabilité."
   },
   {
-    "Source": "В каждом новом раунде условие снова ожидает первую Bankruptcy или Crash. Активный Controlling Stake или Golden Stake отключает Condition, но не обычные эффекты сыгранных карт.",
-    "RU": "В каждом новом раунде условие снова ожидает первую Bankruptcy или Crash. Активный Controlling Stake или Golden Stake отключает Condition, но не обычные эффекты сыгранных карт.",
-    "ENG": "Each new round waits for its first Bankruptcy or Crash again. An active Controlling Stake or Golden Stake disables this Condition, but not the normal effects of played cards.",
-    "DE": "Jede neue Runde wartet erneut auf die erste Bankruptcy oder Crash. Eine aktive Controlling Stake oder Golden Stake deaktiviert diese Condition, aber nicht die normalen Effekte gespielter Karten.",
-    "HU": "Minden új forduló ismét az első Bankruptcy vagy Crash kártyára vár. Az aktív Controlling Stake vagy Golden Stake kikapcsolja ezt a Condition feltételt, de a kijátszott kártyák szokásos hatásait nem.",
-    "FR": "Chaque nouvelle manche attend à nouveau sa première Bankruptcy ou Crash. Une carte Controlling Stake ou Golden Stake active désactive cette Condition, mais pas les effets normaux des cartes jouées."
+    "Source": "Шанс накапливается до конца забега и сохраняется между раундами и боссами. После поражения или завершения забега накопление сбрасывается. Активный Controlling Stake или Golden Stake отключает Condition на время своего действия, сохраняя накопленный шанс.",
+    "RU": "Шанс накапливается до конца забега и сохраняется между раундами и боссами. После поражения или завершения забега накопление сбрасывается. Активный Controlling Stake или Golden Stake отключает Condition на время своего действия, сохраняя накопленный шанс.",
+    "ENG": "The chance accumulates until the end of the run and carries over between rounds and bosses. Defeat or completion of the run resets it. An active Controlling Stake or Golden Stake disables this Condition for its duration while preserving the accumulated chance.",
+    "DE": "Die Chance steigt bis zum Ende des Durchlaufs und bleibt zwischen Runden und Bossen erhalten. Eine Niederlage oder der Abschluss des Durchlaufs setzt sie zurück. Eine aktive Controlling Stake oder Golden Stake deaktiviert diese Condition für ihre Wirkungsdauer, ohne die angesammelte Chance zu löschen.",
+    "HU": "Az esély a menet végéig halmozódik, és megmarad a fordulók és főellenfelek között. Vereség vagy a menet befejezése után nullázódik. Az aktív Controlling Stake vagy Golden Stake a hatása idejére kikapcsolja a Condition feltételt, megőrizve a felhalmozott esélyt.",
+    "FR": "La probabilité s’accumule jusqu’à la fin du parcours et se conserve entre les manches et les boss. Une défaite ou la fin du parcours la réinitialise. Une carte Controlling Stake ou Golden Stake active désactive cette Condition pendant sa durée d’effet tout en conservant la probabilité accumulée."
   },
   {
     "Source": "Текущий шанс: {chance}%",
@@ -4030,5 +4030,61 @@
     "DE": "Klicke auf das Symbol „Conditions“, um mehr über die besonderen Regeln des Levels zu erfahren.",
     "HU": "Kattints a „Conditions” ikonra, hogy részletesebben megismerd a szint különleges feltételeit.",
     "FR": "Cliquez sur l’icône « Conditions » pour découvrir en détail les règles spéciales du niveau."
+  },
+  {
+    "Source": "Не нужно пытаться разбить экран рукой или ногой. Вы можете поранить себя. Если вы хотите разбить экран, вынесите его на улицу, положите на землю и разбейте специальным предметом — молотком или топором. Будьте осторожны!",
+    "RU": "Не нужно пытаться разбить экран рукой или ногой. Вы можете поранить себя. Если вы хотите разбить экран, вынесите его на улицу, положите на землю и разбейте специальным предметом — молотком или топором. Будьте осторожны!",
+    "ENG": "Do not try to smash the screen with your hand or foot. You could hurt yourself. If you want to smash the screen, take it outside, lay it on the ground and break it with a suitable tool — a hammer or an axe. Be careful!",
+    "DE": "Versuche nicht, den Bildschirm mit der Hand oder dem Fuß zu zerschlagen. Du könntest dich verletzen. Wenn du den Bildschirm zerschlagen möchtest, bring ihn nach draußen, lege ihn auf den Boden und zerschlage ihn mit einem geeigneten Werkzeug — einem Hammer oder einer Axt. Sei vorsichtig!",
+    "HU": "Ne próbáld kézzel vagy lábbal betörni a képernyőt. Megsérülhetsz. Ha össze akarod törni a képernyőt, vidd ki az utcára, tedd a földre, és törd össze megfelelő szerszámmal — kalapáccsal vagy fejszével. Légy óvatos!",
+    "FR": "N’essayez pas de briser l’écran avec la main ou le pied. Vous pourriez vous blesser. Si vous voulez briser l’écran, sortez-le dehors, posez-le au sol et cassez-le avec un outil adapté — un marteau ou une hache. Faites attention !"
+  },
+  {
+    "Source": "Вы всё время проигрываете. Возможно вам нужно снять галочку с пункта \"Всегда проигрывать\" в настройках.",
+    "RU": "Вы всё время проигрываете. Возможно вам нужно снять галочку с пункта \"Всегда проигрывать\" в настройках.",
+    "ENG": "You keep losing. Perhaps you need to uncheck \"Always lose\" in the settings.",
+    "DE": "Du verlierst ständig. Vielleicht solltest du in den Einstellungen das Häkchen bei „Immer verlieren“ entfernen.",
+    "HU": "Folyton veszítesz. Talán ki kellene venned a pipát a „Mindig veszítek” beállítás mellől.",
+    "FR": "Vous perdez tout le temps. Peut-être devriez-vous décocher « Toujours perdre » dans les paramètres."
+  },
+  {
+    "Source": "Всегда проигрывать",
+    "RU": "Всегда проигрывать",
+    "ENG": "Always lose",
+    "DE": "Immer verlieren",
+    "HU": "Mindig veszítek",
+    "FR": "Toujours perdre"
+  },
+  {
+    "Source": "Вы уверены? Вы же теперь всегда будете проигрывать.",
+    "RU": "Вы уверены? Вы же теперь всегда будете проигрывать.",
+    "ENG": "Are you sure? You will always lose from now on.",
+    "DE": "Bist du sicher? Du wirst ab jetzt immer verlieren.",
+    "HU": "Biztos vagy benne? Mostantól mindig veszíteni fogsz.",
+    "FR": "Êtes-vous sûr ? Vous allez désormais toujours perdre."
+  },
+  {
+    "Source": "Но вы же потом будете обвинять разработчика в том что он не даёт вам выиграть",
+    "RU": "Но вы же потом будете обвинять разработчика в том что он не даёт вам выиграть",
+    "ENG": "But then you will blame the developer for not letting you win.",
+    "DE": "Aber dann wirst du dem Entwickler vorwerfen, dass er dich nicht gewinnen lässt.",
+    "HU": "De aztán a fejlesztőt fogod hibáztatni azért, hogy nem hagy nyerni.",
+    "FR": "Mais ensuite, vous accuserez le développeur de vous empêcher de gagner."
+  },
+  {
+    "Source": "Это продвинутая настройка и пока вам недоступна",
+    "RU": "Это продвинутая настройка и пока вам недоступна",
+    "ENG": "This is an advanced setting and is not available to you yet.",
+    "DE": "Dies ist eine erweiterte Einstellung, die dir noch nicht zur Verfügung steht.",
+    "HU": "Ez egy haladó beállítás, amely még nem érhető el számodra.",
+    "FR": "Ce paramètre avancé ne vous est pas encore accessible."
+  },
+  {
+    "Source": "Окно с шестерёнками — это движок игры. Ничего в нём не меняйте, если не разбираетесь в этом.",
+    "RU": "Окно с шестерёнками — это движок игры. Ничего в нём не меняйте, если не разбираетесь в этом.",
+    "ENG": "The window with gears is the game engine. Do not change anything in it unless you know what you are doing.",
+    "DE": "Das Fenster mit den Zahnrädern ist die Spiel-Engine. Ändere darin nichts, wenn du dich damit nicht auskennst.",
+    "HU": "A fogaskerekes ablak a játék motorja. Ne változtass benne semmin, ha nem értesz hozzá.",
+    "FR": "La fenêtre à engrenages est le moteur du jeu. Ne modifiez rien si vous ne vous y connaissez pas."
   }
 ]

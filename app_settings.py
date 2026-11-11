@@ -5,14 +5,15 @@ import os
 
 
 SETTINGS_FILE = os.path.join("Profiles", "settings.json")
-DEFAULT_MUSIC_VOLUME = 1.0
+DEFAULT_MUSIC_VOLUME = 0.8
+DEFAULT_SOUND_VOLUME = 1.0
 
 
-def _clamp_volume(value):
+def _clamp_volume(value, default=DEFAULT_MUSIC_VOLUME):
     try:
         return max(0.0, min(1.0, float(value)))
     except (TypeError, ValueError):
-        return DEFAULT_MUSIC_VOLUME
+        return default
 
 
 def load_music_volume(path=SETTINGS_FILE):
@@ -75,9 +76,11 @@ def load_settings(path=SETTINGS_FILE):
     return {
         "resolution": tuple(resolution),
         "fullscreen": data.get("fullscreen") is True,
-        "music_volume": _clamp_volume(data.get("music_volume", 1.0)),
-        "sound_volume": _clamp_volume(data.get("sound_volume", 1.0)),
+        "music_volume": _clamp_volume(data.get("music_volume", DEFAULT_MUSIC_VOLUME)),
+        "sound_volume": _clamp_volume(data.get("sound_volume", DEFAULT_SOUND_VOLUME), DEFAULT_SOUND_VOLUME),
         "show_card_info": data.get("show_card_info") is not False,
+        "always_lose_unlocked": data.get("always_lose_unlocked") is True,
+        "always_lose_warning_locked": data.get("always_lose_warning_locked") is True,
     }
 
 

@@ -9,6 +9,14 @@ from localization import translate as tr, get_language
 from game_data import load_language
 from sound_assets import load_card_hover_sound, set_effects_volume, play_action_click
 from start_page import MASTER_BACKGROUND_PATH, MENU_FONT_PATH
+from shared_utils import wrap_text
+
+ALWAYS_LOSE_LABEL = "Всегда проигрывать"
+ALWAYS_LOSE_QUESTIONS = (
+    "Вы уверены? Вы же теперь всегда будете проигрывать.",
+    "Но вы же потом будете обвинять разработчика в том что он не даёт вам выиграть",
+    "Это продвинутая настройка и пока вам недоступна",
+)
 
 INK = (77, 63, 50)
 BORDER = (89, 73, 55)
@@ -18,7 +26,7 @@ SELECTED = (181, 160, 128)
 
 class SettingsPage:
     def __init__(self, screen, background, font_path, lang_dict=None,
-                 music_volume=1.0, on_volume_change=None):
+                 music_volume=None, on_volume_change=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.menu_sound = load_card_hover_sound()
@@ -27,6 +35,8 @@ class SettingsPage:
         self.text_keys = {value: key for key, value in russian.items()}
         self.on_volume_change = on_volume_change
         self.values = load_settings()
+        if music_volume is None:
+            music_volume = self.values['music_volume']
         self.music_volume = self._clamp_volume(music_volume)
         self.values['music_volume'] = self.music_volume
         self.original = dict(self.values)
@@ -61,6 +71,11 @@ class SettingsPage:
             'test_mode': pygame.Rect(1290, 112, 300, 46),
         }
         self.focus = 'music'
+        self.joke_dialog = None
+        self.joke_yes = pygame.Rect(600, 610, 180, 55)
+        self.joke_no = pygame.Rect(900, 610, 180, 55)
+        if self.values['always_lose_unlocked']:
+            self.controls['always_lose'] = pygame.Rect(1160, 330, 415, 55)
         self.dragging_volume = False
         self.dragging = None
         self.dropdown = False
@@ -210,6 +225,11 @@ class SettingsPage:
 
     def _activate(self, name):
         self._play_menu_sound()
+        if name == 'always_lose' and self.values.get('always_lose_unlocked'):
+            self.dropdown = False
+            self.dragging = None
+            self.joke_dialog = 2 if self.values.get('always_lose_warning_locked') else 0
+            return None
         if name == 'test_mode':
             return 'test_mode' if self._cancel() else None
         if name == 'back':
@@ -225,6 +245,18 @@ class SettingsPage:
             self.values['show_card_info'] = not self.values['show_card_info']
         return None
 
+    def _answer_joke(self, yes):
+        self._play_menu_sound()
+        if not yes or self.joke_dialog == 2:
+            self.joke_dialog = None
+        elif self.joke_dialog == 0:
+            self.joke_dialog = 1
+        elif self.joke_dialog == 1:
+            save_settings({"always_lose_warning_locked": True})
+            self.values["always_lose_warning_locked"] = True
+            self.original["always_lose_warning_locked"] = True
+            self.joke_dialog = 2
+
     def handle_input(self):
         self._layout()
         for event in pygame.event.get():
@@ -234,6 +266,19 @@ class SettingsPage:
             if event.type == pygame.VIDEORESIZE:
                 self.screen = pygame.display.get_surface() or self.screen
                 self._layout()
+            if getattr(self, 'joke_dialog', None) is not None:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self._answer_joke(False)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        self._answer_joke(True)
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    pos = self._point(event.pos)
+                    if self.joke_yes.collidepoint(pos):
+                        self._answer_joke(True)
+                    elif self.joke_dialog != 2 and self.joke_no.collidepoint(pos):
+                        self._answer_joke(False)
+                continue
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if self.dropdown:
@@ -323,6 +368,9 @@ class SettingsPage:
         self._text('Показывать информацию', (636, 322, 390, 35), 25)
         self._text('по картам', (636, 358, 390, 35), 25)
         self._box(self.info_rect, self.values['show_card_info'])
+        if self.values.get('always_lose_unlocked'):
+            self._text(ALWAYS_LOSE_LABEL, (1160, 330, 360, 55), 25)
+            self._box(pygame.Rect(1540, 342, 30, 30), False)
         self._text('Сохранить', self.save_rect, 32, True, ink_centered=True)
         if self.error:
             self._text(self.error, (1090, 924, 510, 40), 21, color=(110, 42, 22))
@@ -336,6 +384,22 @@ class SettingsPage:
                 pygame.draw.rect(self.canvas, SELECTED if row.collidepoint(hovered) else PAPER, row)
                 pygame.draw.rect(self.canvas, BORDER, row, 1)
                 self._text(f'{resolution[0]} × {resolution[1]}', row, 25, True)
+        if self.joke_dialog is not None:
+            shade = pygame.Surface((1680, 1050), pygame.SRCALPHA)
+            shade.fill((0, 0, 0, 140))
+            self.canvas.blit(shade, (0, 0))
+            panel = pygame.Rect(400, 350, 880, 370)
+            pygame.draw.rect(self.canvas, PAPER, panel, border_radius=8)
+            pygame.draw.rect(self.canvas, BORDER, panel, 4, border_radius=8)
+            font = pygame.font.Font(MENU_FONT_PATH, 30)
+            lines = wrap_text(tr(ALWAYS_LOSE_QUESTIONS[self.joke_dialog]), font, 760)
+            for index, line in enumerate(lines):
+                self.canvas.blit(font.render(line, True, INK), (460, 400 + index * 42))
+            self._box(self.joke_yes)
+            self._text("OK" if self.joke_dialog == 2 else "Да", self.joke_yes, 28, True)
+            if self.joke_dialog != 2:
+                self._box(self.joke_no)
+                self._text("Нет", self.joke_no, 28, True)
         self.screen.blit(self.background, self.bg_pos)
         self.screen.blit(pygame.transform.smoothscale(self.canvas, self.panel_rect.size), self.panel_rect)
         pygame.display.flip()

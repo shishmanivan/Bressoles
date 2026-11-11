@@ -135,6 +135,8 @@ from gameplay_price_helpers import (
 )
 from gameplay_pause import build_pause_menu_layout, draw_pause_menu, get_pause_menu_action
 from gameplay_tutorial import FIRST_HINT_ID, SELL_HINT_ID, SELL_HINT_TEXT, TutorialHint
+from gameplay_tutorial import FIVE_LOSSES_HINT_ID, FIVE_LOSSES_HINT_TEXT, record_level4_tutorial_result
+from gameplay_tutorial import SIXTH_LEVEL_LOSSES_HINT_ID, SIXTH_LEVEL_LOSSES_HINT_TEXT, record_level6_tutorial_result
 from gameplay_tutorial import LOGO_HINT_ID, LOGO_HINT_TEXT
 from gameplay_tutorial import CONDITIONS_GAME_HINT_ID, CONDITIONS_GAME_HINT_TEXT
 from gameplay_tutorial import RED_CARD_HINT_ID, RED_CARD_HINT_TEXT
@@ -2944,6 +2946,22 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if event.type == pygame.QUIT:
                 return "quit"
 
+            clockwork = getattr(self, "_clockwork_window", None)
+            if clockwork is not None:
+                if clockwork.accepts_close(event):
+                    self._clockwork_window = None
+                    self._close_pause_menu()
+                    return None
+                continue
+            from clockwork_window import BUTTON, ClockworkWindow
+            if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and BUTTON.collidepoint(event.pos)
+                    and not self.tutorial_hint and not self.pause_menu_active
+                    and not self.deck_view_active and self._can_open_pause_menu()):
+                self._open_pause_menu()
+                self._clockwork_window = ClockworkWindow(self.frame, self.font_path)
+                return None
+
             if self._is_protective_put_animating():
                 rect = getattr(self, "protective_put_ok_rect", None)
                 if (
@@ -3322,6 +3340,16 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._finish_other_stats(next_state)
         self._capture_newspaper_turn(final=True)
         self.win_lose_state = next_state
+        if (self.level_number == 6 and not getattr(self, "test_mode", False)
+                and getattr(self, "profile_slot", None)):
+            self._sixth_level_losses_hint_pending = record_level6_tutorial_result(
+                self.profile_slot, next_state == "win",
+            )
+        if (self.level_number == 4 and not getattr(self, "test_mode", False)
+                and getattr(self, "profile_slot", None)):
+            self._five_losses_hint_pending = record_level4_tutorial_result(
+                self.profile_slot, next_state == "win", self.is_final_boss,
+            )
         self.frugality_bonus_turns = self._settle_frugality_for_finished_round()
         self._record_stats_result(next_state == "win")
         self._spend_active_silver_cards_if_needed()
@@ -8702,7 +8730,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self.deck_view_active:
             self._draw_deck_view()
 
-        if self.pause_menu_active:
+        if self.pause_menu_active and getattr(self, "_clockwork_window", None) is None:
             self._draw_pause_menu()
 
         self._draw_field_card_tooltip()
@@ -8711,6 +8739,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
         self._draw_protective_put()
+        from clockwork_window import draw_button
+        if not self.pause_menu_active and not self.deck_view_active and not self.tutorial_hint:
+            draw_button(self.screen)
+        if getattr(self, "_clockwork_window", None) is not None:
+            self._clockwork_window.draw(self.screen)
 
     def _maybe_show_conditions_tutorial(self):
         if (self.test_mode or not self.profile_slot or self.tutorial_hint is not None
@@ -8745,6 +8778,25 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             )
         else:
             self.tutorial_dismissed_this_round.add(LATE_END_TURN_HINT_ID)
+
+    def _maybe_show_five_losses_tutorial(self):
+        if getattr(self, "_sixth_level_losses_hint_pending", False) and self.tutorial_hint is None:
+            self._sixth_level_losses_hint_pending = False
+            if profile_manager.is_tutorial_pending(self.profile_slot, SIXTH_LEVEL_LOSSES_HINT_ID):
+                self.tutorial_hint = TutorialHint(
+                    self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                    hint_id=SIXTH_LEVEL_LOSSES_HINT_ID, text=SIXTH_LEVEL_LOSSES_HINT_TEXT,
+                )
+                from app_settings import save_settings
+                save_settings({"always_lose_unlocked": True})
+        if not getattr(self, "_five_losses_hint_pending", False) or self.tutorial_hint is not None:
+            return
+        self._five_losses_hint_pending = False
+        if profile_manager.is_tutorial_pending(self.profile_slot, FIVE_LOSSES_HINT_ID):
+            self.tutorial_hint = TutorialHint(
+                self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
+                hint_id=FIVE_LOSSES_HINT_ID, text=FIVE_LOSSES_HINT_TEXT,
+            )
 
     def _maybe_show_red_card_tutorial(self):
         if (
@@ -8874,6 +8926,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         while True:
             self._maybe_show_conditions_tutorial()
             self._maybe_show_red_card_tutorial()
+            self._maybe_show_five_losses_tutorial()
             self._maybe_show_sell_tutorial()
             self._maybe_show_logo_tutorial()
             self._maybe_show_late_end_turn_tutorial()
