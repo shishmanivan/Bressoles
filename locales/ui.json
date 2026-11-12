@@ -2744,12 +2744,12 @@
     "FR": "Hausse {v0} %"
   },
   {
-    "Source": "Добавить карту {v0} в руку?",
-    "RU": "Добавить карту {v0} в руку?",
-    "ENG": "Add card {v0} to your hand?",
-    "DE": "Karte {v0} auf die Hand nehmen?",
-    "HU": "Kézbe veszed ezt a kártyát: {v0}?",
-    "FR": "Ajouter la carte {v0} à votre main ?"
+    "Source": "Добавить эту карту?",
+    "RU": "Добавить эту карту?",
+    "ENG": "Add this card?",
+    "DE": "Diese Karte hinzufügen?",
+    "HU": "Hozzáadod ezt a kártyát?",
+    "FR": "Ajouter cette carte ?"
   },
   {
     "Source": "Текущая вероятность: {v0}%.",
@@ -3104,12 +3104,12 @@
     "FR": "Carte noire. Personne ne sait ce que fait cette carte."
   },
   {
-    "Source": "Даёт по 2$ за каждую сыгранную карту Shareholder",
-    "RU": "Даёт по 2$ за каждую сыгранную карту Shareholder",
-    "ENG": "Gives $2 for each Shareholder card played",
-    "DE": "Gibt 2$ für jede ausgespielte Shareholder-Karte",
-    "HU": "Minden kijátszott Shareholder kártyáért 2$-t ad",
-    "FR": "Donne 2 $ pour chaque carte Actionnaire jouée"
+    "Source": "За каждую сыгранную карту Shareholder даёт сумму, равную текущей цене акции C.",
+    "RU": "За каждую сыгранную карту Shareholder даёт сумму, равную текущей цене акции C.",
+    "ENG": "Pays the current price of stock C for each Shareholder card played.",
+    "DE": "Zahlt für jede ausgespielte Shareholder-Karte den aktuellen Kurs der Aktie C aus.",
+    "HU": "Minden kijátszott Shareholder kártya után a C részvény aktuális árfolyamának megfelelő összeget fizet.",
+    "FR": "Verse le cours actuel de l’action C pour chaque carte Actionnaire jouée."
   },
   {
     "Source": "Акции растут и падают. Влияйте на рост и падение цен с помощью карт.",

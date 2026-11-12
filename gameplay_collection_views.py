@@ -116,7 +116,7 @@ def draw_deck(page, content, panel):
     cards = sorted(page.collection_full_deck) if full else page._collect_current_deck_cards()
     has_hedger = not full and bool(page._count_active_silver_card(408))
     if has_hedger:
-        content.height -= 100
+        content.height -= 190
     card_h = 150
     card_w = round(card_h * page.card_size_market[0] / page.card_size_market[1])
     groups = group_deck_cards(cards)

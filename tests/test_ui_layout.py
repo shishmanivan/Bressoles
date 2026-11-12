@@ -510,7 +510,7 @@ class UiLayoutTests(unittest.TestCase):
 
         description = page._get_card_report_boss_description()
 
-        self.assertEqual(description, "Следующие раунды начинаются с 2$.")
+        self.assertEqual(description, "Следующие раунды начинаются с 4$.")
         self.assertNotIn("Gain/Drop", description)
 
     def test_slater_report_keeps_only_the_non_card_bonus(self):

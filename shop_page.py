@@ -142,7 +142,7 @@ CARD_DESCRIPTIONS = {
     126: "Никто не знает, что эта карта делает.",
     221: "Никто не знает, что эта карта делает.",
     438: "Никто не знает, что эта карта делает.",
-    439: "Даёт по 2$ за каждую сыгранную карту Shareholder",
+    439: "За каждую сыгранную карту Shareholder даёт сумму, равную текущей цене акции C.",
     440: "В начале раунда рынки B и C один раз копируют цену и вероятности рынка A. Затем каждый рынок изменяется независимо.",
     441: "Каждый раз, когда акция А достигла цены 100, добавляет множитель 1 к общему эффекту Rebate. Повысить множитель можно только один раз за раунд",
     442: "Удваивает полный эффект карт, усиленных инвестициями. Несколько копий умножают эффект повторно.",
@@ -1087,8 +1087,9 @@ class ShopPage(AdaptivePage):
             return
 
         if special_id == "bailout":
+            if not game_state.buy_bailout():
+                return
             self._charge_offer(cost)
-            game_state.buy_bailout()
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "Bailout активирован на 5 раундов"
@@ -1364,6 +1365,11 @@ class ShopPage(AdaptivePage):
             choices = game_state.build_screening_offer_pool(
                 self.level_number,
                 offer_count=5,
+                excluded_offer_ids={
+                    item.get("special_id") for item in self.offers
+                    if item.get("kind") == "special"
+                    and item.get("special_id") in game_state.SINGLE_ACTIVE_SHOP_OFFERS
+                },
                 defeated_count=getattr(self, "defeated_count", 0),
                 bosses_required=getattr(self, "bosses_required", None),
                 rounds_remaining=getattr(self, "rounds_remaining", None),

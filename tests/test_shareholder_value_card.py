@@ -15,6 +15,7 @@ class ShareholderValueTests(unittest.TestCase):
         page.side_cards_top[:shareholders] = [100] * shareholders
         page.lifecycle_card_jump_animations = {}
         page.Money = 10
+        page.CPrice = 7
         return page
 
     def test_each_shareholder_and_each_active_copy_pays(self):
@@ -22,7 +23,7 @@ class ShareholderValueTests(unittest.TestCase):
             with self.subTest(copies=copies, shareholders=shareholders):
                 page = self.page((439,) * copies, shareholders)
                 page._apply_shareholder_value_effect_if_needed()
-                self.assertEqual(page.Money, 10 + 2 * copies * shareholders)
+                self.assertEqual(page.Money, 10 + 7 * copies * shareholders)
                 self.assertEqual(len(page.lifecycle_card_jump_animations), copies)
                 self.assertEqual(len(page.side_card_jump_animations), shareholders)
 
@@ -32,13 +33,14 @@ class ShareholderValueTests(unittest.TestCase):
         page.hand_cards = [100, 100]
         page.side_cards_top[2] = 110
         page._apply_shareholder_value_effect_if_needed()
-        self.assertEqual(page.Money, 12)
+        self.assertEqual(page.Money, 17)
         page._lock_side_cards()
         self.assertFalse(page._apply_shareholder_value_effect_if_needed())
-        self.assertEqual(page.Money, 12)
+        self.assertEqual(page.Money, 17)
         page.side_cards_top[3] = 100
+        page.CPrice = 11
         page._apply_shareholder_value_effect_if_needed()
-        self.assertEqual(page.Money, 14)
+        self.assertEqual(page.Money, 28)
 
     def test_no_payout_without_active_card_or_played_shareholder(self):
         for page in (self.page(gold=()), self.page(shareholders=0)):
@@ -53,7 +55,7 @@ class ShareholderValueTests(unittest.TestCase):
         page._has_effect_animations = lambda: True
         page._begin_effect_finalize_or_wait()
         page._begin_effect_finalize_or_wait()
-        self.assertEqual(page.Money, 18)
+        self.assertEqual(page.Money, 38)
         self.assertTrue(page.red_effects_applied_this_resolution)
 
     def test_catalog_price_level_chance_and_translations(self):

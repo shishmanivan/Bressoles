@@ -307,7 +307,7 @@ CARD_TOOLTIPS.update(
         ),
         439: (
             "Shareholder Value",
-            "Даёт по 2$ за каждую сыгранную карту Shareholder",
+            "За каждую сыгранную карту Shareholder даёт сумму, равную текущей цене акции C.",
         ),
         440: (
             "Standardization",
@@ -370,6 +370,7 @@ class SilverBlackPage(AdaptivePage):
         round_number=None,
         lang_dict=None,
         profile_slot=None,
+        difficulty=None,
     ):
         self.init_viewport(screen)
         self.profile_slot = profile_slot
@@ -381,6 +382,7 @@ class SilverBlackPage(AdaptivePage):
         self.gold_cards = list(gold_cards or [])[:CARD_ROW_SLOTS]
         self.is_boss_fight = bool(is_boss_fight)
         self.round_number = round_number
+        self.difficulty = difficulty
         self.lang = lang_dict or {}
         self.selected_entries = []
         self.active_slot_count = game_state.get_lifecycle_card_slot_limit()
@@ -822,9 +824,12 @@ class SilverBlackPage(AdaptivePage):
             if normalized == game_state.WINDFALL_CARD_ID:
                 description = windfall_tooltip_description()
             elif normalized == 431:
+                bonus = game_state.get_risk_premium_card_bonus_percent()
+                if getattr(self, "difficulty", None) == "h" and not self.is_boss_fight:
+                    bonus += game_state.RISK_PREMIUM_REBATE_BONUS_PER_H_ROUND
                 description = (
                     f"{description} Текущий бонус карты: "
-                    f"+{game_state.get_risk_premium_card_bonus_percent()}%."
+                    f"+{bonus}%."
                 )
             if self._is_card_disabled(normalized):
                 description = f"НЕДОСТУПНО ПЕРЕД БОССОМ. {description}"

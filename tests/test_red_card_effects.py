@@ -252,6 +252,10 @@ class RedCardEffectTests(unittest.TestCase):
 
         page._apply_red_card_effects_if_needed()
 
+        self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+        self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+        page.parity_animation = None
+        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 10, 10))
         self.assertEqual(
             [call.args[1] for call in page._start_card_jump_animation.call_args_list],
@@ -331,6 +335,9 @@ class RedCardEffectTests(unittest.TestCase):
         page.bankruptcy_animations.clear()
         page._begin_effect_finalize_or_wait()
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
+        self.assertFalse(page.red_effects_applied_this_resolution)
+        page.parity_animation = None
+        page._begin_effect_finalize_or_wait()
         self.assertTrue(page.red_effects_applied_this_resolution)
         page._lock_side_cards.assert_called_once()
         page._finalize_turn_resolution.assert_called_once()
@@ -433,6 +440,11 @@ class RedCardEffectTests(unittest.TestCase):
                     with mock.patch.object(animation.pygame.time, "get_ticks",
                                            return_value=page.parity_animation["start_time"] + animation.DURATION_MS):
                         animation.update(page)
+                    self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+                else:
+                    self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 30))
+                    self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+                    page.parity_animation = None
                     self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
                 self.assertEqual((page.Aprice, page.BPrice, page.CPrice), expected)
                 self.assertEqual([call.args[1] for call in page._start_card_jump_animation.call_args_list], [0, 1])

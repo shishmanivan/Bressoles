@@ -445,7 +445,7 @@ def validate_levels_and_rounds_config():
 def apply_boss_reward(reward_string, gameplay_instance):
     """Apply boss reward from reward string.
     Example: "Dobor=Dobor+1" -> global_dobor += 1 and gameplay_instance.Dobor += 1
-    For Money rewards (e.g., "Money=Money+2"), this function updates both the current
+    For Money rewards (e.g., "Money=Money+4"), this function updates both the current
     GameplayPage.Money and the global_start_money_bonus so that future rounds start
     with the increased amount.
     

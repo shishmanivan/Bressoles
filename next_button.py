@@ -7,15 +7,18 @@ from localization import get_language
 
 
 def create_next_button(font_path):
+    label = {"RU": "Далее", "ENG": "Next", "DE": "Weiter",
+             "HU": "Tovább", "FR": "Suivant"}[get_language()]
+    return create_ornate_button(font_path, label)
+
+
+def create_ornate_button(font_path, label, button_width=167):
     font = pygame.font.Font(font_path, 28)
     artwork = load_scaled_image(os.path.join("UI", "Ornate Button Blank.png"))
     artwork = artwork.subsurface(artwork.get_bounding_rect())
-    button_width = 167  # Same visible width as End Turn and the level Back button.
     button = pygame.transform.smoothscale(
         artwork, (button_width, round(button_width * artwork.get_height() / artwork.get_width()))
     )
-    label = {"RU": "Далее", "ENG": "Next", "DE": "Weiter",
-             "HU": "Tovább", "FR": "Suivant"}[get_language()]
     text = font.render(label, True, (62, 36, 9))
     # Align visible letters, excluding the font's empty line margins.
     text = text.subsurface(text.get_bounding_rect())

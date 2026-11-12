@@ -37,6 +37,23 @@ class UpliftTests(unittest.TestCase):
             self.assertEqual(page._get_card_action(InvestedCard(15, 1)), -expected)
             self.assertEqual(page._get_card_action(11), 4)
 
+    def test_accumulation_doubles_the_action_already_calculated_in_slot_order(self):
+        for order, expected in (([204, 443], 12), ([443, 204], 16)):
+            for card_id, sign in ((11, 1), (15, -1), (17, 1)):
+                with self.subTest(order=order, card_id=card_id):
+                    page = self.page(order)
+                    page.accumulation_pending_sources = [0]
+                    page.side_cards_top = [124]
+                    page.side_cards_locked_top = {}
+                    page.side_card_jump_animations = {}
+                    page.market_card_actions = {0: {0: page._get_card_action(card_id)}}
+                    page.market_card_turns = {0: {0: 1}}
+                    page.market_cards_locked = {0: {}}
+                    page.card_turns = {card_id: 1}
+                    self.assertTrue(page._consume_accumulation_charge(card_id, 0, 0))
+                    self.assertEqual(page.market_card_actions[0][0], sign * expected)
+                    self.assertEqual(page.market_card_turns[0][0], 2)
+
     def test_catalog_and_pool_thresholds(self):
         for card, level, cost, chance in ((443, 3, 4, 25), (444, 5, 5, 5)):
             self.assertEqual(game_state.SHOP_CARD_COSTS[card], cost)

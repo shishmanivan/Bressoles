@@ -161,6 +161,37 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_screening_excludes_single_active_offers_on_shop_shelf(self):
+        game_state.napoleondors = 8
+        page = self._shop({"kind": "special", "special_id": "screening", "cost": 1})
+        page.offers.extend([
+            {"kind": "special", "special_id": name, "cost": 4}
+            for name in (*game_state.SINGLE_ACTIVE_SHOP_OFFERS, "profit")
+        ])
+        with mock.patch.object(game_state, "build_screening_offer_pool", return_value=[]) as pool:
+            page._buy_offer(0)
+        self.assertEqual(pool.call_args.kwargs["excluded_offer_ids"], game_state.SINGLE_ACTIVE_SHOP_OFFERS)
+        self.assertEqual(game_state.napoleondors, 8)
+
+    def test_screening_exclusions_apply_to_rolls_and_fallback(self):
+        available = ["bailout", "bank", "profit", "trader", "variance", "junk_bond", "delisting"]
+        for rolls in (available, []):
+            with self.subTest(rolls=rolls), mock.patch.object(
+                game_state, "_available_screening_offer_ids", return_value=available
+            ), mock.patch.object(game_state, "build_shop_special_offer_pool", return_value=rolls):
+                choices = game_state.build_screening_offer_pool(5, excluded_offer_ids={"bailout", "bank"})
+            self.assertEqual(set(choices), set(available) - {"bailout", "bank"})
+
+    def test_active_bailout_cannot_be_bought_again_or_reset(self):
+        game_state.napoleondors = 8
+        game_state.bailout_rounds_remaining = 3
+        page = self._shop({"kind": "special", "special_id": "bailout", "cost": 4})
+        page._buy_offer(0)
+        self.assertEqual(game_state.napoleondors, 8)
+        self.assertEqual(game_state.bailout_rounds_remaining, 3)
+        self.assertFalse(page._activate_free_special_offer("bailout"))
+        self.assertEqual(game_state.bailout_rounds_remaining, 3)
+
     def test_diversification_immediately_adds_distinct_discounted_card(self):
         game_state.napoleondors = 10
         page = self._shop({"kind": "special", "special_id": "diversification", "cost": 4})

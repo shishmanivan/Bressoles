@@ -1446,6 +1446,8 @@ def is_bailout_active():
 
 def buy_bailout(rounds=5):
     global bailout_rounds_remaining
+    if is_bailout_active():
+        return 0
     try:
         duration = max(0, int(rounds or 0))
     except (TypeError, ValueError):
@@ -3586,18 +3588,27 @@ def build_shop_special_offer_pool(
     return random.sample(offer_pool, offer_limit)
 
 
+SINGLE_ACTIVE_SHOP_OFFERS = frozenset({
+    "bailout", "bank", "derivative", "multibagger", "diversification",
+    "expansion", "bill_of_exchange", "disclosure", "compounding",
+    "capital_preservation", "retention", "loan",
+})
+
+
 def build_screening_offer_pool(
     level_number=1,
     offer_count=5,
     defeated_count=None,
     bosses_required=None,
     rounds_remaining=None,
+    excluded_offer_ids=None,
 ):
     """Build a unique set of free choices using the regular special-offer rolls."""
     try:
         count = max(0, int(offer_count or 0))
     except (TypeError, ValueError):
         count = 5
+    excluded = set(excluded_offer_ids or ())
     available = [
         offer_id
         for offer_id in _available_screening_offer_ids(
@@ -3606,7 +3617,7 @@ def build_screening_offer_pool(
             bosses_required,
             rounds_remaining,
         )
-        if offer_id != "screening"
+        if offer_id != "screening" and offer_id not in excluded
     ]
     if len(available) < count:
         return []

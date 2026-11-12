@@ -20,6 +20,7 @@ import gameplay_parity_animation as parity_animation
 import profile_manager
 from market_roll_stats import MarketRollStats
 from asset_loaders import load_scaled_image, load_scaled_image_variants
+from next_button import create_ornate_button
 from boss_logic import (
     apply_boss_functionality,
     apply_boss_reward,
@@ -50,7 +51,6 @@ from card_catalog import (
     GOLD_CASH_YIELD_CARD_ID,
     GOLD_CASH_YIELD_PERCENT,
     GOLD_SHAREHOLDER_VALUE_CARD_ID,
-    GOLD_SHAREHOLDER_VALUE_REWARD,
     GOLD_STANDARDIZATION_CARD_ID,
     GOLD_OVERVALUATION_CARD_ID,
     GOLD_WATERLOO_BASE_CHANCE,
@@ -1255,7 +1255,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if not self._count_active_silver_card(408):
             return
 
-        y = panel.bottom - 64
+        y = panel.bottom - 112
         hedger_count = self._count_active_silver_card(408)
         hedger_used = int(getattr(self, "hedger_used_this_round", 0) or 0)
         if hedger_used >= hedger_count:
@@ -1265,7 +1265,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         if self.hedger_message and pygame.time.get_ticks() < self.hedger_message_until:
             text = self.font_small.render(_tr(self.hedger_message), True, PAPER_COLOR)
-            self.screen.blit(text, text.get_rect(center=(panel.centerx, y - 48)))
+            self.screen.blit(text, text.get_rect(center=(panel.centerx, y - 108)))
 
         if self.hedger_selected_card_id is None:
             prompt = self.font_small.render(_tr("Выберите карту из колоды"), True, PAPER_COLOR)
@@ -1274,27 +1274,28 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         if self.hedger_confirm_active:
             prompt = self.font_small.render(
-                _tr(f"Добавить карту {self.hedger_selected_card_id} в руку?"),
+                _tr("Добавить эту карту?"),
                 True,
                 PAPER_COLOR,
             )
-            self.screen.blit(prompt, prompt.get_rect(center=(panel.centerx, y - 46)))
-            self.hedger_yes_button_rect = pygame.Rect(panel.centerx - 150, y - 20, 120, 54)
-            self.hedger_no_button_rect = pygame.Rect(panel.centerx + 30, y - 20, 120, 54)
-            self._draw_deck_view_button(self.hedger_yes_button_rect, "Да")
-            self._draw_deck_view_button(self.hedger_no_button_rect, "Нет")
+            self.screen.blit(prompt, prompt.get_rect(center=(panel.centerx, y - 82)))
+            self.hedger_yes_button_rect = self._draw_deck_view_button((panel.centerx - 100, y + 7), "Да")
+            self.hedger_no_button_rect = self._draw_deck_view_button((panel.centerx + 100, y + 7), "Нет")
             return
 
-        self.hedger_add_button_rect = pygame.Rect(panel.centerx - 170, y - 24, 340, 58)
-        self._draw_deck_view_button(self.hedger_add_button_rect, "Добавить в руку")
+        self.hedger_add_button_rect = self._draw_deck_view_button((panel.centerx, y + 7), "Добавить в руку", 270)
 
-    def _draw_deck_view_button(self, rect, text):
-        mouse_pos = self.mouse_pos()
-        color = (248, 239, 216) if rect.collidepoint(mouse_pos) else (238, 228, 205)
-        pygame.draw.rect(self.screen, color, rect, border_radius=7)
-        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 2, border_radius=7)
-        label = self.font_small.render(_tr(text), True, PAPER_COLOR)
-        self.screen.blit(label, label.get_rect(center=rect.center))
+    def _draw_deck_view_button(self, center, text, width=167):
+        if not hasattr(self, "hedger_button_images"):
+            self.hedger_button_images = {}
+        key = (_tr(text), width)
+        if key not in self.hedger_button_images:
+            self.hedger_button_images[key] = create_ornate_button(self.font_path, *key)
+        button, pressed = self.hedger_button_images[key]
+        rect = button.get_rect(center=center)
+        image = pressed if rect.collidepoint(self.mouse_pos()) and pygame.mouse.get_pressed()[0] else button
+        self.screen.blit(image, image.get_rect(center=center))
+        return rect
 
     def _get_deck_view_silver_card_image(self, card_id, size):
         cache_key = (int(card_id), int(size[0]), int(size[1]))
@@ -2917,7 +2918,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return None
     
     def _has_result_report(self):
-        return self.win_lose_state in ("win", "lose")
+        return getattr(self, "win_lose_state", None) in ("win", "lose")
 
     def _dismiss_tutorial_hint(self):
         hint = self.tutorial_hint
@@ -2946,6 +2947,18 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if event.type == pygame.QUIT:
                 return "quit"
 
+            # Result reports own input; nothing on the board behind them is interactive.
+            if self._has_result_report():
+                if hint is not None:
+                    if hint.accepts(event):
+                        hint.start_press(getattr(self, "end_turn_sound", None))
+                        return None
+                else:
+                    result = self._handle_newspaper_input(event)
+                    if result:
+                        return result
+                continue
+
             clockwork = getattr(self, "_clockwork_window", None)
             if clockwork is not None:
                 if clockwork.accepts_close(event):
@@ -2957,7 +2970,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
                     and BUTTON.collidepoint(event.pos)
                     and not self.tutorial_hint and not self.pause_menu_active
-                    and not self.deck_view_active and self._can_open_pause_menu()):
+                    and not self.deck_view_active
+                    and self._can_open_pause_menu()):
                 self._open_pause_menu()
                 self._clockwork_window = ClockworkWindow(self.frame, self.font_path)
                 return None
@@ -2989,12 +3003,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self._handle_deck_view_event(event)
                 continue
             
-            if self._has_result_report():
-                result = self._handle_newspaper_input(event)
-                if result:
-                    return result
-                continue
-
             if self.win_lose_state is not None:
                 continue
 
@@ -6634,7 +6642,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return False
 
         source_slot = self.accumulation_pending_sources.pop(0)
-        base_action = int(self.card_actions.get(normalized_card, 0) or 0)
+        # The slot already contains the nominal after all active amplifiers.
+        base_action = self.market_card_actions[market].get(slot)
+        if base_action is None:
+            base_action = self._get_card_action(card_id) or 0
         base_turns = int(self.market_card_turns[market].get(
             slot,
             self.card_turns.get(normalized_card, 0),
@@ -6758,7 +6769,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return True
 
     def _apply_shareholder_value_effect_if_needed(self):
-        """Pay $2 per fresh Shareholder for each active Shareholder Value copy."""
+        """Pay the current C share price per fresh Shareholder and active copy."""
         card_count = self._count_active_card_safely(GOLD_SHAREHOLDER_VALUE_CARD_ID)
         if card_count <= 0:
             return False
@@ -6766,7 +6777,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if shareholder_count <= 0:
             return False
 
-        self.Money += GOLD_SHAREHOLDER_VALUE_REWARD * shareholder_count * card_count
+        self.Money += self.CPrice * shareholder_count * card_count
         self._start_fresh_side_card_jump_animation_for_card(100)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             if card_id == GOLD_SHAREHOLDER_VALUE_CARD_ID:
@@ -6955,6 +6966,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
             if self._record_short_seller_falls(previous_prices, f"BID {bid_value}"):
                 return True
+            parity_animation.start(self)
             self._start_card_jump_animation(self.side_card_jump_animations, slot)
             applied_values.append(bid_value)
 
@@ -8726,6 +8738,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self._draw_newspaper(active=newspaper_active)
             if not newspaper_active:
                 self._draw_newspaper_detail()
+            self._draw_clockwork_overlay()
             return
         if self.deck_view_active:
             self._draw_deck_view()
@@ -8739,7 +8752,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
         self._draw_protective_put()
+        self._draw_clockwork_overlay()
+
+    def _draw_clockwork_overlay(self):
         from clockwork_window import draw_button
+        if self._has_result_report():
+            draw_button(self.screen)
+            return
         if not self.pause_menu_active and not self.deck_view_active and not self.tutorial_hint:
             draw_button(self.screen)
         if getattr(self, "_clockwork_window", None) is not None:

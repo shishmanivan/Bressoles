@@ -444,7 +444,7 @@ def main():
             clear_active_game=True,
         )
 
-    def choose_active_lifecycle_cards(level_number, is_boss_fight=False, round_number=None):
+    def choose_active_lifecycle_cards(level_number, is_boss_fight=False, round_number=None, difficulty=None):
         if int(level_number or 0) == 6:
             return "ok", {
                 "active_silver_cards": [],
@@ -467,6 +467,7 @@ def main():
             active_lifecycle_card_order=game_state.active_lifecycle_card_order,
             is_boss_fight=is_boss_fight,
             round_number=round_number,
+            difficulty=difficulty,
             lang_dict=Lang,
         )
         silver_result = run_page(silver_page)
@@ -1123,6 +1124,7 @@ def main():
                         silver_status, active_cards = choose_active_lifecycle_cards(
                             boss_level,
                             round_number=round_num,
+                            difficulty=difficulty,
                         )
                         if silver_status == "back":
                             round_result = run_page(round_page)
