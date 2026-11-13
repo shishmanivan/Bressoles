@@ -254,6 +254,7 @@ class RoundPage(AdaptivePage):
         self._round_button_hover_images = {}
         self._pending_round_press = None
         self._round_press_started_at = None
+        self._round_press_drawn = False
 
         self.hovered_button = None
         self.last_selected_round = None
@@ -324,7 +325,22 @@ class RoundPage(AdaptivePage):
 
         pending = getattr(self, "_pending_round_press", None)
         pressed = shrink_on_hover and pending is not None and pending[0] == key
-        if shrink_on_hover and (pressed or key == self.hovered_button):
+        if pressed:
+            now = pygame.time.get_ticks()
+            if self._round_press_started_at is None:
+                self._round_press_started_at = now
+            progress = min(1.0, max(0.0, (now - self._round_press_started_at) / ROUND_BUTTON_PRESS_MS))
+            eased = progress * progress * (3 - 2 * progress)
+            scale = self.round_button_hover_scale - 0.08 * eased
+            size = tuple(max(1, round(dimension * scale)) for dimension in img.get_size())
+            pressed_img = pygame.transform.smoothscale(img, size)
+            shade = round(255 * (1 - 0.2 * eased))
+            pressed_img.fill((shade, shade, shade, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            self.screen.blit(pressed_img, pressed_img.get_rect(center=rect.center))
+            self._round_press_drawn = progress >= 1.0
+            return
+
+        if shrink_on_hover and key == self.hovered_button:
             cache_key = (key, img.get_width(), img.get_height(), self.round_button_hover_scale)
             hover_img = self._round_button_hover_images.get(cache_key)
             if hover_img is None:
@@ -335,12 +351,6 @@ class RoundPage(AdaptivePage):
                 hover_img = pygame.transform.smoothscale(img, hover_size).convert_alpha()
                 self._round_button_hover_images[cache_key] = hover_img
             hover_rect = hover_img.get_rect(center=rect.center)
-            if pressed:
-                now = pygame.time.get_ticks()
-                if self._round_press_started_at is None:
-                    self._round_press_started_at = now
-                progress = min(1, (now - self._round_press_started_at) / ROUND_BUTTON_PRESS_MS)
-                hover_rect.y += round(2 + 3 * progress)
             self.screen.blit(hover_img, hover_rect.topleft)
             return
 
@@ -562,8 +572,7 @@ class RoundPage(AdaptivePage):
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self._pending_round_press = None
                     return "back"
-            started = self._round_press_started_at
-            if started is None or pygame.time.get_ticks() - started < ROUND_BUTTON_PRESS_MS:
+            if not self._round_press_drawn:
                 return None
             key, round_num, goal, line = pending
             self._pending_round_press = None
@@ -690,6 +699,7 @@ class RoundPage(AdaptivePage):
                                 key, current_active_round, 2 if self.test_mode else goal, self.current_line,
                             )
                             self._round_press_started_at = None
+                            self._round_press_drawn = False
                             play_action_click()
                             return None
                     current_active_round = self.get_current_active_round()

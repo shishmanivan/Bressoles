@@ -237,10 +237,10 @@ class BankruptcyConditionTests(unittest.TestCase):
     def test_red_effect_pipeline_registers_new_cards_only_once(self):
         page = self.page()
         page.side_cards_top = [117, 114]
-        for name in ("_apply_shareholder_value_effect_if_needed", "_apply_forward_trading_effect_if_needed",
-                     "_apply_extended_gain_drop_effect_if_needed", "_apply_price_setting_red_card_effects_in_slot_order",
-                     "_apply_extra_turn_effect_if_needed", "_apply_manipulation_effect_if_needed",
-                     "_apply_deleverage_effect_if_needed"):
+        page._has_effect_animations = mock.Mock(return_value=False)
+        page.side_card_jump_animations = {}
+        for name in ("_apply_market_crash_effect_if_needed", "_apply_bankruptcy_effects_if_needed",
+                     "_apply_manipulation_effect_if_needed", "_start_card_jump_animation"):
             setattr(page, name, mock.Mock())
         page._apply_red_card_effects_if_needed()
         page._apply_red_card_effects_if_needed()

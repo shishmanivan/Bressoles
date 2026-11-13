@@ -280,6 +280,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         probabilities = self._stock_bot_probabilities(include_price_support=False)[source]
         snapshots = getattr(self, "market_copy_snapshots", {}).copy()
         snapshots[market] = {
+            "source_market": source,
             "probabilities": dict(probabilities),
             "through_slot": slot,
             "shakeout_count": self._get_shakeout_count() if market in self._get_shakeout_markets() else 0,
@@ -312,11 +313,16 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 "through_slot": int(snapshot.get("through_slot", -1)),
                 "shakeout_count": int(snapshot.get("shakeout_count", 0)),
                 **({"step": snapshot["step"]} if "step" in snapshot else {}),
+                **({"source_market": snapshot["source_market"]} if "source_market" in snapshot else {}),
             }
             for market, snapshot in (state.get("market_copy_snapshots") or {}).items()
             if str(market) in ("0", "1", "2")
         }
         for market, snapshot in self.market_copy_snapshots.items():
+            if "source_market" not in snapshot:
+                card = getattr(self, "market_cards", {}).get(market, {}).get(snapshot["through_slot"])
+                if card in MARKET_COPY_OFFSETS:
+                    snapshot["source_market"] = market + MARKET_COPY_OFFSETS[card]
             if "step" in snapshot:
                 setattr(self, ("StepA", "StepB", "StepC")[market], snapshot["step"])
 
@@ -852,7 +858,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.turn_resolution_active = False
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
-        self._red_effect_stage = 0
+        self._side_card_next_slot = 0
         self._red_price_next_slot = 0
         self.hand_negative_overlay_hold = {"red": False, "market": False}
 
@@ -2407,7 +2413,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.arkwright_share_theft_animation = None
         self.effect_finalize_pending = False
         self.red_effects_applied_this_resolution = False
-        self._red_effect_stage = 0
+        self._side_card_next_slot = 0
         self._red_price_next_slot = 0
         self.hand_negative_overlay_hold = {"red": False, "market": False}
         self.hand_compact_anim = []
@@ -4261,7 +4267,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.pending_draws = 0
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
-        self._red_effect_stage = 0
+        self._side_card_next_slot = 0
         self._red_price_next_slot = 0
         self._clear_hand_negative_overlay_hold()
         if not self.hand_compact_anim and not self.hand_draw_anim:
@@ -5336,15 +5342,24 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         animation_queue = self._apply_momentum_to_random_movements(animation_queue)
         animation_queue.extend(self._build_advance_movements())
         if self._advance_surge_counter():
+            targets = self._get_surge_target_markets()
             animation_queue.append(
                 {
-                    "market": 0,
+                    "market": targets if len(targets) > 1 else 0,
                     "type": "rise",
                     "price_change": 0,
                     "source": "surge",
                 }
             )
         return animation_queue
+
+    def _get_surge_target_markets(self):
+        snapshots = getattr(self, "market_copy_snapshots", {})
+        standardized = getattr(self, "standardization_probabilities", None) or {}
+        return (0,) + tuple(
+            market for market in (1, 2)
+            if snapshots.get(market, {}).get("source_market", 0 if market in standardized else None) == 0
+        )
 
     def _roll_selling_pressure_markets(self):
         blue_chip_markets = self._get_blue_chip_markets()
@@ -5584,7 +5599,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             target_markets = (target_markets,)
         if next_anim.get("source") == "surge":
             surge_count = max(1, self._count_active_card_safely(415))
-            self.Aprice = max(2, int(self.Aprice or 0) * (3 ** surge_count))
+            for market in target_markets:
+                price_attr = ("Aprice", "BPrice", "CPrice")[market]
+                setattr(self, price_attr, max(2, int(getattr(self, price_attr) or 0) * (3 ** surge_count)))
             for slot, card_id in enumerate(self._active_lifecycle_cards()):
                 try:
                     is_surge = int(card_id) == 415
@@ -5687,7 +5704,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.effect_finalize_pending = False
         self.bankruptcy_condition_cards_counted = False
         self.red_effects_applied_this_resolution = False
-        self._red_effect_stage = 0
+        self._side_card_next_slot = 0
         self._red_price_next_slot = 0
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
@@ -5842,7 +5859,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                     continue
                 if source == "advance":
                     prices[market] = max(2, prices[market] * 2)
-                elif source == "surge" and market == 0:
+                elif source == "surge":
                     surge_count = max(1, self._count_active_card_safely(415))
                     prices[market] = max(2, prices[market] * (3 ** surge_count))
                 else:
@@ -6152,7 +6169,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.pending_draws = 0
         self.turn_resolution_active = False
         self.red_effects_applied_this_resolution = False
-        self._red_effect_stage = 0
+        self._side_card_next_slot = 0
         self._red_price_next_slot = 0
         self.basket_trading_applied_this_resolution = False
         self.sideway_applied_this_resolution = False
@@ -6599,10 +6616,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         """Lock all currently played Type=2 cards on the right-side TOP panel for future turns."""
         lock_side_cards(self.side_cards_top, self.side_cards_locked_top)
 
-    def _count_fresh_side_card(self, target_card_id):
+    def _count_fresh_side_card(self, target_card_id, slots=None):
         """Return how many target Type=2 cards were played this turn and are still unlocked."""
         count = 0
-        for slot, card_id in enumerate(self.side_cards_top):
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        for slot in target_slots:
+            card_id = self.side_cards_top[slot]
             if card_id == target_card_id and not self.side_cards_locked_top.get(slot):
                 count += 1
         return count
@@ -6666,33 +6685,43 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return True
 
     def _apply_red_card_effects_if_needed(self):
-        """Apply one-shot effects for freshly played Type=2 red cards."""
+        """Resolve each fresh shared-field slot and wait for all its animations."""
         bankruptcy_condition.register_fresh_cards(self)
-        effects = (
-            self._apply_shareholder_value_effect_if_needed,
-            self._apply_forward_trading_effect_if_needed,
-            self._apply_extended_gain_drop_effect_if_needed,
-            self._apply_price_setting_red_card_effects_in_slot_order,
-            self._apply_extra_turn_effect_if_needed,
-            self._apply_manipulation_effect_if_needed,
-            self._apply_deleverage_effect_if_needed,
-        )
-        if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
+        if self._has_effect_animations():
             return False
-        stage = getattr(self, "_red_effect_stage", 0)
-        while stage < len(effects):
-            effects[stage]()
-            if getattr(self, "win_lose_state", None) is not None:
-                return True
-            # Keep this stage until its remaining slots have resolved.
-            if getattr(self, "_red_price_next_slot", 0):
-                self._red_effect_stage = stage
-                return False
-            stage += 1
-            self._red_effect_stage = stage
-            if getattr(self, "bankruptcy_animations", {}) or getattr(self, "parity_animation", None):
-                return False
-        self._red_effect_stage = 0
+        handlers = {
+            100: (self._apply_shareholder_value_effect_if_needed,
+                  self._apply_forward_trading_effect_if_needed),
+            111: (self._apply_deleverage_effect_if_needed,),
+            112: (self._apply_extended_gain_drop_effect_if_needed,),
+            113: (self._apply_bankruptcy_effects_if_needed,),
+            114: (self._apply_bankruptcy_effects_if_needed,),
+            115: (self._apply_bankruptcy_effects_if_needed,),
+            116: (self._apply_extra_turn_effect_if_needed,),
+            117: (self._apply_market_crash_effect_if_needed,),
+            **{card: (self._apply_bid_effect_if_needed,) for card in BID_CARD_VALUES},
+            123: (self._apply_parity_effect_if_needed,),
+            125: (self._apply_breakout_effect_if_needed,),
+        }
+        slot = getattr(self, "_side_card_next_slot", 0)
+        while slot < len(self.side_cards_top):
+            card_id = self.side_cards_top[slot]
+            # Advance before yielding so callbacks cannot replay this card.
+            self._side_card_next_slot = slot + 1
+            if card_id is not None and not self.side_cards_locked_top.get(slot):
+                for handler in handlers.get(int(card_id), ()):
+                    handler(slots=(slot,))
+                    if getattr(self, "win_lose_state", None) is not None:
+                        return True
+                # Even passive cards and effects without a price change get
+                # a visible turn in the shared-field sequence.
+                if slot not in self.side_card_jump_animations:
+                    self._start_card_jump_animation(self.side_card_jump_animations, slot)
+                if self._has_effect_animations():
+                    return False
+            slot += 1
+        # This turn-wide reaction runs once, after the shared field is done.
+        self._apply_manipulation_effect_if_needed()
         return True
 
     def _apply_price_setting_red_card_effects_in_slot_order(self):
@@ -6735,17 +6764,19 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._red_price_next_slot = 0
         return applied
 
-    def _start_fresh_side_card_jump_animation_for_card(self, target_card_id):
-        for slot, card_id in enumerate(self.side_cards_top):
+    def _start_fresh_side_card_jump_animation_for_card(self, target_card_id, slots=None):
+        target_slots = range(len(self.side_cards_top)) if slots is None else slots
+        for slot in target_slots:
+            card_id = self.side_cards_top[slot]
             if (
                 card_id == target_card_id
                 and not self.side_cards_locked_top.get(slot)
             ):
                 self._start_card_jump_animation(self.side_card_jump_animations, slot)
 
-    def _apply_extended_gain_drop_effect_if_needed(self):
+    def _apply_extended_gain_drop_effect_if_needed(self, slots=None):
         """Card 112: extend all Gain/Drop/Regulation durations, including cards in play."""
-        red_rollover_count = self._count_fresh_side_card(112)
+        red_rollover_count = self._count_fresh_side_card(112, slots=slots)
         if red_rollover_count <= 0:
             return False
 
@@ -6763,32 +6794,32 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                     current = self.market_card_turns[market].get(slot, self.card_turns[card_id] - bonus)
                     self.market_card_turns[market][slot] = current + bonus
 
-        self._start_fresh_side_card_jump_animation_for_card(112)
+        self._start_fresh_side_card_jump_animation_for_card(112, slots=slots)
         source = "Card 112 Rollover"
         print(f"{source} extended Gain/Drop/Regulation durations by {bonus}.")
         return True
 
-    def _apply_shareholder_value_effect_if_needed(self):
+    def _apply_shareholder_value_effect_if_needed(self, slots=None):
         """Pay the current C share price per fresh Shareholder and active copy."""
         card_count = self._count_active_card_safely(GOLD_SHAREHOLDER_VALUE_CARD_ID)
         if card_count <= 0:
             return False
-        shareholder_count = self._count_fresh_side_card(100)
+        shareholder_count = self._count_fresh_side_card(100, slots=slots)
         if shareholder_count <= 0:
             return False
 
         self.Money += self.CPrice * shareholder_count * card_count
-        self._start_fresh_side_card_jump_animation_for_card(100)
+        self._start_fresh_side_card_jump_animation_for_card(100, slots=slots)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             if card_id == GOLD_SHAREHOLDER_VALUE_CARD_ID:
                 self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
         return True
 
-    def _apply_forward_trading_effect_if_needed(self):
+    def _apply_forward_trading_effect_if_needed(self, slots=None):
         """Cards 207/402: extend the round when fresh Shareholders are played."""
         if getattr(self, "boss_block_card_turn_extensions", False):
             return False
-        shareholder_count = self._count_fresh_side_card(100)
+        shareholder_count = self._count_fresh_side_card(100, slots=slots)
         if shareholder_count <= 0:
             return False
 
@@ -6883,11 +6914,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             )
         return applied
 
-    def _apply_extra_turn_effect_if_needed(self):
+    def _apply_extra_turn_effect_if_needed(self, slots=None):
         """Card 116: increase turns before round end by 1 per fresh 116."""
         if getattr(self, "boss_block_card_turn_extensions", False):
             return False
-        bonus = self._count_fresh_side_card(116)
+        bonus = self._count_fresh_side_card(116, slots=slots)
         if bonus <= 0:
             return False
         self.LastTurn += bonus
@@ -7131,9 +7162,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if animations:
             self.market_clear_animations.extend(animations)
 
-    def _apply_deleverage_effect_if_needed(self):
+    def _apply_deleverage_effect_if_needed(self, slots=None):
         """Apply card 111: remove all cards from the three market rows."""
-        if not self._has_fresh_side_card(111):
+        if not self._count_fresh_side_card(111, slots=slots):
             return False
 
         has_market_cards = any(
@@ -8739,6 +8770,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if not newspaper_active:
                 self._draw_newspaper_detail()
             self._draw_clockwork_overlay()
+            if getattr(self, "tutorial_hint", None) is not None:
+                self.tutorial_hint.draw(self.screen)
             return
         if self.deck_view_active:
             self._draw_deck_view()

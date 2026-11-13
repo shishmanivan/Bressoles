@@ -13,6 +13,23 @@ from localization import SUPPORTED_LANGUAGES, get_language, set_language, transl
 
 
 class FiveLossesTutorialTests(unittest.TestCase):
+    def test_loss_tutorial_draws_above_report(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page.win_lose_state = "lose"
+        page.screen = Mock()
+        order = Mock()
+        page._draw_newspaper = order.report
+        page._draw_newspaper_detail = order.detail
+        page._draw_clockwork_overlay = order.background
+        page.tutorial_hint = Mock()
+        page.tutorial_hint.draw = order.hint
+        for stage in ("newspaper", "finance_report"):
+            order.reset_mock()
+            page.result_report_stage = stage
+            page._draw_gameplay_overlays()
+            self.assertEqual(order.mock_calls[-1], unittest.mock.call.hint(page.screen))
+            order.report.assert_called_once()
+
     def test_streak_persists_and_only_level_completion_resets_it(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(profile_manager, "PROFILES_DIR", directory):
             for _ in range(4):

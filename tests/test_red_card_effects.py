@@ -19,6 +19,8 @@ class RedCardEffectTests(unittest.TestCase):
         page.active_black_cards = []
         page.active_gold_cards = []
         page.active_lifecycle_card_order = []
+        page.market_clear_animations = []
+        page.bankruptcy_animations = {}
         page.side_card_jump_animations = {}
         page.lifecycle_card_jump_animations = {}
         page.card_jump_animations = {0: {}, 1: {}, 2: {}}
@@ -93,6 +95,8 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertIsNone(page.current_card_processing)
         self.assertEqual(page.price_card_queue, [])
 
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        page.card_jump_animations[0].clear()
         page._apply_red_card_effects_if_needed()
 
         self.assertEqual(page.card_turns[11], 2)
@@ -253,13 +257,13 @@ class RedCardEffectTests(unittest.TestCase):
         page._apply_red_card_effects_if_needed()
 
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 10, 10))
-        self.assertFalse(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertFalse(page._apply_red_card_effects_if_needed())
         page.parity_animation = None
-        self.assertTrue(page._apply_price_setting_red_card_effects_in_slot_order())
+        self.assertFalse(page._apply_red_card_effects_if_needed())
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (2, 10, 10))
         self.assertEqual(
             [call.args[1] for call in page._start_card_jump_animation.call_args_list],
-            [0, 1],
+            [0, 0, 1, 1],
         )
 
     def test_bankruptcy_then_bid_resolves_strictly_from_left_to_right(self):
@@ -310,9 +314,9 @@ class RedCardEffectTests(unittest.TestCase):
         page.bankruptcy_animations.clear()
         self.assertTrue(page._apply_red_card_effects_if_needed())
         self.assertEqual(page.LastTurn, 9)
-        page._apply_forward_trading_effect_if_needed.assert_called_once()
+        page._apply_forward_trading_effect_if_needed.assert_not_called()
         self.assertEqual([call.args[1] for call in page._start_card_jump_animation.call_args_list],
-                         [0, 1])
+                         [0, 0, 1, 1, 2])
 
     def test_turn_finalization_waits_for_red_sequence(self):
         page = self._page()
@@ -322,7 +326,6 @@ class RedCardEffectTests(unittest.TestCase):
         page.Aprice = page.BPrice = page.CPrice = 7
         page._start_card_jump_animation = mock.Mock()
         page._lock_side_cards = mock.Mock()
-        page._has_effect_animations = lambda: bool(page.bankruptcy_animations)
         page._build_continuation_bonus_movements = mock.Mock(return_value=[])
         page._finalize_turn_resolution = mock.Mock()
         page._begin_effect_finalize_or_wait()

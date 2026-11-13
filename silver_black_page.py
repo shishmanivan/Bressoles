@@ -13,7 +13,7 @@ from asset_loaders import load_scaled_image
 from gameplay_tutorial import (STORAGE_HINT_ID, STORAGE_HINT_TEXT,
                                SILVER_STORAGE_HINT_ID, SILVER_STORAGE_HINT_TEXT,
                                BLACK_STORAGE_HINT_ID, BLACK_STORAGE_HINT_TEXT, TutorialHint)
-from next_button import create_next_button
+from next_button import create_next_button, draw_ornate_action
 from sound_assets import load_button_sound
 from card_catalog import MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
 from game_data import REWARD_TOKEN_RANDOM_SILVER
@@ -1364,14 +1364,7 @@ class ReplicationSilverPage(SilverBlackPage):
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, label, enabled=True):
-        hovered = enabled and rect.collidepoint(self.mouse_pos())
-        color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
-        if not enabled:
-            color = (218, 210, 194)
-        pygame.draw.rect(self.screen, color, rect, border_radius=4)
-        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
-        text_color = PAPER_COLOR if enabled else (145, 138, 130)
-        self._draw_centered_text(label, self.continue_button_font, rect.center, text_color)
+        draw_ornate_action(self, rect, label, enabled)
 
     @adaptive_draw
     def draw(self):

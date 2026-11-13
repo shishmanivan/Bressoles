@@ -1,6 +1,6 @@
 from adaptive_page import AdaptivePage, adaptive_draw
 from app_settings import card_information_enabled
-from next_button import create_next_button
+from next_button import create_next_button, draw_ornate_action
 from localization import get_language, translate as _tr
 import os
 import sys
@@ -726,7 +726,7 @@ class ShopPage(AdaptivePage):
 
     def _draw_offer(self, index, offer, rect, *, image_offset_y=0, show_details=True):
         image = self._offer_image(offer)
-        stamp_age = pygame.time.get_ticks() - getattr(self, "_purchase_stamps", {}).get(id(offer), -10000)
+        stamp_age = self._purchase_stamp_age(offer, start=show_details)
         if image is not None and show_details and index not in self.sold_offer_indexes and self._offer_at(self.mouse_pos()) == index:
             image = pygame.transform.smoothscale(image, tuple(round(v * HAND_HOVER_SCALE) for v in image.get_size()))
         image_rect = image.get_rect() if image else pygame.Rect(0, 0, *self.offer_image_box)
@@ -747,6 +747,20 @@ class ShopPage(AdaptivePage):
             self._draw_sold_stamp(image_rect, stamp_age)
         elif stamp_age < 500:
             self._draw_sold_stamp(image_rect, stamp_age)
+
+    def _purchase_stamp_age(self, offer, *, start=True):
+        stamps = getattr(self, "_purchase_stamps", {})
+        key = id(offer)
+        if key not in stamps:
+            return 10000
+        now = pygame.time.get_ticks()
+        if stamps[key] is None:
+            if not start:
+                return 0
+            stamps[key] = now
+            if self.purchase_stamp_sound:
+                self.purchase_stamp_sound.play()
+        return now - stamps[key]
 
     def _draw_sold_stamp(self, rect, age):
         stamp = getattr(self, "sold_stamp", None)
@@ -960,9 +974,7 @@ class ShopPage(AdaptivePage):
         self._perform_buy_offer(index, refresh_expansion=False, refresh_diversification=False)
         if self._purchase_paid:
             now = pygame.time.get_ticks()
-            self._purchase_stamps[id(offer)] = now
-            if self.purchase_stamp_sound:
-                self.purchase_stamp_sound.play()
+            self._purchase_stamps[id(offer)] = None
             special = offer.get("special_id")
             if (special == "expansion" and refresh_expansion) or (special == "diversification" and refresh_diversification):
                 self._pending_assortment = (now + 500, special)
@@ -1061,6 +1073,7 @@ class ShopPage(AdaptivePage):
                 [selected_card],
             )
             if sold_cards:
+                self._purchase_paid = True
                 self._sync_balance()
                 self.sold_offer_indexes.add(index)
                 self.message = f"Продано: {format_napoleondors(total_value)}"
@@ -1676,14 +1689,7 @@ class ScreeningOfferPage(ShopPage):
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
     def _draw_button(self, rect, label, enabled=True):
-        hovered = enabled and rect.collidepoint(self.mouse_pos())
-        color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
-        if not enabled:
-            color = (218, 210, 194)
-        pygame.draw.rect(self.screen, color, rect, border_radius=4)
-        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=4)
-        text_color = PAPER_COLOR if enabled else (145, 138, 130)
-        self._draw_centered_text(label, self.button_font, rect.center, text_color)
+        draw_ornate_action(self, rect, label, enabled)
 
     def _draw_choice(self, index, offer, rect):
         image = self._offer_image(offer)
@@ -1844,10 +1850,7 @@ class DeckCardPage(AdaptivePage):
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, text):
-        color = BUTTON_HOVER_COLOR if rect.collidepoint(self.mouse_pos()) else BUTTON_COLOR
-        pygame.draw.rect(self.screen, color, rect, border_radius=8)
-        pygame.draw.rect(self.screen, PAPER_COLOR, rect, 3, border_radius=8)
-        self._draw_centered_text(text, self.button_font, rect.center)
+        draw_ornate_action(self, rect, text)
 
     def _card_image(self, card_id):
         try:

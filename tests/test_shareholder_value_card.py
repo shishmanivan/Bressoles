@@ -52,11 +52,20 @@ class ShareholderValueTests(unittest.TestCase):
         page.boss_block_card_turn_extensions = True
         page.turn_resolution_active = True
         page.red_effects_applied_this_resolution = False
-        page._has_effect_animations = lambda: True
         page._begin_effect_finalize_or_wait()
+        page._begin_effect_finalize_or_wait()
+        self.assertEqual(page.Money, 24)
+        self.assertFalse(page.red_effects_applied_this_resolution)
+        # The source card finishing alone cannot release the next Shareholder.
+        page.side_card_jump_animations.clear()
+        page._begin_effect_finalize_or_wait()
+        self.assertEqual(page.Money, 24)
+        page.lifecycle_card_jump_animations.clear()
         page._begin_effect_finalize_or_wait()
         self.assertEqual(page.Money, 38)
-        self.assertTrue(page.red_effects_applied_this_resolution)
+        page._begin_effect_finalize_or_wait()
+        self.assertEqual(page.Money, 38)
+        self.assertFalse(page.red_effects_applied_this_resolution)
 
     def test_catalog_price_level_chance_and_translations(self):
         self.assertEqual(game_state.SHOP_CARD_COSTS[439], 5)

@@ -19,6 +19,27 @@ from tests import test_red_card_effects
 
 
 class MarketCopyCardTests(unittest.TestCase):
+    def test_surge_triples_current_prices_of_a_and_its_direct_copies(self):
+        for standardization, expected in ((False, (36, 60, 30)), (True, (36, 60, 90))):
+            with self.subTest(standardization=standardization):
+                page = self.page()
+                page.active_gold_cards = [415] + ([440] if standardization else [])
+                page.lifecycle_card_jump_animations = {}
+                if standardization:
+                    page._apply_standardization_start()
+                self.play(page, 23, 1)
+                if not standardization:
+                    self.play(page, 23, 2)  # C copies B, not A.
+                page.BPrice, page.CPrice = 20, 30
+                state = json.loads(json.dumps({"market_copy_snapshots": page.market_copy_snapshots}))
+                page._restore_market_copy_state(state)
+                queue = [{"market": page._get_surge_target_markets(), "type": "rise",
+                          "price_change": 0, "source": "surge"}]
+                self.assertEqual(page._calculate_waterloo_preview_prices(queue), expected)
+                page.price_animation_queue = queue
+                self.assertTrue(page._start_next_price_animation(now=100))
+                self.assertEqual((page.Aprice, page.BPrice, page.CPrice), expected)
+
     @staticmethod
     def page():
         page = test_red_card_effects.RedCardEffectTests._page()

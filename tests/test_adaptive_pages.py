@@ -117,6 +117,8 @@ class AdaptivePagesTests(unittest.TestCase):
                             ticks.return_value += ROUND_BUTTON_PRESS_MS - 1
                             self.assertIsNone(page.handle_input())
                             ticks.return_value += 1
+                            self.assertIsNone(page.handle_input())
+                            page.draw()
                             self.assertEqual(page.handle_input(), "button_e")
                     if isinstance(page, GameplayPage):
                         with mock.patch.object(page, "_is_hand_transition_active", return_value=False), mock.patch.object(page, "_start_turn_resolution") as end_turn:

@@ -161,6 +161,39 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_trader_stamp_starts_with_sound_only_after_return_to_shop(self):
+        page = self._shop({"kind": "special", "special_id": "trader", "cost": 0})
+        page._purchase_stamps = {}
+        page._pending_assortment = None
+        page.purchase_stamp_sound = mock.Mock()
+        with mock.patch("shop_page.TraderDeckPage") as picker, mock.patch.object(
+            game_state, "sell_cards_from_level_deck", return_value=(3, [117])
+        ):
+            picker.return_value.run.return_value = 117
+            page._buy_offer(0)
+        self.assertIn(0, page.sold_offer_indexes)
+        self.assertIsNone(page._purchase_stamps[id(page.offers[0])])
+        page.purchase_stamp_sound.play.assert_not_called()
+        with mock.patch("shop_page.pygame.time.get_ticks", return_value=50000):
+            self.assertEqual(page._purchase_stamp_age(page.offers[0], start=False), 0)
+            page.purchase_stamp_sound.play.assert_not_called()
+            self.assertEqual(page._purchase_stamp_age(page.offers[0]), 0)
+        with mock.patch("shop_page.pygame.time.get_ticks", return_value=50170):
+            self.assertEqual(page._purchase_stamp_age(page.offers[0]), 170)
+        page.purchase_stamp_sound.play.assert_called_once()
+
+    def test_trader_cancellation_does_not_queue_stamp(self):
+        page = self._shop({"kind": "special", "special_id": "trader", "cost": 0})
+        page._purchase_stamps = {}
+        page._pending_assortment = None
+        page.purchase_stamp_sound = mock.Mock()
+        with mock.patch("shop_page.TraderDeckPage") as picker:
+            picker.return_value.run.return_value = None
+            page._buy_offer(0)
+        self.assertEqual(page._purchase_stamps, {})
+        self.assertEqual(page.sold_offer_indexes, set())
+        page.purchase_stamp_sound.play.assert_not_called()
+
     def test_screening_excludes_single_active_offers_on_shop_shelf(self):
         game_state.napoleondors = 8
         page = self._shop({"kind": "special", "special_id": "screening", "cost": 1})
