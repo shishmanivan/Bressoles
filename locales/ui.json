@@ -8,20 +8,12 @@
     "FR": "Vous pouvez désormais appuyer sur le bouton de relance pour obtenir de nouvelles cartes. Vous pouvez conserver jusqu’à 10 relances. Les relances ne sont pas perdues en cas de défaite et sont conservées pour la partie suivante."
   },
   {
-    "Source": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
-    "RU": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
-    "ENG": "Grants 5 shop rerolls. Maximum balance: 10. Available from level 6 if you have no more than 5 rerolls.",
-    "DE": "Gewährt 5 Neuwürfe im Laden. Maximaler Vorrat: 10. Ab Level 6 verfügbar, wenn du höchstens 5 Neuwürfe hast.",
-    "HU": "5 bolti újradobást ad. Legfeljebb 10 tárolható. A 6. szinttől érhető el, ha legfeljebb 5 újradobásod van.",
-    "FR": "Accorde 5 relances de la boutique. Réserve maximale : 10. Disponible à partir du niveau 6 si vous avez au plus 5 relances."
-  },
-  {
-    "Source": "Перебросы: {v0}",
-    "RU": "Перебросы: {v0}",
-    "ENG": "Rerolls: {v0}",
-    "DE": "Neuwürfe: {v0}",
-    "HU": "Újradobások: {v0}",
-    "FR": "Relances : {v0}"
+    "Source": "Даёт 5 перебросов. Максимальный запас перебросов - 10",
+    "RU": "Даёт 5 перебросов. Максимальный запас перебросов - 10",
+    "ENG": "Grants 5 rerolls. You can hold up to 10 rerolls",
+    "DE": "Gewährt 5 Neuwürfe. Du kannst bis zu 10 Neuwürfe sammeln",
+    "HU": "5 újradobást ad. Legfeljebb 10 újradobásod lehet",
+    "FR": "Accorde 5 relances. Vous pouvez conserver jusqu’à 10 relances"
   },
   {
     "Source": "Uplift",

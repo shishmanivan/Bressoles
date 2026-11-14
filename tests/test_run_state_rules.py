@@ -520,26 +520,26 @@ class RewardLifecycleRulesTests(GameStateTestCase):
         self.assertEqual(gameplay.last_earned_cards, [203])
         self.assertNotIn(203, game_state.build_current_level_deck(3))
 
-    def test_arkwright_awards_three_silver_cards_with_one_sub_twenty_percent_card(self):
+    def test_arkwright_awards_rare_medium_and_common_silver_cards(self):
         gameplay = mock.Mock()
         gameplay.level_number = 3
         gameplay.last_earned_cards = []
         game_state.silver_cards = []
         cards = {
             201: {"Open": 1, "Variable": 50},
-            202: {"Open": 1, "Variable": 10},
+            202: {"Open": 1, "Variable": 7},
             203: {"Open": 1, "Variable": 20},
         }
 
         with (
             mock.patch.object(game_state, "load_cards_config", return_value=cards),
             mock.patch.object(game_state, "is_card_licensed", return_value=True),
-            mock.patch.object(game_state.random, "choice", side_effect=[202, 201, 203]),
+            mock.patch.object(game_state.random, "choice", side_effect=lambda pool: pool[0]),
         ):
             apply_boss_reward("ArkwrightSilverCards", gameplay)
 
-        self.assertEqual(game_state.silver_cards, [202, 201, 203])
-        self.assertEqual(gameplay.last_earned_cards, [202, 201, 203])
+        self.assertEqual(game_state.silver_cards, [202, 203, 201])
+        self.assertEqual(gameplay.last_earned_cards, [202, 203, 201])
 
     def test_arkwright_awards_three_any_silver_cards_when_no_rare_card_is_open(self):
         cards = {

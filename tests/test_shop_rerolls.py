@@ -218,15 +218,15 @@ class ShopRerollTests(unittest.TestCase):
         page = self.page()
         page.offers = [{'kind': 'special', 'special_id': 'market_refresh',
                         'cost': game_state.get_shop_special_cost('market_refresh', 8)}]
-        self.assertEqual(page.offers[0]['cost'], 4)
-        for balance, money, success in ((5, 4, True), (4, 4, True),
-                                        (6, 4, False), (0, 3, False)):
+        self.assertEqual(page.offers[0]['cost'], 3)
+        for balance, money, success in ((5, 3, True), (4, 3, True),
+                                        (6, 3, False), (0, 2, False)):
             page.sold_offer_indexes.clear()
             game_state.shop_rerolls = balance
             game_state.napoleondors = money
             page._perform_buy_offer(0)
             self.assertEqual(game_state.get_shop_rerolls(), balance + (5 if success else 0))
-            self.assertEqual(game_state.napoleondors, money - (4 if success else 0))
+            self.assertEqual(game_state.napoleondors, money - (3 if success else 0))
             self.assertEqual(0 in page.sold_offer_indexes, success)
             if success:
                 page._perform_buy_offer(0)

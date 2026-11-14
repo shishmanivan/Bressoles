@@ -43,6 +43,8 @@ SCREEN_HEIGHT = 1050
 FPS = 60
 
 PAPER_COLOR = (83, 76, 70)
+SHOP_BALANCE_INSET_X = 170
+SHOP_BALANCE_OFFSET_Y = 138
 BUTTON_COLOR = (238, 228, 205)
 BUTTON_HOVER_COLOR = (248, 239, 216)
 SOLD_COLOR = (78, 112, 82)
@@ -96,7 +98,7 @@ SPECIAL_ASSETS = {
 }
 
 SPECIAL_DESCRIPTIONS = {
-    "market_refresh": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
+    "market_refresh": "Даёт 5 перебросов. Максимальный запас перебросов - 10",
     "flash_issue": "Добавляет одно место для серебряной, чёрной или золотой карты на один раунд. После раунда карта из исчезнувшего места возвращается в хранилище, а серебряная карта удаляется.",
     "moratorium": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
     "delisting": "Удаляет одну выбранную карту из колоды.",
@@ -450,15 +452,14 @@ class ShopPage(AdaptivePage):
         self.next_button_sound = load_button_sound()
         artwork = self._load_image(os.path.join("Shop", "Other", "Reroll.png"))
         artwork = artwork.subsurface(artwork.get_bounding_rect(min_alpha=10))
+        reroll_width = round(167 * 0.9)
         self.reroll_button = pygame.transform.smoothscale(
-            artwork, (167, round(167 * artwork.get_height() / artwork.get_width()))
+            artwork, (reroll_width, round(reroll_width * artwork.get_height() / artwork.get_width()))
         )
         self.reroll_button_pressed = pygame.transform.smoothscale(
             self.reroll_button, tuple(max(1, int(size * .96)) for size in self.reroll_button.get_size())
         )
-        self.reroll_rect = self.reroll_button.get_rect(
-            center=(self.button_rect.centerx - 245, self.button_rect.centery)
-        )
+        self.reroll_rect = self.reroll_button.get_rect()
         self._reroll_pending = False
         self._reroll_press_until = None
         self.offer_image_box = (200, 296)
@@ -557,6 +558,13 @@ class ShopPage(AdaptivePage):
         if not game_state.are_shop_rerolls_available(self.level_number):
             return
         button = self.reroll_button
+        amount = self.balance_font.render(str(game_state.get_shop_rerolls()), True, PAPER_COLOR)
+        gap = 12
+        width = button.get_width() + gap + amount.get_width()
+        self.reroll_rect.midleft = (
+            self.panel_rect.left + SHOP_BALANCE_INSET_X - width // 2,
+            self.panel_rect.top + SHOP_BALANCE_OFFSET_Y,
+        )
         center = self.reroll_rect.center
         if self._reroll_pending:
             if self._reroll_press_until is None:
@@ -568,10 +576,9 @@ class ShopPage(AdaptivePage):
             color = 170 if not self._can_reroll() else 230
             button.fill((color, color, color, 255), special_flags=pygame.BLEND_RGBA_MULT)
         self.screen.blit(button, button.get_rect(center=center))
-        self._draw_centered_text(
-            _tr("Перебросы: {v0}").format(v0=game_state.get_shop_rerolls()),
-            self.small_font, (self.reroll_rect.centerx, self.reroll_rect.top - 24),
-        )
+        self.screen.blit(amount, amount.get_rect(
+            midleft=(self.reroll_rect.right + gap, self.reroll_rect.centery)
+        ))
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -1607,7 +1614,11 @@ class ShopPage(AdaptivePage):
             pygame.draw.rect(self.screen, (235, 220, 190), self.panel_rect)
             pygame.draw.rect(self.screen, PAPER_COLOR, self.panel_rect, 3)
 
-        self._draw_coin_amount(self.napoleondors, (self.panel_rect.right - 170, self.panel_rect.y + 150), self.balance_font)
+        self._draw_coin_amount(
+            self.napoleondors,
+            (self.panel_rect.right - SHOP_BALANCE_INSET_X, self.panel_rect.top + SHOP_BALANCE_OFFSET_Y),
+            self.balance_font,
+        )
 
         category_labels = {
             "card": "Карты",

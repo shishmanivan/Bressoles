@@ -151,7 +151,7 @@ retention_pending_level = None
 retention_pending_cards = []
 
 SHOP_SPECIAL_COSTS = {
-    "market_refresh": 4,
+    "market_refresh": 3,
     "delisting": 1,
     "trader": 0,
     "profit": 3,
@@ -4011,7 +4011,7 @@ def build_rare_silver_cards_pool(level_number=None, probability_limit=40):
 
 
 def award_arkwright_silver_cards(count=3):
-    """Award silver cards, guaranteeing one sub-20% card when available."""
+    """Award silver cards, one rare, one medium, and one common card when available."""
     try:
         card_count = max(0, int(count or 0))
     except (TypeError, ValueError):
@@ -4023,18 +4023,26 @@ def award_arkwright_silver_cards(count=3):
 
     cfg = load_cards_config() or {}
     rare_cards = []
+    medium_cards = []
+    common_cards = []
     for card_id in available_cards:
         row = cfg.get(card_id) or {}
         try:
             probability = int(row.get("Variable"))
         except (TypeError, ValueError):
             continue
-        if 0 < probability < 20:
+        if 0 < probability < 10:
             rare_cards.append(card_id)
+        elif 10 <= probability < 40:
+            medium_cards.append(card_id)
+        elif probability >= 40:
+            common_cards.append(card_id)
 
     selected_cards = []
-    if rare_cards:
-        selected_cards.append(random.choice(rare_cards))
+    for pool in (rare_cards, medium_cards, common_cards):
+        if len(selected_cards) >= card_count:
+            break
+        selected_cards.append(random.choice(pool or available_cards))
     while len(selected_cards) < card_count:
         selected_cards.append(random.choice(available_cards))
 

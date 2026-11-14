@@ -6713,13 +6713,14 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             # Advance before yielding so callbacks cannot replay this card.
             self._side_card_next_slot = slot + 1
             if card_id is not None and not self.side_cards_locked_top.get(slot):
+                applied = False
                 for handler in handlers.get(int(card_id), ()):
-                    handler(slots=(slot,))
+                    applied = bool(handler(slots=(slot,))) or applied
                     if getattr(self, "win_lose_state", None) is not None:
                         return True
-                # Even passive cards and effects without a price change get
-                # a visible turn in the shared-field sequence.
-                if slot not in self.side_card_jump_animations:
+                # A jump signals an actual effect, not merely a queued slot.
+                # Passive cards animate only when their own trigger resolves.
+                if applied and slot not in self.side_card_jump_animations:
                     self._start_card_jump_animation(self.side_card_jump_animations, slot)
                 if self._has_effect_animations():
                     return False

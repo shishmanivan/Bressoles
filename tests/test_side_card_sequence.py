@@ -61,16 +61,58 @@ class SideCardSequenceTests(unittest.TestCase):
         self.assertTrue(page._apply_red_card_effects_if_needed())
         self.assertEqual(page.Money, 21)
 
-    def test_locked_and_empty_slots_are_skipped_and_passive_cards_wait(self):
+    def test_locked_empty_and_passive_slots_are_skipped_without_jumping(self):
         page = self.page([100, None, 110, 100])
         page.side_cards_locked_top[0] = True
         self.assertFalse(page._apply_red_card_effects_if_needed())
-        self.assertEqual(set(page.side_card_jump_animations), {2})
-        self.assertEqual(page.Money, 10)
-        self.assertFalse(page._apply_red_card_effects_if_needed())
-        page.side_card_jump_animations.clear()
-        self.assertFalse(page._apply_red_card_effects_if_needed())
+        self.assertEqual(set(page.side_card_jump_animations), {3})
         self.assertEqual(page.Money, 17)
+
+    def test_unboosted_shareholder_and_rebate_do_not_jump_in_queue(self):
+        page = self.page([100, 110])
+        page.active_gold_cards = []
+        self.assertTrue(page._apply_red_card_effects_if_needed())
+        self.assertEqual(page.side_card_jump_animations, {})
+        self.assertEqual(page.lifecycle_card_jump_animations, {})
+        self.assertEqual(page.Money, 10)
+
+    def test_no_change_bankruptcy_and_blocked_extra_turn_do_not_jump(self):
+        page = self.page([113, 116])
+        page.Aprice = 2
+        self.assertTrue(page._apply_red_card_effects_if_needed())
+        self.assertEqual(page.side_card_jump_animations, {})
+        self.assertEqual(page.LastTurn, 8)
+
+    def test_successful_extra_turn_still_jumps_and_waits(self):
+        page = self.page([116, 100])
+        page.boss_block_card_turn_extensions = False
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        self.assertEqual(page.LastTurn, 9)
+        self.assertEqual(set(page.side_card_jump_animations), {0})
+        self.assertEqual(page.Money, 10)
+
+
+    def test_breakout_in_queue_jumps_only_when_prices_double(self):
+        for roll, quantity, succeeds in ((50, 1, True), (51, 1, False), (1, 0, False)):
+            with self.subTest(roll=roll, quantity=quantity):
+                page = self.page([125, 100])
+                page.Aquantity = page.Cquantity = quantity
+                page.Bquantity = 0
+                with mock.patch("gameplay_page.random.randint", return_value=roll) as draw:
+                    self.assertFalse(page._apply_red_card_effects_if_needed())
+                    self.assertEqual((page.Aprice, page.BPrice, page.CPrice),
+                                     (14, 7, 14) if succeeds else (7, 7, 7))
+                    self.assertEqual(set(page.side_card_jump_animations),
+                                     {0} if succeeds else {1})
+                    self.assertEqual(page.Money, 10 if succeeds else 17)
+                    # Repeated updates must not reroll a resolved Breakout.
+                    self.assertFalse(page._apply_red_card_effects_if_needed())
+                    self.assertEqual(draw.call_count, int(quantity > 0))
+                if succeeds:
+                    page.side_card_jump_animations.clear()
+                    self.assertFalse(page._apply_red_card_effects_if_needed())
+                    self.assertEqual(set(page.side_card_jump_animations), {1})
+                    self.assertEqual(page.Money, 24)
 
 
 if __name__ == "__main__":

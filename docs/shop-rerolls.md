@@ -12,7 +12,7 @@ the normal profile flow. All grants and profile loads cap the balance at 10.
 The button and reroll action are available only from level 6 (including campaign
 level 6's content ID 8); levels 1–5 hide the button and cannot spend rerolls.
 
-Market Refresh uses `Shop/Market Refresh.png`, costs 4 napoleondors before normal
+Market Refresh uses `Shop/Market Refresh.png`, costs 3 napoleondors before normal
 shop discounts and grants 5 rerolls. Its base chance to enter the offer pool is
 20%, using the same chance modifiers as other offers. It is eligible from level 6
 only when the balance is at most 5. The same eligibility applies to Screening and
