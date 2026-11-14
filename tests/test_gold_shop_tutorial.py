@@ -16,6 +16,30 @@ from localization import SUPPORTED_LANGUAGES, get_language, set_language, transl
 
 
 class GoldShopTutorialTests(unittest.TestCase):
+    def test_reroll_hint_requires_unlocked_level_and_is_translated_to_fit(self):
+        from gameplay_tutorial import REROLL_SHOP_HINT_ID, REROLL_SHOP_HINT_TEXT
+        pygame.font.init()
+        previous = get_language()
+        self.addCleanup(set_language, previous)
+        for language in SUPPORTED_LANGUAGES:
+            set_language(language)
+            if language != 'RU':
+                self.assertNotEqual(translate(REROLL_SHOP_HINT_TEXT), REROLL_SHOP_HINT_TEXT)
+            hint = TutorialHint((1680, 1050), None, 'egyptiennemncyr_condensedbold.ttf',
+                                hint_id=REROLL_SHOP_HINT_ID, text=REROLL_SHOP_HINT_TEXT)
+            self.assertLessEqual(len(hint.lines) * (hint.font.get_linesize() + 8),
+                                 hint.checkbox_row.top - hint.panel.top - 65)
+        for level, seen, expected in ((5, False, False), (8, False, True), (8, True, False)):
+            page = ShopPage.__new__(ShopPage)
+            page.level_number = level
+            page.offers, page.first_level3_shop, page.profile_slot = [], False, 1
+            page.screen, page.font_path = mock.Mock(), 'unused'
+            with mock.patch('shop_page.profile_manager.is_tutorial_pending',
+                    side_effect=lambda slot, hint_id: hint_id == REROLL_SHOP_HINT_ID and not seen), mock.patch(
+                    'shop_page.load_scaled_image'), mock.patch('shop_page.TutorialHint') as constructor:
+                page._prepare_tutorial()
+                self.assertEqual(constructor.called, expected)
+
     def test_first_shop_hint_precedes_other_hints_and_is_profile_specific(self):
         page = ShopPage.__new__(ShopPage)
         page.offers = [{"kind": "investment"}]

@@ -1,5 +1,29 @@
 [
   {
+    "Source": "Теперь вы можете нажать кнопку переброса для того чтобы получить новые карты. Максимальное количество перебросов — 10. Перебросы не теряются при поражении и переходят в следующую игру.",
+    "RU": "Теперь вы можете нажать кнопку переброса для того чтобы получить новые карты. Максимальное количество перебросов — 10. Перебросы не теряются при поражении и переходят в следующую игру.",
+    "ENG": "You can now press the reroll button to get new cards. You can hold up to 10 rerolls. Rerolls are not lost after defeat and carry over to the next game.",
+    "DE": "Du kannst jetzt auf die Neuwurf-Schaltfläche klicken, um neue Karten zu erhalten. Du kannst höchstens 10 Neuwürfe sammeln. Neuwürfe gehen bei einer Niederlage nicht verloren und werden ins nächste Spiel übernommen.",
+    "HU": "Mostantól az újradobás gombbal új kártyákat kaphatsz. Legfeljebb 10 újradobásod lehet. Az újradobások vereségkor nem vesznek el, és átkerülnek a következő játékba.",
+    "FR": "Vous pouvez désormais appuyer sur le bouton de relance pour obtenir de nouvelles cartes. Vous pouvez conserver jusqu’à 10 relances. Les relances ne sont pas perdues en cas de défaite et sont conservées pour la partie suivante."
+  },
+  {
+    "Source": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
+    "RU": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
+    "ENG": "Grants 5 shop rerolls. Maximum balance: 10. Available from level 6 if you have no more than 5 rerolls.",
+    "DE": "Gewährt 5 Neuwürfe im Laden. Maximaler Vorrat: 10. Ab Level 6 verfügbar, wenn du höchstens 5 Neuwürfe hast.",
+    "HU": "5 bolti újradobást ad. Legfeljebb 10 tárolható. A 6. szinttől érhető el, ha legfeljebb 5 újradobásod van.",
+    "FR": "Accorde 5 relances de la boutique. Réserve maximale : 10. Disponible à partir du niveau 6 si vous avez au plus 5 relances."
+  },
+  {
+    "Source": "Перебросы: {v0}",
+    "RU": "Перебросы: {v0}",
+    "ENG": "Rerolls: {v0}",
+    "DE": "Neuwürfe: {v0}",
+    "HU": "Újradobások: {v0}",
+    "FR": "Relances : {v0}"
+  },
+  {
     "Source": "Uplift",
     "RU": "Uplift",
     "ENG": "Uplift",
@@ -2552,12 +2576,12 @@
     "FR": "Peut attribuer une carte dorée rare choisie au hasard après une manche victorieuse. La probabilité initiale est de 15 % et augmente de 2 points après chaque échec. Après un succès, ne peut plus s’activer avant la partie suivante."
   },
   {
-    "Source": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора.",
-    "RU": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора.",
-    "ENG": "Awards 1 Napoleondor after a victory, or 2 after defeating a boss.",
-    "DE": "Gewährt nach einem Sieg 1 Napoleondor, nach einem Sieg über einen Boss 2 Napoleondor.",
-    "HU": "Győzelem után 1 napóleonaranyat ad, főellenfél legyőzése után pedig 2-t.",
-    "FR": "Accorde 1 napoléon d’or après une victoire, ou 2 après avoir battu un adversaire."
+    "Source": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора и 1 переброс магазина.",
+    "RU": "После победы даёт 1 наполеондор. За победу над боссом даёт 2 наполеондора и 1 переброс магазина.",
+    "ENG": "Awards 1 Napoleondor after a victory. Defeating a boss awards 2 Napoleondors and 1 shop reroll.",
+    "DE": "Gewährt nach einem Sieg 1 Napoleondor. Ein Sieg über einen Boss gewährt 2 Napoleondor und 1 Neuwurf im Laden.",
+    "HU": "Győzelem után 1 napóleonaranyat ad. Főellenfél legyőzése után 2 napóleonaranyat és 1 bolti újradobást ad.",
+    "FR": "Accorde 1 napoléon d’or après une victoire. Vaincre un boss rapporte 2 napoléons d’or et 1 relance de la boutique."
   },
   {
     "Source": "Снижает цель на 2%. После каждой победы снижение увеличивается ещё на 2 процентных пункта.",

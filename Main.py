@@ -888,6 +888,7 @@ def main():
                 else:
                     game_state.start_silver_cards_deck_for_level(level_num)
                 game_state.ensure_napoleondor_level(level_num)
+                game_state.grant_level_start_reroll(level_num, bp_state)
                 if selected_slot and not test_mode:
                     profile_manager.save_progress_from_game_state(selected_slot)
 

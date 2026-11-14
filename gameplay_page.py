@@ -4323,6 +4323,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         bonus_per_card = 2 if self.is_boss_fight else 1
         earned = commission_count * bonus_per_card
         game_state.add_napoleondors(self.level_number, earned)
+        if self.is_boss_fight:
+            game_state.add_shop_rerolls(commission_count)
         print(
             f"Active Commission card awarded {earned} napoleondor(s) "
             f"after {'boss victory' if self.is_boss_fight else 'round victory'}."
@@ -4755,6 +4757,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         available_height = max(0, available_bottom - description_top)
         item_gap = 7
         for font_size in range(27, 16, -1):
+            # Long unlock lists can use tighter spacing before shrinking text.
+            item_gap = 3 if font_size <= 19 else 7
             description_font = pygame.font.Font(self.font_path, font_size)
             line_height = description_font.get_height() + 3
             wrapped_items = [wrap_text(item, description_font, text_width) for item in items]

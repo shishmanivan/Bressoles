@@ -257,6 +257,7 @@ def _empty_progress():
         "variance_offer_bought_count": 0,
         "pending_shop_discount_percent": 0,
         "correction_shop_cooldown": 0,
+        "shop_rerolls": game_state.STARTING_SHOP_REROLLS,
         "bailout_rounds_remaining": 0,
         "price_cut_purchases_by_level": {},
         "price_cut_assistance_shown_levels": [],
@@ -698,6 +699,11 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.earned_reward_cards = _restore_int_key_lists(progress.get("earned_reward_cards") or {})
     game_state.round_reward_cards = _restore_int_key_lists(progress.get("round_reward_cards") or {})
     game_state.shop_deck_cards = _restore_int_list(progress.get("shop_deck_cards") or [])
+    try:
+        game_state.shop_rerolls = max(0, min(game_state.MAX_SHOP_REROLLS,
+            int(progress.get("shop_rerolls", game_state.STARTING_SHOP_REROLLS))))
+    except (TypeError, ValueError, OverflowError):
+        game_state.shop_rerolls = 0
     game_state.removed_deck_cards_by_level = _restore_int_key_lists(progress.get("removed_deck_cards_by_level") or {})
     game_state.investment_card_bonuses = {
         card_id: bonus
@@ -1029,6 +1035,7 @@ def _capture_progress():
         "variance_offer_bought_count": max(0, int(game_state.variance_offer_bought_count or 0)),
         "pending_shop_discount_percent": int(game_state.pending_shop_discount_percent or 0),
         "correction_shop_cooldown": game_state.get_correction_shop_cooldown(),
+        "shop_rerolls": game_state.get_shop_rerolls(),
         "bailout_rounds_remaining": game_state.get_bailout_rounds_remaining(),
         "price_cut_purchases_by_level": dict(game_state.price_cut_purchases_by_level),
         "price_cut_assistance_shown_levels": sorted(game_state.price_cut_assistance_shown_levels),
@@ -1197,6 +1204,8 @@ def _serialize_boss_progress(source):
             "round_progress": _serialize_round_progress(state.get("round_progress") or {}),
             "current_boss": _serialize_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
+            "starting_reroll_granted": bool(state.get("starting_reroll_granted", False)),
+            "shop_history": copy.deepcopy((state.get("shop_history") or [])[-3:]),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),
@@ -1230,6 +1239,8 @@ def _restore_boss_progress(source):
             "round_progress": _restore_round_progress(state.get("round_progress") or {}),
             "current_boss": _restore_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
+            "starting_reroll_granted": bool(state.get("starting_reroll_granted", False)),
+            "shop_history": copy.deepcopy((state.get("shop_history") or [])[-3:]),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),

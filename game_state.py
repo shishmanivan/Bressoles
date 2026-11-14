@@ -30,6 +30,63 @@ global_start_c_shares_bonus = 0
 # Napoleondors are earned and spent inside the current level run.
 napoleondors = 0
 napoleondor_level = None
+# Profile currency: kept across runs; future rewards and packs use add_shop_rerolls.
+STARTING_SHOP_REROLLS = 0
+MAX_SHOP_REROLLS = 10
+MARKET_REFRESH_REROLLS = 5
+shop_rerolls = STARTING_SHOP_REROLLS
+
+
+def get_shop_rerolls():
+    try:
+        return max(0, min(MAX_SHOP_REROLLS, int(shop_rerolls)))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def add_shop_rerolls(amount):
+    global shop_rerolls
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("Reroll grants must be non-negative integers")
+    shop_rerolls = min(MAX_SHOP_REROLLS, get_shop_rerolls() + amount)
+    return shop_rerolls
+
+
+def are_shop_rerolls_available(level_number):
+    return int(level_number or 0) >= 6
+
+
+def grant_level_start_reroll(level_number, run_state):
+    """Add one per new sixth-level attempt, never on resume or defeat cleanup."""
+    if (int(level_number or 0) != get_campaign_content_level(6)
+            or run_state.get("starting_reroll_granted")
+            or run_state.get("run_stats_started")):
+        return False
+    add_shop_rerolls(1)
+    run_state["starting_reroll_granted"] = True
+    return True
+
+
+def is_market_refresh_offer_available(level_number):
+    return (are_shop_rerolls_available(level_number)
+            and get_shop_rerolls() <= MAX_SHOP_REROLLS - MARKET_REFRESH_REROLLS)
+
+
+def buy_market_refresh(level_number):
+    if not is_market_refresh_offer_available(level_number):
+        return False
+    add_shop_rerolls(MARKET_REFRESH_REROLLS)
+    return True
+
+
+def spend_shop_reroll():
+    global shop_rerolls
+    if get_shop_rerolls() <= 0:
+        return False
+    shop_rerolls = get_shop_rerolls() - 1
+    return True
+
+
 # Income earned between result screens (for the next financial report).
 pending_finance_report_entries = []
 
@@ -94,6 +151,7 @@ retention_pending_level = None
 retention_pending_cards = []
 
 SHOP_SPECIAL_COSTS = {
+    "market_refresh": 4,
     "delisting": 1,
     "trader": 0,
     "profit": 3,
@@ -2063,6 +2121,7 @@ def new_boss_progress_state():
         "round_progress": {},
         "current_boss": None,
         "run_stats_started": False,
+        "starting_reroll_granted": False,
         "run_stats_finished": False,
     }
 
@@ -3309,6 +3368,7 @@ def _available_screening_offer_ids(
         "mirroring": is_mirroring_offer_available(level),
         "retention": is_retention_offer_available(defeated_count, bosses_required),
         "deal_flow": is_deal_flow_offer_available(level),
+        "market_refresh": is_market_refresh_offer_available(level),
         "moratorium": is_moratorium_offer_available(level),
     }
     if level < 3:
@@ -3551,6 +3611,9 @@ def build_shop_special_offer_pool(
         rolled.append("retention")
     if deal_flow_hit:
         rolled.append("deal_flow")
+    if (is_market_refresh_offer_available(level)
+            and random.randint(1, 100) <= get_shop_special_offer_chance(20)):
+        rolled.append("market_refresh")
     if is_moratorium_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(10):
         rolled.append("moratorium")
 
@@ -3644,6 +3707,31 @@ def build_screening_offer_pool(
     return choices[:count]
 
 
+def shop_offer_key(offer):
+    kind = offer.get("kind")
+    if kind in ("card", "license"):
+        return f"{kind}:{int(offer['card_id'])}"
+    if kind == "special":
+        return f"special:{offer['special_id']}"
+    return None
+
+
+def _fill_shop_history_shortage(pool, available, kind, slots, history):
+    """Keep fresh choices; fill missing slots by oldest last appearance first."""
+    result = list(pool)
+    if history is None or len(result) >= slots:
+        return result
+    last_seen = {key: index for index, shop in enumerate(history) for key in shop}
+    candidates = [item for item in available if item not in result
+                  and f"{kind}:{item}" in last_seen]
+    for age in sorted(set(last_seen[f"{kind}:{item}"] for item in candidates)):
+        group = [item for item in candidates if last_seen[f"{kind}:{item}"] == age]
+        result.extend(random.sample(group, min(slots - len(result), len(group))))
+        if len(result) >= slots:
+            break
+    return result
+
+
 def generate_shop_offers(
     level_number=1,
     card_slots=None,
@@ -3654,6 +3742,9 @@ def generate_shop_offers(
     bosses_required=None,
     rounds_remaining=None,
     guarantee_gold=False,
+    advance_shop_cooldown=True,
+    excluded_offer_keys=(),
+    recent_shop_history=None,
 ):
     global correction_shop_cooldown
     try:
@@ -3665,17 +3756,25 @@ def generate_shop_offers(
     if special_slots is None:
         special_slots = get_shop_special_offer_slots()
 
-    card_pool = list(build_shop_card_offer_pool(level))
+    excluded = set(excluded_offer_keys)
+    card_pool = [card for card in build_shop_card_offer_pool(level)
+                 if f"card:{int(card)}" not in excluded]
     if not card_pool:
-        card_pool = build_all_available_shop_cards(level)
+        card_pool = [card for card in build_all_available_shop_cards(level)
+                     if f"card:{int(card)}" not in excluded]
     if level == get_campaign_content_level(6) and len(card_pool) < card_slots:
-        fallback_pool = [card for card in build_all_available_shop_cards(level) if card not in card_pool]
+        fallback_pool = [card for card in build_all_available_shop_cards(level)
+                         if card not in card_pool and f"card:{int(card)}" not in excluded]
         card_pool.extend(random.sample(fallback_pool, min(card_slots - len(card_pool), len(fallback_pool))))
 
+    if recent_shop_history is not None and len(card_pool) < card_slots:
+        card_pool = _fill_shop_history_shortage(
+            card_pool, build_all_available_shop_cards(level), "card", card_slots, recent_shop_history)
     card_offers = []
     selected_card_ids = random.sample(card_pool, min(card_slots, len(card_pool)))
     if guarantee_gold and level == 3 and card_slots > 0 and not any(is_gold_card(card) for card in selected_card_ids):
-        gold_pool = [card for card in build_all_available_shop_cards(level) if is_gold_card(card)]
+        gold_pool = [card for card in build_all_available_shop_cards(level)
+                     if is_gold_card(card) and f"card:{int(card)}" not in excluded]
         if gold_pool:
             gold = random.choice(gold_pool)
             if selected_card_ids:
@@ -3687,6 +3786,10 @@ def generate_shop_offers(
         card_offers.append({"kind": "card", "card_id": normalized, "cost": SHOP_CARD_COSTS.get(normalized, 1)})
 
     special_pool_kwargs = {"max_offers": special_slots}
+    if excluded:
+        special_pool_kwargs["excluded_offer_ids"] = {
+            key.split(":", 1)[1] for key in excluded if key.startswith("special:")
+        }
     if defeated_count is not None:
         special_pool_kwargs["defeated_count"] = defeated_count
     if bosses_required is not None:
@@ -3694,9 +3797,16 @@ def generate_shop_offers(
     if rounds_remaining is not None:
         special_pool_kwargs["rounds_remaining"] = rounds_remaining
     special_pool = build_shop_special_offer_pool(level, **special_pool_kwargs)
+    if recent_shop_history is not None and len(special_pool) < special_slots:
+        available_specials = _available_screening_offer_ids(
+            level, defeated_count, bosses_required, rounds_remaining)
+        if is_screening_offer_available(level, defeated_count, bosses_required, rounds_remaining):
+            available_specials = list(available_specials) + ["screening"]
+        special_pool = _fill_shop_history_shortage(
+            special_pool, available_specials, "special", special_slots, recent_shop_history)
     if "correction" in special_pool:
         correction_shop_cooldown = CORRECTION_SHOP_COOLDOWN
-    else:
+    elif advance_shop_cooldown:
         # Count only actual shops opened after a displayed Correction. Internal
         # pool builds must not consume either of its two blocked shops.
         cooldown = get_correction_shop_cooldown()
@@ -3706,9 +3816,13 @@ def generate_shop_offers(
         {"kind": "special", "special_id": offer_id, "cost": get_shop_special_cost(offer_id, level)}
         for offer_id in special_pool[:special_slots]
     ]
-    license_pool = build_license_offer_pool(level)
+    available_licenses = build_license_offer_pool(level)
+    license_pool = [card for card in available_licenses
+                    if f"license:{int(card)}" not in excluded]
     if license_slots is None:
-        license_slots = len(license_pool)
+        license_slots = len(available_licenses)
+    license_pool = _fill_shop_history_shortage(
+        license_pool, available_licenses, "license", license_slots, recent_shop_history)
     license_offers = [
         {"kind": "license", "card_id": int(card_id), "cost": get_license_cost(card_id)}
         for card_id in license_pool[:license_slots]

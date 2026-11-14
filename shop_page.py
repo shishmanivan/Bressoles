@@ -15,6 +15,7 @@ import profile_manager
 from asset_loaders import load_scaled_image
 from sound_assets import load_button_sound, load_sound, load_card_hover_sound
 from gameplay_tutorial import (GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT,
+                               REROLL_SHOP_HINT_ID, REROLL_SHOP_HINT_TEXT,
                                FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT,
                                INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT, TutorialHint)
 from card_catalog import CARD_IMAGE_BASE_IDS, MARKET_CARD_TURNS, PRICE_CARD_ACTIONS, get_card_image_base_id
@@ -54,6 +55,7 @@ OFFER_DROP_STAGGER_MS = 200
 OFFER_EXIT_MS = 220
 
 SPECIAL_ASSETS = {
+    "market_refresh": ("Market Refresh", os.path.join("Shop", "Market Refresh.png")),
     "moratorium": ("Мораторий", os.path.join("Shop", "Moratorium.png")),
     "delisting": ("Делистинг", os.path.join("Shop", "Delisting.png")),
     "trader": ("Трейдер", os.path.join("Shop", "Trader.png")),
@@ -94,6 +96,7 @@ SPECIAL_ASSETS = {
 }
 
 SPECIAL_DESCRIPTIONS = {
+    "market_refresh": "Даёт 5 перебросов магазина. Максимальный запас — 10. Доступно с 6-го уровня, если у вас не больше 5 перебросов.",
     "flash_issue": "Добавляет одно место для серебряной, чёрной или золотой карты на один раунд. После раунда карта из исчезнувшего места возвращается в хранилище, а серебряная карта удаляется.",
     "moratorium": "Позволяет временно исключить одну золотую карту, которая вам не нравится. Она не будет попадаться в игре следующие 20 забегов",
     "delisting": "Удаляет одну выбранную карту из колоды.",
@@ -379,6 +382,7 @@ class ShopPage(AdaptivePage):
     ):
         self.init_viewport(screen)
         self.profile_slot = profile_slot
+        self.stats_enabled = stats_enabled
         self.tutorial_hint = None
         self.clock = pygame.time.Clock()
         self.font_path = font_path
@@ -412,6 +416,9 @@ class ShopPage(AdaptivePage):
             if profile_slot and game_state.is_price_cut_offer_available(self.level_number) else 0
         )
         self._ensure_price_cut_assistance()
+        run_state = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
+        self._shop_history = run_state.setdefault("shop_history", [])
+        self._remember_shop()
         if stats_enabled:
             record_card_offers(self.offers)
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
@@ -441,6 +448,19 @@ class ShopPage(AdaptivePage):
         self.button_rect = self.next_button.get_rect()
         self.button_rect.center = (self.panel_rect.centerx, self.panel_rect.bottom - 120)
         self.next_button_sound = load_button_sound()
+        artwork = self._load_image(os.path.join("Shop", "Other", "Reroll.png"))
+        artwork = artwork.subsurface(artwork.get_bounding_rect(min_alpha=10))
+        self.reroll_button = pygame.transform.smoothscale(
+            artwork, (167, round(167 * artwork.get_height() / artwork.get_width()))
+        )
+        self.reroll_button_pressed = pygame.transform.smoothscale(
+            self.reroll_button, tuple(max(1, int(size * .96)) for size in self.reroll_button.get_size())
+        )
+        self.reroll_rect = self.reroll_button.get_rect(
+            center=(self.button_rect.centerx - 245, self.button_rect.centery)
+        )
+        self._reroll_pending = False
+        self._reroll_press_until = None
         self.offer_image_box = (200, 296)
         self.card_offer_size = GAMEPLAY_CARD_SIZE
         self._offer_label_surface_cache = {}
@@ -456,6 +476,102 @@ class ShopPage(AdaptivePage):
             "started": None, "outgoing": [],
             "incoming": list(range(len(self.offers))), "sounded": set(),
         }
+
+    def _can_reroll(self):
+        return (game_state.are_shop_rerolls_available(self.level_number)
+                and game_state.get_shop_rerolls() > 0
+                and not self._next_pending and not self._reroll_pending
+                and not self._pending_assortment and self._offer_animation is None)
+
+    def _start_reroll(self):
+        if not self._can_reroll():
+            return False
+        self._reroll_pending = True
+        self._reroll_press_until = None
+        if self.next_button_sound:
+            self.next_button_sound.play()
+        return True
+
+    def _remember_shop(self):
+        keys = sorted({game_state.shop_offer_key(offer) for offer in self.offers
+                       if game_state.shop_offer_key(offer) is not None})
+        self._shop_history.append(keys)
+        del self._shop_history[:-3]
+
+    def _reroll_shop(self):
+        if (not game_state.are_shop_rerolls_available(self.level_number)
+                or game_state.get_shop_rerolls() <= 0):
+            return False
+        history = getattr(self, "_shop_history", [])
+        excluded = {key for shop in history[-3:] for key in shop}
+        # Include offers added by Expansion/Diversification since the last draw.
+        excluded.update(game_state.shop_offer_key(offer) for offer in getattr(self, "offers", [])
+                        if game_state.shop_offer_key(offer) is not None)
+        recent_history = [list(shop) for shop in history[-3:]]
+        current_keys = {game_state.shop_offer_key(offer) for offer in getattr(self, "offers", [])
+                        if game_state.shop_offer_key(offer) is not None}
+        if recent_history:
+            recent_history[-1] = sorted(set(recent_history[-1]) | current_keys)
+        elif current_keys:
+            recent_history.append(sorted(current_keys))
+        offers = game_state.generate_shop_offers(
+            level_number=self.level_number, discount_percent=self.discount_percent,
+            defeated_count=self.defeated_count, bosses_required=self.bosses_required,
+            rounds_remaining=self.rounds_remaining, advance_shop_cooldown=False,
+            excluded_offer_keys=excluded,
+            recent_shop_history=recent_history,
+        )
+        if not any(offer.get("kind") != "investment" for offer in offers):
+            return False
+        if not game_state.spend_shop_reroll():
+            return False
+        previous = self._capture_offer_layout()
+        if history:
+            history[-1] = sorted(set(history[-1]) | {
+                game_state.shop_offer_key(offer) for offer in self.offers
+                if game_state.shop_offer_key(offer) is not None})
+        self.offers = offers
+        self._shop_history = history
+        self._remember_shop()
+        self.sold_offer_indexes.clear()
+        self._purchase_stamps.clear()
+        self._hovered_offer = None
+        self.offer_image_cache.clear()
+        self._offer_label_surface_cache.clear()
+        self.message = ""
+        self._ensure_price_cut_assistance()
+        self.offer_rects = self._build_offer_rects()
+        self._offer_animation = {
+            "started": None,
+            "outgoing": [tile[:2] for tile in (previous or {}).values()],
+            "incoming": list(range(len(self.offers))), "sounded": set(),
+        }
+        if self.stats_enabled:
+            record_card_offers(self.offers)
+            record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
+        if self.profile_slot:
+            profile_manager.save_progress_from_game_state(self.profile_slot)
+        return True
+
+    def _draw_reroll_button(self):
+        if not game_state.are_shop_rerolls_available(self.level_number):
+            return
+        button = self.reroll_button
+        center = self.reroll_rect.center
+        if self._reroll_pending:
+            if self._reroll_press_until is None:
+                self._reroll_press_until = pygame.time.get_ticks() + 110
+            button = self.reroll_button_pressed
+            center = (center[0], center[1] + 3)
+        elif not self._can_reroll() or self.reroll_rect.collidepoint(self.mouse_pos()):
+            button = button.copy()
+            color = 170 if not self._can_reroll() else 230
+            button.fill((color, color, color, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(button, button.get_rect(center=center))
+        self._draw_centered_text(
+            _tr("Перебросы: {v0}").format(v0=game_state.get_shop_rerolls()),
+            self.small_font, (self.reroll_rect.centerx, self.reroll_rect.top - 24),
+        )
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -1028,6 +1144,14 @@ class ShopPage(AdaptivePage):
             return
 
         special_id = offer.get("special_id")
+        if special_id == "market_refresh":
+            if not game_state.buy_market_refresh(self.level_number):
+                return
+            self._charge_offer(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["market_refresh"]
+            return
         if special_id == "moratorium":
             if not game_state.is_moratorium_offer_available(self.level_number):
                 self.message = "Мораторий недоступен"
@@ -1516,6 +1640,8 @@ class ShopPage(AdaptivePage):
             button.fill((230, 230, 230, 255), special_flags=pygame.BLEND_RGBA_MULT)
         self.screen.blit(button, button_rect)
 
+        self._draw_reroll_button()
+
         if getattr(self, "tutorial_hint", None) is not None:
             self.tutorial_hint.draw(self.screen)
         self.present()
@@ -1525,6 +1651,8 @@ class ShopPage(AdaptivePage):
             (hint_id, text) for available, hint_id, text in (
                 (True, FIRST_SHOP_HINT_ID, FIRST_SHOP_HINT_TEXT),
                 (self.first_level3_shop, GOLD_SHOP_HINT_ID, GOLD_SHOP_HINT_TEXT),
+                (game_state.are_shop_rerolls_available(getattr(self, "level_number", 0)),
+                 REROLL_SHOP_HINT_ID, REROLL_SHOP_HINT_TEXT),
                 (any(offer.get("kind") == "investment" for offer in self.offers),
                  INVESTMENT_HINT_ID, INVESTMENT_HINT_TEXT),
             ) if available and profile_manager.is_tutorial_pending(self.profile_slot, hint_id)
@@ -1581,7 +1709,8 @@ class ShopPage(AdaptivePage):
         while True:
             closing_hint = self.tutorial_hint is not None and self.tutorial_hint.ready_to_close()
             if closing_hint:
-                if self.tutorial_hint.dont_show_again:
+                if (self.tutorial_hint.dont_show_again
+                        or self.tutorial_hint.hint_id == REROLL_SHOP_HINT_ID):
                     profile_manager.mark_tutorial_seen(self.profile_slot, self.tutorial_hint.hint_id)
                 self.tutorial_hint = None
                 self._show_next_tutorial()
@@ -1589,7 +1718,7 @@ class ShopPage(AdaptivePage):
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if closing_hint or self._next_pending:
+                if closing_hint or self._next_pending or self._reroll_pending:
                     continue
                 if self.tutorial_hint is not None:
                     if self.tutorial_hint.accepts(event):
@@ -1602,6 +1731,10 @@ class ShopPage(AdaptivePage):
                         self._next_pending = True
                         continue
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if (game_state.are_shop_rerolls_available(self.level_number)
+                            and self.reroll_rect.collidepoint(event.pos)):
+                        self._start_reroll()
+                        continue
                     if self.button_rect.collidepoint(event.pos):
                         if self.next_button_sound:
                             self.next_button_sound.play()
@@ -1611,6 +1744,11 @@ class ShopPage(AdaptivePage):
                     if offer_index is not None:
                         self._buy_offer(offer_index)
 
+            if (self._reroll_pending and self._reroll_press_until is not None
+                    and pygame.time.get_ticks() >= self._reroll_press_until):
+                self._reroll_shop()
+                self._reroll_pending = False
+                self._reroll_press_until = None
             if (self._next_pending and self._next_press_until is not None
                     and pygame.time.get_ticks() >= self._next_press_until):
                 return "next"

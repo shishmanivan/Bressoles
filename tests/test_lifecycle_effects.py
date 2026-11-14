@@ -44,6 +44,7 @@ class LifecycleEffectTests(unittest.TestCase):
             "Frugality": game_state.Frugality,
             "napoleondors": game_state.napoleondors,
             "napoleondor_level": game_state.napoleondor_level,
+            "shop_rerolls": game_state.shop_rerolls,
             "pending_shop_discount_percent": game_state.pending_shop_discount_percent,
             "silver_cards": list(game_state.silver_cards),
         }
@@ -72,6 +73,36 @@ class LifecycleEffectTests(unittest.TestCase):
         page.test_mode = True
         page.level_number = 1
         return page
+
+    def test_commission_boss_reward_grants_reroll_and_respects_cap(self):
+        for boss, cards, balance, expected_money, expected_rerolls in (
+            (False, [303], 3, 1, 3),
+            (True, [303], 3, 2, 4),
+            (True, [303], 9, 2, 10),
+            (True, [303], 10, 2, 10),
+            (True, [], 3, 0, 3),
+        ):
+            with self.subTest(boss=boss, cards=cards, balance=balance):
+                page = self._page(black=cards)
+                page.level_number = 8
+                page.is_boss_fight = boss
+                game_state.napoleondor_level = 8
+                game_state.napoleondors = 0
+                game_state.shop_rerolls = balance
+                self.assertEqual(page._apply_commission_win_bonus(), expected_money)
+                self.assertEqual(game_state.napoleondors, expected_money)
+                self.assertEqual(game_state.get_shop_rerolls(), expected_rerolls)
+
+    def test_commission_description_translated_in_every_language(self):
+        from localization import get_language, set_language, translate
+        original = get_language()
+        self.addCleanup(set_language, original)
+        description = CARD_TOOLTIPS[303][1]
+        for language, word in (('RU', 'переброс'), ('ENG', 'reroll'),
+                               ('DE', 'Neuwurf'), ('HU', 'újradobást'),
+                               ('FR', 'relance')):
+            set_language(language)
+            self.assertIn(word, translate(description))
 
     def test_futures_cards_add_their_declared_turns(self):
         page = self._page(silver=[202, 203], black=[301])
