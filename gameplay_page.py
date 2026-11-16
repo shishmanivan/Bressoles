@@ -3153,8 +3153,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                 self._activate_accumulation_charge(card_id, slot)
                                 self.hand_cards[self.dragged_card_index] = None
                                 self.pending_draws += 1
-                                if self._apply_full_deployment_reward_if_needed():
-                                    self._save_active_game()
                                 dropped = True
                                 break
 
@@ -3208,8 +3206,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                             self.hand_cards[self.dragged_card_index] = None
                                             # Mark pending draw for empty slot
                                             self.pending_draws += 1
-                                            if self._apply_full_deployment_reward_if_needed():
-                                                self._save_active_game()
                                             dropped = True
                                             break
                                 # Moving from market to market
@@ -5705,6 +5701,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return True
         self._commit_other_stats_cards()
         self.turn_resolution_active = True
+        self._apply_full_deployment_reward_if_needed()
         self.effect_finalize_pending = False
         self.bankruptcy_condition_cards_counted = False
         self.red_effects_applied_this_resolution = False

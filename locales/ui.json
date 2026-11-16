@@ -1984,12 +1984,12 @@
     "FR": "Révèle les probabilités du jeu et renforce légèrement les cartes dont les effets reposent sur le hasard."
   },
   {
-    "Source": "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
-    "RU": "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
-    "ENG": "Awards 7 Napoleondors if every card in your deck has been placed on a card slot.",
-    "DE": "Gewährt 7 Napoleondor, wenn alle Karten des Decks auf den Kartenplätzen ausliegen.",
-    "HU": "7 napóleonaranyat ad, ha a paklid minden kártyáját kijátszottad valamelyik kártyahelyre.",
-    "FR": "Accorde 7 napoléons d’or si toutes les cartes de votre pioche ont été jouées sur un emplacement."
+    "Source": "Даёт 7 наполеондоров при завершении хода, если все карты из колоды выложены на поле.",
+    "RU": "Даёт 7 наполеондоров при завершении хода, если все карты из колоды выложены на поле.",
+    "ENG": "Awards 7 Napoleondors at the end of the turn if all cards from the deck have been played onto the board.",
+    "DE": "Gewährt am Zugende 7 Napoleondor, wenn alle Karten aus dem Deck auf dem Spielfeld liegen.",
+    "HU": "7 napóleonaranyat ad a lépés végén, ha a pakli összes kártyáját kijátszottad a játéktérre.",
+    "FR": "Accorde 7 napoléons d’or à la fin du tour si toutes les cartes du paquet ont été jouées sur le plateau."
   },
   {
     "Source": "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",

@@ -2014,7 +2014,7 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertEqual(CARD_NAMES[428], "Full Deployment")
         self.assertEqual(
             CARD_DESCRIPTIONS[428],
-            "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
+            "Даёт 7 наполеондоров при завершении хода, если все карты из колоды выложены на поле.",
         )
 
         cards = {428: {"Type": 5, "Open": 1, "Variable": 25}}
@@ -2195,7 +2195,22 @@ class ShopTransactionTests(ShopEconomyTestCase):
         normalized = game_state.normalize_license_ids([126])
 
         self.assertIn(212, normalized)
-        self.assertNotIn(126, normalized)
+        self.assertIn(126, normalized)
+
+    def test_red_percent_license_survives_repeated_profile_loads(self):
+        from shop_purchases import buy_card_or_license
+
+        game_state.napoleondors = 20
+        offer = {"kind": "license", "card_id": 126, "cost": 3}
+        self.assertTrue(buy_card_or_license(6, offer).purchased)
+        for _ in range(3):
+            progress = profile_manager._capture_progress()
+            game_state.licensed_card_ids = set(game_state.DEFAULT_LICENSED_CARDS)
+            profile_manager.apply_profile_to_game_state({"progress": progress})
+            self.assertTrue(game_state.is_card_licensed(126))
+            self.assertNotIn(126, game_state.build_license_offer_pool(6))
+            self.assertEqual(buy_card_or_license(6, offer).status, "already_owned")
+            self.assertEqual(game_state.napoleondors, 17)
 
     def test_card_descriptions_never_disclose_pool_probabilities(self):
         for card_id, description in LICENSE_EFFECT_DESCRIPTIONS.items():

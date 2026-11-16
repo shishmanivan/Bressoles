@@ -56,15 +56,12 @@ def are_shop_rerolls_available(level_number):
     return int(level_number or 0) >= 6
 
 
-def grant_level_start_reroll(level_number, run_state):
-    """Add one per new sixth-level attempt, never on resume or defeat cleanup."""
-    if (int(level_number or 0) != get_campaign_content_level(6)
-            or run_state.get("starting_reroll_granted")
-            or run_state.get("run_stats_started")):
-        return False
-    add_shop_rerolls(1)
-    run_state["starting_reroll_granted"] = True
-    return True
+def unlock_level_six():
+    """Grant the fifth-level completion bonus once per profile."""
+    global level_5_boss_defeated
+    if not level_5_boss_defeated:
+        add_shop_rerolls(5)
+        level_5_boss_defeated = True
 
 
 def is_market_refresh_offer_available(level_number):
@@ -896,9 +893,12 @@ def normalize_license_ids(card_ids=None):
             normalized = int(card_id)
         except (TypeError, ValueError):
             continue
-        # Manipulation moved from red card 126 to silver card 212. Preserve
-        # licenses bought before that catalog migration.
-        result.add(212 if normalized == 126 else normalized)
+        # Manipulation moved from 126 to 212, but 126 is now the red 25%
+        # card. Keep both entitlements: unversioned saves cannot distinguish
+        # the old purchase from the new one. Never remove a bought license.
+        result.add(normalized)
+        if normalized == 126:
+            result.add(212)
     return result
 
 
@@ -2121,7 +2121,6 @@ def new_boss_progress_state():
         "round_progress": {},
         "current_boss": None,
         "run_stats_started": False,
-        "starting_reroll_granted": False,
         "run_stats_finished": False,
     }
 

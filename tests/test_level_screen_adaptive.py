@@ -301,7 +301,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         content = get_campaign_content_level(6)
         self.assertEqual(content, get_test_content_level(6))
         self.assertEqual(load_levels_config()[content], {"Rounds": 3, "Bosses": 4})
-        self.assertEqual(get_level8_goal(1, "E", 0), 100)
+        self.assertEqual(get_level8_goal(1, "E", 0), 80)
         self.assertEqual(get_test_content_level(13), 6)
         page.progress_flags["level_8_boss_defeated"] = True
         self.assertTrue(page._is_completed(6))

@@ -54,7 +54,7 @@ from game_stats import (
     update_level_run_result,
     update_level_run_started,
 )
-from menu_music import BOSS_ROUND_MUSIC_PATHS, KOLBE_BOSS_MUSIC_PATH, MenuMusic
+from menu_music import BOSS_ROUND_MUSIC_PATHS, MenuMusic
 from shop_card_stats import set_shop_card_stats_file
 from card_acquisition_stats import configure_card_acquisition_stats
 from boss_page import BossPage
@@ -173,13 +173,7 @@ def main():
 
     def run_gameplay(gameplay_page):
         boss_number = get_boss_number_from_filename(getattr(gameplay_page, "boss_filename", None))
-        music_path = BOSS_ROUND_MUSIC_PATHS.get(boss_number)
-        if boss_number == 7:
-            music_path = KOLBE_BOSS_MUSIC_PATH
-        if music_path:
-            menu_music.play(music_path)
-        else:
-            menu_music.pause()
+        menu_music.play(BOSS_ROUND_MUSIC_PATHS.get(boss_number))
         try:
             return run_page(gameplay_page)
         finally:
@@ -739,7 +733,7 @@ def main():
                                 elif level == 4:
                                     game_state.level_4_boss_defeated = True
                                 elif level == 5:
-                                    game_state.level_5_boss_defeated = True
+                                    game_state.unlock_level_six()
                                 elif level == 8:
                                     game_state.level_8_boss_defeated = True
                                 save_progress_if_needed()
@@ -888,7 +882,6 @@ def main():
                 else:
                     game_state.start_silver_cards_deck_for_level(level_num)
                 game_state.ensure_napoleondor_level(level_num)
-                game_state.grant_level_start_reroll(level_num, bp_state)
                 if selected_slot and not test_mode:
                     profile_manager.save_progress_from_game_state(selected_slot)
 
@@ -1298,7 +1291,7 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                     print("Level 4 completed! Unlocking level 5")
                                 elif boss_level == 5:
-                                    game_state.level_5_boss_defeated = True
+                                    game_state.unlock_level_six()
                                 elif boss_level == 8:
                                     game_state.level_8_boss_defeated = True
                                 save_progress_if_needed(test_mode)

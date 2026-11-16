@@ -16,10 +16,10 @@ from round_page_helpers import resolve_boss_goal
 class ContentValidationTests(unittest.TestCase):
     def test_level8_goals_and_roster_match_the_testing_contract(self):
         goals = load_goals_level8()
-        self.assertEqual([goals[key][1] for key in ("E", "M", "H")], [100, 120, 150])
+        self.assertEqual([goals[key][1] for key in ("E", "M", "H")], [80, 100, 140])
         self.assertEqual(
             [[goals[key][round_number] for key in ("E", "M", "H")] for round_number in range(1, 5)],
-            [[100, 120, 150], [250, 300, 400], [350, 450, 550], [450, 550, 650]],
+            [[80, 100, 140], [250, 300, 400], [350, 450, 550], [450, 550, 650]],
         )
         self.assertEqual(
             [[goals[key][(2, round_number)] for key in ("E", "M", "H")] for round_number in range(1, 5)],

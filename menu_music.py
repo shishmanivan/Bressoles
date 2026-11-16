@@ -21,12 +21,16 @@ BOSS_ROUND_MUSIC_PATHS = {
     2: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Romanze Opus40.ogg"),
     3: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Anitas Dance.ogg"),
     4: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "DvorakSymph7.ogg"),
-    5: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Shylock5.ogg"),
+    5: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bach Air.ogg"),
     6: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Grieg Hol 4.ogg"),
+    7: KOLBE_BOSS_MUSIC_PATH,
     8: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Chaikovsky Serenada.ogg"),
     9: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Sommernachtstraum.ogg"),
     10: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Violin Concerto 2.ogg"),
+    11: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Mozart_2.ogg"),
+    12: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Rossini 2.ogg"),
     13: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Dvorzhak Serenada.ogg"),
+    14: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Mozart Divertismento.ogg"),
     15: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Bethoven Opus 50.ogg"),
     16: os.path.join(os.path.dirname(DEFAULT_MENU_MUSIC_PATH), "Elegy Tchaikovsky.ogg"),
 }
@@ -56,7 +60,7 @@ class MenuMusic:
 
     def _remember_boss_position(self):
         path = self.path
-        if path not in BOSS_ROUND_MUSIC_PATHS.values() and path != KOLBE_BOSS_MUSIC_PATH:
+        if path not in BOSS_ROUND_MUSIC_PATHS.values():
             return
         elapsed_ms = pygame.mixer.music.get_pos()
         if elapsed_ms < 0:

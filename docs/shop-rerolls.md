@@ -2,10 +2,8 @@
 
 Rerolls are profile currency, independent of napoleondors and retained across
 run resets and defeats. New and legacy profiles without a saved balance start
-with `STARTING_SHOP_REROLLS` (0); existing balances are preserved. Every new
-campaign level-six attempt (content ID 8) grants one reroll, capped at 10.
-A saved per-attempt marker prevents duplicate grants on resume; defeat cleanup
-preserves the balance and resets the marker for the next attempt.
+with `STARTING_SHOP_REROLLS` (0); existing balances are preserved. Completing level five for the first time
+grants 5 rerolls, capped at 10. New attempts do not grant rerolls.
 An explicitly saved zero stays zero. Rewards, bonuses and future shop packs can
 grant currency with `game_state.add_shop_rerolls(amount)` and save progress through
 the normal profile flow. All grants and profile loads cap the balance at 10.

@@ -45,6 +45,7 @@ FPS = 60
 PAPER_COLOR = (83, 76, 70)
 SHOP_BALANCE_INSET_X = 170
 SHOP_BALANCE_OFFSET_Y = 138
+SHOP_BALANCE_ICON_SIZE = 54
 BUTTON_COLOR = (238, 228, 205)
 BUTTON_HOVER_COLOR = (248, 239, 216)
 SOLD_COLOR = (78, 112, 82)
@@ -261,7 +262,7 @@ CARD_DESCRIPTIONS.update(
         425: "Увеличивает шаг роста и падения каждого рынка на 4.",
         game_state.WINDFALL_CARD_ID: CARD_TOOLTIPS[game_state.WINDFALL_CARD_ID][1],
         427: "Показывает игровые вероятности и немного усиливает все карты с вероятностями",
-        428: "Даёт 7 наполеондоров, если все карты из колоды выложены на плейсхолдеры.",
+        428: "Даёт 7 наполеондоров при завершении хода, если все карты из колоды выложены на поле.",
         429: "Пока активна, убирает из игры все Upside и Downside, а также стартового Shareholder. Полученные позднее Shareholder остаются.",
         430: "С вероятностью 25% показывает следующий рыночный бросок и позволяет переиграть ход.",
         431: "Каждый раз, когда вы выбираете сложный раунд (H), вы добавляете 10% к итоговому эффекту Rebate",
@@ -433,7 +434,9 @@ class ShopPage(AdaptivePage):
         self.round_koordinates = assets["koordinates"]
         self.panel_rect = pygame.Rect(PANEL_POS, PANEL_SIZE)
         self.background = self._load_image(os.path.join("RoundPage", "SilverBlack.png"), PANEL_SIZE)
-        self.coin_image = self._load_image(os.path.join("Shop", "Other", "Napoleondor.png"), (54, 54))
+        self.coin_image = self._load_image(
+            os.path.join("Shop", "Other", "Napoleondor.png"), (SHOP_BALANCE_ICON_SIZE,) * 2
+        )
         self.category_signs = self._load_category_signs()
         self._category_sign_cache = {}
         self._coin_image_cache = {}
@@ -452,12 +455,14 @@ class ShopPage(AdaptivePage):
         self.next_button_sound = load_button_sound()
         artwork = self._load_image(os.path.join("Shop", "Other", "Reroll.png"))
         artwork = artwork.subsurface(artwork.get_bounding_rect(min_alpha=10))
-        reroll_width = round(167 * 0.9)
+        reroll_width = SHOP_BALANCE_ICON_SIZE
         self.reroll_button = pygame.transform.smoothscale(
             artwork, (reroll_width, round(reroll_width * artwork.get_height() / artwork.get_width()))
         )
+        pressed_artwork = pygame.transform.rotate(artwork, -30)
+        press_scale = 0.96 * reroll_width / artwork.get_width()
         self.reroll_button_pressed = pygame.transform.smoothscale(
-            self.reroll_button, tuple(max(1, int(size * .96)) for size in self.reroll_button.get_size())
+            pressed_artwork, tuple(round(size * press_scale) for size in pressed_artwork.get_size())
         )
         self.reroll_rect = self.reroll_button.get_rect()
         self._reroll_pending = False
@@ -833,7 +838,7 @@ class ShopPage(AdaptivePage):
             self._coin_text_cache[text_key] = text
         coin_width = 0
         if self.coin_image:
-            coin_width = 54 if font is self.balance_font else 30
+            coin_width = SHOP_BALANCE_ICON_SIZE if font is self.balance_font else 30
         total_width = text.get_width() + (coin_width + 12 if coin_width else 0)
         start_x = center[0] - total_width // 2
         if self.coin_image:

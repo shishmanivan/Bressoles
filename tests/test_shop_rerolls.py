@@ -92,33 +92,25 @@ class ShopRerollTests(unittest.TestCase):
             self.assertFalse(page._reroll_shop())
             generate.assert_not_called()
 
-    def test_start_grant_survives_defeat_and_does_not_repeat_on_resume(self):
-        level = game_state.get_campaign_content_level(6)
+    def test_completion_bonus_is_once_per_profile(self):
+        game_state.level_5_boss_defeated = False
         game_state.shop_rerolls = 0
-        state = game_state.reset_level_attempt(level)
-        self.assertTrue(game_state.grant_level_start_reroll(level, state))
-        self.assertEqual(game_state.get_shop_rerolls(), 1)
-        self.assertFalse(game_state.grant_level_start_reroll(level, state))
+        game_state.unlock_level_six()
+        self.assertEqual(game_state.get_shop_rerolls(), 5)
         profile = profile_manager._default_profile(1)
         profile['progress'] = profile_manager._capture_progress()
         profile_manager.apply_profile_to_game_state(profile)
-        self.assertFalse(game_state.grant_level_start_reroll(level, game_state.boss_progress[level]))
-        game_state.add_shop_rerolls(5)
-        state = game_state.reset_level_attempt(level)
-        self.assertEqual(game_state.get_shop_rerolls(), 6)
-        self.assertTrue(game_state.grant_level_start_reroll(level, state))
-        self.assertEqual(game_state.get_shop_rerolls(), 7)
-        game_state.shop_rerolls = 10
-        state = game_state.reset_level_attempt(level)
-        self.assertTrue(game_state.grant_level_start_reroll(level, state))
-        self.assertEqual(game_state.get_shop_rerolls(), 10)
+        game_state.unlock_level_six()
+        for _ in range(10):
+            game_state.reset_level_attempt(game_state.get_campaign_content_level(6))
+        self.assertTrue(game_state.level_5_boss_defeated)
+        self.assertEqual(game_state.get_shop_rerolls(), 5)
 
-    def test_other_levels_and_existing_runs_do_not_receive_start_grant(self):
-        game_state.shop_rerolls = 0
-        for level in (1, 2, 3, 4, 5, 6, 7):
-            self.assertFalse(game_state.grant_level_start_reroll(level, game_state.new_boss_progress_state()))
-        self.assertFalse(game_state.grant_level_start_reroll(8, {'run_stats_started': True}))
-        self.assertEqual(game_state.get_shop_rerolls(), 0)
+    def test_completion_bonus_respects_reroll_cap(self):
+        game_state.level_5_boss_defeated = False
+        game_state.shop_rerolls = 8
+        game_state.unlock_level_six()
+        self.assertEqual(game_state.get_shop_rerolls(), 10)
 
     def test_three_assortments_are_excluded_then_oldest_returns(self):
         page = self.page()
