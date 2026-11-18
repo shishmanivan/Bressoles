@@ -62,6 +62,7 @@ FIELDNAMES = [
     ARKWRIGHT_STAT_FIELDS["steal_50"],
     ARKWRIGHT_STAT_FIELDS["steal_30"],
     ARKWRIGHT_STAT_FIELDS["steal_90"],
+    "ПоследнийРезультатID",
 ]
 
 BOSS_NAMES = {
@@ -185,6 +186,8 @@ def update_game_stats(
     difficulty_label="",
     earned_money=None,
     sequential_round_number="",
+    *,
+    result_id=None,
 ):
     rows = _read_rows()
     level_key = str(level_number)
@@ -216,6 +219,10 @@ def update_game_stats(
         )
         rows.append(target)
 
+    if result_id:
+        if target.get("ПоследнийРезультатID") == result_id:
+            return
+        target["ПоследнийРезультатID"] = result_id
     played = _to_int(target.get("Сыграно")) + 1
     wins = _to_int(target.get("Победы")) + (1 if won else 0)
     losses = _to_int(target.get("Поражения")) + (0 if won else 1)

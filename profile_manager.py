@@ -6,6 +6,8 @@ import os
 import shutil
 import tempfile
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import pygame
 
@@ -23,6 +25,7 @@ INDEX_FILE = os.path.join(PROFILES_DIR, "index.json")
 MAX_PROFILES = 6
 _recovered_profile_paths = set()
 save_error_handler = None
+_round_result_profile = ContextVar("round_result_profile", default=None)
 
 
 class ProfileLoadError(OSError):
@@ -295,7 +298,23 @@ def _empty_progress():
     }
 
 
+@contextmanager
+def round_result_transaction(slot):
+    """Share one profile draft among reward, tutorial and lifetime-stat callbacks."""
+    profile = load_profile(slot)
+    token = _round_result_profile.set(profile)
+    try:
+        yield
+    finally:
+        _round_result_profile.reset(token)
+    # Reached only after the terminal board and its progress were both captured.
+    save_profile(profile)
+
+
 def load_profile(slot):
+    draft = _round_result_profile.get()
+    if draft is not None and draft["slot"] == int(slot):
+        return draft
     ensure_profiles_dir()
     slot = int(slot)
     path = get_profile_path(slot)
@@ -418,6 +437,9 @@ def _migrate_completed_black_rewards(profile):
 
 
 def save_profile(profile):
+    draft = _round_result_profile.get()
+    if draft is not None and profile is draft:
+        return
     # Keep the exact requested state while the UI waits. Retrying the game
     # action itself could award money/cards twice.
     pending = copy.deepcopy(profile)

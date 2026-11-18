@@ -114,6 +114,21 @@ class CardAcquisitionStatsTests(unittest.TestCase):
         stats.record_card_acquisitions("purchased", [401])
         self.assertEqual(self.counters(401), (1, 1, 1))
 
+    def test_legacy_rows_and_replayed_round_bonus_keep_both_scopes(self):
+        with open(self.path, "w", encoding="utf-8-sig", newline="") as target:
+            writer = csv.writer(target, delimiter=";")
+            writer.writerow(stats.LEGACY_FIELDS)
+            for profile in ("Все", "2"):
+                writer.writerow([profile, 401, "Медведь", 3, 1, 7])
+        stats.record_card_acquisitions("bonus", [401, 401], result_id="first")
+        self.configure(3)
+        stats.record_card_acquisitions("bonus", [401], result_id="second")
+        self.configure(2)
+        stats.record_card_acquisitions("bonus", [401, 401], result_id="first")
+        self.assertEqual(self.counters(401), (3, 1, 10))
+        self.assertEqual(self.counters(401, 2), (3, 1, 9))
+        self.assertEqual(self.counters(401, 3), (0, 0, 1))
+
     def test_failed_atomic_write_preserves_both_scopes(self):
         stats.record_card_acquisitions("offered", [401])
         with open(self.path, "rb") as source:

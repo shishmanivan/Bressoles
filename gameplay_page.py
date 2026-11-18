@@ -18,6 +18,7 @@ import gameplay_bankruptcy_animation as bankruptcy_animation
 import gameplay_bankruptcy_audio as bankruptcy_audio
 import gameplay_parity_animation as parity_animation
 import profile_manager
+from card_acquisition_stats import collect_round_bonus_cards, record_card_acquisitions
 from market_roll_stats import MarketRollStats
 from asset_loaders import load_scaled_image, load_scaled_image_variants
 from next_button import create_ornate_button
@@ -411,6 +412,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._overvaluation_ready = False
         self.overvaluation_triggered_this_round = False
         self._stats_recorded = False
+        self._pending_result_stats = None
         ensure_stats_file()
         self.difficulty = difficulty  # "e", "m", or "h"
         self.Goal = goal  # Goal for this round
@@ -975,6 +977,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._apply_starting_market_effects()
         self._init_other_stats()
         self._restore_saved_state(self._initial_saved_state)
+        self._publish_pending_result_stats()
         if not isinstance(self._initial_saved_state, dict) or "shareholder_blocked_market" not in self._initial_saved_state:
             self._roll_shareholder_market_shutdown()
         if self.boss_index is not None:
@@ -2153,6 +2156,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "stock_bot_trade_history": list(self.stock_bot_trade_history or []),
             "level6_turn_owner": self.level6_turn_owner,
             "stats_recorded": self._stats_recorded,
+            "pending_result_stats": self._pending_result_stats,
         }
 
     def _restore_saved_state(self, state):
@@ -2389,6 +2393,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.level6_bot_turn_decision = None
         self.stock_bot_acted_this_resolution = False
         self._stats_recorded = bool(state.get("stats_recorded", self._stats_recorded))
+        self._pending_result_stats = state.get("pending_result_stats")
         self.turn_resolution_active = False
         self.price_animation_queue = []
         self.stock_price_turn_results = []
@@ -3346,6 +3351,38 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._finish_win_lose_result(next_state, reason)
 
     def _finish_win_lose_result(self, next_state, reason):
+        if self.win_lose_state is not None:
+            return
+        if self.test_mode or not self.profile_slot:
+            self._record_stats_result(next_state == "win")
+            self._apply_round_result(next_state, reason)
+            return
+
+        # Capture the encounter totals before any boss reward can change them.
+        with profile_manager.round_result_transaction(self.profile_slot):
+            with collect_round_bonus_cards() as cards:
+                self._pending_result_stats = {
+                    "id": self.other_stats_round_id,
+                    "encounter": None if self._stats_recorded else self._encounter_result_args(next_state == "win"),
+                    "bonus_cards": cards,
+                }
+                self._apply_round_result(next_state, reason)
+            self._save_active_game()
+        self._publish_pending_result_stats()
+
+    def _publish_pending_result_stats(self):
+        pending = self._pending_result_stats
+        if not pending or self.test_mode or not self.profile_slot:
+            return
+        # The terminal snapshot is durable. Both CSV writers can replay the
+        # same result after an interruption, including between the two writes.
+        if pending["encounter"] is not None:
+            update_game_stats(*pending["encounter"], result_id=pending["id"])
+        record_card_acquisitions("bonus", pending["bonus_cards"], result_id=pending["id"])
+        self._stats_recorded = True
+        self._pending_result_stats = None
+
+    def _apply_round_result(self, next_state, reason):
         self._finish_play_time()
         self._finish_other_stats(next_state)
         self._capture_newspaper_turn(final=True)
@@ -3361,7 +3398,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 self.profile_slot, next_state == "win", self.is_final_boss,
             )
         self.frugality_bonus_turns = self._settle_frugality_for_finished_round()
-        self._record_stats_result(next_state == "win")
         self._spend_active_silver_cards_if_needed()
         self.long_payout_amount = 0
         self.golden_stocks_reward_card = None
@@ -3466,8 +3502,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.active_silver_cards = [entry["card_id"] for entry in retained if entry.get("kind") == "silver"]
         self.active_black_cards = list(game_state.active_black_cards)
         self.active_gold_cards = list(game_state.active_gold_cards)
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
 
     def _try_complete_percent_puzzle(self):
         """Consume one equipped quarter of each colour when red 126 is placed."""
@@ -4283,16 +4317,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             game_state.add_silver_card,
             get_boss_number_from_filename=get_boss_number_from_filename,
         )
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
 
     def _spend_active_silver_cards_if_needed(self):
         if self.active_silver_cards_spent or not self.active_silver_cards:
             return
         game_state.spend_silver_cards(self.active_silver_cards)
         self.active_silver_cards_spent = True
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
 
     def _apply_obligation_win_bonus(self):
         obligation_rewards = {
@@ -4308,8 +4338,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return 0
         game_state.add_napoleondors(self.level_number, earned)
         print(f"Active Obligation cards awarded {earned} napoleondors after victory.")
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return earned
 
     def _apply_commission_win_bonus(self):
@@ -4325,8 +4353,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             f"Active Commission card awarded {earned} napoleondor(s) "
             f"after {'boss victory' if self.is_boss_fight else 'round victory'}."
         )
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return earned
 
     def _apply_nabob_win_bonus(self, finance_entries):
@@ -4350,8 +4376,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             f"Active Nabob card(s) awarded {earned} napoleondor(s) "
             f"from {round_income} round income; copies={nabob_count}."
         )
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return earned
 
     def _apply_shareholder_base_win_bonus(self):
@@ -4370,8 +4394,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             f"{earned} napoleondor(s): cards={card_count}, "
             f"shareholders={shareholder_count}."
         )
-        if earned > 0 and self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return earned
 
     def _build_finance_report_entries(
@@ -5029,8 +5051,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         payout = game_state.advance_long_investments(self.level_number)
         if payout <= 0:
             return 0
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return int(payout)
 
     def _apply_golden_stocks_reward(self):
@@ -5045,12 +5065,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             record_roll=not bool(getattr(self, "test_mode", False)),
         )
         if awarded_card is None:
-            if self.profile_slot and not self.test_mode:
-                profile_manager.save_progress_from_game_state(self.profile_slot)
             return None
         self.last_earned_cards.append(awarded_card)
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return awarded_card
 
     def _apply_bill_of_exchange_shop_discount(self):
@@ -5059,24 +5075,20 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         game_state.set_pending_shop_discount(50 + self._get_percentage_amplifier_bonus())
 
     def _record_bear_victory_progress(self):
-        if not game_state.record_bear_victory(self.active_gold_cards):
-            return
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
+        game_state.record_bear_victory(self.active_gold_cards)
 
     def _record_windfall_boss_victory_progress(self):
         if not self.is_boss_fight:
             return False
-        if not game_state.record_windfall_boss_victory(self.active_gold_cards):
-            return False
-        if self.profile_slot and not self.test_mode:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
-        return True
+        return game_state.record_windfall_boss_victory(self.active_gold_cards)
     
     def _record_stats_result(self, won):
         if self.test_mode or self._stats_recorded:
             return
+        update_game_stats(*self._encounter_result_args(won))
+        self._stats_recorded = True
 
+    def _encounter_result_args(self, won):
         boss_number = self._get_active_boss_number()
         round_label = build_round_label(self.round_num, is_boss_fight=self.is_boss_fight)
         difficulty_label = build_difficulty_label(self.difficulty, is_boss_fight=self.is_boss_fight)
@@ -5088,7 +5100,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             boss_number=boss_number,
         )
         earned_money = self._get_round_end_earned_money()
-        update_game_stats(
+        return (
             self.level_number,
             boss_number,
             round_label,
@@ -5097,7 +5109,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             earned_money,
             sequential_round_number,
         )
-        self._stats_recorded = True
 
     def _get_round_end_earned_money(self):
         return int(self.Money or 0) + self._get_round_end_share_value()

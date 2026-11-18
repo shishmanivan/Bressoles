@@ -88,13 +88,13 @@ class WhitneyBossTests(unittest.TestCase):
             mock.patch.object(game_state, "apply_bank_interest", return_value=0),
             mock.patch.object(game_state, "advance_bailout_round"),
         ):
-            GameplayPage._finish_win_lose_result(page, "win", "last_turn")
+            GameplayPage._apply_round_result(page, "win", "last_turn")
             self.assertTrue(game_state.whitney_disclosure_active)
             self.assertTrue(profile_manager._capture_progress()["whitney_disclosure_active"])
             page._add_reward_card_to_deck.side_effect = None
             for _ in range(20):
                 self.assertTrue(game_state.is_disclosure_active())
-                GameplayPage._finish_win_lose_result(page, "win", "last_turn")
+                GameplayPage._apply_round_result(page, "win", "last_turn")
                 self.assertTrue(game_state.whitney_disclosure_active)
             self.assertTrue(game_state.is_disclosure_active())
             self.assertFalse(game_state.is_disclosure_offer_available())
