@@ -26,7 +26,7 @@ BOSS_LEVELS = {
     "11_Malthus.png": 2,
     "12_Ricardo.png": 2,
     "13_Say.png": 2,
-    "14_Peabody.png": 2,
+    "14_Peabody.png": 1,
     "15_Astor.png": 1,
     "16_Whitney.png": 1,
 }

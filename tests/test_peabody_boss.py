@@ -18,8 +18,8 @@ class PeabodyBossTests(unittest.TestCase):
         game_state.boss_shop_offer_bonus = self.original_shop_bonus
         game_state.profit_reward_bonus = self.original_profit_bonus
 
-    def test_peabody_is_a_category_two_boss(self):
-        self.assertEqual(BOSS_LEVELS["14_Peabody.png"], 2)
+    def test_peabody_is_a_category_one_boss(self):
+        self.assertEqual(BOSS_LEVELS["14_Peabody.png"], 1)
 
     def test_regular_round_base_napoleondor_reward_is_halved(self):
         self.assertEqual(game_state.get_regular_round_napoleondor_reward(1, 14), 0.5)
