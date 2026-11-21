@@ -102,10 +102,18 @@ class ProtectivePutTests(unittest.TestCase):
         page.mouse_pos = mock.Mock(return_value=(15, 15))
         page.protective_put_pending = 2
         page.protective_put_ok_rect = pygame.Rect(10, 10, 100, 40)
+        # The diagnostic button behind this modal must not intercept clicks.
+        from clockwork_window import BUTTON
+        page.win_lose_state = None
+        page.tutorial_hint = None
+        page.pause_menu_active = page.deck_view_active = False
+        page._open_pause_menu = mock.Mock()
+        self.assertTrue(BUTTON.collidepoint((15, 15)))
         click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(15, 15))
         page.events = mock.Mock(return_value=[click, click])
         page.handle_input()
         self.assertEqual(page.protective_put_pending, 1)
+        page._open_pause_menu.assert_not_called()
         page.events.return_value = [pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN)]
         page.handle_input()
         self.assertEqual(page.protective_put_pending, 0)

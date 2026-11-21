@@ -5,9 +5,8 @@ SHAREHOLDERS = "shareholders"
 BOSS_SHARES = "boss_shares"
 BOSS_TRADING = "boss_trading"
 BOSS_SHARES_QUANTITY = 50
-# Content 8 is campaign level 6; content 6 is the isolated test duel.
 # Boss Shares remains available in the catalog, but is not assigned to any level.
-LEVEL_CONDITIONS = {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BANKRUPTCY,)}
+LEVEL_CONDITIONS = {4: (SHAREHOLDERS,), 6: (BANKRUPTCY,)}
 CONDITIONS = {
     BANKRUPTCY: {
         "title": "Банкротство",
@@ -34,7 +33,7 @@ CONDITIONS = {
         "title": "Boss Trading",
         "icon": "Bosses/8_List.png",
         "paragraphs": (
-            "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
+            "Босс торгует с первого раунда независимо от своей категории.",
         ),
     },
     SHAREHOLDERS: {

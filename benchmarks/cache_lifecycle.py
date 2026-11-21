@@ -129,7 +129,6 @@ def run(cycles, resize_steps, legacy_menu_cache=False):
         profile_manager.PROFILES_DIR = tmp
         profile_manager.INDEX_FILE = os.path.join(tmp, "index.json")
         game_stats.set_stats_file(os.path.join(tmp, "stats.csv"))
-        game_stats.set_level6_experiment_stats_file(os.path.join(tmp, "level6.csv"))
         shop_card_stats.set_shop_card_stats_file(os.path.join(tmp, "shop.csv"))
         game_state.GOLDEN_STOCKS_AUDIT_PATH = Path(tmp) / "golden.log"
         sizes = [(1680, 1050)] * cycles + [(1280, 720), (1920, 1080), (1680, 1050)] * 2

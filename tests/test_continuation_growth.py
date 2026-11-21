@@ -1,4 +1,6 @@
 import unittest
+
+import gameplay_bankruptcy_animation as bankruptcy_animation
 from unittest import mock
 
 from tests import test_red_card_effects
@@ -122,6 +124,12 @@ class ContinuationGrowthTests(unittest.TestCase):
         page.side_cards_top[:3] = [113, 125, 125]
         with mock.patch("gameplay_page.random.randint", return_value=1):
             page._apply_price_setting_red_card_effects_in_slot_order()
+            self.assertEqual(page.Aprice, 2)
+            start = page.bankruptcy_animations[0]["start_time"]
+            with mock.patch("pygame.time.get_ticks", return_value=start + bankruptcy_animation.DURATION_MS):
+                bankruptcy_animation.update(page)
+            page._apply_price_setting_red_card_effects_in_slot_order()
+        self.assertEqual(page.Aprice, 8)
         self.assertEqual(self.bonuses(page)[0], 2)
         self.assertEqual(page.continuation_growth_streaks[0], 4)
 

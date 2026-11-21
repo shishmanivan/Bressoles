@@ -6,16 +6,16 @@ from unittest import mock
 
 import game_state
 from boss_effects import parse_boss_functionality_spec, parse_boss_reward_spec
-from boss_logic import BOSS_LEVELS, _generate_level6_boss_roster, get_configured_levels, resolve_boss_number
+from boss_logic import _ensure_level6_roster, get_boss_level_from_number, resolve_boss_number
 from content_validation import _read_csv_rows, validate_game_content
-from game_data import load_boss_rewards, load_cards_config, load_goals_level5, load_goals_level8, load_language
+from game_data import load_boss_rewards, load_cards_config, load_goals_level5, load_goals_level6, load_language
 from round_page import RoundPage
 from round_page_helpers import resolve_boss_goal
 
 
 class ContentValidationTests(unittest.TestCase):
-    def test_level8_goals_and_roster_match_the_testing_contract(self):
-        goals = load_goals_level8()
+    def test_level_six_goals_and_roster_cover_the_fourth_boss(self):
+        goals = load_goals_level6()
         self.assertEqual([goals[key][1] for key in ("E", "M", "H")], [80, 100, 140])
         self.assertEqual(
             [[goals[key][round_number] for key in ("E", "M", "H")] for round_number in range(1, 5)],
@@ -32,13 +32,31 @@ class ContentValidationTests(unittest.TestCase):
         self.assertEqual(goals["E"][("boss", 1)], 900)
         self.assertEqual(goals["E"][("boss", 2)], 1500)
         self.assertEqual(goals["E"][("boss", 3)], 2000)
+        self.assertEqual(goals["E"][("boss", 4)], 900)
 
         with mock.patch("boss_logic.random.shuffle", side_effect=lambda values: None):
-            roster = _generate_level6_boss_roster(4)
+            roster = _ensure_level6_roster({}, 4)
         self.assertEqual(len(roster), 4)
         self.assertTrue(all(len(step) == 1 for step in roster))
-        self.assertTrue(all(BOSS_LEVELS[step[0]] == 1 for step in roster[:2]))
-        self.assertTrue(all(BOSS_LEVELS[step[0]] == 2 for step in roster[2:]))
+        self.assertEqual([
+            get_boss_level_from_number(resolve_boss_number(6, boss_filename=step[0]),
+                                       level_number=6, defeated_count=position)
+            for position, step in enumerate(roster)
+        ], [1, 1, 2, 2])
+        self.assertEqual(_ensure_level6_roster({"roster": roster}, 4), roster)
+
+    def test_startup_validation_recognizes_dynamic_boss_routes(self):
+        import boss_logic
+        import random
+
+        rng_before = random.getstate()
+        with mock.patch.dict(boss_logic.LEVEL_BOSS_ROUNDS):
+            for level in (3, 4):
+                boss_logic.LEVEL_BOSS_ROUNDS.pop(level, None)
+            with mock.patch("builtins.print") as diagnostic:
+                self.assertEqual(validate_game_content(), [])
+                diagnostic.assert_not_called()
+        self.assertEqual(random.getstate(), rng_before)
 
     def test_current_content_is_complete(self):
         self.assertEqual(validate_game_content(), [])
@@ -110,16 +128,18 @@ class ContentValidationTests(unittest.TestCase):
             6,
         )
 
-    def test_empty_legacy_level_rows_are_not_treated_as_configured_levels(self):
-        levels = {1: {"Rounds": 1}, 4: {"Rounds": 3}}
-        rounds = {
-            1: {"Rounds": 1},
-            4: {"Rounds": 3},
-            5: {"Rounds": None},
-            10: {"Rounds": None},
-        }
+    def test_impossible_boss_counts_and_unsupported_routes_are_reported(self):
+        from game_data import load_levels_config
+        levels = copy.deepcopy(load_levels_config())
+        levels[1]["Bosses"] = 2
+        levels[3]["Bosses"] = 7
+        levels[10] = {"Rounds": None, "Bosses": None}
 
-        self.assertEqual(get_configured_levels(rounds, levels), [1, 4])
+        errors = validate_game_content(levels=levels, check_source_csvs=False)
+
+        self.assertIn("Level 1: expected 2 boss positions, route provides 1", errors)
+        self.assertIn("Level 3: expected 7 boss positions, route provides 6", errors)
+        self.assertIn("LevelsData.csv: unsupported level 10", errors)
 
     def test_every_configured_boss_effect_has_a_known_format(self):
         for boss_number, entry in load_boss_rewards().items():

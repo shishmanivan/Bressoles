@@ -157,13 +157,13 @@ class KnownRegressionTests(unittest.TestCase):
         self.assertEqual(update_stats.call_args.args[:2], (3, 6))
         self.assertEqual(update_arkwright_stats.call_args.args[:2], (3, 6))
 
-    def test_level8_fulton_round_uses_hidden_seven_point_five_stat_number(self):
+    def test_level6_fulton_round_uses_hidden_seven_point_five_stat_number(self):
         import gameplay_page
 
         page = gameplay_page.GameplayPage.__new__(gameplay_page.GameplayPage)
         page.test_mode = False
         page._stats_recorded = False
-        page.level_number = 8
+        page.level_number = 6
         page.boss_index = 0
         page.defeated_count = 1
         page.boss_filename = "3_Fulton.png"
@@ -191,7 +191,9 @@ class KnownRegressionTests(unittest.TestCase):
         page.hand_compact_anim = None
         page.hand_draw_anim = None
         page._apply_boss_share_theft_if_needed = mock.Mock()
-        page._run_stock_bot_turn = mock.Mock()
+        page.Money = 0
+        page.stock_bot_enabled = False
+
         def check_terminal_day():
             if page.Day >= page.LastTurn:
                 page.win_lose_state = "lose"

@@ -283,13 +283,9 @@ class HandInteractionLockTests(unittest.TestCase):
         page.pause_menu_active = False
         page.deck_view_active = False
         page.win_lose_state = "win"
-        page.win_lose_image = pygame.Surface((200, 200))
-        page.ok1_button = pygame.Surface((40, 40))
-        page.ok2_button = None
-        page.ok_button_rect = pygame.Rect(150, 150, 40, 40)
-        page.ok_button_base_size = (40, 40)
-        page.win_lose_x = 0
-        page.win_lose_y = 0
+        page.level_number = 1
+        page.screen = pygame.Surface((1680, 1050))
+        page.result_report_stage = "newspaper"
         page.hand_compact_anim = []
         page.hand_draw_anim = []
         page._start_card_drag = mock.Mock()

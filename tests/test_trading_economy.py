@@ -6,7 +6,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import game_state
 from boss_logic import apply_boss_functionality
-from gameplay_page import LEVEL6_STARTING_A_SHARES, GameplayPage
+from gameplay_page import GameplayPage
 from gameplay_trade_actions import apply_arrow_trade
 from simple_stock_bot import SimpleStockBot
 
@@ -183,39 +183,12 @@ class StockBotTurnTests(unittest.TestCase):
         page._stock_bot_portfolio_value.return_value = 41
         self.assertFalse(page._can_win_against_current_boss())
 
-    def test_level6_enables_bot3_for_the_capital_race(self):
+    def test_sixth_level_uses_regular_boss_rules(self):
         page = GameplayPage.__new__(GameplayPage)
         page.level_number = 6
         page.is_boss_fight = True
-        page.boss_index = 0
-        page.boss_filename = "2_AdamSmith.png"
-        page.stock_bot_enabled = False
-        page._get_active_boss_number = mock.Mock(return_value=2)
-
         page._configure_boss_stock_bot()
-
-        self.assertTrue(page.stock_bot_enabled)
-        self.assertEqual(page.stock_bot_type, "reinvestment")
-        self.assertEqual(LEVEL6_STARTING_A_SHARES, 2)
-        self.assertEqual(page.stock_bot_start_quantities, {"Aquantity": 2, "Bquantity": 0, "Cquantity": 0})
-
-    def test_level6_requires_strictly_more_capital_than_bot3(self):
-        page = GameplayPage.__new__(GameplayPage)
-        page.level_number = 6
-        page.is_boss_fight = True
-        page.stock_bot_enabled = True
-        self.assertTrue(page.stock_bot_enabled)
-        page.Money = 20
-        page.Goal = 0
-        page.Aquantity = 2
-        page.Bquantity = page.Cquantity = 0
-        page.Aprice = 10
-        page.BPrice = page.CPrice = 2
-        page._stock_bot_portfolio_value = mock.Mock(return_value=40)
-
-        self.assertFalse(page._can_win_against_current_boss())
-        page.Money = 21
-        self.assertTrue(page._can_win_against_current_boss())
+        self.assertFalse(page.stock_bot_enabled)
 
 
 class BossTradingConstraintTests(unittest.TestCase):
@@ -411,9 +384,9 @@ class ShareholderMarketShutdownTests(unittest.TestCase):
         roll.assert_not_called()
         self.assertIsNone(page.shareholder_blocked_market)
 
-    def test_level8_has_no_shareholder_market_shutdown_rule(self):
+    def test_level6_has_no_shareholder_market_shutdown_rule(self):
         page = GameplayPage.__new__(GameplayPage)
-        page.level_number = 8
+        page.level_number = 6
         page.win_lose_state = None
         page.shareholder_effect_count = 3
         page.shareholder_blocked_market = None

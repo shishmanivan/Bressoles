@@ -3,6 +3,7 @@
 Install error_handler in the application to keep pending work alive while the
 player releases a lock/frees disk space. Headless callers receive the error.
 """
+import errno
 import io
 import json
 import logging
@@ -12,6 +13,31 @@ import time
 
 error_handler = None
 logger = logging.getLogger("bressoles")
+
+
+def lock_file_handle(handle, *, wait):
+    """Hold an OS lock on a stable sidecar until the open handle is closed."""
+    if os.name == "nt":
+        import msvcrt
+        handle.seek(0)
+        if not wait:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            return
+        # LK_LOCK sleeps a full second even when a journal append takes only
+        # milliseconds. Keep its ten-second bound while waking up promptly.
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+    else:
+        import fcntl
+        flags = fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB
+        fcntl.flock(handle, flags)
 
 
 def disk_operation(operation, *, interactive=True, recovery_path=None, missing_ok=False):

@@ -120,10 +120,7 @@ class RoundPage(AdaptivePage):
         rounds_cfg_value = (levels_cfg.get(self.level_number, {}) or {}).get("Rounds")
         if rounds_cfg_value is None:
             rounds_cfg_value = level_cfg.get("Rounds")
-        if self.level_number == 6 and rounds_cfg_value == 0:
-            self.rounds_required = 0
-        else:
-            self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
+        self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
 
         if self.boss_number:
             boss_rewards = self._load_boss_rewards()
@@ -357,7 +354,7 @@ class RoundPage(AdaptivePage):
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3, 4, 5, 8):
+        if self.level_number in (2, 3, 4, 5, 6):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(
@@ -531,8 +528,6 @@ class RoundPage(AdaptivePage):
         )
 
     def _apply_level_rounds_functionality(self, func_string: str):
-        if self.level_number == 6:
-            return
         for effect in parse_boss_functionality_spec(func_string):
             if effect.kind != "assignment" or effect.target != "LevelRounds":
                 continue

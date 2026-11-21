@@ -17,6 +17,8 @@ class StandardizationTests(unittest.TestCase):
         page.Aprice, page.BPrice, page.CPrice = 18, 30, 50
         page.StepA, page.StepB, page.StepC = 2, 4, 6
         page.Day = 1
+        page.level_number = 1
+        page.test_mode = True
         page.Aquantity = page.Bquantity = page.Cquantity = 1
         page.insider_c_growth_turns_remaining = 0
         page.typewriter_sound = None

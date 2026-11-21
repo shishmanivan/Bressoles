@@ -7,9 +7,12 @@ award cards, increment counters, or consume randomness more than once.
   sibling temporary file, then replace the destination. Old data survives a
   failed write. Five attempts use bounded backoff; the application retry dialog
   handles persistent errors and keeps the pending operation alive.
-- `csv_storage.write_semicolon_csv_atomically`: the same path for every CSV
-  snapshot, including the market journal. Do not retry append operations: a
-  failed flush can already have appended some of the bytes.
+- `csv_storage.write_semicolon_csv_atomically` replaces CSV snapshots. The
+  derived market summary uses noninteractive retries on a background thread.
+- The market journal appends under an OS lock shared by all game windows.
+  A sibling `.pending` file holds the original offset and the exact batch bytes.
+  After an interruption, the writer verifies the existing tail, appends any
+  missing bytes, and flushes the journal before removing the pending file.
 - `read_text` / `open_text`: finish reading before giving data to the caller.
   Access errors must not be interpreted as an empty save. Missing optional files
   retain FileNotFoundError semantics so existing creation/default rules apply.

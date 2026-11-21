@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 import tempfile
 import unittest
 from collections import deque
@@ -17,6 +18,12 @@ import profile_manager
 
 
 class MainFlowIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not pygame.display.get_init():
+            pygame.display.init()
+            cls.addClassCleanup(pygame.display.quit)
+
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.profile_dir_patch = patch.object(profile_manager, "PROFILES_DIR", self.temp_dir.name)
@@ -34,7 +41,6 @@ class MainFlowIntegrationTests(unittest.TestCase):
             patch.object(Main, "load_main_background", return_value=object()),
             patch.object(Main, "find_font_path_or_exit", return_value="unused.ttf"),
             patch.object(Main, "load_language", return_value={}),
-            patch.object(Main, "validate_levels_and_rounds_config"),
             patch.object(Main, "assert_valid_game_content"),
             patch.object(Main.pygame.display, "set_caption"),
             patch.object(Main.pygame, "quit"),
@@ -92,10 +98,13 @@ class MainFlowIntegrationTests(unittest.TestCase):
 
     def test_recovered_selected_profile_shows_notice_before_main_menu(self):
         path = profile_manager.get_profile_path(1)
-        with open(path, "wb") as output:
-            output.write(b"broken")
+        damaged = profile_manager.load_profile(1)
+        damaged["progress"]["seen_gold_card_ids"] = None
+        with open(path, "w", encoding="utf-8") as output:
+            json.dump(damaged, output)
         profile_pages, start_pages = [], []
         with (
+            patch.object(Main.pygame.display, "get_driver", return_value="dummy"),
             patch.object(Main, "ProfilePage", self._sequenced_page(["back"], profile_pages)),
             patch.object(Main, "StartPage", self._sequenced_page(["quit"], start_pages)),
         ):
@@ -217,46 +226,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(len(settings_pages), 1)
         save_volume.assert_not_called()
 
-    def test_test_level_thirteen_opens_bot_match_without_boss_or_round_pages(self):
-        gameplay_pages = []
-
-        class ForbiddenPage:
-            def __init__(self, *args, **kwargs):
-                raise AssertionError("Test level 13 must open gameplay directly")
-
-        class CapturingGameplayPage:
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-                gameplay_pages.append(self)
-
-            def run(self):
-                return "quit"
-
-        start_page = self._sequenced_page(["test_mode"])
-        level_page = self._sequenced_page(["level_13"])
-        with (
-            patch.object(Main, "StartPage", start_page),
-            patch.object(Main, "GameScreen", level_page),
-            patch.object(Main, "BossPage", ForbiddenPage),
-            patch.object(Main, "RoundPage", ForbiddenPage),
-            patch.object(Main, "GameplayPage", CapturingGameplayPage),
-        ):
-            Main.main()
-
-        self.assertEqual(len(gameplay_pages), 1)
-        context = gameplay_pages[0].kwargs
-        self.assertEqual(context["level_number"], 6)
-        self.assertTrue(context["is_boss_fight"])
-        self.assertEqual(context["boss_index"], 0)
-        self.assertIsNone(context["boss_filename"])
-        self.assertEqual(context["rounds_required"], 0)
-        self.assertEqual(context["active_silver_cards"], [])
-        self.assertEqual(context["active_black_cards"], [])
-        self.assertEqual(context["active_gold_cards"], [])
-        self.assertIsNone(game_state.boss_progress[6]["current_boss"])
-
-    def test_level_eight_third_boss_victory_returns_to_level_menu_and_resets_attempt(self):
+    def test_level_six_finishes_only_after_four_bosses(self):
         roster = [
             ["4_NicolasApper.png"],
             ["2_AdamSmith.png"],
@@ -323,32 +293,74 @@ class MainFlowIntegrationTests(unittest.TestCase):
             def run(self):
                 return "next"
 
-        def pin_level8(state, bosses_required):
+        def pin_level6(level, state, bosses_required):
             state["roster"] = copy.deepcopy(roster)
             return state["roster"]
 
         start_page = self._sequenced_page(["start"])
-        level_page = self._sequenced_page(["level_8", "quit"])
+        level_page = self._sequenced_page(["level_6", "quit"])
         with (
+            patch.object(Main.pygame.display, "get_driver", return_value="dummy"),
             patch.object(Main, "StartPage", start_page),
             patch.object(Main, "GameScreen", level_page),
             patch.object(Main, "BossPage", SingleBossPage),
             patch.object(Main, "RoundPage", FakeRoundPage),
             patch.object(Main, "GameplayPage", WinningGameplayPage),
             patch.object(Main, "ShopPage", CountingShopPage),
-            patch.object(Main, "_ensure_level8_roster", side_effect=pin_level8),
+            patch.object(Main, "get_level_boss_roster", side_effect=pin_level6),
         ):
             Main.main()
 
-        self.assertEqual(len(gameplay_contexts), 12)
-        self.assertEqual(sum(bool(context.get("is_boss_fight")) for context in gameplay_contexts), 3)
-        self.assertTrue(all(context.get("boss_filename") == "8_List.png" for context in gameplay_contexts[-4:]))
-        self.assertTrue(all(context.get("defeated_count") == 2 for context in gameplay_contexts[-4:]))
-        self.assertEqual(shop_visits, [8] * 11)
-        self.assertEqual(game_state.boss_progress[8]["defeated"], 0)
-        self.assertIsNone(game_state.boss_progress[8]["current_boss"])
-        self.assertEqual(game_state.boss_progress[8]["round_progress"], {})
+        self.assertEqual(len(gameplay_contexts), 16)
+        bosses = [context for context in gameplay_contexts if context.get("is_boss_fight")]
+        self.assertEqual([context["boss_filename"] for context in bosses], [row[0] for row in roster])
+        self.assertEqual([context["defeated_count"] for context in bosses], [0, 1, 2, 3])
+        from boss_logic import get_boss_level_from_number
+        self.assertEqual([
+            get_boss_level_from_number(Main.get_boss_number_from_filename(context["boss_filename"]),
+                                       level_number=context["level_number"], defeated_count=context["defeated_count"])
+            for context in bosses
+        ], [1, 1, 2, 2])
+        self.assertEqual(shop_visits, [6] * 15)
+        profile_manager.apply_profile_to_game_state(1)
+        self.assertTrue(game_state.get_progress_flags()["level_7_unlocked"])
+        self.assertEqual(game_state.get_shop_rerolls(), 5)
+        self.assertEqual(game_state.boss_progress[6]["defeated"], 4)
+        self.assertIsNone(game_state.boss_progress[6]["current_boss"])
         self.assertIsNone(profile_manager.get_active_game(1))
+
+    def test_saved_level_six_final_boss_grants_permanent_rewards_once(self):
+        game_state.boss_progress[6] = game_state.new_boss_progress_state()
+        game_state.boss_progress[6].update(defeated=3, run_stats_started=True)
+        game_state.shop_rerolls = 2
+        game_state.level_5_boss_defeated = True
+        game_state.level_6_boss_defeated = False
+        before_slots = game_state.get_lifecycle_card_slot_limit()
+        before_money = game_state.get_starting_napoleondors_for_level(7)
+        profile_manager.save_active_game(1, {
+            "level_number": 6, "is_boss_fight": True, "boss_index": 0, "defeated_count": 3,
+            "boss_filename": "9_Laffitte.png",
+        }, {"Day": 3})
+        with (
+            patch.object(Main.pygame.display, "get_driver", return_value="dummy"),
+            patch.object(Main, "StartPage", self._sequenced_page(["start", "quit"])),
+            patch.object(Main, "GameplayPage", self._sequenced_page(["round_select"])),
+            patch.object(Main, "ShopPage", self._sequenced_page([])),
+        ):
+            Main.main()
+        profile_manager.apply_profile_to_game_state(1)
+        self.assertIsNone(profile_manager.get_active_game(1))
+        self.assertEqual(game_state.boss_progress[6]["defeated"], 4)
+        self.assertTrue(game_state.get_progress_flags()["level_7_unlocked"])
+        self.assertEqual(game_state.get_shop_rerolls(), 7)
+        self.assertEqual(game_state.get_lifecycle_card_slot_limit(), before_slots + 1)
+        self.assertEqual(game_state.get_starting_napoleondors_for_level(7), before_money + 2)
+        self.assertTrue(game_state.is_level_unlocked(7))
+        self.assertEqual(game_state.build_current_level_deck(7).count(113), 1)
+        game_state.reset_level_attempt(7)
+        self.assertEqual(game_state.build_current_level_deck(7).count(113), 1)
+        game_state.unlock_level_seven()
+        self.assertEqual(game_state.get_shop_rerolls(), 7)
 
     def test_levels_two_to_five_complete_every_campaign_position(self):
         campaigns = {
@@ -478,11 +490,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
                     def run(self):
                         return "next"
 
-                def pin_level3(state, bosses_required):
-                    state["roster"] = copy.deepcopy(roster)
-                    return state["roster"]
-
-                def pin_level5(state, bosses_required):
+                def pin_roster(level, state, bosses_required):
                     state["roster"] = copy.deepcopy(roster)
                     return state["roster"]
 
@@ -496,8 +504,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
                     patch.object(Main, "RoundPage", FakeRoundPage),
                     patch.object(Main, "GameplayPage", FakeGameplayPage),
                     patch.object(Main, "ShopPage", FakeShopPage),
-                    patch.object(Main, "_ensure_level3_roster", side_effect=pin_level3),
-                    patch.object(Main, "_ensure_level5_roster", side_effect=pin_level5),
+                    patch.object(Main, "get_level_boss_roster", side_effect=pin_roster),
                 ):
                     Main.main()
 
@@ -651,6 +658,8 @@ class MainFlowIntegrationTests(unittest.TestCase):
                     saved = profile_manager.load_profile(1)
                     test.assertIsNone(saved["active_game"])
                     test.assertEqual(saved["progress"]["napoleondors"], game_state.napoleondors)
+                    test.assertEqual(saved["progress"]["boss_progress"][str(level)]["shop_visit"],
+                                     {"discount_percent": 25})
 
             def run(self):
                 events.append("shop")
@@ -679,7 +688,7 @@ class MainFlowIntegrationTests(unittest.TestCase):
         expected = ["save"] if not resumed and not test_mode else []
         expected += ["reward"] + ([] if test_mode else ["clear"])
         if level == 2:
-            expected += ([] if test_mode else ["save", "save"]) + ["shop", "interest"]
+            expected += ["shop", "interest"]
             expected += [] if test_mode else ["save"]
         if resumed:
             # Existing resume flow clears again, then saves on reentering the level.
@@ -705,6 +714,138 @@ class MainFlowIntegrationTests(unittest.TestCase):
 
     def test_test_mode_regular_victory_does_not_write_profile(self):
         self._check_regular_round_victory(2, test_mode=True)
+
+    def test_purchase_survives_window_close_and_start_returns_to_the_same_shop(self):
+        level = 2
+        game_state.ensure_napoleondor_level(level)
+        game_state.napoleondors = 10
+        game_state.bank_bought = True
+        state = game_state.new_boss_progress_state()
+        game_state.boss_progress[level] = state
+        state.update(run_stats_started=True, shop_visit={"discount_percent": 25},
+                     round_progress={"0:0:2_AdamSmith.png": {"completed_rounds": [1]}},
+                     current_boss={"boss_filename": "2_AdamSmith.png", "boss_index": 0, "defeated_count": 0})
+        profile_manager.save_progress_from_game_state(1)
+        shelf = [{"kind": "special", "special_id": "derivative", "cost": 2}]
+        if not pygame.display.get_init():
+            pygame.display.init()
+            self.addCleanup(pygame.display.quit)
+        if not pygame.font.get_init():
+            pygame.font.init()
+            self.addCleanup(pygame.font.quit)
+        viewport = pygame.display.set_mode(Main.LOGICAL_SCREEN_SIZE)
+        visits = []
+        page_class = Main.ShopPage
+
+        def shop(*args, **kwargs):
+            page = page_class(viewport, "egyptiennemncyr_condensedbold.ttf", *args[2:], **kwargs)
+            visits.append(page)
+            page._offer_animation = None
+            pygame.event.clear()
+            pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.offer_rects[0].center))
+            if len(visits) == 1:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+            else:
+                pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+            return page
+
+        round_pages = []
+        with (
+            patch.object(Main, "StartPage", self._sequenced_page(["start", "start"])),
+            patch.object(Main, "ShopPage", side_effect=shop),
+            patch.object(Main, "RoundPage", self._sequenced_page(["quit"], round_pages)),
+            patch.object(Main, "GameScreen", side_effect=AssertionError("lost current level")),
+            patch.object(Main, "GameplayPage", side_effect=AssertionError("replayed finished round")),
+            patch.object(profile_manager, "is_tutorial_pending", return_value=False),
+            patch.object(game_state, "generate_shop_offers", return_value=shelf) as generate,
+            patch("shop_page.record_card_offers") as record_offers,
+            patch("shop_page.record_shop_card_offers"),
+        ):
+            with patch.object(Main.sys, "exit", side_effect=SystemExit), self.assertRaises(SystemExit):
+                Main.main()
+            saved = profile_manager.load_profile(1)["progress"]
+            visit = saved["boss_progress"]["2"]["shop_visit"]
+            self.assertEqual((saved["napoleondors"], saved["global_hand_bonus"]), (8, 1))
+            self.assertEqual((visit["discount_percent"], visit["offers"], visit["sold_offer_indexes"]),
+                             (25, shelf, [0]))
+            self.assertIsNone(saved["bank_interest_base"])
+            profile_manager.apply_profile_to_game_state(profile_manager._default_profile(1))
+            Main.main()
+
+        self.assertEqual(len(visits), 2)
+        self.assertEqual(len(round_pages), 1)
+        generate.assert_called_once()
+        record_offers.assert_called_once()
+        saved = profile_manager.load_profile(1)["progress"]
+        self.assertIsNone(saved["boss_progress"]["2"]["shop_visit"])
+        self.assertEqual((saved["napoleondors"], saved["bank_interest_base"], saved["global_hand_bonus"]), (8, 8, 1))
+
+    def test_pre_boss_run_bonuses_survive_every_resume_path(self):
+        level = 4
+        boss = "2_AdamSmith.png"
+        progress_key = f"0:0:{boss}"
+        expected = {"global_hand_bonus": 1, "derivative_bought": True,
+                    "updown_probability_bonus": 5, "variance_offer_bought_count": 2,
+                    "global_dobor": 2, "global_start_money_bonus": 3, "global_start_c_shares_bonus": 4}
+        for entry in ("map", "saved_round", "shop"):
+            for legacy in (False, True):
+                with self.subTest(entry=entry, legacy=legacy):
+                    profile_manager.apply_profile_to_game_state(profile_manager._default_profile(1))
+                    game_state.ensure_napoleondor_level(level)
+                    state = game_state.new_boss_progress_state()
+                    game_state.boss_progress[level] = state
+                    state["run_stats_started"] = True
+                    state["round_progress"][progress_key] = {"completed_rounds": [1]}
+                    game_state.buy_derivative_hand_bonus()
+                    game_state.add_updown_probability_bonus(3)
+                    game_state.buy_variance_offer()
+                    game_state.buy_variance_offer()
+                    game_state.global_dobor = 2
+                    game_state.global_start_money_bonus = 3
+                    game_state.add_start_c_shares_bonus(4)
+                    if entry == "saved_round":
+                        profile_manager.save_active_game(1, {
+                            "level_number": level, "boss_index": 0, "boss_filename": boss,
+                            "round_num": 2, "defeated_count": 0, "difficulty": "e",
+                        }, {"Day": 2})
+                    else:
+                        if entry == "shop":
+                            state["shop_visit"] = {"discount_percent": 0}
+                        profile_manager.save_progress_from_game_state(1)
+                    if legacy:
+                        profile = profile_manager.load_profile(1)
+                        del profile["progress"]["boss_progress"]["4"]["run_stats_started"]
+                        profile_manager.save_profile(profile)
+                    round_pages = []
+                    with (
+                        patch.object(Main.pygame.display, "get_driver", return_value="dummy"),
+                        patch.object(Main, "StartPage", self._sequenced_page(["start"])),
+                        patch.object(Main, "GameScreen", self._sequenced_page(["level_4"] if entry == "map" else [])),
+                        patch.object(Main, "GameplayPage", self._sequenced_page(["round_select"] if entry == "saved_round" else [])),
+                        patch.object(Main, "ShopPage", self._sequenced_page(["next"] if entry != "map" else [])),
+                        patch.object(Main, "RoundPage", self._sequenced_page(["quit"], round_pages)),
+                    ):
+                        Main.main()
+                    self.assertEqual(len(round_pages), 1)
+                    self.assertEqual(round_pages[0].kwargs["round_progress"]["completed_rounds"],
+                                     [1, 2] if entry == "saved_round" else [1])
+                    saved = profile_manager.load_profile(1)["progress"]
+                    self.assertEqual({key: saved[key] for key in expected}, expected)
+
+    def test_fresh_level_clears_stale_bonus_values_and_purchase_flags_together(self):
+        game_state.buy_derivative_hand_bonus()
+        game_state.buy_variance_offer()
+        profile_manager.save_progress_from_game_state(1)
+        with (
+            patch.object(Main.pygame.display, "get_driver", return_value="dummy"),
+            patch.object(Main, "StartPage", self._sequenced_page(["start"])),
+            patch.object(Main, "GameScreen", self._sequenced_page(["level_1"])),
+            patch.object(Main, "BossPage", self._sequenced_page(["quit"])),
+        ):
+            Main.main()
+        saved = profile_manager.load_profile(1)["progress"]
+        self.assertEqual((saved["global_hand_bonus"], saved["derivative_bought"]), (0, False))
+        self.assertEqual((saved["updown_probability_bonus"], saved["variance_offer_bought_count"]), (0, 0))
 
     def test_resumed_loss_is_reset_once_by_the_main_flow(self):
         level = 2
@@ -800,6 +941,8 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(game_state.get_insurance_goal_debt(), 25)
 
     def test_restart_from_saved_round_resets_attempt_and_reenters_same_level(self):
+        game_state.buy_derivative_hand_bonus()
+        game_state.buy_variance_offer()
         game_state.round_reward_cards[1] = [11]
         game_state.shop_deck_cards[:] = [12]
         game_state.gold_cards[:] = [201]
@@ -855,6 +998,9 @@ class MainFlowIntegrationTests(unittest.TestCase):
         self.assertEqual(game_state.shop_deck_cards, [])
         self.assertEqual(game_state.gold_cards, [])
         self.assertIsNone(profile_manager.get_active_game(1))
+        saved = profile_manager.load_profile(1)["progress"]
+        self.assertEqual((saved["global_hand_bonus"], saved["derivative_bought"]), (0, False))
+        self.assertEqual((saved["updown_probability_bonus"], saved["variance_offer_bought_count"]), (0, 0))
 
     def test_restart_from_boss_selection_resets_attempt_and_rerolls_boss_screen(self):
         game_state.round_reward_cards[1] = [11]

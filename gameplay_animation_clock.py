@@ -5,7 +5,7 @@
 SCALAR_CLOCKS = (
     'probability_intro_started_at',
     'card_processing_start_time', 'hand_compact_start_time', 'hand_draw_start_time',
-    'level6_bot_turn_started_at', 'finance_stamp_started_at', '_winlose_last_tick',
+    'finance_stamp_started_at', '_winlose_last_tick',
     'end_button_press_until', 'hedger_message_until', 'boss_turn_timer_last_tick',
 )
 ANIMATION_CLOCKS = (

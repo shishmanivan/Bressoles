@@ -344,8 +344,11 @@ class NewspaperReportMixin(OtherStatsMixin):
         buttons = {}
         stages = ('card_report', 'market_report') if self.level_number == 1 else ('finance', 'card_report', 'market_report')
         for index, stage in enumerate(stages):
-            if self.win_lose_state == 'lose' and stage in ('finance', 'card_report'):
-                continue
+            if self.win_lose_state == 'lose':
+                if stage == 'finance':
+                    continue
+                if stage == 'card_report' and not getattr(self, 'last_earned_cards', None):
+                    continue
             left = rect.left + round(rect.width * boundaries[index])
             right = rect.left + round(rect.width * boundaries[index + 1])
             width = min(round(rect.width * .26), right - left - 28)
@@ -468,6 +471,8 @@ class NewspaperReportMixin(OtherStatsMixin):
                     self._save_active_game()
                     return None
                 self.result_report_stage = target
+                if target == "card_report":
+                    self.newspaper_reward_report_auto_opened = True
                 self.finance_report_y = float(self.screen.get_height() + 30)
                 self.finance_stamp_state = 'idle'
                 self.finance_stamp_started_at = 0

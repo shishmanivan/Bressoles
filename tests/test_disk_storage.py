@@ -93,7 +93,7 @@ class DiskStorageTests(unittest.TestCase):
         self.assertEqual(json.loads(self.path.read_text()), {"language": "EN", "music_volume": 0.8})
 
     def test_transaction_commits_all_defeat_counters_once(self):
-        with mock.patch.object(game_stats, "STATS_FILE", str(self.path)), mock.patch.object(game_stats, "LEVEL6_EXPERIMENT_STATS_FILE", None):
+        with mock.patch.object(game_stats, "STATS_FILE", str(self.path)):
             game_stats.update_level_run_started(5)
             original = os.replace
             attempts = 0

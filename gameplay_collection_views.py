@@ -71,8 +71,6 @@ def navigation_rects(page):
 
 
 def draw_navigation(page):
-    if page._is_level6_alternating_battle():
-        return
     for mode, rect in navigation_rects(page).items():
         icon = page.collection_icons.get(mode)
         if icon is not None:

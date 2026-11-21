@@ -1,5 +1,13 @@
 [
   {
+    "Source": "Market Refresh",
+    "RU": "Обновление рынка",
+    "ENG": "Market Refresh",
+    "DE": "Markterneuerung",
+    "HU": "Piacfrissítés",
+    "FR": "Renouvellement du marché"
+  },
+  {
     "Source": "Теперь вы можете нажать кнопку переброса для того чтобы получить новые карты. Максимальное количество перебросов — 10. Перебросы не теряются при поражении и переходят в следующую игру.",
     "RU": "Теперь вы можете нажать кнопку переброса для того чтобы получить новые карты. Максимальное количество перебросов — 10. Перебросы не теряются при поражении и переходят в следующую игру.",
     "ENG": "You can now press the reroll button to get new cards. You can hold up to 10 rerolls. Rerolls are not lost after defeat and carry over to the next game.",
@@ -21,7 +29,7 @@
     "ENG": "Uplift",
     "DE": "Uplift",
     "HU": "Uplift",
-    "FR": "Uplift"
+    "FR": "Revalorisation"
   },
   {
     "Source": "Добавляет 2 к Gain/Drop картам",
@@ -37,7 +45,7 @@
     "ENG": "Uplift+",
     "DE": "Uplift+",
     "HU": "Uplift+",
-    "FR": "Uplift+"
+    "FR": "Revalorisation+"
   },
   {
     "Source": "Добавляет 4 к Gain/Drop картам",
@@ -53,7 +61,7 @@
     "ENG": "Leverage",
     "DE": "Leverage",
     "HU": "Leverage",
-    "FR": "Leverage"
+    "FR": "Effet de levier"
   },
   {
     "Source": "Удваивает полный эффект карт, усиленных инвестициями. Несколько копий умножают эффект повторно.",
@@ -3920,12 +3928,12 @@
     "FR": "Boss Shares s’applique à chaque manche du niveau, y compris aux combats de boss. La condition persiste après une victoire sur un boss et au passage à la manche suivante. Seules les cartes spéciales qui annulent explicitement cette condition peuvent la désactiver."
   },
   {
-    "Source": "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
-    "RU": "Босс торгует с первого раунда независимо от своей категории. В экспериментальной дуэли действует бот «Перевложение».",
-    "ENG": "The boss trades from the first round regardless of category. The experimental duel uses the Reinvestment bot.",
-    "DE": "Der Boss handelt ab der ersten Runde unabhängig von seiner Kategorie. Das experimentelle Duell verwendet den Reinvestitionsbot.",
-    "HU": "A főellenfél kategóriától függetlenül az első fordulótól kereskedik. A kísérleti párbaj az Újrabefektetés botot használja.",
-    "FR": "Le boss négocie dès la première manche, quelle que soit sa catégorie. Le duel expérimental utilise le bot Réinvestissement."
+    "Source": "Босс торгует с первого раунда независимо от своей категории.",
+    "RU": "Босс торгует с первого раунда независимо от своей категории.",
+    "ENG": "The boss trades from the first round regardless of category.",
+    "DE": "Der Boss handelt ab der ersten Runde unabhängig von seiner Kategorie.",
+    "HU": "A főellenfél kategóriától függetlenül az első fordulótól kereskedik.",
+    "FR": "Le boss négocie dès la première manche, quelle que soit sa catégorie."
   },
   {
     "Source": "Раунд нельзя завершить раньше последнего хода, даже если денежная цель уже выполнена. На последнем ходу босс продаёт свои 50 акций A. Акции игрока продаются только за счёт действующего Rebate, по правилам этой карты. Без действующего Rebate игрок проигрывает, даже если денежная цель уже выполнена. Boss Shares не даёт автоматической продажи акций игрока. Итоги подводятся только на последнем ходу.",

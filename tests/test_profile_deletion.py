@@ -31,10 +31,37 @@ class ProfileDeletionTests(unittest.TestCase):
         pm.save_profile(profile)
         pm.set_selected_slot(1)
 
+    def test_reused_slot_starts_with_its_own_moratorium_history(self):
+        import card_acquisition_stats
+        import game_state
+
+        self.addCleanup(pm.apply_profile_to_game_state, {"progress": pm._capture_progress()})
+        # The cumulative audit lives in the current working directory.
+        cwd = os.getcwd()
+        os.chdir(self.directory)
+        self.addCleanup(os.chdir, cwd)
+        pm.select_profile(1)
+        game_state.seen_gold_card_ids.add(401)
+        pm.save_progress_from_game_state(1)
+        card_acquisition_stats.CardAcquisitionStats(1).record("offered", [401])
+        audit = Path("CardAcquisitionStats.csv").read_bytes()
+        with mock.patch.object(game_state, "load_cards_config", return_value={401: {}, 402: {}}):
+            pm.apply_profile_to_game_state(1)
+            self.assertEqual(game_state.get_moratorium_candidates(), [401])
+            pm.delete_profile(1)
+            pm.select_profile(1, "New")
+            pm.apply_profile_to_game_state(1)
+            self.assertEqual(game_state.get_moratorium_candidates(), [])
+            game_state.seen_gold_card_ids.add(402)
+            pm.save_progress_from_game_state(1)
+            pm.apply_profile_to_game_state(1)
+            self.assertEqual(game_state.get_moratorium_candidates(), [402])
+        self.assertEqual(Path("CardAcquisitionStats.csv").read_bytes(), audit)
+
     def test_delete_and_recreate_preserves_all_statistics_and_other_profiles(self):
         pm.save_profile(pm._default_profile(2))
         other = Path(pm.get_profile_path(2)).read_bytes()
-        paths = [pm.get_stats_file(1), pm.get_level6_experiment_stats_file(1),
+        paths = [pm.get_stats_file(1),
                  pm.get_shop_card_stats_file(1), str(self.directory / "CardAcquisitionStats.csv")]
         for path in paths:
             Path(path).write_bytes(b"wins;losses\n12;7\n")

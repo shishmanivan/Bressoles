@@ -312,14 +312,14 @@ class RunResetRulesTests(GameStateTestCase):
         game_state.level_5_boss_defeated = False
         self.assertFalse(game_state.get_progress_flags()["level_6_unlocked"])
         self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
-        self.assertFalse(game_state.get_progress_flags()["level_8_unlocked"])
+        self.assertFalse(game_state.is_level_unlocked(8))
         self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 3)
 
         game_state.level_5_boss_defeated = True
 
         self.assertTrue(game_state.get_progress_flags()["level_6_unlocked"])
         self.assertFalse(game_state.get_progress_flags()["level_7_unlocked"])
-        self.assertFalse(game_state.get_progress_flags()["level_8_unlocked"])
+        self.assertFalse(game_state.is_level_unlocked(8))
         self.assertEqual(game_state.get_lifecycle_card_slot_limit(), 4)
         self.assertEqual(game_state.get_level_completion_black_reward_cards(4), [302])
         self.assertEqual(game_state.get_level_completion_black_reward_cards(5), [303, 304])

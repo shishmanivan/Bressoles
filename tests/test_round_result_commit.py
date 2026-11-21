@@ -30,7 +30,6 @@ class RoundResultCommitTests(unittest.TestCase):
             (profile_manager, "PROFILES_DIR", str(root)),
             (profile_manager, "INDEX_FILE", str(root / "index.json")),
             (game_stats, "STATS_FILE", str(root / "stats.csv")),
-            (game_stats, "LEVEL6_EXPERIMENT_STATS_FILE", str(root / "experiment.csv")),
             (card_acquisition_stats, "_tracker", card_acquisition_stats.CardAcquisitionStats(
                 1, path=self.acquisitions)),
         ):
@@ -41,16 +40,16 @@ class RoundResultCommitTests(unittest.TestCase):
         self.screen = pygame.display.set_mode((1680, 1050))
         self.addCleanup(pygame.quit)
         profile_manager.select_profile(1, "Test")
-        game_state.ensure_napoleondor_level(8)
+        game_state.ensure_napoleondor_level(6)
         game_state.silver_cards = [217]
         self.page = self.make_page()
         self.page.Money = 9
         self.page._save_active_game()
 
-    def make_page(self, saved_state=None):
+    def make_page(self, saved_state=None, *, is_boss_fight=False):
         return GameplayPage(
-            self.screen, find_font_path_or_exit(), "e", goal=10, level_number=8,
-            round_num=1, boss_index=0, boss_filename="2_AdamSmith.png",
+            self.screen, find_font_path_or_exit(), "e", goal=10, level_number=6,
+            round_num=1, boss_index=0, boss_filename="2_AdamSmith.png", is_boss_fight=is_boss_fight,
             profile_slot=1, active_silver_cards=[217], saved_state=saved_state,
         )
 
@@ -73,12 +72,40 @@ class RoundResultCommitTests(unittest.TestCase):
         self.assertEqual(profile["progress"]["napoleondors"], 5)
         self.assertEqual(profile["progress"]["silver_cards"], [])
         self.assertEqual(profile["progress"]["gold_cards"], [401])
-        for path in (game_stats.STATS_FILE, game_stats.LEVEL6_EXPERIMENT_STATS_FILE):
-            rows = game_stats._read_rows(path)
-            self.assertEqual([(r["Сыграно"], r["Победы"]) for r in rows], [("1", "1")])
+        rows = game_stats._read_rows()
+        self.assertEqual([(r["Сыграно"], r["Победы"]) for r in rows], [("1", "1")])
         with self.acquisitions.open(encoding="utf-8-sig", newline="") as source:
             counts = {r["Профиль"]: r["ПолученоБонусом"] for r in csv.DictReader(source, delimiter=";")}
         self.assertEqual(counts, {"Все": "1", "1": "1"})
+
+    def test_boss_report_delay_restarts_on_load_and_opened_report_stays_read(self):
+        # The old process ran for half an hour. The new one just started.
+        self.page.win_lose_state = "win"
+        self.page.result_report_stage = "newspaper"
+        self.page.newspaper_y = self.page._newspaper_target_rect().top
+        self.page.newspaper_reward_report_started_at = 1_800_000
+        state = self.page._serialize_gameplay_state()
+        for legacy in (True, False):
+            with self.subTest(legacy=legacy):
+                saved = dict(state)
+                if legacy:
+                    saved["newspaper_reward_report_started_at"] = 1_800_000
+                with patch("pygame.time.get_ticks", return_value=2_000):
+                    restored = self.make_page(saved, is_boss_fight=True)
+                with patch("pygame.time.get_ticks", return_value=2_499):
+                    restored._update_newspaper_animation(0)
+                    self.assertEqual(restored.result_report_stage, "newspaper")
+                with patch("pygame.time.get_ticks", return_value=2_500):
+                    restored._update_newspaper_animation(0)
+                    self.assertEqual(restored.result_report_stage, "card_report")
+                opened = restored._serialize_gameplay_state()
+                self.assertNotIn("newspaper_reward_report_started_at", opened)
+                # Return to the paper after reloading the opened report.
+                again = self.make_page(opened, is_boss_fight=True)
+                again.result_report_stage = "newspaper"
+                with patch("pygame.time.get_ticks", return_value=3_000_000):
+                    again._update_newspaper_animation(0)
+                self.assertEqual(again.result_report_stage, "newspaper")
 
     def test_interruption_after_obligation_preserves_playable_snapshot(self):
         before = profile_manager.load_profile(1)
@@ -91,15 +118,8 @@ class RoundResultCommitTests(unittest.TestCase):
         self.win(self.reload_page())
         self.assert_one_result()
 
-    def test_interruption_between_primary_and_mirrored_stats_recovers_once(self):
-        write_rows = game_stats._write_rows
-
-        def interrupt_mirror(rows, path=None):
-            if game_stats._get_active_stats_file(path) == game_stats.LEVEL6_EXPERIMENT_STATS_FILE:
-                raise InterruptedError
-            return write_rows(rows, path)
-
-        with patch.object(game_stats, "_write_rows", side_effect=interrupt_mirror):
+    def test_interruption_after_encounter_stats_recovers_once(self):
+        with patch("gameplay_page.record_card_acquisitions", side_effect=InterruptedError):
             with self.assertRaises(InterruptedError):
                 self.win(self.page)
         self.assertEqual(game_stats._read_rows()[0]["Победы"], "1")

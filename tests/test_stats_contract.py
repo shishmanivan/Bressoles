@@ -16,15 +16,12 @@ class StatsContractTests(unittest.TestCase):
         self.game_stats_path = os.path.join(self.temp_dir.name, "game.csv")
         self.shop_stats_path = os.path.join(self.temp_dir.name, "shop.csv")
         self.original_game_stats_path = game_stats.STATS_FILE
-        self.original_level6_experiment_stats_path = game_stats.LEVEL6_EXPERIMENT_STATS_FILE
         self.original_shop_stats_path = shop_card_stats.STATS_FILE
         game_stats.set_stats_file(self.game_stats_path)
-        game_stats.set_level6_experiment_stats_file(None)
         shop_card_stats.set_shop_card_stats_file(self.shop_stats_path)
 
     def tearDown(self):
         game_stats.STATS_FILE = self.original_game_stats_path
-        game_stats.LEVEL6_EXPERIMENT_STATS_FILE = self.original_level6_experiment_stats_path
         shop_card_stats.STATS_FILE = self.original_shop_stats_path
         self.temp_dir.cleanup()
 
@@ -44,6 +41,24 @@ class StatsContractTests(unittest.TestCase):
                 "Роберт Стефенсон",
             ],
         )
+
+    def test_campaign_stats_migrate_once_and_keep_retired_losses_separate(self):
+        fields = [field for field in game_stats.FIELDNAMES if field != "ВерсияКампании"]
+        with open(self.game_stats_path, "w", encoding="utf-8-sig", newline="") as stats:
+            writer = csv.DictWriter(stats, fields, delimiter=";", extrasaction="ignore")
+            writer.writeheader()
+            for level, losses in (("8", "4"), ("6", "9")):
+                row = game_stats._new_stats_row(level, "", "", game_stats.LEVEL_RUN_ROUND_LABEL,
+                                               game_stats.LEVEL_RUN_DIFFICULTY_LABEL)
+                row["Поражения"] = losses
+                writer.writerow(row)
+        for _ in range(2):
+            game_stats.ensure_stats_file()
+            self.assertEqual(game_stats.get_level_run_losses(6), 4)
+        game_stats.update_level_run_result(6, False)
+        self.assertEqual(game_stats.get_level_run_losses(6), 5)
+        archived = [row for row in game_stats._read_rows() if row["Уровень"] == "Архив"]
+        self.assertEqual([row["Поражения"] for row in archived], ["9"])
 
     def test_round_and_level_run_counters_remain_separate(self):
         game_stats.update_level_run_started(4)
@@ -78,8 +93,7 @@ class StatsContractTests(unittest.TestCase):
             3: (3, ["1", "2", "3"], "4"),
             4: (3, ["1", "2", "3"], "4"),
             5: (3, ["1", "2", "3"], "4"),
-            6: (0, [], "1"),
-            8: (3, ["1", "2", "3"], "4"),
+            6: (3, ["1", "2", "3"], "4"),
         }
         for level_number, (round_count, expected_rounds, expected_boss) in cases.items():
             with self.subTest(level_number=level_number):
@@ -115,7 +129,7 @@ class StatsContractTests(unittest.TestCase):
             "6",
         )
 
-        for level_number in (3, 4, 5, 8):
+        for level_number in (3, 4, 5, 6):
             with self.subTest(level_number=level_number):
                 self.assertEqual(
                     [
@@ -147,7 +161,7 @@ class StatsContractTests(unittest.TestCase):
             "3",
         )
 
-        for level_number in (3, 4, 5, 8):
+        for level_number in (3, 4, 5, 6):
             with self.subTest(level_number=level_number):
                 self.assertEqual(
                     [
@@ -184,12 +198,12 @@ class StatsContractTests(unittest.TestCase):
             [("1", "1", "0"), ("5", "0", "1")],
         )
 
-    def test_level8_round_stats_are_split_by_sequential_round_number(self):
+    def test_level6_round_stats_are_split_by_sequential_round_number(self):
         game_stats.update_game_stats(
-            8, 3, "Раунд 2", True, "M", earned_money=400, sequential_round_number="2"
+            6, 3, "Раунд 2", True, "M", earned_money=400, sequential_round_number="2"
         )
         game_stats.update_game_stats(
-            8, 3, "Раунд 2", False, "M", earned_money=500, sequential_round_number="6"
+            6, 3, "Раунд 2", False, "M", earned_money=500, sequential_round_number="6"
         )
 
         rows = game_stats._read_rows()
@@ -213,15 +227,15 @@ class StatsContractTests(unittest.TestCase):
             [("2", "1", "0"), ("6", "0", "1")],
         )
 
-    def test_level8_loss_stage_uses_sequential_round_number(self):
+    def test_level6_loss_stage_uses_sequential_round_number(self):
         game_stats.update_level_run_loss_stage_stats(
-            8,
+            6,
             "Раунд 3",
             3,
             boss_position=2,
             boss_number=5,
         )
-        game_stats.update_level_run_loss_stage_stats(8, "Босс уровня 2", 2)
+        game_stats.update_level_run_loss_stage_stats(6, "Босс уровня 2", 2)
 
         rows = game_stats._read_rows()
         self.assertEqual(
@@ -244,25 +258,6 @@ class StatsContractTests(unittest.TestCase):
             sorted((row["ПорядковыйРаунд"] for row in rows), key=float),
             ["7.5", "12"],
         )
-
-    def test_level6_experiment_log_is_parallel_and_starts_without_history(self):
-        experiment_path = os.path.join(self.temp_dir.name, "level6_experiment.csv")
-        game_stats.update_game_stats(8, 3, "Раунд 1", True, "M", earned_money=999)
-        game_stats.set_level6_experiment_stats_file(experiment_path)
-
-        game_stats.update_game_stats(5, 3, "Раунд 1", True, "M", earned_money=55)
-        game_stats.update_game_stats(8, 3, "Раунд 2", False, "H", earned_money=321)
-        game_stats.update_level_run_started(8)
-
-        primary_rows = game_stats._read_rows(self.game_stats_path)
-        experiment_rows = game_stats._read_rows(experiment_path)
-
-        self.assertEqual(len(primary_rows), 4)
-        self.assertTrue(any(row["ДеньгиВсего"] == "999" for row in primary_rows))
-        self.assertFalse(any(row["ДеньгиВсего"] == "999" for row in experiment_rows))
-        self.assertTrue(all(row["Уровень"] == "8" for row in experiment_rows))
-        round_row = next(row for row in experiment_rows if row["Раунд"] == "Раунд 2")
-        self.assertEqual((round_row["Сыграно"], round_row["Поражения"], round_row["ДеньгиВсего"]), ("1", "1", "321"))
 
     def test_legacy_generic_boss_name_is_normalized_without_changing_counts(self):
         legacy_row = game_stats._new_stats_row("4", "10", "Босс 10", "Раунд 2", "M")

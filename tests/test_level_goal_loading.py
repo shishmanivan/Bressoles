@@ -86,7 +86,7 @@ class LevelGoalLoadingTests(unittest.TestCase):
     def test_read_errors_keep_filename_in_diagnostic_and_cache_empty_result(self):
         with (
             mock.patch.object(game_data.os.path, "exists", return_value=True),
-            mock.patch("builtins.open", side_effect=OSError("unreadable")) as source,
+            mock.patch.object(game_data.disk_storage, "open_text", side_effect=OSError("unreadable")) as source,
             mock.patch("builtins.print") as warning,
         ):
             for level in (4, 5):

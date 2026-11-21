@@ -2,7 +2,6 @@ import disk_storage
 import csv
 import copy
 from contextlib import contextmanager
-import functools
 import os
 
 from csv_storage import write_semicolon_csv_atomically
@@ -10,7 +9,6 @@ from game_data import get_level_rounds_required, load_levels_config
 
 
 STATS_FILE = "GameStats.csv"
-LEVEL6_EXPERIMENT_STATS_FILE = None
 _ACTIVE_STATS_FILE = None
 _pending_rows = None
 
@@ -63,6 +61,7 @@ FIELDNAMES = [
     ARKWRIGHT_STAT_FIELDS["steal_30"],
     ARKWRIGHT_STAT_FIELDS["steal_90"],
     "ПоследнийРезультатID",
+    "ВерсияКампании",
 ]
 
 BOSS_NAMES = {
@@ -150,34 +149,6 @@ def build_sequential_round_number(
     return ""
 
 
-def _mirror_level6_experiment(update_function):
-    """Write moved-marathon events to the primary and existing experiment logs."""
-    @functools.wraps(update_function)
-    def wrapped(level_number, *args, **kwargs):
-        global _ACTIVE_STATS_FILE
-        previous_active_file = _ACTIVE_STATS_FILE
-        _ACTIVE_STATS_FILE = STATS_FILE
-        try:
-            result = update_function(level_number, *args, **kwargs)
-        finally:
-            _ACTIVE_STATS_FILE = previous_active_file
-
-        try:
-            normalized_level = int(level_number or 0)
-        except (TypeError, ValueError):
-            normalized_level = 0
-        if normalized_level == 8 and LEVEL6_EXPERIMENT_STATS_FILE:
-            _ACTIVE_STATS_FILE = LEVEL6_EXPERIMENT_STATS_FILE
-            try:
-                update_function(level_number, *args, **kwargs)
-            finally:
-                _ACTIVE_STATS_FILE = previous_active_file
-        return result
-
-    return wrapped
-
-
-@_mirror_level6_experiment
 def update_game_stats(
     level_number,
     boss_number,
@@ -251,7 +222,6 @@ def update_game_stats(
     _write_rows(rows)
 
 
-@_mirror_level6_experiment
 def update_arkwright_stats(
     level_number,
     boss_number,
@@ -300,7 +270,6 @@ def update_arkwright_stats(
     _write_rows(rows)
 
 
-@_mirror_level6_experiment
 def update_level_run_started(level_number):
     rows = _read_rows()
     target = _find_or_create_stats_row(
@@ -324,7 +293,6 @@ def update_level_run_started(level_number):
     _write_rows(rows)
 
 
-@_mirror_level6_experiment
 def update_level_run_result(level_number, won):
     rows = _read_rows()
     target = _find_or_create_stats_row(
@@ -351,7 +319,6 @@ def update_level_run_result(level_number, won):
     _write_rows(rows)
 
 
-@_mirror_level6_experiment
 def update_level_run_loss_stage_stats(
     level_number,
     stage_label,
@@ -402,7 +369,6 @@ def update_level_run_loss_stage_stats(
     _write_rows(rows)
 
 
-@_mirror_level6_experiment
 def update_level_boss_position_stats(level_number, boss_position, won):
     rows = _read_rows()
     position = int(boss_position or 0)
@@ -439,13 +405,6 @@ def set_stats_file(path):
     global STATS_FILE
     STATS_FILE = path or "GameStats.csv"
     ensure_stats_file()
-
-
-def set_level6_experiment_stats_file(path):
-    global LEVEL6_EXPERIMENT_STATS_FILE
-    LEVEL6_EXPERIMENT_STATS_FILE = path or None
-    if LEVEL6_EXPERIMENT_STATS_FILE:
-        ensure_stats_file(LEVEL6_EXPERIMENT_STATS_FILE)
 
 
 def _get_active_stats_file(path=None):
@@ -496,6 +455,12 @@ def _read_rows(path=None):
             if not row:
                 continue
             normalized = {field: row.get(field, "") for field in FIELDNAMES}
+            if "ВерсияКампании" not in row:
+                if normalized["Уровень"] == "8":
+                    normalized["Уровень"] = "6"
+                elif normalized["Уровень"] == "6":
+                    normalized["Уровень"] = "Архив"
+            normalized["ВерсияКампании"] = "3"
             for field in ("ДеньгиВсего", "ДеньгиСреднее", "ДеньгиМаксимум", "ДеньгиПоследние"):
                 normalized[field] = normalized.get(field) or "0"
             if _is_encounter_stats_row(normalized):
@@ -524,6 +489,7 @@ def _new_stats_row(
 ):
     row = {
         "Уровень": level_key,
+        "ВерсияКампании": "3",
         "БоссНомер": boss_number_key,
         "Босс": boss_name,
         "Раунд": round_label,

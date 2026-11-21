@@ -84,9 +84,9 @@ class LifecycleEffectTests(unittest.TestCase):
         ):
             with self.subTest(boss=boss, cards=cards, balance=balance):
                 page = self._page(black=cards)
-                page.level_number = 8
+                page.level_number = 6
                 page.is_boss_fight = boss
-                game_state.napoleondor_level = 8
+                game_state.napoleondor_level = 6
                 game_state.napoleondors = 0
                 game_state.shop_rerolls = balance
                 self.assertEqual(page._apply_commission_win_bonus(), expected_money)
@@ -737,6 +737,7 @@ class LifecycleEffectTests(unittest.TestCase):
 
     def test_insider_jumps_only_when_c_growth_animation_starts(self):
         page = self._page(gold=[404, 405])
+        page.Aquantity = page.Bquantity = page.Cquantity = 0
         page.StepA, page.StepB, page.StepC = 2, 4, 6
         page.Day = 1
         page.market_cards = {0: {}, 1: {}, 2: {}}

@@ -8,13 +8,17 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+/*.lnk
 # Local saves / runtime data
 Profiles/
 Logs/
 GameStats.csv
 GoldenStockChecks.log
 MarketRolls.csv
+MarketRolls.csv.lock
+MarketRolls.csv.pending
 MarketRollSummary.csv
+MarketRollSummary.csv.lock
 CardAcquisitionStats.csv
 
 # Generated test and visual QA output

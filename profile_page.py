@@ -25,11 +25,12 @@ PAPER_COLOR = (83, 76, 70)
 
 class ProfilePage(AdaptivePage):
     master_background_path = "UI/Master Background.png"
-    def __init__(self, screen, background, font_path, lang_dict=None):
+    def __init__(self, screen, background, font_path, lang_dict=None, *, session=None):
         self.init_viewport(screen)
         self.clock = pygame.time.Clock()
         self.background = background
         self.lang = lang_dict or {}
+        self.session = session
         if get_language() == "HU":
             font_path = str(Path(__file__).parent / "Fonts" / "OldStandard-Bold.ttf")
         self.font_title = pygame.font.Font(font_path, 64)
@@ -37,17 +38,20 @@ class ProfilePage(AdaptivePage):
         self.font_small = pygame.font.Font(font_path, 30)
         self.status_font = pygame.font.Font(font_path, 24)
         self.profiles = profile_manager.list_profiles()
-        self.selected_slot = profile_manager.get_selected_slot()
+        self.selected_slot = session.slot if session else profile_manager.get_selected_slot()
         self.editing_slot = None
         self.input_text = ""
         self._text_cache = {}
         self.status_message = ""
         self.deleting_slot = None
         self.occupied_slots = self._occupied_slots()
-        unavailable = [str(p["slot"]) for p in self.profiles if p.get("_load_error")]
+        unavailable = [str(p["slot"]) for p in self.profiles if p.get("_load_error") and not p.get("_busy")]
+        busy = [str(p["slot"]) for p in self.profiles if p.get("_busy")]
         recovered = [str(p["slot"]) for p in self.profiles if profile_manager.was_profile_recovered(p["slot"])]
         if unavailable:
             self.status_message = self._unavailable_message(", ".join(unavailable))
+        elif busy:
+            self.status_message = self._busy_message(", ".join(busy))
         elif recovered:
             self.status_message = self._recovered_message(", ".join(recovered))
 
@@ -109,14 +113,18 @@ class ProfilePage(AdaptivePage):
     def _confirm_delete(self):
         try:
             profile_manager.delete_profile(self.deleting_slot)
+            if self.session and self.session.slot == self.deleting_slot:
+                self.session.release()
             self.status_message = ""
+        except profile_manager.ProfileBusyError:
+            self.status_message = self._busy_message(self.deleting_slot)
         except OSError:
             self.status_message = translate("Не удалось удалить профиль. Попробуйте ещё раз.")
         self.deleting_slot = None
         self.editing_slot = None
         self.input_text = ""
         self.profiles = profile_manager.list_profiles()
-        self.selected_slot = profile_manager.get_selected_slot()
+        self.selected_slot = self.session.slot if self.session else profile_manager.get_selected_slot()
         self.occupied_slots = self._occupied_slots()
 
     def _get_text(self, key, default=None):
@@ -137,6 +145,13 @@ class ProfilePage(AdaptivePage):
         return (profile.get("name") or "").strip()
 
     def _start_editing(self, slot):
+        if self.profiles[slot - 1].get("_busy"):
+            # The other window may have closed since this page was opened.
+            self.profiles = profile_manager.list_profiles()
+            if self.profiles[slot - 1].get("_busy"):
+                self.editing_slot = None
+                self.status_message = self._busy_message(slot)
+                return
         if self.profiles[slot - 1].get("_load_error"):
             self.editing_slot = None
             self.status_message = self._unavailable_message(slot)
@@ -153,6 +168,11 @@ class ProfilePage(AdaptivePage):
             "Профиль {slots} недоступен. Восстановление не удалось. Исходные файлы сохранены. Выберите другой профиль.",
         ).format(slots=slots)
 
+    def _busy_message(self, slots):
+        return self._get_text(
+            "ProfileBusyMessage", "Занято в другом окне ({slots}). Закройте то окно или выберите свободный слот.",
+        ).format(slots=slots)
+
     def _recovered_message(self, slots):
         return self._get_text(
             "ProfileRecoveredMessage",
@@ -163,7 +183,15 @@ class ProfilePage(AdaptivePage):
         if self.editing_slot is None:
             return None
         try:
-            profile = profile_manager.select_profile(self.editing_slot, self.input_text)
+            if self.session:
+                profile = self.session.activate(self.editing_slot, profile_manager.select_profile, self.input_text)
+            else:
+                profile = profile_manager.select_profile(self.editing_slot, self.input_text)
+        except profile_manager.ProfileBusyError:
+            self.status_message = self._busy_message(self.editing_slot)
+            self.profiles = profile_manager.list_profiles()
+            self.editing_slot = None
+            return None
         except profile_manager.ProfileLoadError:
             self.status_message = self._unavailable_message(self.editing_slot)
             self.profiles = profile_manager.list_profiles()

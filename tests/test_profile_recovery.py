@@ -43,11 +43,53 @@ class ProfileRecoveryTests(unittest.TestCase):
     def write_backup(self):
         self.backup.write_text(json.dumps(self.profile), encoding="utf-8")
 
-    def test_absent_files_are_a_new_slot_without_writes(self):
+    def test_absent_files_are_a_new_slot_without_save_data(self):
         profile = profile_manager.load_profile(1)
         self.assertEqual(profile["name"], "")
         self.assertFalse(profile["progress"]["level_1_boss_defeated"])
-        self.assertEqual(list(self.directory.iterdir()), [])
+        self.assertEqual(list(self.directory.iterdir()), [self.directory / "profile_1.json.lock"])
+
+    def test_legacy_sixth_campaign_run_and_checkpoint_migrate_once(self):
+        legacy = copy.deepcopy(self.profile)
+        legacy["version"] = 2
+        progress = legacy["progress"]
+        progress.update(level_6_boss_defeated=True, level_8_boss_defeated=False,
+                        boss_progress={"6": {"defeated": 1}, "8": {"defeated": 3}},
+                        earned_reward_cards={"8": [13]}, active_silver_cards_level=8)
+        legacy["balance_checkpoint"] = {"level": 8, "progress": copy.deepcopy(progress)}
+        legacy["active_game"]["context"]["level_number"] = 8
+        self.primary.write_text(json.dumps(legacy), encoding="utf-8")
+        saved = profile_manager.load_profile(1)
+        self.assertEqual(saved["active_game"]["context"]["level_number"], 6)
+        self.assertEqual(saved["balance_checkpoint"]["level"], 6)
+        for snapshot in (saved["progress"], saved["balance_checkpoint"]["progress"]):
+            self.assertFalse(snapshot["level_6_boss_defeated"])
+            self.assertEqual(snapshot["boss_progress"], {"6": {"defeated": 3}})
+            self.assertEqual(snapshot["earned_reward_cards"], {"6": [13]})
+            self.assertEqual(snapshot["active_silver_cards_level"], 6)
+        self.assertEqual(profile_manager.load_profile(1), saved)
+        self.assertEqual(self.read(self.backup), legacy)
+
+    def test_original_four_boss_level_six_keeps_its_active_run(self):
+        legacy = copy.deepcopy(self.profile)
+        legacy["version"] = 2
+        legacy["progress"]["boss_progress"] = {"6": {"defeated": 2}}
+        legacy["active_game"]["context"].update(level_number=6, is_boss_fight=False)
+        self.primary.write_text(json.dumps(legacy), encoding="utf-8")
+        saved = profile_manager.load_profile(1)
+        self.assertEqual(saved["active_game"], legacy["active_game"])
+        self.assertEqual(saved["progress"]["boss_progress"], {"6": {"defeated": 2}})
+
+    def test_old_campaign_victory_unlocks_seven_without_replaying_rewards(self):
+        legacy = copy.deepcopy(self.profile)
+        legacy["version"] = 2
+        legacy["progress"].update(level_8_boss_defeated=True, shop_rerolls=4)
+        legacy["active_game"]["context"]["level_number"] = 6  # Retired duel.
+        self.primary.write_text(json.dumps(legacy), encoding="utf-8")
+        saved = profile_manager.load_profile(1)
+        self.assertIsNone(saved["active_game"])
+        self.assertTrue(saved["progress"]["level_6_boss_defeated"])
+        self.assertEqual(saved["progress"]["shop_rerolls"], 4)
 
     def test_first_save_has_backup_and_next_save_keeps_previous_progress(self):
         profile_manager.save_profile(self.profile)
@@ -184,6 +226,63 @@ class ProfileRecoveryTests(unittest.TestCase):
         self.assertEqual(profile_manager.load_profile(1), self.profile)
         self.assertEqual(self.read(self.primary), self.profile)
 
+    def test_unrestorable_progress_recovers_before_applying_any_fields(self):
+        self.addCleanup(profile_manager.apply_profile_to_game_state,
+                        {"progress": profile_manager._capture_progress()})
+        self.profile["progress"].update(napoleondors=17, seen_gold_card_ids=[401])
+        self.write_backup()
+        for damage in (
+            {"seen_gold_card_ids": None}, {"gold_cards": None},
+            {"moratorium_run_number": None}, {"moratorium_expirations": None},
+            {"price_cut_assistance_shown_levels": None}, {"price_cut_assistance_milestones": None},
+            {"forced_start_hand_cards_by_level": [12]},
+            {"round_reward_cards": {"2": 113}},
+            {"boss_progress": {"2": {"defeated": "broken"}}},
+            {"boss_progress": {"2": {"last_rect": 42}}},
+            {"boss_progress": {"2": {"round_progress": {"route": {"round_selections": []}}}}},
+        ):
+            with self.subTest(damage=damage):
+                broken = copy.deepcopy(self.profile)
+                broken["progress"].update(napoleondors=99, **damage)
+                self.primary.write_text(json.dumps(broken), encoding="utf-8")
+                profile_manager.apply_profile_to_game_state(1)
+                self.assertEqual(profile_manager.game_state.napoleondors, 17)
+                self.assertIn(401, profile_manager.game_state.seen_gold_card_ids)
+                self.assertTrue(profile_manager.was_profile_recovered(1))
+                self.assertEqual(self.read(self.primary), self.profile)
+                self.assertEqual(self.read(self.backup), self.profile)
+
+    def test_bad_progress_in_both_copies_leaves_state_and_files_intact(self):
+        broken = copy.deepcopy(self.profile)
+        broken["progress"].update(seen_gold_card_ids=[401], moratorium_expirations=None)
+        raw = json.dumps(broken).encode()
+        for path in (self.primary, self.backup):
+            path.write_bytes(raw)
+        previous = profile_manager._capture_progress()
+        self.addCleanup(profile_manager.apply_profile_to_game_state, {"progress": previous})
+        with self.assertRaises(profile_manager.ProfileLoadError):
+            profile_manager.apply_profile_to_game_state(1)
+        with self.assertRaises(ValueError):
+            profile_manager.apply_profile_to_game_state(broken)
+        self.assertEqual(profile_manager._capture_progress(), previous)
+        self.assertEqual(self.primary.read_bytes(), raw)
+        self.assertEqual(self.backup.read_bytes(), raw)
+        self.assertFalse(profile_manager.was_profile_recovered(1))
+
+    def test_legacy_empty_fields_and_missing_history_still_load(self):
+        self.addCleanup(profile_manager.apply_profile_to_game_state,
+                        {"progress": profile_manager._capture_progress()})
+        data = {"version": 2, "progress": {"napoleondors": "2.5", "retention_pending_level": None,
+                "boss_progress": {"2": {"last_rect": [], "round_progress": None}},
+                "silver_cards": None, "active_red_cards_level": None}}
+        self.primary.write_text(json.dumps(data), encoding="utf-8")
+        profile_manager.apply_profile_to_game_state(1)
+        self.assertEqual(profile_manager.game_state.napoleondors, 2.5)
+        self.assertEqual(profile_manager.game_state.silver_cards, [])
+        self.assertIsNone(profile_manager.game_state.boss_progress[2]["last_rect"])
+        self.assertIsNone(profile_manager.game_state.retention_pending_level)
+        self.assertEqual(self.read(self.backup), data)
+
     def test_missing_primary_with_invalid_backup_is_not_a_new_slot(self):
         self.backup.write_bytes(b'broken')
         with self.assertRaises(profile_manager.ProfileLoadError):
@@ -283,7 +382,7 @@ class ProfileRecoveryTests(unittest.TestCase):
         self.backup.write_text(json.dumps(legacy), encoding="utf-8")
         self.primary.write_bytes(b'broken')
         restored = profile_manager.load_profile(1)
-        self.assertEqual(restored["version"], 2)
+        self.assertEqual(restored["version"], 3)
         self.assertEqual(restored["progress"]["napoleondor_level"], 5)
         self.assertEqual(self.read(self.backup), legacy)
         self.assertEqual(self.read(self.primary), restored)
@@ -307,6 +406,7 @@ class ProfileRecoveryTests(unittest.TestCase):
     def test_profile_page_blocks_bad_slot_and_can_select_a_different_slot(self):
         self.primary.write_bytes(b'broken')
         page = ProfilePage.__new__(ProfilePage)
+        page.session = None
         page.lang = {}
         page.profiles = profile_manager.list_profiles()
         page._start_editing(1)

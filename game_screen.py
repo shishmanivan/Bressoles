@@ -19,7 +19,7 @@ from level_screen_helpers import (
     load_test_level_pictures,
 )
 from level_card_style import LevelCardStyle
-from level_routes import get_campaign_content_level, get_test_content_level
+from level_routes import PLAYABLE_LEVELS, UPCOMING_LEVEL
 from shared_utils import wrap_text
 from sound_assets import load_button_sound, load_sound
 
@@ -71,7 +71,7 @@ class GameScreen:
         self._viewport_background = None
         self._content_surface = pygame.Surface(LEVEL_CONTENT_SIZE, pygame.SRCALPHA)
         self._card_angles = {level: random.Random(7301 + level).choice((-4, -3, -2, 2, 3, 4))
-                             for level in range(1, 14)}
+                             for level in range(1, UPCOMING_LEVEL + 1)}
 
         levelcard_path = os.path.join("LevelPage", "LevelCard.jpg")
         self.levelcard_image = load_scaled_image(
@@ -163,7 +163,7 @@ class GameScreen:
         self.level4_picture = primary_assets["level4_picture"]
         self.level5_picture = primary_assets["level5_picture"]
         self.level6_picture = primary_assets["level6_picture"]
-        self.level_pictures = load_test_level_pictures(13)
+        self.level_pictures = load_test_level_pictures(UPCOMING_LEVEL)
         for level_num, picture in enumerate(
             (
                 self.level1_picture,
@@ -176,7 +176,6 @@ class GameScreen:
             start=1,
         ):
             self.level_pictures[level_num - 1] = picture
-        self.level_pictures[12] = self.level6_picture
 
         self.scroll_y = 0
         self.max_scroll_y = 0
@@ -280,16 +279,11 @@ class GameScreen:
         return bool(self.progress_flags.get(level_key))
 
     def _is_completed(self, level_num):
-        content_level = (
-            get_test_content_level(level_num)
-            if getattr(self, "test_mode", False)
-            else get_campaign_content_level(level_num)
-        )
-        return self._is_unlocked(f"level_{content_level}_boss_defeated")
+        return self._is_unlocked(f"level_{level_num}_boss_defeated")
 
     def _is_level_unlocked(self, level_num):
         if self.test_mode:
-            return True
+            return level_num in PLAYABLE_LEVELS
         return {
             1: True,
             2: self._is_unlocked("level_1_boss_defeated"),
@@ -297,13 +291,18 @@ class GameScreen:
             4: self._is_unlocked("level_3_boss_defeated"),
             5: self._is_unlocked("level_4_boss_defeated"),
             6: self._is_unlocked("level_6_unlocked") or self._is_unlocked("level_5_boss_defeated"),
+            7: self._is_unlocked("level_7_unlocked"),
         }.get(int(level_num or 0), False)
 
+    def _can_start_campaign_level(self, level_num):
+        # Level 7 is visible after level 6 while its route is in development.
+        return level_num != 7 and self._is_level_unlocked(level_num) and not self._is_completed(level_num)
+
     def _can_open_next_page(self):
-        return any(self._is_level_unlocked(level_num) for level_num in range(7, 13))
+        return self._is_level_unlocked(UPCOMING_LEVEL)
 
     def _start_level(self, level_num):
-        if getattr(self, "_pending_level", None) is not None:
+        if level_num not in PLAYABLE_LEVELS or getattr(self, "_pending_level", None) is not None:
             return None
         sound = getattr(self, "button_sound", None)
         if sound:
@@ -401,9 +400,9 @@ class GameScreen:
         if self.test_mode:
             buttons = enumerate(self.test_card_rects, start=1)
         else:
-            buttons = enumerate(self.normal_arrow_rects, start=1 + 6 * self.level_page_index)
+            buttons = enumerate(self.normal_arrow_rects if self.level_page_index == 0 else (), start=1)
         for level_num, rect in buttons:
-            if not self.test_mode and (not self._is_level_unlocked(level_num) or self._is_completed(level_num)):
+            if not self.test_mode and not self._can_start_campaign_level(level_num):
                 continue
             if self._level_button_hit(rect, point, level_num):
                 self._hovered_level = level_num
@@ -523,14 +522,8 @@ class GameScreen:
                             for level_num in range(1, 7)
                         ])
                         for level_num, rect in enumerate(arrow_rects, start=1):
-                            if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and self._level_button_hit(rect, mouse_pos, level_num):
+                            if self._can_start_campaign_level(level_num) and self._level_button_hit(rect, mouse_pos, level_num):
                                 return self._start_level(level_num)
-                    else:
-                        for offset, rect in enumerate(self.normal_arrow_rects):
-                            level_num = 7 + offset
-                            if self._is_level_unlocked(level_num) and not self._is_completed(level_num) and self._level_button_hit(rect, mouse_pos, level_num):
-                                return self._start_level(level_num)
-
         if self._back_pending:
             if (self._back_press_until is not None
                     and pygame.time.get_ticks() >= self._back_press_until):
@@ -615,14 +608,9 @@ class GameScreen:
         if level_picture:
             self.screen.blit(level_picture, compute_picture_position(card_position, card_height, level_picture))
 
-        content_level = (
-            get_test_content_level(level_num)
-            if getattr(self, "test_mode", False)
-            else level_num
-        )
-        desc_key = f"Level{content_level}Cond"
+        desc_key = f"Level{level_num}Cond"
         desc_text = self._get_text(desc_key, None)
-        year_key = f"Level{content_level}Year"
+        year_key = f"Level{level_num}Year"
         year_text = self._get_text(year_key, None)
         text_left = card_position[0] + 250
         text_width = card_width - 250 - 15
@@ -680,13 +668,8 @@ class GameScreen:
                 for level_num, position in enumerate(self.normal_card_positions, start=1)
             ]
         else:
-            cards = []
-            for offset, position in enumerate(self.normal_card_positions):
-                level_num = 7 + offset
-                picture = self.level_pictures[level_num - 1]
-                unlocked = self._is_level_unlocked(level_num)
-                startable = unlocked and not self._is_completed(level_num)
-                cards.append((level_num, position, picture, unlocked, startable))
+            cards = [(UPCOMING_LEVEL, self.normal_card_positions[0], self.level_pictures[UPCOMING_LEVEL - 1],
+                      self._is_level_unlocked(UPCOMING_LEVEL), False)]
         for level_num, position, picture, unlocked, startable in cards:
             if not unlocked or position is None:
                 continue
@@ -741,9 +724,7 @@ class GameScreen:
         if self.test_mode:
             return
         level = self.balance_replay_level
-        # Campaign card 6 uses content/save identity 8.
-        display_level = 6 if level == 8 else level
-        label = (f"ТЕСТ: откатить уровень {display_level}" if level is not None
+        label = (f"ТЕСТ: откатить уровень {level}" if level is not None
                  else "ТЕСТ: нет точки отката")
         rect = self.balance_rollback_rect
         pygame.draw.rect(self.screen, (239, 224, 187) if level is not None else (174, 167, 150), rect, border_radius=7)

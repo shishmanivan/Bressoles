@@ -4,7 +4,6 @@ from card_acquisition_stats import record_card_acquisitions
 
 from card_catalog import GOLDEN_STAKE_CARD_ID, MARKET_COPY_CARD_IDS, MARKET_COPY_MIN_LEVEL, PRICE_CARD_IDS, RED_REBATE_CARD_ID, get_price_card_spec
 from game_data import REWARD_TOKEN_RANDOM_SILVER, load_cards_config
-from level_routes import get_campaign_content_level
 
 
 # Game progress tracking.
@@ -14,7 +13,6 @@ level_3_boss_defeated = False
 level_4_boss_defeated = False
 level_5_boss_defeated = False
 level_6_boss_defeated = False
-level_8_boss_defeated = False
 
 # Boss defeat tracking per level:
 # {level_number: {"defeated": int, "last_rect": pygame.Rect or None, "lines": list}}
@@ -62,6 +60,14 @@ def unlock_level_six():
     if not level_5_boss_defeated:
         add_shop_rerolls(5)
         level_5_boss_defeated = True
+
+
+def unlock_level_seven():
+    """Commit the level-six milestone and its one-time shop rerolls."""
+    global level_6_boss_defeated
+    if not level_6_boss_defeated:
+        add_shop_rerolls(5)
+        level_6_boss_defeated = True
 
 
 def is_market_refresh_offer_available(level_number):
@@ -369,6 +375,7 @@ LEVEL_COMPLETION_REWARD_CARDS = {
     1: [15],
     2: [13],
     3: [RED_REBATE_CARD_ID],
+    6: [113],  # Level six: Bankruptcy A.
 }
 LEVEL_COMPLETION_BLACK_REWARD_CARDS = {
     3: [301],
@@ -810,7 +817,7 @@ def get_shop_card_offer_slots(level_number):
         level = 0
     if level < 3:
         return 0
-    base_slots = 2 if level == get_campaign_content_level(6) else 1
+    base_slots = 2 if level == 6 else 1
     return base_slots + int(bool(diversification_bought))
 
 
@@ -995,8 +1002,6 @@ def is_level_completed(level_number):
         return bool(level_5_boss_defeated)
     if level == 6:
         return bool(level_6_boss_defeated)
-    if level == 8:
-        return bool(level_8_boss_defeated)
     return False
 
 
@@ -1018,6 +1023,8 @@ def is_level_unlocked(level_number):
         return bool(level_4_boss_defeated)
     if level == 6:
         return bool(level_5_boss_defeated)
+    if level == 7:
+        return bool(level_6_boss_defeated)
     return False
 
 
@@ -2022,6 +2029,8 @@ def get_starting_napoleondors_for_level(level_number):
         starting_amount += 2
     if level >= 6 and level_5_boss_defeated:
         starting_amount += 2
+    if level >= 7 and level_6_boss_defeated:
+        starting_amount += 2
     return starting_amount
 
 
@@ -2125,8 +2134,8 @@ def new_boss_progress_state():
     }
 
 
-def _reset_run_bonuses():
-    """Reset shared temporary bonuses before outcome-specific run cleanup."""
+def reset_run_bonuses():
+    """Reset temporary bonus values and their purchase flags together."""
     global global_dobor, global_start_money_bonus, global_last_turn_bonus
     global global_hand_bonus, global_start_c_shares_bonus, profit_reward_bonus
     global updown_probability_bonus, variance_offer_bought_count, derivative_bought
@@ -2161,7 +2170,7 @@ def reset_level_attempt(level_number):
         level = int(level_number or 0)
     except (TypeError, ValueError):
         level = 0
-    _reset_run_bonuses()
+    reset_run_bonuses()
     set_bankruptcy_condition_chance(0)
     reset_napoleondors(level_number)
     clear_round_reward_cards(level_number)
@@ -2208,7 +2217,7 @@ def complete_level_run(level_number):
     except (TypeError, ValueError):
         level = 0
 
-    _reset_run_bonuses()
+    reset_run_bonuses()
     set_bankruptcy_condition_chance(0)
     capital_preservation_bought = False
 
@@ -2263,10 +2272,8 @@ def get_progress_flags():
         "level_4_boss_defeated": level_4_boss_defeated,
         "level_5_boss_defeated": level_5_boss_defeated,
         "level_6_boss_defeated": level_6_boss_defeated,
-        "level_8_boss_defeated": level_8_boss_defeated,
         "level_6_unlocked": bool(level_5_boss_defeated),
-        "level_7_unlocked": False,
-        "level_8_unlocked": False,
+        "level_7_unlocked": bool(level_6_boss_defeated),
     }
 
 
@@ -2298,6 +2305,8 @@ def get_completed_level_reward_cards():
         cards.extend(get_level_completion_reward_cards(2))
     if level_3_boss_defeated:
         cards.extend(get_level_completion_reward_cards(3))
+    if level_6_boss_defeated:
+        cards.extend(get_level_completion_reward_cards(6))
     return cards
 
 
@@ -2572,6 +2581,8 @@ def get_lifecycle_card_slot_limit():
     except (TypeError, ValueError):
         boss_bonus = 0
     completion_bonus = LEVEL_5_COMPLETION_LIFECYCLE_SLOT_BONUS if level_5_boss_defeated else 0
+    if level_6_boss_defeated:
+        completion_bonus += 1
     return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus + flash_issue_slots
 
 
@@ -3761,7 +3772,7 @@ def generate_shop_offers(
     if not card_pool:
         card_pool = [card for card in build_all_available_shop_cards(level)
                      if f"card:{int(card)}" not in excluded]
-    if level == get_campaign_content_level(6) and len(card_pool) < card_slots:
+    if level == 6 and len(card_pool) < card_slots:
         fallback_pool = [card for card in build_all_available_shop_cards(level)
                          if card not in card_pool and f"card:{int(card)}" not in excluded]
         card_pool.extend(random.sample(fallback_pool, min(card_slots - len(card_pool), len(fallback_pool))))

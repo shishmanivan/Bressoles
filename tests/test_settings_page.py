@@ -16,8 +16,8 @@ class SettingsPageTests(unittest.TestCase):
     def setUp(self):
         pygame.init()
         self.screen = pygame.display.set_mode((1680, 1050))
-        self.defaults = {'resolution': (1680,1050), 'fullscreen': False,
-                         'music_volume': 1., 'sound_volume': 1., 'show_card_info': True}
+        with tempfile.TemporaryDirectory() as folder:
+            self.defaults = app_settings.load_settings(os.path.join(folder, 'settings.json'))
         self.settings_patch = patch('settings_page.load_settings', side_effect=lambda: dict(self.defaults))
         self.settings_patch.start()
 

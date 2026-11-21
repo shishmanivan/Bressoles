@@ -52,13 +52,42 @@ class LanguageParityTests(unittest.TestCase):
                 if isinstance(node, ast.JoinedStr):
                     text = ''.join(part.value if isinstance(part, ast.Constant) else '913' for part in node.values)
                 elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-                    if not isinstance(parents.get(node), (ast.JoinedStr, ast.Expr)):
+                    parent = parents.get(node)
+                    if isinstance(parent, ast.Call) and ast.unparse(parent.func) == 'os.path.join':
+                        continue
+                    if not isinstance(parent, (ast.JoinedStr, ast.Expr)):
                         text = node.value
                 if text and CYRILLIC.search(text):
                     for code in ('ENG', 'DE', 'HU', 'FR'):
                         set_language(code)
                         with self.subTest(file=path.name, line=node.lineno, language=code):
                             self.assertNotRegex(translate(text), CYRILLIC)
+
+    def test_shop_category_signs_load_from_the_packaged_image(self):
+        import native_render as pygame
+        from shop_page import ShopPage
+
+        page = ShopPage.__new__(ShopPage)
+        with patch.object(page, '_load_image', side_effect=lambda path: pygame.image.load(ROOT / path)):
+            self.assertEqual(set(page._load_category_signs()), {"card", "special", "license", "investment"})
+
+    def test_advance_and_windfall_tooltips_translate_with_current_values(self):
+        import game_state
+        from gameplay_page import GameplayPage
+        from silver_black_page import windfall_tooltip_description
+
+        page = GameplayPage.__new__(GameplayPage)
+        with patch.object(page, '_get_advance_chance', return_value=37), patch.object(
+                game_state, 'get_windfall_card_bonus_percent', return_value=12):
+            for code in SUPPORTED_LANGUAGES:
+                set_language(code)
+                for value, description in ((37, page._get_field_card_tooltip_content(420)[1]),
+                                           (12, windfall_tooltip_description())):
+                    with self.subTest(language=code, value=value):
+                        displayed = translate(description)
+                        self.assertIn(str(value), displayed)
+                        if code != 'RU':
+                            self.assertNotRegex(displayed, CYRILLIC)
 
     def test_switching_dynamic_text_has_no_stale_locale(self):
         cases = {

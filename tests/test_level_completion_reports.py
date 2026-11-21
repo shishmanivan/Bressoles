@@ -47,7 +47,8 @@ class LevelCompletionReportTests(unittest.TestCase):
 
     def test_final_reports_use_level_specific_text_and_include_awarded_cards(self):
         for language in SUPPORTED_LANGUAGES:
-            for level, cards in {1: [15], 2: [13], 3: [110, 301], 4: [302], 5: [303, 304]}.items():
+            for level, cards in {1: [15], 2: [13], 3: [110, 301], 4: [302], 5: [303, 304],
+                                 6: game_state.get_level_completion_reward_cards(6)}.items():
                 with self.subTest(language=language, level=level):
                     page = self.make_page(language, level)
                     self.assertEqual(page._get_card_report_boss_description(),
@@ -71,7 +72,7 @@ class LevelCompletionReportTests(unittest.TestCase):
         rect = pygame.Rect(0, 0, int(height * 1086 / 1448), height)
         for language in SUPPORTED_LANGUAGES:
             set_language(language)
-            for level in range(1, 6):
+            for level in (1, 2, 3, 4, 5, 6):
                 with self.subTest(language=language, level=level):
                     page = self.make_page(language, level)
                     page.frugality_bonus_turns = 3

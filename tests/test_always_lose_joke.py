@@ -51,10 +51,11 @@ class AlwaysLoseTests(unittest.TestCase):
 
     def test_streak_and_reset(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(profile_manager, "PROFILES_DIR", directory):
-            self.assertEqual([record_level6_tutorial_result(1, False) for _ in range(6)],
-                             [False, False, False, False, True, False])
+            for attempt in range(1, 7):
+                self.assertFalse(record_level6_tutorial_result(1, True))
+                self.assertEqual(record_level6_tutorial_result(1, False), attempt == 5)
             self.assertFalse(record_level6_tutorial_result(2, False))
-            record_level6_tutorial_result(1, True)
+            record_level6_tutorial_result(1, True, final_boss=True)
             self.assertEqual(profile_manager.load_profile(1)["level6_loss_streak"], 0)
 
     def test_confirmation_chain_never_checks_box(self):

@@ -350,7 +350,8 @@ CARD_TOOLTIPS.update(
 def windfall_tooltip_description():
     description = CARD_TOOLTIPS[game_state.WINDFALL_CARD_ID][1]
     bonus = game_state.get_windfall_card_bonus_percent()
-    return f"{description} Текущий бонус Rebate: +{bonus} п. п."
+    detail = f"Текущий бонус Rebate: +{bonus} п. п."
+    return f"{description} {detail}"
 
 
 class SilverBlackPage(AdaptivePage):

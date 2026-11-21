@@ -7,19 +7,18 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 from gameplay_conditions import BOSS_SHARES, BOSS_TRADING, LEVEL_CONDITIONS, has_condition
 from gameplay_page import GameplayPage
-from level_routes import get_campaign_content_level
 
 
 class BossSharesTests(unittest.TestCase):
     def setUp(self):
         # Exercise the reusable condition explicitly, independent of campaign assignments.
-        assignment = mock.patch.dict(LEVEL_CONDITIONS, {get_campaign_content_level(6): (BOSS_SHARES,)})
+        assignment = mock.patch.dict(LEVEL_CONDITIONS, {6: (BOSS_SHARES,)})
         assignment.start()
         self.addCleanup(assignment.stop)
 
     def page(self, money=201, goal=150, day=8, boss_fight=False):
         page = GameplayPage.__new__(GameplayPage)
-        page.level_number = get_campaign_content_level(6)
+        page.level_number = 6
         page.is_boss_fight = boss_fight
         page.boss_index = 0
         page.Money, page.Goal, page.Day, page.LastTurn = money, goal, day, 8
@@ -46,7 +45,7 @@ class BossSharesTests(unittest.TestCase):
                     self.assertEqual(page._finish_win_lose_result.call_args.args[0], result)
 
     def test_unassigned_condition_restores_normal_round_without_rebate(self):
-        with mock.patch.dict(LEVEL_CONDITIONS, {get_campaign_content_level(6): ()}):
+        with mock.patch.dict(LEVEL_CONDITIONS, {6: ()}):
             for boss_fight in (False, True):
                 page = self.page(money=150, goal=150, day=6, boss_fight=boss_fight)
                 page._get_current_rebate_sale_percent.return_value = None

@@ -86,7 +86,6 @@ class AstorBossTests(unittest.TestCase):
         page.win_lose_state = None
         page.Money = 30
         page._apply_boss_share_theft_if_needed = mock.Mock()
-        page._is_level6_alternating_battle = mock.Mock(return_value=False)
         page._run_stock_bot_turn = mock.Mock()
         page._finish_turn_after_astor_cash_burn = mock.Mock()
         with mock.patch("gameplay_page.pygame.time.get_ticks", return_value=0):

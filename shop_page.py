@@ -382,9 +382,11 @@ class ShopPage(AdaptivePage):
         bosses_required=None,
         rounds_remaining=None,
         profile_slot=None,
+        visit=None,
     ):
         self.init_viewport(screen)
         self.profile_slot = profile_slot
+        self.visit = visit
         self.stats_enabled = stats_enabled
         self.tutorial_hint = None
         self.clock = pygame.time.Clock()
@@ -404,28 +406,33 @@ class ShopPage(AdaptivePage):
             self.level_number == 3 and profile_slot
             and not profile_manager.load_profile(profile_slot).get("level3_shop_visited", False)
         )
-        self.offers = game_state.generate_shop_offers(
-            level_number=self.level_number,
-            discount_percent=self.discount_percent,
-            defeated_count=self.defeated_count,
-            bosses_required=self.bosses_required,
-            rounds_remaining=self.rounds_remaining,
-            guarantee_gold=self.first_level3_shop,
-        )
-        self.sold_offer_indexes = set()
-        self._price_cut_assistance_pending = False
         self.level_run_losses = (
             get_level_run_losses(self.level_number, profile_manager.get_stats_file(profile_slot))
             if profile_slot and game_state.is_price_cut_offer_available(self.level_number) else 0
         )
-        self._ensure_price_cut_assistance()
         run_state = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
         self._shop_history = run_state.setdefault("shop_history", [])
-        self._remember_shop()
-        if stats_enabled:
-            record_card_offers(self.offers)
-            record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
-        self.sold_offer_indexes = set()
+        if visit is not None and "offers" in visit:
+            self.offers = [dict(offer) for offer in visit["offers"]]
+            self.sold_offer_indexes = set(visit["sold_offer_indexes"])
+            self._price_cut_assistance_pending = visit.get("price_cut_assistance_pending", False)
+            pending = visit.get("pending_assortment")
+            self._pending_assortment = (0, pending) if pending else None
+        else:
+            self.offers = game_state.generate_shop_offers(
+                level_number=self.level_number, discount_percent=self.discount_percent,
+                defeated_count=self.defeated_count, bosses_required=self.bosses_required,
+                rounds_remaining=self.rounds_remaining, guarantee_gold=self.first_level3_shop,
+            )
+            self.sold_offer_indexes = set()
+            self._pending_assortment = None
+            self._price_cut_assistance_pending = False
+            self._ensure_price_cut_assistance()
+            self._remember_shop()
+            self._save_visit()
+            if stats_enabled:
+                record_card_offers(self.offers)
+                record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
         self.message = ""
         self.offer_image_cache = {}
 
@@ -477,11 +484,22 @@ class ShopPage(AdaptivePage):
         self._purchase_stamps = {}
         self.card_hover_sound = load_card_hover_sound()
         self._hovered_offer = None
-        self._pending_assortment = None
         self._offer_animation = {
             "started": None, "outgoing": [],
             "incoming": list(range(len(self.offers))), "sounded": set(),
         }
+
+    def _save_visit(self):
+        if not getattr(self, "profile_slot", None):
+            return
+        if getattr(self, "visit", None) is not None:
+            self.visit.update(
+                offers=[dict(offer) for offer in self.offers],
+                sold_offer_indexes=sorted(self.sold_offer_indexes),
+                pending_assortment=self._pending_assortment[1] if self._pending_assortment else None,
+                price_cut_assistance_pending=self._price_cut_assistance_pending,
+            )
+        profile_manager.save_progress_from_game_state(self.profile_slot)
 
     def _can_reroll(self):
         return (game_state.are_shop_rerolls_available(self.level_number)
@@ -552,11 +570,10 @@ class ShopPage(AdaptivePage):
             "outgoing": [tile[:2] for tile in (previous or {}).values()],
             "incoming": list(range(len(self.offers))), "sounded": set(),
         }
+        self._save_visit()
         if self.stats_enabled:
             record_card_offers(self.offers)
             record_shop_card_offers(self.level_number, self.offers, CARD_NAMES)
-        if self.profile_slot:
-            profile_manager.save_progress_from_game_state(self.profile_slot)
         return True
 
     def _draw_reroll_button(self):
@@ -1081,7 +1098,7 @@ class ShopPage(AdaptivePage):
             {"kind": "special", "special_id": special_id, "cost": 0}
         )
         try:
-            self._buy_offer(temporary_index, refresh_expansion=False, refresh_diversification=False)
+            self._perform_buy_offer(temporary_index, refresh_assortment=False, temporary=True)
             purchased = temporary_index in self.sold_offer_indexes
         finally:
             self.sold_offer_indexes.discard(temporary_index)
@@ -1092,26 +1109,28 @@ class ShopPage(AdaptivePage):
             self._add_diversification_card()
         return purchased
 
-    def _buy_offer(self, index, *, refresh_expansion=True, refresh_diversification=True):
+    def _buy_offer(self, index):
         if not hasattr(self, "_purchase_stamps"):
-            return self._perform_buy_offer(index, refresh_expansion=refresh_expansion, refresh_diversification=refresh_diversification)
-        if self._pending_assortment or index >= len(self.offers):
+            return self._perform_buy_offer(index)
+        if self._pending_assortment or index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
         self._purchase_paid = False
-        self._perform_buy_offer(index, refresh_expansion=False, refresh_diversification=False)
+        self._perform_buy_offer(index, refresh_assortment=False)
         if self._purchase_paid:
             now = pygame.time.get_ticks()
             self._purchase_stamps[id(offer)] = None
             special = offer.get("special_id")
-            if (special == "expansion" and refresh_expansion) or (special == "diversification" and refresh_diversification):
+            if special in ("expansion", "diversification"):
                 self._pending_assortment = (now + 500, special)
+        if self._purchase_paid or index in self.sold_offer_indexes:
+            self._save_visit()
 
     def _charge_offer(self, cost):
         game_state.spend_napoleondors(cost)
         self._purchase_paid = True
 
-    def _perform_buy_offer(self, index, *, refresh_expansion=True, refresh_diversification=True):
+    def _perform_buy_offer(self, index, *, refresh_assortment=True, temporary=False):
         if index in self.sold_offer_indexes or index >= len(self.offers):
             return
         offer = self.offers[index]
@@ -1168,12 +1187,12 @@ class ShopPage(AdaptivePage):
             if not game_state.is_moratorium_offer_available(self.level_number):
                 self.message = "Мораторий недоступен"
                 return
-            if not hasattr(self, "moratorium_choices"):
-                self.moratorium_choices = {}
-            if index not in self.moratorium_choices:
+            if "candidates" not in offer:
                 available = game_state.get_moratorium_candidates()
-                self.moratorium_choices[index] = game_state.random.sample(available, min(10, len(available)))
-            candidates = self.moratorium_choices[index]
+                offer["candidates"] = game_state.random.sample(available, min(10, len(available)))
+                if not temporary:
+                    self._save_visit()
+            candidates = offer["candidates"]
             selected_card = MoratoriumDeckPage(
                 getattr(self, "viewport", self.screen), self.font_path, self.level_number, deck=candidates,
             ).run()
@@ -1359,7 +1378,7 @@ class ShopPage(AdaptivePage):
             card_count = game_state.get_shop_card_offer_slots(self.level_number)
             count_text = "три" if card_count == 3 else "две"
             self.message = f"В магазине теперь предлагаются {count_text} карты"
-            if refresh_diversification:
+            if refresh_assortment:
                 self._add_diversification_card()
             return
 
@@ -1372,7 +1391,7 @@ class ShopPage(AdaptivePage):
             self._sync_balance()
             self.sold_offer_indexes.add(index)
             self.message = "В магазине теперь больше предложений"
-            if refresh_expansion:
+            if refresh_assortment:
                 self._add_expansion_offer()
             return
 
@@ -1540,7 +1559,8 @@ class ShopPage(AdaptivePage):
                 return
             self._charge_offer(cost)
             self._sync_balance()
-            self.sold_offer_indexes.add(index)
+            # The free offer can insert another card ahead of Screening.
+            self.sold_offer_indexes.add(next(i for i, item in enumerate(self.offers) if item is offer))
             return
 
         if special_id == "capital_preservation":
@@ -1610,6 +1630,7 @@ class ShopPage(AdaptivePage):
                 self._add_expansion_offer()
             else:
                 self._add_diversification_card()
+            self._save_visit()
         if self.round_koordinates:
             self.screen.blit(self.round_koordinates, (0, 0))
 
@@ -1716,8 +1737,8 @@ class ShopPage(AdaptivePage):
         game_state.price_cut_assistance_milestones[self.level_number] = (
             game_state.get_price_cut_assistance_milestone(self.level_run_losses)
         )
-        profile_manager.save_progress_from_game_state(self.profile_slot)
         self._price_cut_assistance_pending = False
+        self._save_visit()
 
     def run(self):
         self._prepare_tutorial()

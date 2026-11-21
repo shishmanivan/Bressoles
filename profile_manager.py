@@ -1,18 +1,19 @@
 import disk_storage
 import copy
+import errno
 import json
 import math
 import os
 import shutil
 import tempfile
 import time
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
+from threading import local
 
 import pygame
 
 import game_state
-from card_acquisition_stats import get_encountered_card_ids
 from gameplay_deck import restore_card_instance, serialize_card_instance
 from player_market_stats import empty_stats, accumulate
 from player_other_stats import empty_stats as empty_other_stats, record as record_other_stats
@@ -32,8 +33,106 @@ class ProfileLoadError(OSError):
     """An existing profile cannot safely be loaded or overwritten."""
 
 
+class ProfileBusyError(ProfileLoadError):
+    """Another game holds the profile open."""
+
+
+_thread_locks = local()
+
+
+@contextmanager
+def _file_lock(path, *, wait=False):
+    # A stable sidecar survives atomic JSON replacement. Closing the handle
+    # releases the OS lock even when the game is forcibly terminated.
+    path = os.path.normcase(os.path.abspath(path + ".lock"))
+    held = vars(_thread_locks).setdefault("paths", set())
+    if path in held:
+        yield
+        return
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        handle = open(path, "a+b")
+    except OSError as error:
+        raise ProfileLoadError(f"Cannot open profile lock: {path}") from error
+    with handle:
+        try:
+            disk_storage.lock_file_handle(handle, wait=wait)
+        except OSError as error:
+            if not wait and error.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                raise ProfileBusyError(f"Profile is in use: {path}") from error
+            raise ProfileLoadError(f"Cannot lock profile: {path}") from error
+        held.add(path)
+        try:
+            yield
+        finally:
+            held.remove(path)
+
+
+class ProfileSession(AbstractContextManager):
+    """Hold the selected slot from its first load until a switch or game exit."""
+
+    def __init__(self):
+        self.slot = None
+        self._lock = ExitStack()
+
+    def activate(self, slot, operation, *args):
+        slot = int(slot)
+        if slot == self.slot:
+            return operation(slot, *args)
+        with ExitStack() as candidate:
+            candidate.enter_context(_file_lock(get_profile_path(slot)))
+            result = operation(slot, *args)
+            self.release()
+            self._lock = candidate.pop_all()
+            self.slot = slot
+            return result
+
+    def release(self):
+        self._lock.close()
+        self.slot = None
+
+    def __exit__(self, *exc_info):
+        self.release()
+
+
 def was_profile_recovered(slot):
     return os.path.abspath(get_profile_path(slot)) in _recovered_profile_paths
+
+
+# Older profiles may omit these fields. When present, the restore code reads
+# them directly; null cannot stand for an empty collection or a run counter.
+_NON_NULL_PROGRESS_FIELDS = {
+    "seen_gold_card_ids", "gold_cards", "moratorium_expirations", "moratorium_run_number",
+    "price_cut_assistance_shown_levels", "price_cut_assistance_milestones",
+}
+
+
+def _check_optional_type(source, field, expected_type):
+    value = source.get(field)
+    if value is not None and not isinstance(value, expected_type):
+        raise ValueError(f"{field} must be a {expected_type.__name__}")
+
+
+def _check_number(value, number_type, field):
+    try:
+        if math.isfinite(number_type(value)):
+            return
+    except (TypeError, ValueError, OverflowError):
+        pass
+    raise ValueError(f"{field} must be a finite number")
+
+
+def _check_coordinates(value):
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        raise ValueError("map coordinates must contain four numbers")
+    for coordinate in value:
+        _check_number(coordinate, int, "map coordinate")
+
+
+def _check_map_lines(source, field):
+    _check_optional_type(source, field, list)
+    for line in source.get(field) or []:
+        _check_coordinates(line)
 
 
 def _validate_profile_data(data):
@@ -43,30 +142,68 @@ def _validate_profile_data(data):
         raise ValueError("profile must contain a progress object")
     if "name" in data and not isinstance(data["name"], str):
         raise ValueError("profile name must be text")
+    if "tutorial_seen" in data and not isinstance(data["tutorial_seen"], list):
+        raise ValueError("tutorial_seen must be a list")
+    _check_optional_type(data, "balance_checkpoint", dict)
+    checkpoint = data.get("balance_checkpoint") or {}
+    for field in ("progress", "completed_progress"):
+        if checkpoint.get(field) is not None:
+            _validate_profile_data({"progress": checkpoint[field]})
     progress = data["progress"]
     for field, default in _empty_progress().items():
         if field not in progress:
             continue
         value = progress[field]
+        if value is None and field in _NON_NULL_PROGRESS_FIELDS:
+            raise ValueError(f"progress.{field} cannot be null")
         if isinstance(default, (dict, list)) and value is not None and not isinstance(value, type(default)):
             raise ValueError(f"progress.{field} has an invalid container type")
         if type(default) in (int, float) and value is not None:
             # Numeric strings in legacy profiles are still accepted.
-            try:
-                numeric = type(default)(value)
-                if not math.isfinite(numeric):
-                    raise ValueError("non-finite number")
-            except (TypeError, ValueError, OverflowError) as error:
-                raise ValueError(f"progress.{field} must be numeric") from error
+            _check_number(value, float if field == "napoleondors" else type(default), field)
+    # Legacy migration still reads this field even though new saves omit it.
+    _check_optional_type(progress, "forced_start_hand_cards_by_level", dict)
+    for field in ("earned_reward_cards", "round_reward_cards", "removed_deck_cards_by_level",
+                  "guaranteed_start_hand_cards_by_level", "forced_start_hand_cards_by_level",
+                  "loan_boss_positions_by_level"):
+        for level in progress.get(field) or {}:
+            _check_optional_type(progress[field], level, list)
+    for field in ("retention_pending_level", "napoleondor_level", "active_red_cards_level", "active_silver_cards_level"):
+        if progress.get(field) is not None:
+            _check_number(progress[field], int, field)
+    if progress.get("bank_interest_base") is not None:
+        _check_number(progress["bank_interest_base"], float, "bank_interest_base")
+    for entry in progress.get("pending_finance_report_entries") or []:
+        if isinstance(entry, dict) and entry.get("amount") is not None:
+            _check_number(entry["amount"], float, "finance report amount")
     for state in (progress.get("boss_progress") or {}).values():
         if not isinstance(state, dict):
             raise ValueError("boss progress entries must be objects")
-        defeated_bosses = state.get("defeated_bosses") or []
-        if not isinstance(defeated_bosses, list) or any(not isinstance(boss, dict) for boss in defeated_bosses):
-            raise ValueError("defeated bosses must be a list of objects")
-        rounds = state.get("round_progress") or {}
-        if not isinstance(rounds, dict) or any(not isinstance(round_state, dict) for round_state in rounds.values()):
-            raise ValueError("round progress entries must be objects")
+        if state.get("defeated") is not None:
+            _check_number(state["defeated"], int, "defeated")
+        _check_map_lines(state, "lines")
+        if state.get("last_rect") not in (None, []):
+            _check_coordinates(state["last_rect"])
+        _check_optional_type(state, "current_boss", dict)
+        if state.get("current_boss") is not None:
+            _check_map_lines(state["current_boss"], "saved_lines")
+        _check_optional_type(state, "shop_history", list)
+        _check_optional_type(state, "defeated_bosses", list)
+        for boss in state.get("defeated_bosses") or []:
+            if not isinstance(boss, dict):
+                raise ValueError("defeated bosses must be a list of objects")
+            if boss.get("rect") not in (None, []):
+                _check_coordinates(boss["rect"])
+        _check_optional_type(state, "round_progress", dict)
+        for entry in (state.get("round_progress") or {}).values():
+            if not isinstance(entry, dict):
+                raise ValueError("round progress entries must be objects")
+            _check_optional_type(entry, "completed_rounds", list)
+            _check_optional_type(entry, "round_selections", dict)
+            _check_map_lines(entry, "saved_lines")
+        visit = state.get("shop_visit")
+        if visit is not None:
+            _validate_shop_visit(visit)
     active_game = data.get("active_game")
     if active_game is not None:
         if not isinstance(active_game, dict):
@@ -78,12 +215,47 @@ def _validate_profile_data(data):
         raise ValueError("unavailable profile cannot be saved")
 
 
+def _validate_shop_visit(visit):
+    if not isinstance(visit, dict) or type(visit.get("discount_percent")) is not int:
+        raise ValueError("shop visit must contain a discount")
+    if "offers" not in visit:
+        return  # The round is settled, but the first shelf has not been generated yet.
+    offers = visit["offers"]
+    if not isinstance(offers, list):
+        raise ValueError("shop offers must be a list")
+    for offer in offers:
+        if not isinstance(offer, dict) or type(offer.get("cost")) not in (int, float) or offer["cost"] < 0:
+            raise ValueError("shop offer must have a nonnegative price")
+        kind = offer.get("kind")
+        if kind in ("card", "license") and type(offer.get("card_id")) is int:
+            continue
+        if kind == "special" and isinstance(offer.get("special_id"), str):
+            if "candidates" in offer and not (
+                isinstance(offer["candidates"], list) and all(type(card) is int for card in offer["candidates"])
+            ):
+                raise ValueError("invalid shop card choices")
+            continue
+        if kind != "investment":
+            raise ValueError("invalid shop offer")
+    sold = visit.get("sold_offer_indexes")
+    if not isinstance(sold, list) or any(type(i) is not int or not 0 <= i < len(offers) for i in sold):
+        raise ValueError("invalid sold shop positions")
+    if visit.get("pending_assortment") not in (None, "expansion", "diversification"):
+        raise ValueError("invalid pending shop assortment")
+
+
 def _read_profile_data(path):
     def reject_nonfinite(value):
         raise ValueError(f"non-finite JSON number: {value}")
 
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            reject_nonfinite(value)
+        return number
+
     with disk_storage.open_text(path, encoding="utf-8") as source:
-        data = json.load(source, parse_constant=reject_nonfinite)
+        data = json.load(source, parse_constant=reject_nonfinite, parse_float=finite_float)
     _validate_profile_data(data)
     return data
 
@@ -155,11 +327,6 @@ def get_stats_file(slot):
     return os.path.join(PROFILES_DIR, f"GameStats_profile_{int(slot)}.csv")
 
 
-def get_level6_experiment_stats_file(slot):
-    ensure_profiles_dir()
-    return os.path.join(PROFILES_DIR, f"Level6ExperimentStats_profile_{int(slot)}.csv")
-
-
 def get_shop_card_stats_file(slot):
     ensure_profiles_dir()
     return os.path.join(PROFILES_DIR, f"ShopCardStats_profile_{int(slot)}.csv")
@@ -192,12 +359,13 @@ def get_selected_slot():
 
 
 def set_selected_slot(slot):
-    save_index({"selected_slot": int(slot)})
+    with _file_lock(INDEX_FILE, wait=True):
+        save_index({"selected_slot": int(slot)})
 
 
 def _default_profile(slot):
     return {
-        "version": 2,
+        "version": 3,
         "slot": int(slot),
         "name": "",
         "progress": _empty_progress(),
@@ -218,7 +386,6 @@ def _empty_progress():
         "level_4_boss_defeated": False,
         "level_5_boss_defeated": False,
         "level_6_boss_defeated": False,
-        "level_8_boss_defeated": False,
         "boss_progress": {},
         "global_dobor": 1,
         "global_start_money_bonus": 0,
@@ -315,6 +482,11 @@ def load_profile(slot):
     draft = _round_result_profile.get()
     if draft is not None and draft["slot"] == int(slot):
         return draft
+    with _file_lock(get_profile_path(slot)):
+        return _load_profile(slot)
+
+
+def _load_profile(slot):
     ensure_profiles_dir()
     slot = int(slot)
     path = get_profile_path(slot)
@@ -334,6 +506,8 @@ def load_profile(slot):
     profile["version"] = data.get("version", 1)
     profile.setdefault("active_game", None)
     migrated = _migrate_campaign_v2(profile)
+    if _migrate_campaign_v3(profile):
+        migrated = True
     if _migrate_completed_black_rewards(profile):
         migrated = True
     if migrated:
@@ -407,6 +581,91 @@ def _migrate_campaign_v2(profile):
     return True
 
 
+def _migrate_campaign_v3(profile):
+    """Old builds saved the sixth campaign card as 8 and the retired duel as 6."""
+    if int(profile["version"]) >= 3:
+        return False
+
+    # Before the duel existed, some saves already used 6 for this route.
+    progress = profile["progress"]
+    routes = progress.get("boss_progress") or {}
+    old_six = routes.get("6") or {}
+    active = profile.get("active_game") or {}
+    context = active.get("context") or {}
+    original_six = ("8" not in routes and "level_8_boss_defeated" not in progress
+                    and ((isinstance(old_six.get("roster"), list) and len(old_six["roster"]) == 4)
+                         or int(old_six.get("defeated") or 0) > 1
+                         or (str(context.get("level_number")) == "6"
+                             and context.get("is_boss_fight") is False)))
+
+    def campaign_level(old):
+        if str(old) == "8" or (original_six and str(old) == "6"):
+            return 6
+        if str(old) in ("1", "2", "3", "4", "5"):
+            return int(old)
+        return None
+
+    def migrate_progress(progress):
+        old_key = "6" if original_six else "8"
+        route = (progress.get("boss_progress") or {}).get(old_key) or {}
+        completed = int(route.get("defeated") or 0) >= 4
+        progress["level_6_boss_defeated"] = bool(progress.pop("level_8_boss_defeated", completed))
+        for field in ("boss_progress", "earned_reward_cards", "round_reward_cards",
+                      "removed_deck_cards_by_level", "forced_start_hand_cards_by_level",
+                      "guaranteed_start_hand_cards_by_level", "loan_boss_positions_by_level",
+                      "price_cut_purchases_by_level", "price_cut_assistance_milestones"):
+            if isinstance(progress.get(field), dict):
+                progress[field] = {str(campaign_level(key)): value for key, value in progress[field].items()
+                                   if campaign_level(key) is not None}
+        for field in ("napoleondor_level", "active_red_cards_level", "active_silver_cards_level",
+                      "retention_pending_level"):
+            if field in progress:
+                progress[field] = campaign_level(progress[field])
+        if isinstance(progress.get("price_cut_assistance_shown_levels"), list):
+            progress["price_cut_assistance_shown_levels"] = [
+                campaign_level(level) for level in progress["price_cut_assistance_shown_levels"]
+                if campaign_level(level) is not None
+            ]
+
+    migrate_progress(profile["progress"])
+    active = profile.get("active_game")
+    if active and "level_number" in active["context"]:
+        level = campaign_level(active["context"]["level_number"])
+        if level is None:
+            profile["active_game"] = None
+        else:
+            active["context"]["level_number"] = level
+            receipt = active["state"].get("pending_result_stats")
+            if isinstance(receipt, dict) and isinstance(receipt.get("encounter"), list) and receipt["encounter"]:
+                receipt["encounter"][0] = level
+            if "level_number" in active["state"]:
+                active["state"]["level_number"] = level
+    checkpoint = profile.get("balance_checkpoint")
+    if checkpoint:
+        level = campaign_level(checkpoint.get("level"))
+        if level is None:
+            profile.pop("balance_checkpoint")
+        else:
+            checkpoint["level"] = level
+            for field in ("progress", "completed_progress"):
+                if isinstance(checkpoint.get(field), dict):
+                    migrate_progress(checkpoint[field])
+    times = profile.get("play_time_stats")
+    if isinstance(times, dict) and not original_six:
+        levels = times.get("levels")
+        if isinstance(levels, dict):
+            if "6" in levels:
+                levels["archive"] = levels.pop("6")
+            if "8" in levels:
+                levels["6"] = levels.pop("8")
+        rounds = times.get("rounds")
+        for entry in rounds.values() if isinstance(rounds, dict) else ():
+            if isinstance(entry, dict) and str(entry.get("level")) in ("6", "8"):
+                entry["level"] = campaign_level(entry["level"])
+    profile["version"] = 3
+    return True
+
+
 def _migrate_completed_black_rewards(profile):
     """Restore permanent black rewards implied by completed-level flags."""
     progress = profile.get("progress")
@@ -440,6 +699,11 @@ def save_profile(profile):
     draft = _round_result_profile.get()
     if draft is not None and profile is draft:
         return
+    with _file_lock(get_profile_path(profile.get("slot") or 1)):
+        _save_profile(profile)
+
+
+def _save_profile(profile):
     # Keep the exact requested state while the UI waits. Retrying the game
     # action itself could award money/cards twice.
     pending = copy.deepcopy(profile)
@@ -518,6 +782,8 @@ def list_profiles():
         except ProfileLoadError as error:
             unavailable = _default_profile(slot)
             unavailable["_load_error"] = str(error)
+            if isinstance(error, ProfileBusyError):
+                unavailable["_busy"] = True
             profiles.append(unavailable)
     return profiles
 
@@ -528,8 +794,14 @@ def delete_profile(slot):
     if not 1 <= slot <= MAX_PROFILES:
         raise ValueError("Invalid profile slot")
     path = get_profile_path(slot)
-    if get_selected_slot() == slot:
-        save_index({"selected_slot": None})
+    with _file_lock(path):
+        _delete_profile(slot, path)
+
+
+def _delete_profile(slot, path):
+    with _file_lock(INDEX_FILE, wait=True):
+        if get_selected_slot() == slot:
+            save_index({"selected_slot": None})
     # Remove the recovery copy first so the deleted save cannot reappear.
     for target in (path + ".bak", path):
         try:
@@ -540,6 +812,11 @@ def delete_profile(slot):
 
 
 def select_profile(slot, name=None):
+    with _file_lock(get_profile_path(slot)):
+        return _select_profile(slot, name)
+
+
+def _select_profile(slot, name):
     profile = load_profile(slot)
     if name is not None:
         cleaned_name = str(name).strip()
@@ -555,43 +832,40 @@ def select_profile(slot, name=None):
 
 def apply_profile_to_game_state(profile_or_slot):
     profile = load_profile(profile_or_slot) if isinstance(profile_or_slot, int) else profile_or_slot
+    _validate_profile_data(profile)
     _migrate_completed_black_rewards(profile)
     progress = profile.get("progress") or {}
     game_state.seen_gold_card_ids = {
         int(value) for value in progress.get("seen_gold_card_ids", [])
-        if str(value).isdigit() and game_state.is_gold_card(int(value))
+        if str(value).isdecimal() and game_state.is_gold_card(int(value))
     }
     game_state.seen_gold_card_ids.update(
         int(value) for value in progress.get("gold_cards", [])
-        if str(value).isdigit() and game_state.is_gold_card(int(value))
-    )
-    game_state.seen_gold_card_ids.update(
-        value for value in get_encountered_card_ids(profile.get("slot"))
-        if game_state.is_gold_card(value)
+        if str(value).isdecimal() and game_state.is_gold_card(int(value))
     )
     game_state.moratorium_run_number = max(0, int(progress.get("moratorium_run_number", 0)))
     game_state.price_cut_purchases_by_level = {
         int(key): int(value)
         for key, value in (progress.get("price_cut_purchases_by_level") or {}).items()
-        if str(key).isdigit() and 1 <= int(key) <= 6
-        and str(value).isdigit() and int(value) > 0
+        if str(key).isdecimal() and 1 <= int(key) <= 6
+        and str(value).isdecimal() and int(value) > 0
     }
     game_state.price_cut_assistance_shown_levels = {
         int(level) for level in progress.get("price_cut_assistance_shown_levels", [])
-        if str(level).isdigit() and 1 <= int(level) <= 6
+        if str(level).isdecimal() and 1 <= int(level) <= 6
     }
     game_state.price_cut_assistance_milestones = {
         int(key): int(value)
         for key, value in progress.get("price_cut_assistance_milestones", {}).items()
-        if str(key).isdigit() and 1 <= int(key) <= 6
-        and str(value).isdigit() and int(value) > 0
+        if str(key).isdecimal() and 1 <= int(key) <= 6
+        and str(value).isdecimal() and int(value) > 0
     }
     for level in game_state.price_cut_assistance_shown_levels:
         game_state.price_cut_assistance_milestones.setdefault(level, 1)
     game_state.moratorium_expirations = {
         int(key): int(value)
         for key, value in progress.get("moratorium_expirations", {}).items()
-        if str(key).isdigit() and str(value).isdigit() and game_state.is_gold_card(int(key))
+        if str(key).isdecimal() and str(value).isdecimal() and game_state.is_gold_card(int(key))
     }
 
     game_state.level_1_boss_defeated = bool(progress.get("level_1_boss_defeated", False))
@@ -600,7 +874,6 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.level_4_boss_defeated = bool(progress.get("level_4_boss_defeated", False))
     game_state.level_5_boss_defeated = bool(progress.get("level_5_boss_defeated", False))
     game_state.level_6_boss_defeated = bool(progress.get("level_6_boss_defeated", False))
-    game_state.level_8_boss_defeated = bool(progress.get("level_8_boss_defeated", False))
     game_state.boss_progress = _restore_boss_progress(progress.get("boss_progress") or {})
     game_state.global_dobor = int(progress.get("global_dobor", 1) or 1)
     game_state.global_start_money_bonus = int(progress.get("global_start_money_bonus", 0) or 0)
@@ -1004,7 +1277,6 @@ def _capture_progress():
         "level_4_boss_defeated": bool(game_state.level_4_boss_defeated),
         "level_5_boss_defeated": bool(game_state.level_5_boss_defeated),
         "level_6_boss_defeated": bool(game_state.level_6_boss_defeated),
-        "level_8_boss_defeated": bool(game_state.level_8_boss_defeated),
         "boss_progress": _serialize_boss_progress(game_state.boss_progress),
         "global_dobor": int(game_state.global_dobor),
         "global_start_money_bonus": int(game_state.global_start_money_bonus),
@@ -1227,6 +1499,7 @@ def _serialize_boss_progress(source):
             "current_boss": _serialize_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "shop_history": copy.deepcopy((state.get("shop_history") or [])[-3:]),
+            "shop_visit": copy.deepcopy(state.get("shop_visit")),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),
@@ -1261,6 +1534,7 @@ def _restore_boss_progress(source):
             "current_boss": _restore_current_boss(state.get("current_boss")),
             "run_stats_started": bool(state.get("run_stats_started", False)),
             "shop_history": copy.deepcopy((state.get("shop_history") or [])[-3:]),
+            "shop_visit": copy.deepcopy(state.get("shop_visit")),
             "run_stats_finished": bool(state.get("run_stats_finished", False)),
             "market_roll_stats": copy.deepcopy(state.get("market_roll_stats")),
             "other_stats": copy.deepcopy(state.get("other_stats")),
@@ -1322,13 +1596,13 @@ def _restore_round_progress(source):
                 selection_key = selection.get("key")
             else:
                 selection_key = selection
-            if str(round_num).isdigit() and selection_key in ("e", "m", "h"):
+            if str(round_num).isdecimal() and selection_key in ("e", "m", "h"):
                 selections[int(round_num)] = {"key": selection_key}
         result[str(key)] = {
             "completed_rounds": [
                 int(round_num)
                 for round_num in (progress.get("completed_rounds") or [])
-                if str(round_num).isdigit()
+                if str(round_num).isdecimal()
             ],
             "round_selections": selections,
             "saved_lines": [

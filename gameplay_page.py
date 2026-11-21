@@ -178,11 +178,6 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 DROP_TARGET_COLOR = (157, 127, 91)
 PAPER_COLOR = (83, 76, 70)
-LEVEL6_STARTING_A_SHARES = 2
-LEVEL6_EXPERIMENT_TURNS = 8
-LEVEL6_BOT_THINK_MS = 600
-LEVEL6_BOT_ACTION_MS = 2000
-LEVEL6_BOT_END_PRESS_MS = 650
 
 FIELD_CARD_TOOLTIPS = {
     126: ("25%", "Никто не знает, что эта карта делает."),
@@ -437,19 +432,13 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.active_silver_cards = list(active_silver_cards or [])
         self.active_black_cards = list(active_black_cards or [])
         self.active_gold_cards = list(active_gold_cards or [])
-        if int(self.level_number or 0) == 6 and self.is_boss_fight:
-            self.active_silver_cards = []
-            self.active_black_cards = []
-            self.active_gold_cards = []
-            active_lifecycle_card_order = []
-            positioning_start_cards = []
         self.active_lifecycle_card_order = self._normalize_active_lifecycle_card_order(active_lifecycle_card_order)
         self.positioning_start_cards = list(positioning_start_cards or [])
         try:
             self.insurance_goal_debt = max(0, int(insurance_goal_debt or 0))
         except (TypeError, ValueError):
             self.insurance_goal_debt = 0
-        if active_gold_cards is not None and not self._is_level6_alternating_battle():
+        if active_gold_cards is not None:
             game_state.set_active_gold_cards(self.active_gold_cards)
         self.insider_c_growth_turns_remaining = 2 if self._count_active_silver_card(405) > 0 else 0
         self.rebate_a_fall_bonus_percent = 0
@@ -488,10 +477,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.stock_bot_start_quantities = None
         self.stock_bot_blocked_buy_prices = set()
         self.stock_bot_trade_history = []
-        self.level6_turn_owner = "player"
-        self.level6_bot_turn_phase = None
-        self.level6_bot_turn_started_at = 0
-        self.level6_bot_turn_decision = None
         self.stock_bot_acted_this_resolution = False
         
         # Determine if this is the final boss on the level
@@ -588,7 +573,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.napoleondor_image = gameplay_assets["napoleondor_image"]
 
         # Initialize quantity variables
-        self.Aquantity = LEVEL6_STARTING_A_SHARES if int(self.level_number or 0) == 6 else 2
+        self.Aquantity = 2
         self.Bquantity = 0
         self.Cquantity = int(game_state.global_start_c_shares_bonus or 0)
 
@@ -621,11 +606,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         
         # Boss modifiers are applied once from BossRewards.csv below.
         base_last_turn = 8 + game_state.global_last_turn_bonus  # Default LastTurn value plus boss reward bonuses
-        self.LastTurn = (
-            LEVEL6_EXPERIMENT_TURNS
-            if self._is_level6_alternating_battle()
-            else base_last_turn
-        )
+        self.LastTurn = base_last_turn
 
         self.end_button, self.end_button_rect = load_end_turn_button(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.end_button_press_until = 0
@@ -638,18 +619,14 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.end_button_pressed_image = pygame.transform.smoothscale(self.end_button, pressed_size).convert_alpha()
 
         # Hand state and placeholder
-        self.hand = (
-            0
-            if self._is_level6_alternating_battle()
-            else max(1, 7 + int(game_state.global_hand_bonus or 0))
-        )
+        self.hand = max(1, 7 + int(game_state.global_hand_bonus or 0))
         
         # Apply boss functionalities AFTER hand is initialized (e.g., "Self.hand=Self.hand-1", "LastTurn=LastTurn-1")
         # IMPORTANT: Functionalities apply to ALL rounds (regular E/M/H rounds AND boss round) after boss selection
         # After boss victory, modifiers are reset - next boss/rounds use default values
         if self.boss_index is not None:  # Boss was selected (applies to both regular rounds and boss fight)
             boss_number = self._get_active_boss_number()
-            if boss_number and not self._is_level6_alternating_battle():
+            if boss_number:
                 boss_rewards = load_boss_rewards()
                 boss_entry = boss_rewards.get(boss_number) or {}
                 func_string = boss_entry.get("Functionalities", "").strip()
@@ -797,9 +774,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             guaranteed_drop_count=self._get_downside_risk_guaranteed_drop_count(),
             windfall_active=game_state.WINDFALL_CARD_ID in self.active_gold_cards,
         )
-        if self._is_level6_alternating_battle():
-            self.deck = []
-            self.hand_cards = []
         for card_id in self.hand_cards:
             if card_id is not None:
                 self._newspaper_event('deal', card_id=card_id)
@@ -951,7 +925,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         )
         self.reward_level3_final_boss_text = self._get_text(
             "RewardLevel3FinalBoss",
-            "Вы открыли четвёртый и пятый уровни и получили первую чёрную карту. Стартовый запас следующих уровней увеличен ещё на 3 наполеондора.",
+            "Вы разблокировали четвёртый уровень и получили первую чёрную карту. Стартовый запас следующих уровней увеличен ещё на 3 наполеондора.",
         )
         self.reward_level4_final_boss_text = self._get_text(
             "RewardLevel4FinalBoss",
@@ -1725,6 +1699,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return self.reward_level4_final_boss_text
         if level == 5:
             return self.reward_level5_final_boss_text
+        if level == 6:
+            return self._get_text("RewardLevel6FinalBoss", "RewardLevel6FinalBoss")
         return self.reward_final_boss_text
 
     def _get_card_action(self, card_id):
@@ -1798,17 +1774,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.stock_bot_trade_history = []
             return
         boss_number = self._get_active_boss_number()
-        boss_level = get_boss_level_from_number(boss_number)
         level_number = int(self.level_number or 0)
+        boss_level = get_boss_level_from_number(
+            boss_number, level_number=level_number, defeated_count=getattr(self, "defeated_count", 0),
+        )
         self.stock_bot_enabled = True
-        if level_number == 6:
-            self.stock_bot_type = "reinvestment"
-            start_quantities = {
-                "Aquantity": LEVEL6_STARTING_A_SHARES,
-                "Bquantity": 0,
-                "Cquantity": 0,
-            }
-        elif boss_level == 2:
+        if boss_level == 2:
             self.stock_bot_type = "advanced"
             start_quantities = {
                 "Aquantity": 0,
@@ -1852,10 +1823,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         try:
             import importlib
 
-            if self.stock_bot_type == "reinvestment":
-                bot_module = importlib.import_module("reinvestment_stock_bot")
-                bot_class = bot_module.ReinvestmentStockBot
-            elif self.stock_bot_type == "advanced":
+            if self.stock_bot_type == "advanced":
                 bot_module = importlib.import_module("advanced_stock_bot")
                 bot_class = bot_module.AdvancedStockBot
             else:
@@ -1905,14 +1873,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return False
         # This runs before _finalize_turn_resolution advances Day, so the last
         # playable day is one below the terminal counter.
-        final_bot_day = (
-            self.Day >= self.LastTurn
-            if self._is_level6_alternating_battle()
-            else self.Day >= self.LastTurn - 1
-        )
+        final_bot_day = self.Day >= self.LastTurn - 1
         if final_bot_day:
             decision = self.stock_bot.sell_all(self._current_prices())
-        elif self.stock_bot_type in ("advanced", "reinvestment"):
+        elif self.stock_bot_type == "advanced":
             decision = self.stock_bot.trade(
                 self._current_prices(),
                 self._stock_bot_probabilities(),
@@ -1955,17 +1919,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         except (TypeError, ValueError):
             return False
 
-    def _is_capital_race_level(self):
-        try:
-            return has_active_condition(self, BOSS_TRADING) and int(getattr(self, "level_number", 0) or 0) == 6 and bool(
-                getattr(self, "is_boss_fight", False)
-            )
-        except (TypeError, ValueError):
-            return False
-
-    def _is_level6_alternating_battle(self):
-        return self._is_capital_race_level()
-
     def _player_portfolio_value(self):
         return int(self.Money or 0) + (
             int(self.Aquantity or 0) * int(self.Aprice or 0)
@@ -1993,7 +1946,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return True
         player_value = self._player_portfolio_value()
         boss_value = self._stock_bot_portfolio_value()
-        can_win = player_value > boss_value if self._is_capital_race_level() else player_value >= boss_value
+        can_win = player_value >= boss_value
         if not can_win:
             print(
                 f"Stock bot boss blocks victory: player_value={player_value}, "
@@ -2113,7 +2066,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "newspaper_opening": dict(getattr(self, 'newspaper_opening', {})),
             "newspaper_y": float(getattr(self, 'newspaper_y', -SCREEN_HEIGHT)),
             "newspaper_closing": bool(getattr(self, 'newspaper_closing', False)),
-            "newspaper_reward_report_started_at": int(getattr(self, "newspaper_reward_report_started_at", 0) or 0),
             "newspaper_reward_report_auto_opened": bool(getattr(self, "newspaper_reward_report_auto_opened", False)),
             "finance_stamp_state": self.finance_stamp_state,
             "round_start_napoleondors": float(self.round_start_napoleondors or 0),
@@ -2154,7 +2106,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "stock_bot": self.stock_bot.to_dict() if self.stock_bot is not None else self._stock_bot_saved_state,
             "stock_bot_blocked_buy_prices": sorted(self.stock_bot_blocked_buy_prices or []),
             "stock_bot_trade_history": list(self.stock_bot_trade_history or []),
-            "level6_turn_owner": self.level6_turn_owner,
             "stats_recorded": self._stats_recorded,
             "pending_result_stats": self._pending_result_stats,
         }
@@ -2279,8 +2230,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.newspaper_opening = dict(state.get('newspaper_opening') or self.newspaper_opening)
         self.newspaper_y = float(state.get('newspaper_y', -SCREEN_HEIGHT))
         self.newspaper_closing = bool(state.get('newspaper_closing', False))
-        self.newspaper_reward_report_started_at = int(state.get("newspaper_reward_report_started_at", 0) or 0)
-        self.newspaper_reward_report_auto_opened = bool(state.get("newspaper_reward_report_auto_opened", False))
+        # SDL ticks start over in each process, including when loading older saves.
+        self.newspaper_reward_report_started_at = pygame.time.get_ticks()
+        self.newspaper_reward_report_auto_opened = (
+            self.result_report_stage == "card_report" or bool(state.get("newspaper_reward_report_auto_opened"))
+        )
         self._newspaper_surface_cache = None
         self.finance_report_y = float(state.get("finance_report_y", self.finance_report_y) or 0)
         self.finance_report_entries = [
@@ -2314,18 +2268,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.active_silver_cards = list(state.get("active_silver_cards", self.active_silver_cards) or [])
         self.active_black_cards = list(state.get("active_black_cards", self.active_black_cards) or [])
         self.active_gold_cards = list(state.get("active_gold_cards", self.active_gold_cards) or [])
-        if self._is_level6_alternating_battle():
-            self.hand = 0
-            self.deck = []
-            self.hand_cards = []
-            self.market_cards = {0: {}, 1: {}, 2: {}}
-            self.side_cards_top = [None] * 6
-            self.active_silver_cards = []
-            self.active_black_cards = []
-            self.active_gold_cards = []
-            self.active_lifecycle_card_order = []
-        else:
-            game_state.set_active_gold_cards(self.active_gold_cards)
+        game_state.set_active_gold_cards(self.active_gold_cards)
         self._restore_standardization_state(state)
         if self._is_standardization_active():
             # Rebuild steps instead of restoring the old card's fixed $4 effect.
@@ -2370,8 +2313,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.shareholder_effect_count = int(
             state.get("shareholder_effect_count", self.shareholder_effect_count) or 0
         )
-        if self._is_level6_alternating_battle():
-            self.shareholder_effect_count = 0
         blocked_market = state.get("shareholder_blocked_market", self.shareholder_blocked_market)
         self.shareholder_blocked_market = (
             blocked_market if blocked_market in (0, 1, 2)
@@ -2387,10 +2328,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         except (TypeError, ValueError):
             self.stock_bot_blocked_buy_prices = set()
         self.stock_bot_trade_history = list(state.get("stock_bot_trade_history") or self.stock_bot_trade_history or [])
-        self.level6_turn_owner = "player"
-        self.level6_bot_turn_phase = None
-        self.level6_bot_turn_started_at = 0
-        self.level6_bot_turn_decision = None
         self.stock_bot_acted_this_resolution = False
         self._stats_recorded = bool(state.get("stats_recorded", self._stats_recorded))
         self._pending_result_stats = state.get("pending_result_stats")
@@ -3038,8 +2975,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     if (
-                        not self._is_level6_alternating_battle()
-                        and self.win_lose_state is None
+                        self.win_lose_state is None
                         and self._handle_collection_navigation(event.pos)
                     ):
                         continue
@@ -3313,15 +3249,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if self._apply_final_auto_liquidation_if_needed():
             if self._is_final_auto_liquidation_animating():
                 return
-        if self._is_capital_race_level():
-            if self.win_lose_state is not None or self.Day < self.LastTurn:
-                return
-            won = self._can_win_against_current_boss()
-            self._finish_win_lose_result(
-                "win" if won else "lose",
-                "capital_race" if won else "stock_bot_ahead",
-            )
-            return
         if has_active_condition(self, BOSS_SHARES) and self.Day < self.LastTurn:
             return
         next_state, reason = resolve_win_lose_state(
@@ -3390,7 +3317,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if (self.level_number == 6 and not getattr(self, "test_mode", False)
                 and getattr(self, "profile_slot", None)):
             self._sixth_level_losses_hint_pending = record_level6_tutorial_result(
-                self.profile_slot, next_state == "win",
+                self.profile_slot, next_state == "win", self.is_final_boss,
             )
         if (self.level_number == 4 and not getattr(self, "test_mode", False)
                 and getattr(self, "profile_slot", None)):
@@ -5733,9 +5660,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             market for market, quantity in enumerate(quantities) if quantity > 0
         }
         self.stock_bot_acted_this_resolution = False
-        if self._is_level6_alternating_battle():
-            self._begin_level6_bot_turn()
-            return True
 
         self._start_market_resolution_after_actions()
         return True
@@ -5754,65 +5678,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if self.current_card_processing is None and not self.price_card_queue:
                 self._begin_effect_finalize_or_wait()
 
-    def _begin_level6_bot_turn(self):
-        self.level6_turn_owner = "bot"
-        self.level6_bot_turn_phase = "thinking"
-        self.level6_bot_turn_started_at = pygame.time.get_ticks()
-        self.level6_bot_turn_decision = None
-
-    @staticmethod
-    def _level6_bot_has_activity(decision, key):
-        if not isinstance(decision, dict):
-            return False
-        return any(int(value or 0) > 0 for value in (decision.get(key) or {}).values())
-
-    def _start_level6_bot_ending(self, now):
-        self.level6_bot_turn_phase = "ending"
-        self.level6_bot_turn_started_at = now
-        self._start_end_button_press_animation(LEVEL6_BOT_END_PRESS_MS)
-        if getattr(self, "end_turn_sound", None):
-            self.end_turn_sound.play()
-
-    def update_level6_bot_turn(self):
-        """Run Bot3 as a visible turn, then hand control to the market."""
-        if not self._is_level6_alternating_battle() or not self.level6_bot_turn_phase:
-            return False
-
-        now = pygame.time.get_ticks()
-        elapsed = now - int(self.level6_bot_turn_started_at)
-        if self.level6_bot_turn_phase == "thinking":
-            if elapsed < LEVEL6_BOT_THINK_MS:
-                return False
-            decision = self._run_stock_bot_turn()
-            self.level6_bot_turn_decision = decision if isinstance(decision, dict) else {}
-            self.stock_bot_acted_this_resolution = True
-            if self._level6_bot_has_activity(self.level6_bot_turn_decision, "sold"):
-                self.level6_bot_turn_phase = "selling"
-            elif self._level6_bot_has_activity(self.level6_bot_turn_decision, "bought"):
-                self.level6_bot_turn_phase = "buying"
-            else:
-                self.level6_bot_turn_phase = "holding"
-            self.level6_bot_turn_started_at = now
-            return True
-
-        if self.level6_bot_turn_phase == "selling" and elapsed >= LEVEL6_BOT_ACTION_MS:
-            if self._level6_bot_has_activity(self.level6_bot_turn_decision, "bought"):
-                self.level6_bot_turn_phase = "buying"
-                self.level6_bot_turn_started_at = now
-            else:
-                self._start_level6_bot_ending(now)
-            return True
-
-        if self.level6_bot_turn_phase in ("buying", "holding") and elapsed >= LEVEL6_BOT_ACTION_MS:
-            self._start_level6_bot_ending(now)
-            return True
-
-        if self.level6_bot_turn_phase == "ending" and elapsed >= LEVEL6_BOT_END_PRESS_MS:
-            self.level6_bot_turn_phase = None
-            self.level6_turn_owner = "market"
-            self._start_market_resolution_after_actions()
-            return True
-        return False
 
     def _try_start_waterloo_preview(self):
         if getattr(self, "waterloo_preview_movements", None) is not None:
@@ -6120,11 +5985,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self._finish_turn_after_arkwright_share_theft()
 
     def _finish_turn_after_arkwright_share_theft(self):
-        if not self._is_level6_alternating_battle():
-            self._run_stock_bot_turn()
-        elif not self.stock_bot_acted_this_resolution:
-            print("ERROR: Level 6 market resolved before Bot3 completed its turn.")
-            return
+        self._run_stock_bot_turn()
         if self._burn_cash_for_astor_if_needed():
             return
         self._finish_turn_after_astor_cash_burn()
@@ -6188,9 +6049,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.continuation_applied_this_resolution = False
         self.continuation_animation_phase = False
         self.stock_bot_acted_this_resolution = False
-        self.level6_bot_turn_phase = None
-        self.level6_bot_turn_decision = None
-        self.level6_turn_owner = "player"
         if not self.hand_compact_anim and not self.hand_draw_anim:
             self._save_active_game()
 
@@ -7512,7 +7370,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         if normalized == 420:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
-            return title, f"{description} Сейчас {self._get_advance_chance()}%"
+            detail = f"Сейчас {self._get_advance_chance()}%"
+            return title, f"{description} {detail}"
         if normalized == 410:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             detail = f"Сейчас {self._get_uptrend_rebate_bonus_percent()}%"
@@ -7908,82 +7767,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             draw_rect = rotated.get_rect(center=(int(center_x), int(center_y)))
             self.screen.blit(rotated, draw_rect.topleft)
 
-    def _draw_level6_bot_trade_action(self, frame_rect, market):
-        if (
-            not self._is_level6_alternating_battle()
-            or self.level6_turn_owner != "bot"
-        ):
-            return
-
-        phase = self.level6_bot_turn_phase
-        if phase == "thinking":
-            if market != 1:
-                return
-            text = self._get_text("Level6BotThinking", "Бот3 думает...")
-            surface = self.font_small.render(_tr(text), True, PAPER_COLOR)
-            self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
-            return
-
-        decision = self.level6_bot_turn_decision or {}
-        labels = ("A", "B", "C")
-        label = labels[market]
-        if phase in ("selling", "buying"):
-            key = "sold" if phase == "selling" else "bought"
-            try:
-                count = int((decision.get(key) or {}).get(label, 0) or 0)
-            except (TypeError, ValueError):
-                count = 0
-            if count <= 0:
-                return
-
-            action_text = self._get_text(
-                "Level6BotSelling" if phase == "selling" else "Level6BotBuying",
-                "Продаёт" if phase == "selling" else "Покупает",
-            )
-            action_surface = self.pause_small_font.render(_tr(action_text), True, PAPER_COLOR)
-            action_rect = action_surface.get_rect(
-                centerx=frame_rect.centerx,
-                bottom=frame_rect.centery - 28,
-            )
-            self.screen.blit(action_surface, action_rect)
-
-            arrow = self.arrow_down if phase == "selling" else self.arrow_up
-            arrow_size = 92
-            if arrow:
-                arrow_image = pygame.transform.smoothscale(arrow, (arrow_size, arrow_size))
-                arrow_rect = arrow_image.get_rect(
-                    center=(frame_rect.centerx - 34, frame_rect.centery + 32)
-                )
-                self.screen.blit(arrow_image, arrow_rect)
-                count_x = arrow_rect.right + 8
-            else:
-                count_x = frame_rect.centerx - 12
-            count_surface = self.font_large.render(_tr(str(count)), True, PAPER_COLOR)
-            count_rect = count_surface.get_rect(
-                left=count_x,
-                centery=frame_rect.centery + 32,
-            )
-            self.screen.blit(count_surface, count_rect)
-            return
-
-        if phase != "holding":
-            return
-
-        quantities = getattr(getattr(self, "stock_bot", None), "quantities", {}) or {}
-        quantity_keys = ("Aquantity", "Bquantity", "Cquantity")
-        try:
-            count = int(quantities.get(quantity_keys[market], 0) or 0)
-        except (TypeError, ValueError):
-            count = 0
-        if count <= 0:
-            if market != 1 or any(int(value or 0) > 0 for value in quantities.values()):
-                return
-            text = self._get_text("Level6BotNoTrades", "Без сделок")
-        else:
-            hold_text = self._get_text("Level6BotHolding", "Держит")
-            text = f"{hold_text}: {count}"
-        surface = self.font_small.render(_tr(text), True, PAPER_COLOR)
-        self.screen.blit(surface, surface.get_rect(center=frame_rect.center))
     
     @adaptive_draw
     def draw(self):
@@ -8045,24 +7828,15 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             min_right_margin = 20  # Minimum margin from right edge to prevent overflow
             
             # Draw Goal label and value
-            capital_race = self._is_capital_race_level()
-            if capital_race:
-                goal_label_text = self._get_text("CapitalRaceLabel", "Victory:")
-                goal_value_text = self._get_text("CapitalRaceCondition", "capital above Bot3")
-            else:
-                goal_label_text = "Goal:"
-                goal_value_text = str(self.Goal)
+            goal_label_text = "Goal:"
+            goal_value_text = str(self.Goal)
             goal_label = self.font_medium.render(_tr(goal_label_text), True, PAPER_COLOR)
-            goal_value_font = self.font_small if capital_race else self.font_medium
+            goal_value_font = self.font_medium
             goal_value = goal_value_font.render(_tr(goal_value_text), True, PAPER_COLOR)
             goal_label_x = label_start_x
             goal_label_y = margin_top
-            if capital_race:
-                goal_value_x = label_start_x
-                goal_value_y = goal_label_y + goal_label.get_height() + 2
-            else:
-                goal_value_x = goal_label_x + goal_label.get_width() + value_spacing
-                goal_value_y = margin_top
+            goal_value_x = goal_label_x + goal_label.get_width() + value_spacing
+            goal_value_y = margin_top
             # Ensure value doesn't go off screen
             if goal_value_x + goal_value.get_width() > SCREEN_WIDTH - min_right_margin:
                 goal_value_x = SCREEN_WIDTH - min_right_margin - goal_value.get_width()
@@ -8085,7 +7859,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 money_value_x = SCREEN_WIDTH - min_right_margin - money_value.get_width()
 
             bot_status_text = self._stock_bot_status_text()
-            bot_status_font = self.pause_small_font if capital_race else self.font_small
+            bot_status_font = self.font_small
             bot_status = bot_status_font.render(_tr(bot_status_text), True, PAPER_COLOR) if bot_status_text else None
             bot_status_x = label_start_x
             bot_status_y = money_label_y + money_label.get_height() + 8
@@ -8109,24 +7883,24 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             right_top_h = right_panel_layout["top_height"]
 
             # Draw card panels only in modes where cards are part of the battle.
-            if not self._is_level6_alternating_battle():
-                try:
-                    top_key = (int(right_frame_w), int(right_top_h))
-                    bot_key = (int(right_frame_w), int(right_bot_h))
-                    right_frame_top_img = self._scaled_frame_cache.get(top_key)
-                    if right_frame_top_img is None:
-                        right_frame_top_img = pygame.transform.smoothscale(self.frame, top_key).convert_alpha()
-                        self._scaled_frame_cache[top_key] = right_frame_top_img
-                    right_frame_bot_img = self._scaled_frame_cache.get(bot_key)
-                    if right_frame_bot_img is None:
-                        right_frame_bot_img = pygame.transform.smoothscale(self.frame, bot_key).convert_alpha()
-                        self._scaled_frame_cache[bot_key] = right_frame_bot_img
-                    self.screen.blit(right_frame_top_img, (right_frame_x, right_top_y))
-                    self.screen.blit(right_frame_bot_img, (right_frame_x, right_bot_y))
-                except Exception:
-                    # Fallback: simple rects if scaling fails
-                    pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_top_y, right_frame_w, right_top_h), 2)
-                    pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_bot_y, right_frame_w, right_bot_h), 2)
+
+            try:
+                top_key = (int(right_frame_w), int(right_top_h))
+                bot_key = (int(right_frame_w), int(right_bot_h))
+                right_frame_top_img = self._scaled_frame_cache.get(top_key)
+                if right_frame_top_img is None:
+                    right_frame_top_img = pygame.transform.smoothscale(self.frame, top_key).convert_alpha()
+                    self._scaled_frame_cache[top_key] = right_frame_top_img
+                right_frame_bot_img = self._scaled_frame_cache.get(bot_key)
+                if right_frame_bot_img is None:
+                    right_frame_bot_img = pygame.transform.smoothscale(self.frame, bot_key).convert_alpha()
+                    self._scaled_frame_cache[bot_key] = right_frame_bot_img
+                self.screen.blit(right_frame_top_img, (right_frame_x, right_top_y))
+                self.screen.blit(right_frame_bot_img, (right_frame_x, right_bot_y))
+            except Exception:
+                # Fallback: simple rects if scaling fails
+                pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_top_y, right_frame_w, right_top_h), 2)
+                pygame.draw.rect(self.screen, BLACK, (right_frame_x, right_bot_y, right_frame_w, right_bot_h), 2)
 
             # Draw labels AFTER frames so text is never covered by the frame art
             self.screen.blit(goal_label, (goal_label_x, goal_label_y))
@@ -8318,7 +8092,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                             self.screen.blit(img_to_draw, (arrow_x, ay))
                 
                 # Draw three placeholders at the bottom of each market frame (A, B, C)
-                if self.placeholder_market and not self._is_level6_alternating_battle():
+                if self.placeholder_market:
                     market_placeholders = build_market_placeholders(
                         frame_info["rect"],
                         i,
@@ -8430,7 +8204,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         anim_y = frame_y + (frame_height - self.animation_height) // 2 - 20
                         self.screen.blit(anim_img, (anim_x, anim_y))
 
-                self._draw_level6_bot_trade_action(frame_info["rect"], i)
 
             bankruptcy_animation.draw(self, market_layout)
             parity_animation.draw(self, parity_labels)
@@ -8443,7 +8216,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.side_placeholders_top = []
             self.side_placeholders_bottom = []
             ph_img = self.placeholder_side or self.placeholder_market
-            if ph_img and not self._is_level6_alternating_battle():
+            if ph_img:
                 self.side_placeholders_top, self.side_placeholders_bottom = build_side_panel_placeholders(
                     right_panel_layout,
                     ph_img,
@@ -8567,7 +8340,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _draw_gameplay_hand(self):
         # Draw bottom frame (strategy cards area)
-        if self.bottom_frame and not self._is_level6_alternating_battle():
+        if self.bottom_frame:
             hand_layout = compute_bottom_hand_layout(self.bottom_frame, self.hand, SCREEN_WIDTH, SCREEN_HEIGHT)
             bf_x = hand_layout["frame_x"] if hand_layout else (SCREEN_WIDTH - self.bottom_frame.get_width()) // 2 - 200
             bf_y = hand_layout["frame_y"] if hand_layout else SCREEN_HEIGHT - self.bottom_frame.get_height() - 150
@@ -8737,28 +8510,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             day_text_y = self.end_button_rect.y + (self.end_button_rect.height - day_text.get_height()) // 2  # Vertically centered with button
             self.screen.blit(day_text, (day_text_x, day_text_y))
 
-            if self._is_level6_alternating_battle():
-                turn_labels = {
-                    "player": self._get_text("Level6PlayerTurn", "Ход игрока"),
-                    "bot": self._get_text("Level6BotTurn", "Ход Бота3"),
-                    "market": self._get_text("Level6MarketTurn", "Изменение рынка"),
-                }
-                turn_label = turn_labels.get(self.level6_turn_owner, turn_labels["player"])
-                bot_phase_labels = {
-                    "thinking": self._get_text("Level6BotThinking", "Бот3 думает..."),
-                    "selling": self._get_text("Level6BotSelling", "Продаёт"),
-                    "buying": self._get_text("Level6BotBuying", "Покупает"),
-                    "holding": self._get_text("Level6BotHolding", "Держит"),
-                    "ending": self._get_text("Level6BotEnding", "Бот3 завершает ход"),
-                }
-                if self.level6_turn_owner == "bot":
-                    turn_label = bot_phase_labels.get(self.level6_bot_turn_phase, turn_label)
-                turn_surface = self.font_small.render(_tr(turn_label), True, PAPER_COLOR)
-                turn_rect = turn_surface.get_rect(
-                    centerx=self.end_button_rect.centerx,
-                    bottom=self.end_button_rect.y - 8,
-                )
-                self.screen.blit(turn_surface, turn_rect)
 
             if int(getattr(self, "boss_turn_time_limit_seconds", 0) or 0) > 0:
                 timer_text = self.font_medium.render(
@@ -8812,18 +8563,19 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _maybe_show_conditions_tutorial(self):
         if (self.test_mode or not self.profile_slot or self.tutorial_hint is not None
+                or CONDITIONS_GAME_HINT_ID in self.tutorial_dismissed_this_round
                 or not conditions_for_level(self.level_number)
                 or self.win_lose_state is not None
-                or CONDITIONS_GAME_HINT_ID in self.tutorial_dismissed_this_round
                 or self.pause_menu_active or self.deck_view_active
-                or self._is_turn_resolution_active() or self._is_hand_transition_active()
-                or self._is_level6_alternating_battle()):
+                or self._is_turn_resolution_active() or self._is_hand_transition_active()):
             return
         if profile_manager.is_tutorial_pending(self.profile_slot, CONDITIONS_GAME_HINT_ID):
             self.tutorial_hint = TutorialHint(
                 self.screen.get_size(), self.frame, self.font_path, self.ok1_button,
                 hint_id=CONDITIONS_GAME_HINT_ID, text=CONDITIONS_GAME_HINT_TEXT,
             )
+        else:
+            self.tutorial_dismissed_this_round.add(CONDITIONS_GAME_HINT_ID)
 
     def _maybe_show_late_end_turn_tutorial(self):
         if (
@@ -8948,7 +8700,6 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.update_price_animation()
         if self._is_protective_put_animating():
             return
-        self.update_level6_bot_turn()
 
         # Update card jump animations
         self.update_card_jump_animations()

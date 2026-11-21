@@ -41,8 +41,7 @@ class LevelAndGoalRulesTests(unittest.TestCase):
                 3: (3, 3),
                 4: (3, 3),
                 5: (3, 4),
-                6: (0, 1),
-                8: (3, 4),
+                6: (3, 4),
             },
         )
 

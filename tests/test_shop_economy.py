@@ -8,7 +8,6 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import game_state
 import profile_manager
 from round_page import RoundPage
-from level_routes import get_campaign_content_level
 from shop_page import (
     CARD_DESCRIPTIONS,
     CARD_NAMES,
@@ -205,6 +204,31 @@ class ShopTransactionTests(ShopEconomyTestCase):
             page._buy_offer(0)
         self.assertEqual(pool.call_args.kwargs["excluded_offer_ids"], game_state.SINGLE_ACTIVE_SHOP_OFFERS)
         self.assertEqual(game_state.napoleondors, 8)
+
+    def test_screening_saves_only_the_paid_purchase_after_free_diversification(self):
+        game_state.napoleondors = 8
+        game_state.diversification_bought = False
+        page = self._shop({"kind": "special", "special_id": "screening", "cost": 1})
+        page.profile_slot = 1
+        page.visit = {"discount_percent": 0}
+        page._price_cut_assistance_pending = False
+        page._purchase_stamps = {}
+        page._pending_assortment = None
+        choices = ["diversification", "profit", "loan", "variance", "long"]
+        with (
+            mock.patch.object(game_state, "build_screening_offer_pool", return_value=choices),
+            mock.patch("shop_page.ScreeningOfferPage") as picker,
+            mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[117]),
+            mock.patch("shop_page.profile_manager.save_progress_from_game_state") as save,
+        ):
+            picker.return_value.run.return_value = "diversification"
+            page._buy_offer(0)
+        save.assert_called_once_with(1)
+        self.assertEqual(game_state.napoleondors, 7)
+        self.assertTrue(game_state.diversification_bought)
+        self.assertEqual(page.visit["sold_offer_indexes"], [1])
+        self.assertEqual([offer["kind"] for offer in page.visit["offers"]], ["card", "special"])
+        self.assertEqual(page.visit["offers"][1]["special_id"], "screening")
 
     def test_screening_exclusions_apply_to_rolls_and_fallback(self):
         available = ["bailout", "bank", "profit", "trader", "variance", "junk_bond", "delisting"]
@@ -830,8 +854,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
         self.assertLessEqual(page.offer_image_box[0], min(rect.width for rect in rects))
         self.assertLessEqual(page.card_offer_size[0], min(rect.width for rect in rects))
 
-    def test_marathon_starts_with_two_cards_and_diversification_adds_third(self):
-        level = get_campaign_content_level(6)
+    def test_sixth_level_starts_with_two_cards_and_diversification_adds_third(self):
+        level = 6
         game_state.napoleondors = 10
         page = self._shop({"kind": "special", "special_id": "diversification", "cost": 4})
         page.level_number = level
@@ -854,8 +878,8 @@ class ShopTransactionTests(ShopEconomyTestCase):
             self.assertEqual(len(card_offers()), 2)
             self.assertTrue(game_state.is_diversification_offer_available())
 
-    def test_marathon_fills_card_slots_when_probability_pool_is_small(self):
-        level = get_campaign_content_level(6)
+    def test_sixth_level_fills_card_slots_when_probability_pool_is_small(self):
+        level = 6
         with (
             mock.patch.object(game_state, "build_shop_card_offer_pool", return_value=[401]),
             mock.patch.object(game_state, "build_all_available_shop_cards", return_value=[401, 402, 403]),

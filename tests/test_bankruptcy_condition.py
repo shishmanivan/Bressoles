@@ -10,7 +10,6 @@ import profile_manager
 import gameplay_bankruptcy_condition as condition
 from gameplay_conditions import BANKRUPTCY, LEVEL_CONDITIONS, has_active_condition
 from gameplay_page import GameplayPage
-from level_routes import get_campaign_content_level
 
 
 class BankruptcyConditionTests(unittest.TestCase):
@@ -23,7 +22,7 @@ class BankruptcyConditionTests(unittest.TestCase):
 
     def page(self):
         page = GameplayPage.__new__(GameplayPage)
-        page.level_number = get_campaign_content_level(6)
+        page.level_number = 6
         page.active_silver_cards = []
         page.active_gold_cards = []
         page.side_cards_top = []
@@ -103,7 +102,7 @@ class BankruptcyConditionTests(unittest.TestCase):
     def test_run_loss_restart_and_completion_reset_chance(self):
         for reset in (game_state.reset_level_attempt, game_state.complete_level_run):
             game_state.set_bankruptcy_condition_chance(27)
-            reset(get_campaign_content_level(6))
+            reset(6)
             page = self.page()
             self.assertEqual(page.bankruptcy_condition_chance, 0)
             page.side_cards_top = [117]

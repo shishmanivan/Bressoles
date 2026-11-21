@@ -148,10 +148,15 @@ class PercentPuzzleTests(unittest.TestCase):
         page = self.page()
         page._try_complete_percent_puzzle()
         page.win_lose_state = "lose"
-        page.result_report_stage = "cards"
-        self.assertFalse(page._has_result_report())
-        page.result_report_stage = "card_report"
-        self.assertTrue(page._has_result_report())
+        import pygame
+        page.screen = pygame.Surface((1680, 1050))
+        page.result_report_stage = "newspaper"
+        button = page._newspaper_button_layout()["card_report"]
+        page._save_active_game = mock.Mock()
+        page._handle_newspaper_input(pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=button.center))
+        self.assertEqual(page.result_report_stage, "card_report")
+        self.assertEqual([row["card_id"] for row in page._get_card_report_rows()], [305])
 
     def test_combined_game_save_restores_consumption_and_report(self):
         import pygame

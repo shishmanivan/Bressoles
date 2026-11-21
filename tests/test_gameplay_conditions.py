@@ -18,14 +18,14 @@ from gameplay_conditions import LEVEL_CONDITIONS, active_conditions_for_page, ha
 class ConditionsTests(unittest.TestCase):
     def test_stakes_disable_all_conditions_including_future_conditions(self):
         for attribute, card in (("active_silver_cards", 205), ("active_gold_cards", 436)):
-            page = SimpleNamespace(level_number=8)
-            with mock.patch.dict(LEVEL_CONDITIONS, {8: (BOSS_SHARES, SHAREHOLDERS, BOSS_TRADING, "future")}):
+            page = SimpleNamespace(level_number=6)
+            with mock.patch.dict(LEVEL_CONDITIONS, {6: (BOSS_SHARES, SHAREHOLDERS, BOSS_TRADING, "future")}):
                 setattr(page, attribute, [str(card)])
                 self.assertEqual(active_conditions_for_page(page), ())
-                for condition in LEVEL_CONDITIONS[8]:
+                for condition in LEVEL_CONDITIONS[6]:
                     self.assertFalse(has_active_condition(page, condition))
                 setattr(page, attribute, [])
-                self.assertEqual(active_conditions_for_page(page), LEVEL_CONDITIONS[8])
+                self.assertEqual(active_conditions_for_page(page), LEVEL_CONDITIONS[6])
 
     def test_stakes_prevent_trading_and_clear_stale_bot(self):
         for attribute, card in (("active_silver_cards", 205), ("active_gold_cards", 436)):
@@ -40,11 +40,10 @@ class ConditionsTests(unittest.TestCase):
             self.assertFalse(page.stock_bot_enabled)
             self.assertIsNone(page.stock_bot)
             self.assertIsNone(page._stock_bot_saved_state)
-            self.assertFalse(page._is_level6_alternating_battle())
 
     def test_only_fourth_level_has_shareholders(self):
         for level in range(1, 14):
-            self.assertEqual(conditions_for_level(level), {4: (SHAREHOLDERS,), 6: (BOSS_TRADING,), 8: (BANKRUPTCY,)}.get(level, ()))
+            self.assertEqual(conditions_for_level(level), {4: (SHAREHOLDERS,), 6: (BANKRUPTCY,)}.get(level, ()))
 
     def test_all_condition_descriptions_are_translated(self):
         language = get_language()

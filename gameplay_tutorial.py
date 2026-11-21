@@ -18,9 +18,9 @@ SIXTH_LEVEL_LOSSES_HINT_TEXT = (
 )
 
 
-def record_level6_tutorial_result(slot, won):
+def record_level6_tutorial_result(slot, won, final_boss=False):
     import profile_manager
-    if not slot:
+    if not slot or (won and not final_boss):
         return False
     profile = profile_manager.load_profile(slot)
     count = 0 if won else max(0, int(profile.get("level6_loss_streak", 0))) + 1

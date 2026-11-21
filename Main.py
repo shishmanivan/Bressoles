@@ -26,10 +26,7 @@ from boss_logic import (
     get_boss_number_from_filename,
     get_boss_number_from_index,
     get_bosses_required,
-    validate_levels_and_rounds_config,
-    _ensure_level3_roster,
-    _ensure_level5_roster,
-    _ensure_level8_roster,
+    get_level_boss_roster,
 )
 from boss_progress import complete_boss_position, remember_current_boss
 from content_validation import assert_valid_game_content
@@ -47,7 +44,6 @@ from game_data import (
     get_level4_goal,
 )
 from game_stats import (
-    set_level6_experiment_stats_file,
     set_stats_file,
     update_level_boss_position_stats,
     update_level_run_loss_stage_stats,
@@ -60,7 +56,7 @@ from card_acquisition_stats import configure_card_acquisition_stats
 from boss_page import BossPage
 from game_screen import GameScreen
 from gameplay_page import GameplayPage
-from level_routes import get_campaign_content_level, get_test_content_level
+from level_routes import PLAYABLE_LEVELS
 from profile_page import ProfilePage
 from round_page import RoundPage
 from settings_page import SettingsPage
@@ -88,6 +84,11 @@ CURRENT_LANGUAGE = "RU"  # Default language (RUS in user's terms, but file uses 
 
 
 def main():
+    with profile_manager.ProfileSession() as session:
+        return _run_game(session)
+
+
+def _run_game(session):
     global Lang, CURRENT_LANGUAGE
 
     event("startup.display.begin")
@@ -120,16 +121,17 @@ def main():
     Lang = load_language(CURRENT_LANGUAGE)
     
     event("startup.validation.begin", language=CURRENT_LANGUAGE)
-    # Validate levels and rounds config (RoundsData.csv vs LEVEL_BOSS_ROUNDS)
-    validate_levels_and_rounds_config()
     assert_valid_game_content()
 
     event("startup.profile.begin")
     selected_slot = profile_manager.get_selected_slot()
     profile_needs_attention = False
     try:
-        selected_profile = profile_manager.load_profile(selected_slot) if selected_slot else None
+        selected_profile = session.activate(selected_slot, profile_manager.load_profile) if selected_slot else None
         profile_needs_attention = bool(selected_slot and profile_manager.was_profile_recovered(selected_slot))
+    except profile_manager.ProfileBusyError:
+        selected_slot, selected_profile = None, None
+        profile_needs_attention = True
     except profile_manager.ProfileLoadError:
         logger.exception("Selected profile could not be loaded")
         selected_slot, selected_profile = None, None
@@ -139,22 +141,21 @@ def main():
         profile_manager.apply_profile_to_game_state(selected_profile)
         set_stats_file(profile_manager.get_stats_file(selected_slot))
         configure_card_acquisition_stats(selected_slot, CARD_NAMES)
-        set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
         set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
 
     def choose_profile():
         nonlocal selected_slot, selected_profile
-        profile_page = ProfilePage(screen, background, font_path, Lang)
+        profile_page = ProfilePage(screen, background, font_path, Lang, session=session)
         profile_result = run_page(profile_page)
         if isinstance(profile_result, dict):
-            selected_slot = int(profile_result["slot"])
-            selected_profile = profile_manager.load_profile(selected_slot)
-            profile_manager.apply_profile_to_game_state(selected_profile)
+            selected_slot = session.slot
+            selected_profile = profile_result
             set_stats_file(profile_manager.get_stats_file(selected_slot))
             configure_card_acquisition_stats(selected_slot, CARD_NAMES)
-            set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
             set_shop_card_stats_file(profile_manager.get_shop_card_stats_file(selected_slot))
             return True
+        if session.slot is None:
+            selected_slot, selected_profile = None, None
         return False
 
     def save_progress_if_needed(test_mode=False):
@@ -179,8 +180,7 @@ def main():
         finally:
             menu_music.return_to_menu()
 
-    def open_shop(level_number, test_mode=False):
-        discount_percent = game_state.consume_pending_shop_discount()
+    def open_shop(level_number, visit, test_mode=False):
         level = int(level_number or 1)
         level_boss_state = game_state.boss_progress.get(level) or {}
         defeated_count = max(0, int(level_boss_state.get("defeated", 0) or 0))
@@ -192,7 +192,6 @@ def main():
             bosses_required,
             get_level_rounds_required(level, rounds_config, levels_config),
         )
-        save_progress_if_needed(test_mode)
         shop_page = ShopPage(
             screen,
             font_path,
@@ -200,7 +199,8 @@ def main():
             game_state.napoleondors,
             Lang,
             profile_slot=selected_slot if not test_mode else None,
-            discount_percent=discount_percent,
+            discount_percent=visit["discount_percent"],
+            visit=visit,
             stats_enabled=bool(selected_slot and not test_mode),
             defeated_count=defeated_count,
             bosses_required=bosses_required,
@@ -208,6 +208,8 @@ def main():
         )
         run_page(shop_page)
         game_state.update_bank_interest_base()
+        if not test_mode:
+            level_boss_state.pop("shop_visit", None)
         save_progress_if_needed(test_mode)
 
     def award_napoleondors_and_open_shop(
@@ -223,11 +225,17 @@ def main():
             else 0
         )
         game_state.add_napoleondors(level_number, reward_amount)
+        if show_shop:
+            visit = {"discount_percent": game_state.consume_pending_shop_discount()}
+            if selected_slot and not test_mode:
+                # clear_active_game writes the reward and the upcoming shop together.
+                game_state.boss_progress[level_number]["shop_visit"] = visit
         if clear_active_game and selected_slot and not test_mode:
             profile_manager.clear_active_game(selected_slot)
-        if show_shop:
+        elif show_shop:
             save_progress_if_needed(test_mode)
-            open_shop(level_number, test_mode)
+        if show_shop:
+            open_shop(level_number, visit, test_mode)
         else:
             game_state.clear_pending_shop_discount()
 
@@ -250,18 +258,6 @@ def main():
         saved_state = dict((active_game or {}).get("state") or {})
         if not context:
             return None
-        if int(context.get("level_number", 1) or 1) == 6:
-            context.update({
-                "is_boss_fight": True,
-                "boss_index": 0,
-                "boss_filename": None,
-                "round_num": None,
-                "active_silver_cards": [],
-                "active_black_cards": [],
-                "active_gold_cards": [],
-                "active_lifecycle_card_order": [],
-                "rounds_required": 0,
-            })
         gameplay_page = GameplayPage(
             screen,
             font_path,
@@ -439,14 +435,6 @@ def main():
         )
 
     def choose_active_lifecycle_cards(level_number, is_boss_fight=False, round_number=None, difficulty=None):
-        if int(level_number or 0) == 6:
-            return "ok", {
-                "active_silver_cards": [],
-                "active_black_cards": [],
-                "active_gold_cards": [],
-                "active_lifecycle_card_order": [],
-                "positioning_start_cards": [],
-            }
         if not game_state.has_selectable_lifecycle_cards():
             return "ok", {}
         silver_page = SilverBlackPage(
@@ -633,15 +621,20 @@ def main():
                 try:
                     selected_profile = profile_manager.load_profile(selected_slot)
                 except profile_manager.ProfileLoadError:
+                    session.release()
                     selected_slot, selected_profile = None, None
                     profile_needs_attention = True
                     continue
                 profile_manager.apply_profile_to_game_state(selected_profile)
                 set_stats_file(profile_manager.get_stats_file(selected_slot))
                 configure_card_acquisition_stats(selected_slot, CARD_NAMES)
-                set_level6_experiment_stats_file(profile_manager.get_level6_experiment_stats_file(selected_slot))
 
             if result == "start" and selected_slot:
+                for level, state in game_state.boss_progress.items():
+                    if state.get("shop_visit") is not None:
+                        open_shop(level, state["shop_visit"])
+                        pending_level_number = level
+                        break
                 active_game = profile_manager.get_active_game(selected_slot)
                 if active_game:
                     active_context = dict(active_game.get("context") or {})
@@ -677,23 +670,7 @@ def main():
                         pending_level_number = level
                         continue
                     if resume_result in ("round_select", "level_select"):
-                        if (
-                            resume_result == "round_select"
-                            and int(active_context.get("level_number", 1) or 1) == 6
-                        ):
-                            level = 6
-                            bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
-                            award_napoleondors_and_open_shop(
-                                level,
-                                get_boss_victory_napoleondor_amount(level),
-                                show_shop=False,
-                            )
-                            mark_level_run_result(bp_state, level, True)
-                            game_state.level_6_boss_defeated = True
-                            game_state.complete_level_run(level)
-                            reset_level_attempt(level)
-                            save_progress_if_needed()
-                        elif resume_result == "round_select" and active_context.get("is_boss_fight"):
+                        if resume_result == "round_select" and active_context.get("is_boss_fight"):
                             level = int(active_context.get("level_number", 1) or 1)
                             resolve_retention_selection(level)
                             rounds_config = load_rounds_config()
@@ -707,11 +684,7 @@ def main():
                             )
                             mark_level_boss_position_result(level, defeated_count, True)
                             complete_boss_position(bp_state, current_boss)
-                            if level == 8 and int(defeated_count or 0) == 2:
-                                reset_level_attempt(level)
-                                profile_manager.clear_active_game(selected_slot)
-                                save_progress_if_needed()
-                            elif bp_state["defeated"] >= bosses_required:
+                            if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     level,
                                     get_boss_victory_napoleondor_amount(
@@ -734,9 +707,8 @@ def main():
                                     game_state.level_4_boss_defeated = True
                                 elif level == 5:
                                     game_state.unlock_level_six()
-                                elif level == 8:
-                                    game_state.level_8_boss_defeated = True
-                                save_progress_if_needed()
+                                elif level == 6:
+                                    game_state.unlock_level_seven()
                             else:
                                 award_napoleondors_and_open_shop(
                                     level,
@@ -758,9 +730,7 @@ def main():
                             level = int(active_context.get("level_number", 1) or 1)
                             bp_state = game_state.boss_progress.setdefault(level, new_boss_progress_state())
                             with statistics_transaction():
-                                if level == 6:
-                                    mark_level_run_loss_stage(level, "Бот3", 1)
-                                elif active_context.get("is_boss_fight"):
+                                if active_context.get("is_boss_fight"):
                                     with statistics_transaction():
                                         mark_level_boss_position_result(level, active_context.get("defeated_count", 0), False)
                                         mark_level_run_loss_stage(
@@ -805,7 +775,6 @@ def main():
 
             # Level selection loop
             while True:
-                queued_content_level = queued_level_number is not None
                 if queued_level_number is not None:
                     level_result = f"level_{queued_level_number}"
                     queued_level_number = None
@@ -840,12 +809,8 @@ def main():
                     level_num = int(level_result.split("_")[1])
                 except (AttributeError, IndexError, TypeError, ValueError):
                     continue
-                if not queued_content_level:
-                    level_num = (
-                        get_test_content_level(level_num)
-                        if test_mode else get_campaign_content_level(level_num)
-                    )
-
+                if level_num not in PLAYABLE_LEVELS:
+                    continue
                 bosses_required = get_bosses_required(level_num, rounds_config)
                 if not test_mode and game_state.is_level_completed(level_num):
                     continue
@@ -853,22 +818,17 @@ def main():
                     profile_manager.capture_balance_checkpoint(selected_slot, level_num)
                 bp_state = game_state.boss_progress.setdefault(level_num, new_boss_progress_state())
                 bp_state.setdefault("round_progress", {})
-                run_stats_started_before = bool(bp_state.get("run_stats_started"))
-                round_progress_entries = (bp_state.get("round_progress") or {}).values()
-                has_level_run_progress = (
-                    int(bp_state.get("defeated", 0) or 0) > 0
+                # Older profiles may contain a route without the statistics flag.
+                continuing_attempt = (
+                    bool(bp_state.get("run_stats_started"))
+                    or int(bp_state.get("defeated", 0) or 0) > 0
                     or bool(bp_state.get("current_boss"))
-                    or any(
-                        bool((entry or {}).get("completed_rounds") or (entry or {}).get("round_selections"))
-                        for entry in round_progress_entries
-                        if isinstance(entry, dict)
-                    )
+                    or bool(bp_state["round_progress"])
+                    or infer_legacy_current_boss(level_num, bp_state) is not None
                 )
 
-                if not run_stats_started_before:
-                    # Golden Stocks may award at most one gold card per run. Reset
-                    # stale profile state (including saves made before this rule)
-                    # exactly when a fresh run begins, without affecting resumes.
+                if not continuing_attempt:
+                    game_state.reset_run_bonuses()
                     game_state.reset_golden_stocks_for_run()
 
                 # Build per-run card pools on LEVEL selection.
@@ -877,110 +837,15 @@ def main():
                 if game_state.active_red_cards_level != level_num:
                     game_state.active_red_cards_level = level_num
                     game_state.active_red_cards_deck = []
-                if run_stats_started_before and has_level_run_progress:
+                if continuing_attempt:
                     game_state.ensure_silver_cards_deck_for_level(level_num)
                 else:
                     game_state.start_silver_cards_deck_for_level(level_num)
                 game_state.ensure_napoleondor_level(level_num)
-                if selected_slot and not test_mode:
-                    profile_manager.save_progress_from_game_state(selected_slot)
-
                 mark_level_run_started(bp_state, level_num)
-                if int(bp_state.get("defeated", 0) or 0) == 0:
-                    bonuses_reset = False
-                    if game_state.global_start_money_bonus != 0:
-                        game_state.global_start_money_bonus = 0
-                        bonuses_reset = True
-                    if game_state.global_dobor != 1:
-                        game_state.global_dobor = 1
-                        bonuses_reset = True
-                    if game_state.global_hand_bonus != 0:
-                        game_state.global_hand_bonus = 0
-                        bonuses_reset = True
-                    if game_state.global_start_c_shares_bonus != 0:
-                        game_state.clear_start_c_shares_bonus()
-                        bonuses_reset = True
-                    if game_state.updown_probability_bonus != 0:
-                        game_state.clear_updown_probability_bonus()
-                        bonuses_reset = True
-                    if bonuses_reset and selected_slot and not test_mode:
-                        profile_manager.save_progress_from_game_state(selected_slot)
-                if selected_slot and not test_mode and not run_stats_started_before and bp_state.get("run_stats_started"):
-                    profile_manager.save_progress_from_game_state(selected_slot)
+                save_progress_if_needed(test_mode)
 
-                if level_num in (3, 4):
-                    roster = _ensure_level3_roster(bp_state, bosses_required=bosses_required)
-                    LEVEL_BOSS_ROUNDS[level_num] = roster
-
-                if level_num == 5:
-                    roster = _ensure_level5_roster(bp_state, bosses_required=bosses_required)
-                    LEVEL_BOSS_ROUNDS[5] = roster
-
-                if level_num == 6:
-                    gameplay_page = GameplayPage(
-                        screen,
-                        font_path,
-                        "e",
-                        goal=0,
-                        level_number=6,
-                        is_boss_fight=True,
-                        boss_index=0,
-                        defeated_count=0,
-                        lang_dict=Lang,
-                        test_mode=test_mode,
-                        profile_slot=selected_slot,
-                        boss_filename=None,
-                        active_silver_cards=[],
-                        active_black_cards=[],
-                        active_gold_cards=[],
-                        active_lifecycle_card_order=[],
-                        positioning_start_cards=[],
-                        rounds_required=0,
-                    )
-                    gameplay_result = run_gameplay(gameplay_page)
-
-                    if gameplay_result == "round_select":
-                        award_napoleondors_and_open_shop(
-                            level_num,
-                            get_boss_victory_napoleondor_amount(level_num),
-                            test_mode=test_mode,
-                            show_shop=False,
-                        )
-                        mark_level_run_result(bp_state, level_num, True)
-                        game_state.level_6_boss_defeated = True
-                        game_state.complete_level_run(level_num)
-                        reset_level_attempt(level_num)
-                        save_progress_if_needed(test_mode)
-                        if selected_slot and not test_mode:
-                            profile_manager.clear_active_game(selected_slot)
-                    elif gameplay_result == "level_select":
-                        with statistics_transaction():
-                            mark_level_run_loss_stage(level_num, "Бот3", 1)
-                            mark_level_run_result(bp_state, level_num, False)
-                        reset_level_attempt(level_num)
-                        if selected_slot and not test_mode:
-                            profile_manager.clear_active_game(selected_slot)
-                    elif gameplay_result == "restart_level":
-                        reset_level_attempt(level_num)
-                        if selected_slot and not test_mode:
-                            profile_manager.clear_active_game(selected_slot)
-                        queued_level_number = level_num
-                        result = "restart_level"
-                    elif gameplay_result == "main_menu":
-                        result = "main_menu"
-                    elif gameplay_result == "quit":
-                        result = "quit"
-
-                    if result == "restart_level":
-                        result = "start"
-                        continue
-                    if result in ("main_menu", "quit"):
-                        break
-                    continue
-
-                if level_num == 8:
-                    roster = _ensure_level8_roster(bp_state, bosses_required=bosses_required)
-                    LEVEL_BOSS_ROUNDS[8] = roster
+                LEVEL_BOSS_ROUNDS[level_num] = get_level_boss_roster(level_num, bp_state, bosses_required)
 
                 # Boss selection loop
                 while True:
@@ -1259,16 +1124,7 @@ def main():
                                 current_boss.get("defeated_count", bp_state["defeated"]),
                                 True,
                             )
-                            defeated_boss_position = int(
-                                current_boss.get("defeated_count", bp_state["defeated"]) or 0
-                            )
                             complete_boss_position(bp_state, current_boss, boss_page=boss_page)
-                            if boss_level == 8 and defeated_boss_position == 2:
-                                reset_level_attempt(boss_level)
-                                if selected_slot and not test_mode:
-                                    profile_manager.clear_active_game(selected_slot)
-                                    profile_manager.save_progress_from_game_state(selected_slot)
-                                break
                             if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     boss_level,
@@ -1292,9 +1148,8 @@ def main():
                                     print("Level 4 completed! Unlocking level 5")
                                 elif boss_level == 5:
                                     game_state.unlock_level_six()
-                                elif boss_level == 8:
-                                    game_state.level_8_boss_defeated = True
-                                save_progress_if_needed(test_mode)
+                                elif boss_level == 6:
+                                    game_state.unlock_level_seven()
                                 if selected_slot and not test_mode:
                                     profile_manager.clear_active_game(selected_slot)
                                 break

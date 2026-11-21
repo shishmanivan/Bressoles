@@ -45,7 +45,7 @@ class TutorialTests(unittest.TestCase):
             page.level_number = 3
             page._prepare_tutorial()
             factory.assert_not_called()
-            page.level_number = 8
+            page.level_number = 6
             page._prepare_tutorial()
             self.assertEqual(factory.call_args.kwargs["hint_id"], CONDITIONS_ROUND_HINT_ID)
             hint = factory.return_value
@@ -67,7 +67,7 @@ class TutorialTests(unittest.TestCase):
         page = GameplayPage.__new__(GameplayPage)
         page.profile_slot = 1
         page.test_mode = False
-        page.level_number = 8
+        page.level_number = 6
         page.tutorial_hint = None
         page.win_lose_state = None
         page.tutorial_dismissed_this_round = set()
@@ -90,9 +90,13 @@ class TutorialTests(unittest.TestCase):
             self.assertFalse(profile_manager.is_tutorial_pending(1, CONDITIONS_GAME_HINT_ID))
             page.tutorial_dismissed_this_round.clear()
             factory.reset_mock()
-            page._maybe_show_conditions_tutorial()
+            with mock.patch.object(profile_manager, "load_profile", wraps=profile_manager.load_profile) as load:
+                for _ in range(120):
+                    page._maybe_show_conditions_tutorial()
+                load.assert_called_once_with(1)
             factory.assert_not_called()
             page.profile_slot = 2
+            page.tutorial_dismissed_this_round.clear()  # A new profile enters a new round.
             page.level_number = 3
             page._maybe_show_conditions_tutorial()
             factory.assert_not_called()

@@ -68,7 +68,6 @@ def main(args):
         profile_manager.PROFILES_DIR = tmp
         profile_manager.INDEX_FILE = os.path.join(tmp, 'index.json')
         game_stats.set_stats_file(os.path.join(tmp, 'stats.csv'))
-        game_stats.set_level6_experiment_stats_file(os.path.join(tmp, 'level6.csv'))
         shop_card_stats.set_shop_card_stats_file(os.path.join(tmp, 'shop.csv'))
         game_state.GOLDEN_STOCKS_AUDIT_PATH = Path(tmp) / 'golden.log'
         original_roll_stats = gameplay_page.MarketRollStats
@@ -220,7 +219,7 @@ def main(args):
                             if scenario == 'end_turn':
                                 # Same public update order for baseline and rebuilt page.
                                 for method in ('update_arrow_animation', 'update_price_animation',
-                                        'update_level6_bot_turn', 'update_card_jump_animations',
+                                        'update_card_jump_animations',
                                         'update_side_card_jump_animations', 'update_lifecycle_card_scale_animations',
                                         'update_lifecycle_card_shake_animations', 'update_market_clear_animations',
                                         'update_final_auto_liquidation_animation', 'update_astor_cash_burn_animation',

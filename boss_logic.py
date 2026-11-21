@@ -4,11 +4,7 @@ import random
 import game_state
 from gameplay_conditions import BOSS_TRADING, has_active_condition
 from boss_effects import parse_boss_functionality_spec, parse_boss_reward_spec
-from game_data import (
-    get_level_rounds_required,
-    load_levels_config,
-    load_rounds_config,
-)
+from game_data import load_levels_config
 
 
 # Boss difficulty tiers. Watt is the test/easy boss.
@@ -65,7 +61,7 @@ def get_bosses_for_boss_level(boss_level: int):
     return [filename for filename, level in BOSS_LEVELS.items() if level == normalized_level]
 
 
-def get_boss_level_from_number(boss_number):
+def get_boss_level_from_number(boss_number, *, level_number=None, defeated_count=0):
     """Return the configured difficulty category for a numeric boss id."""
     try:
         normalized_boss_number = int(boss_number)
@@ -91,13 +87,7 @@ def _build_level5_default_roster():
 
 
 def _build_level6_default_roster():
-    """Build the single category-one boss fallback for level 6."""
-    level_one_bosses = get_bosses_for_boss_level(1)
-    return [[level_one_bosses[0]]]
-
-
-def _build_level8_default_roster():
-    """Build a deterministic fallback for the moved marathon route."""
+    """Build a deterministic fallback for the four positions of level 6."""
     level_one_bosses = get_bosses_for_boss_level(1)
     level_two_bosses = get_bosses_for_boss_level(2)
     return [
@@ -115,13 +105,12 @@ LEVEL_BOSS_ROUNDS = {
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
     6: _build_level6_default_roster(),
-    8: _build_level8_default_roster(),
 }
 
 # -------------------------------
 # Level 3 dynamic boss roster
 # -------------------------------
-def _generate_level3_boss_roster(bosses_required: int):
+def _generate_level3_boss_roster(bosses_required: int, *, rng=random):
     """Level 3: pick N distinct bosses from the level-3 pool, shuffled, with no player choice."""
     candidates = [
         "2_AdamSmith.png",
@@ -131,7 +120,7 @@ def _generate_level3_boss_roster(bosses_required: int):
         "6_Arkwright.png",
         "16_Whitney.png",
     ]
-    random.shuffle(candidates)
+    rng.shuffle(candidates)
     try:
         n = int(bosses_required or 0)
     except (TypeError, ValueError):
@@ -141,7 +130,7 @@ def _generate_level3_boss_roster(bosses_required: int):
     return [[fn] for fn in chosen]
 
 
-def _ensure_level3_roster(bp_state: dict, bosses_required: int):
+def _ensure_level3_roster(bp_state: dict, bosses_required: int, *, rng=random):
     """Ensure bp_state has a stable roster for the current Level 3 run (and matches bosses_required)."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
@@ -161,7 +150,7 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
             and set(roster_bosses).issubset(level3_pool)
         ):
             return roster
-    roster = _generate_level3_boss_roster(bosses_required)
+    roster = _generate_level3_boss_roster(bosses_required, rng=rng)
     bp_state["roster"] = roster
     return roster
 
@@ -169,14 +158,14 @@ def _ensure_level3_roster(bp_state: dict, bosses_required: int):
 # -------------------------------
 # Level 5 dynamic boss roster
 # -------------------------------
-def _generate_level5_boss_roster(bosses_required: int):
+def _generate_level5_boss_roster(bosses_required: int, *, rng=random):
     """Level 5: two category-one steps, then two category-two steps."""
     pools = {
         1: get_bosses_for_boss_level(1),
         2: get_bosses_for_boss_level(2),
     }
-    random.shuffle(pools[1])
-    random.shuffle(pools[2])
+    rng.shuffle(pools[1])
+    rng.shuffle(pools[2])
     try:
         n = max(1, int(bosses_required or 1))
     except (TypeError, ValueError):
@@ -192,7 +181,7 @@ def _generate_level5_boss_roster(bosses_required: int):
     return roster
 
 
-def _ensure_level5_roster(bp_state: dict, bosses_required: int):
+def _ensure_level5_roster(bp_state: dict, bosses_required: int, *, rng=random):
     """Ensure level 5 has two category-one and two category-two choices."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
@@ -227,19 +216,19 @@ def _ensure_level5_roster(bp_state: dict, bosses_required: int):
         )
         if first_steps_valid and second_steps_valid:
             return roster
-    roster = _generate_level5_boss_roster(bosses_required)
+    roster = _generate_level5_boss_roster(bosses_required, rng=rng)
     bp_state["roster"] = roster
     return roster
 
 
-def _generate_level6_boss_roster(bosses_required: int):
+def _generate_level6_boss_roster(bosses_required: int, *, rng=random):
     """Level 6 assigns bosses randomly without offering a player choice."""
     pools = {
         1: get_bosses_for_boss_level(1),
         2: get_bosses_for_boss_level(2),
     }
-    random.shuffle(pools[1])
-    random.shuffle(pools[2])
+    rng.shuffle(pools[1])
+    rng.shuffle(pools[2])
     try:
         required = max(1, int(bosses_required or 1))
     except (TypeError, ValueError):
@@ -255,8 +244,8 @@ def _generate_level6_boss_roster(bosses_required: int):
     return roster
 
 
-def _ensure_level6_roster(bp_state: dict, bosses_required: int):
-    """Ensure level 6 has one stable random category-one boss."""
+def _ensure_level6_roster(bp_state: dict, bosses_required: int, *, rng=random):
+    """Ensure level 6 has a stable roster of four bosses."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
     level_one_bosses = set(get_bosses_for_boss_level(1))
@@ -274,14 +263,21 @@ def _ensure_level6_roster(bp_state: dict, bosses_required: int):
             and set(second_choices).issubset(level_two_bosses)
         ):
             return roster
-    roster = _generate_level6_boss_roster(bosses_required)
+    roster = _generate_level6_boss_roster(bosses_required, rng=rng)
     bp_state["roster"] = roster
     return roster
 
 
-def _ensure_level8_roster(bp_state: dict, bosses_required: int):
-    """Ensure the moved marathon has its stable category progression."""
-    return _ensure_level6_roster(bp_state, bosses_required)
+def get_level_boss_roster(level, bp_state, bosses_required, *, rng=random):
+    """Use the saved lineup when available, or build this level's starting route."""
+    if level in (3, 4):
+        return _ensure_level3_roster(bp_state, bosses_required, rng=rng)
+    if level == 5:
+        return _ensure_level5_roster(bp_state, bosses_required, rng=rng)
+    if level == 6:
+        return _ensure_level6_roster(bp_state, bosses_required, rng=rng)
+    return LEVEL_BOSS_ROUNDS.get(level, [])
+
 
 def apper_goal_boost(goal_value, multiplier=1.3):
     """Boost goal by multiplier and round UP to tens.
@@ -319,25 +315,6 @@ def get_bosses_required(level_num, rounds_config):
     if roster:
         return max(1, len(roster))
     return 1
-
-
-def get_configured_levels(rounds_config, levels_config=None):
-    """Return sorted list of level numbers that have Rounds > 0 (PRIMARY: LevelsData.csv)."""
-    levels_config = levels_config if levels_config is not None else load_levels_config()
-
-    candidates = set()
-    for lvl in (levels_config or {}).keys():
-        candidates.add(lvl)
-    for lvl in (rounds_config or {}).keys():
-        candidates.add(lvl)
-
-    out = []
-    for level in candidates:
-        primary_rounds = (levels_config.get(level, {}) or {}).get("Rounds")
-        legacy_rounds = (rounds_config.get(level, {}) or {}).get("Rounds")
-        if (primary_rounds and primary_rounds > 0) or (legacy_rounds and legacy_rounds > 0):
-            out.append(level)
-    return sorted(out)
 
 
 def _append_last_earned_card(gameplay_instance, card_id):
@@ -409,37 +386,6 @@ def apply_say_random_reward(gameplay_instance):
 
     print(f"Applied Jean-Baptiste Say random reward: {outcome}")
     return outcome
-
-
-def validate_levels_and_rounds_config():
-    """
-    Validate levels and rounds configuration (LevelsData.csv primary, with legacy fallback).
-    Logs warnings for missing/inconsistent data. Call at startup.
-    """
-    rounds_config = load_rounds_config()
-    levels_config = load_levels_config()
-    configured = get_configured_levels(rounds_config, levels_config=levels_config)
-    errors = []
-    # Levels with bosses must have Rounds configured
-    for level in LEVEL_BOSS_ROUNDS:
-        r = get_level_rounds_required(level, rounds_config=rounds_config, levels_config=levels_config)
-        if r is None or r <= 0:
-            errors.append(
-                f"Level {level} has bosses (LEVEL_BOSS_ROUNDS) but no valid 'Rounds' in LevelsData.csv (or legacy RoundsData.csv)."
-            )
-        elif level not in configured:
-            errors.append(
-                f"Level {level} has Rounds={r} but was not in configured levels list (internal check)."
-            )
-    # Warn about configured levels without bosses (optional; not an error)
-    for level in configured:
-        if level not in LEVEL_BOSS_ROUNDS:
-            print(
-                f"VALIDATE levels/rounds: Level {level} has Rounds configured but no LEVEL_BOSS_ROUNDS (no bosses)."
-            )
-    for msg in errors:
-        print(f"VALIDATE levels/rounds: {msg}")
-    return len(errors) == 0
 
 
 def apply_boss_reward(reward_string, gameplay_instance):

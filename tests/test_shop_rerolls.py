@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -6,6 +7,7 @@ os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')
 os.environ.setdefault('SDL_AUDIODRIVER', 'dummy')
 
 import game_state
+import pygame
 import profile_manager
 from shop_page import ShopPage
 
@@ -22,7 +24,7 @@ class ShopRerollTests(unittest.TestCase):
 
     def page(self):
         page = ShopPage.__new__(ShopPage)
-        for key, value in dict(level_number=8, discount_percent=50,
+        for key, value in dict(level_number=6, discount_percent=50,
                 defeated_count=1, bosses_required=3, rounds_remaining=8,
                 profile_slot=None, stats_enabled=False, _next_pending=False,
                 _reroll_pending=False, _pending_assortment=None,
@@ -74,7 +76,7 @@ class ShopRerollTests(unittest.TestCase):
         self.assertEqual(page.offers, new_offers)
         self.assertFalse(page.sold_offer_indexes)
         self.assertFalse(page._purchase_stamps)
-        self.assertEqual(generate.call_args.kwargs, dict(level_number=8,
+        self.assertEqual(generate.call_args.kwargs, dict(level_number=6,
             discount_percent=50, defeated_count=1, bosses_required=3,
             rounds_remaining=8, advance_shop_cooldown=False, excluded_offer_keys=set(), recent_shop_history=[]))
 
@@ -92,6 +94,59 @@ class ShopRerollTests(unittest.TestCase):
             self.assertFalse(page._reroll_shop())
             generate.assert_not_called()
 
+    def test_reopening_during_diversification_and_after_reroll(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        if not pygame.display.get_init():
+            pygame.display.init()
+            self.addCleanup(pygame.display.quit)
+        if not pygame.font.get_init():
+            pygame.font.init()
+            self.addCleanup(pygame.font.quit)
+        screen = pygame.display.set_mode((840, 525))
+        level = 6
+        with patch.object(profile_manager, "PROFILES_DIR", directory.name):
+            profile_manager.apply_profile_to_game_state(profile_manager._default_profile(1))
+            state = game_state.new_boss_progress_state()
+            game_state.boss_progress[level] = state
+            state["shop_visit"] = {"discount_percent": 50}
+            game_state.ensure_napoleondor_level(level)
+            game_state.napoleondors = 10
+            game_state.shop_rerolls = 2
+
+            def open_page():
+                visit = game_state.boss_progress[level]["shop_visit"]
+                return ShopPage(screen, "egyptiennemncyr_condensedbold.ttf", level,
+                                game_state.napoleondors, discount_percent=visit["discount_percent"],
+                                profile_slot=1, visit=visit)
+
+            original = [{"kind": "special", "special_id": "diversification", "cost": 2}]
+            replacement = [{"kind": "card", "card_id": 118, "cost": 0.5}]
+            with patch.object(game_state, "generate_shop_offers", side_effect=[original, replacement]) as generate:
+                page = open_page()
+                page._buy_offer(0)
+                profile_manager.apply_profile_to_game_state(1)
+                page = open_page()
+                self.assertEqual(page.sold_offer_indexes, {0})
+                self.assertEqual(game_state.napoleondors, 8)
+                with patch.object(game_state, "build_shop_card_offer_pool", return_value=[117]):
+                    page.draw()
+                profile_manager.apply_profile_to_game_state(1)
+                page = open_page()
+                self.assertIsNone(page._pending_assortment)
+                self.assertEqual(page.offers[0]["card_id"], 117)
+                self.assertEqual(page.sold_offer_indexes, {1})
+                self.assertTrue(page._reroll_shop())
+                profile_manager.apply_profile_to_game_state(1)
+                page = open_page()
+                self.assertEqual(page.offers, replacement)
+                self.assertEqual(page.sold_offer_indexes, set())
+                self.assertEqual(game_state.get_shop_rerolls(), 1)
+                self.assertTrue(game_state.diversification_bought)
+                self.assertEqual(game_state.napoleondors, 8)
+                self.assertEqual(len(page._shop_history), 2)
+                self.assertEqual(generate.call_count, 2)
+
     def test_completion_bonus_is_once_per_profile(self):
         game_state.level_5_boss_defeated = False
         game_state.shop_rerolls = 0
@@ -102,7 +157,7 @@ class ShopRerollTests(unittest.TestCase):
         profile_manager.apply_profile_to_game_state(profile)
         game_state.unlock_level_six()
         for _ in range(10):
-            game_state.reset_level_attempt(game_state.get_campaign_content_level(6))
+            game_state.reset_level_attempt(6)
         self.assertTrue(game_state.level_5_boss_defeated)
         self.assertEqual(game_state.get_shop_rerolls(), 5)
 
@@ -134,7 +189,7 @@ class ShopRerollTests(unittest.TestCase):
                 'game_state.build_license_offer_pool', return_value=[201, 202]), patch(
                 'game_state.random.randint', return_value=1), patch(
                 'game_state.is_investment_section_available', return_value=True):
-            offers = game_state.generate_shop_offers(8, excluded_offer_keys=excluded)
+            offers = game_state.generate_shop_offers(6, excluded_offer_keys=excluded)
         self.assertFalse(excluded & {game_state.shop_offer_key(o) for o in offers})
         self.assertTrue(any(o['kind'] == 'investment' for o in offers))
 
@@ -150,7 +205,7 @@ class ShopRerollTests(unittest.TestCase):
         for expected in (202, 201, 202, 201):
             excluded = {key for shop in history for key in shop}
             with patch('game_state.build_license_offer_pool', return_value=[201, 202]):
-                offers = game_state.generate_shop_offers(8, card_slots=0, special_slots=0,
+                offers = game_state.generate_shop_offers(6, card_slots=0, special_slots=0,
                     excluded_offer_keys=excluded, recent_shop_history=history)
             licenses = [o['card_id'] for o in offers if o['kind'] == 'license']
             self.assertEqual(licenses, [expected])
@@ -176,7 +231,7 @@ class ShopRerollTests(unittest.TestCase):
                 'game_state.build_shop_special_offer_pool', return_value=[]), patch(
                 'game_state._available_screening_offer_ids', return_value=['profit', 'trader', 'delisting']), patch(
                 'game_state.is_screening_offer_available', return_value=False):
-            offers = game_state.generate_shop_offers(8, card_slots=1, special_slots=1,
+            offers = game_state.generate_shop_offers(6, card_slots=1, special_slots=1,
                 excluded_offer_keys={key for shop in history for key in shop}, recent_shop_history=history)
         self.assertEqual([o['card_id'] for o in offers if o['kind'] == 'card'], [1])
         self.assertEqual([o['special_id'] for o in offers if o['kind'] == 'special'], ['profit'])

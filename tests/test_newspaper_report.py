@@ -88,6 +88,7 @@ class NewspaperTests(unittest.TestCase):
         self.assertLess(buttons['card_report'].centerx, buttons['market_report'].centerx)
         self.assertEqual(buttons['continue'].centerx, buttons['market_report'].centerx)
         page.win_lose_state = 'lose'
+        page.last_earned_cards = []
         self.assertEqual(set(page._newspaper_button_layout()), {'market_report', 'continue'})
         page._draw_newspaper()
 
@@ -184,7 +185,7 @@ class NewspaperTests(unittest.TestCase):
         page.card_report_image = page.finance_report_image
         for outcome in ('win', 'lose'):
             page.win_lose_state = outcome
-            targets = ('finance', 'card_report', 'market_report') if outcome == 'win' else ('market_report',)
+            targets = ('finance', 'card_report', 'market_report') if outcome == 'win' else ('card_report', 'market_report')
             self.assertEqual(set(page._newspaper_button_layout()), {*targets, 'continue'})
             for target in targets:
                 page.result_report_stage = 'newspaper'

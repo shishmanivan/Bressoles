@@ -64,7 +64,7 @@ class UiLayoutTests(unittest.TestCase):
         page._draw_completed_stamp = mock.Mock()
         page.startarrow_image = None
 
-        page._draw_level_card((100, 200), 13, None)
+        page._draw_level_card((100, 200), 6, None)
 
         page._render_text_cached.assert_called_once_with(page.font_card, "1850", PAPER_COLOR)
         page.screen.blit.assert_any_call(year_surface, (407, 208))
@@ -133,16 +133,16 @@ class UiLayoutTests(unittest.TestCase):
         with mock.patch("pygame.event.get", return_value=[event]), mock.patch("pygame.mouse.get_pos", return_value=(20, 20)):
             self.assertIsNone(page.handle_input())
 
-    def test_campaign_selector_switches_to_second_page_and_opens_level_eight(self):
+    def test_campaign_selector_switches_to_second_page_and_displays_level_seven(self):
         page = GameScreen(
             self.screen,
             None,
             self.font_path,
             lang_dict=load_language("RU"),
-            progress_flags={"level_8_unlocked": True},
+            progress_flags={"level_7_unlocked": True},
         )
         # Keep navigation coverage for future second-page content.
-        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 8)
+        page._is_level_unlocked = mock.Mock(side_effect=lambda level: level == 7)
         next_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.next_page_rect.center)
         with (
             mock.patch("pygame.event.get", return_value=[next_event]),
@@ -157,20 +157,10 @@ class UiLayoutTests(unittest.TestCase):
         page._update_page_animation(started + 4 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(len(page.normal_card_positions), 6)
 
-        level8_rect = page.normal_arrow_rects[1]
-        page.button_sound = mock.Mock()
-        level8_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page._card_point_to_content(level8_rect.center, 8))
-        with (
-            mock.patch("pygame.event.get", return_value=[level8_event]),
-            mock.patch("pygame.mouse.get_pos", return_value=level8_rect.center),
-        ):
-            self.assertIsNone(page.handle_input())
-        from game_screen import LEVEL_BUTTON_PRESS_MS
-        with mock.patch("pygame.time.get_ticks", return_value=page._level_press_started_at + LEVEL_BUTTON_PRESS_MS):
+        with mock.patch.object(page, "_draw_level_card") as draw_card:
             page.draw()
-        with mock.patch("pygame.event.get", return_value=[]):
-            self.assertEqual(page.handle_input(), "level_8")
-        page.button_sound.play.assert_called_once_with()
+        self.assertEqual(draw_card.call_args.args[1], 7)
+        self.assertFalse(draw_card.call_args.kwargs["show_start_arrow"])
 
     def test_fresh_profile_cannot_open_the_locked_second_page(self):
         page = GameScreen(
@@ -223,7 +213,7 @@ class UiLayoutTests(unittest.TestCase):
         page.level_number = 1
         self.assertEqual(page._get_popup_napoleondor_reward(), 0)
 
-    def test_level6_opens_the_boss_immediately_without_money_goals(self):
+    def test_level6_starts_with_three_rounds_and_the_campaign_goals(self):
         page = RoundPage(
             self.screen,
             self.font_path,
@@ -244,18 +234,10 @@ class UiLayoutTests(unittest.TestCase):
             reward_token_random_red=game_data.REWARD_TOKEN_RANDOM_RED,
         )
 
-        self.assertEqual(page.rounds_required, 0)
-        self.assertIsNone(page.get_current_active_round())
-        self.assertIsNone(page.button_e_rect)
-        self.assertIsNotNone(page.boss_icon_rect)
-
-        click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.boss_icon_rect.center)
-        with (
-            mock.patch("pygame.event.get", return_value=[click]),
-            mock.patch("pygame.mouse.get_pos", return_value=page.boss_icon_rect.center),
-        ):
-            self.assertEqual(page.handle_input(), "boss_clicked")
-        self.assertEqual(page.Goal, 0)
+        self.assertEqual(page.rounds_required, 3)
+        self.assertEqual(page.get_current_active_round(), 1)
+        self.assertIsNotNone(page.button_e_rect)
+        self.assertEqual(page.button_goals, {"e": 80, "m": 100, "h": 140})
 
     def test_round_popup_includes_profit_and_peabody_modifiers(self):
         page = RoundPage.__new__(RoundPage)
