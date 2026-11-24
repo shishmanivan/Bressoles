@@ -648,12 +648,12 @@
     "FR": "Double la puissance et la durée de la prochaine carte Gain ou Baisse jouée. L’effet ne se prolonge pas à la manche suivante."
   },
   {
-    "Source": "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
-    "RU": "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
-    "ENG": "Can only be played on the final turn. Has a 50% chance to double the prices of stocks you own.",
-    "DE": "Nur im letzten Zug spielbar. Verdoppelt mit 50 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
-    "HU": "Csak az utolsó körben játszható ki. 50% eséllyel megduplázza a birtokodban lévő részvények árfolyamát.",
-    "FR": "Ne peut être jouée qu’au dernier tour. A 50 % de chances de doubler le cours des actions que vous détenez."
+    "Source": "Можно сыграть только на последнем игровом ходу. С шансом 70% удваивает цены акций, которыми владеет игрок.",
+    "RU": "Можно сыграть только на последнем игровом ходу. С шансом 70% удваивает цены акций, которыми владеет игрок.",
+    "ENG": "Can only be played on the final turn. Has a 70% chance to double the prices of stocks you own.",
+    "DE": "Nur im letzten Zug spielbar. Verdoppelt mit 70 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
+    "HU": "Csak az utolsó körben játszható ki. 70% eséllyel megduplázza a birtokodban lévő részvények árfolyamát.",
+    "FR": "Ne peut être jouée qu’au dernier tour. A 70 % de chances de doubler le cours des actions que vous détenez."
   },
   {
     "Source": "В конце победного раунда может дать случайную редкую золотую карту. После неудачи шанс увеличивается на 2 процентных пункта; в новом забеге сбрасывается до 15%.",
@@ -1112,12 +1112,12 @@
     "FR": "Accumulation : double la puissance et la durée de la prochaine carte Gain/Baisse jouée. Vous pouvez attendre autant de tours que vous le souhaitez, mais l’effet expire à la fin de la manche."
   },
   {
-    "Source": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
-    "RU": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок.",
-    "ENG": "Breakout: can only be played on the final turn. Has a 50% chance to double the prices of stocks you own.",
-    "DE": "Breakout: Nur im letzten Zug spielbar. Verdoppelt mit 50 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
-    "HU": "Breakout: csak az utolsó körben játszható ki. 50% eséllyel megduplázza a birtokodban lévő részvények árfolyamát.",
-    "FR": "Percée : ne peut être jouée qu’au dernier tour. A 50 % de chances de doubler le cours des actions que vous détenez."
+    "Source": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 70% удваивает цены акций, которыми владеет игрок.",
+    "RU": "Breakout: можно сыграть только на последнем игровом ходу. С шансом 70% удваивает цены акций, которыми владеет игрок.",
+    "ENG": "Breakout: can only be played on the final turn. Has a 70% chance to double the prices of stocks you own.",
+    "DE": "Breakout: Nur im letzten Zug spielbar. Verdoppelt mit 70 % Wahrscheinlichkeit die Kurse der Aktien in deinem Besitz.",
+    "HU": "Breakout: csak az utolsó körben játszható ki. 70% eséllyel megduplázza a birtokodban lévő részvények árfolyamát.",
+    "FR": "Percée : ne peut être jouée qu’au dernier tour. A 70 % de chances de doubler le cours des actions que vous détenez."
   },
   {
     "Source": "Умножает цену выбранной акции на 2 на один ход.",

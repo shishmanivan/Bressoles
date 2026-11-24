@@ -519,7 +519,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
         page._start_card_jump_animation = mock.Mock()
 
-        with mock.patch("gameplay_page.random.randint", return_value=60) as roll:
+        with mock.patch("gameplay_page.random.randint", return_value=80) as roll:
             self.assertTrue(page._apply_breakout_effect_if_needed())
 
         roll.assert_called_once_with(1, 100)
@@ -535,7 +535,7 @@ class RedCardEffectTests(unittest.TestCase):
         page.Aprice, page.BPrice, page.CPrice = 10, 20, 30
         page._start_card_jump_animation = mock.Mock()
 
-        with mock.patch("gameplay_page.random.randint", return_value=61):
+        with mock.patch("gameplay_page.random.randint", return_value=81):
             self.assertFalse(page._apply_breakout_effect_if_needed())
 
         self.assertEqual((page.Aprice, page.BPrice, page.CPrice), (10, 20, 30))

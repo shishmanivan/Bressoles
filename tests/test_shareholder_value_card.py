@@ -62,6 +62,13 @@ class ShareholderValueTests(unittest.TestCase):
         self.assertEqual(page.Money, 24)
         page.lifecycle_card_jump_animations.clear()
         page._begin_effect_finalize_or_wait()
+        self.assertEqual(page.Money, 24)
+        self.assertEqual(page.parity_animation["payout"], 14)
+        import gameplay_parity_animation as animation
+        with mock.patch.object(animation.pygame.time, "get_ticks",
+                               return_value=page.parity_animation["start_time"] + animation.DURATION_MS):
+            animation.update(page)
+        page._begin_effect_finalize_or_wait()
         self.assertEqual(page.Money, 38)
         page._begin_effect_finalize_or_wait()
         self.assertEqual(page.Money, 38)

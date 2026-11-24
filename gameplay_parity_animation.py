@@ -4,8 +4,10 @@ import native_render as pygame
 DURATION_MS = 550
 
 
-def start(page):
+def start(page, *, payout=None):
     page.parity_animation = {'start_time': pygame.time.get_ticks(), 'elapsed': 0}
+    if payout is not None:
+        page.parity_animation['payout'] = payout
 
 
 def update(page):

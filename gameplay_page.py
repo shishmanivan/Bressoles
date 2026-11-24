@@ -214,7 +214,7 @@ FIELD_CARD_TOOLTIPS = {
     122: ("BID 100", "Устанавливает цены всех трёх акций на 100."),
     123: ("Parity", "Устанавливает цены всех трёх акций на их среднее значение с округлением до целого."),
     124: ("Accumulation", "Удваивает номинал и длительность следующей выложенной Gain или Drop-карты. Эффект не переносится в следующий раунд."),
-    125: ("Breakout", "Можно сыграть только на последнем игровом ходу. С шансом 50% удваивает цены акций, которыми владеет игрок."),
+    125: ("Breakout", "Можно сыграть только на последнем игровом ходу. С шансом 70% удваивает цены акций, которыми владеет игрок."),
 }
 FIELD_CARD_TOOLTIPS.update(LIFECYCLE_CARD_TOOLTIPS)
 
@@ -6692,7 +6692,9 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if shareholder_count <= 0:
             return False
 
-        self.Money += self.CPrice * shareholder_count * card_count
+        payout = self.CPrice * shareholder_count * card_count
+        self.Money += payout
+        parity_animation.start(self, payout=payout)
         self._start_fresh_side_card_jump_animation_for_card(100, slots=slots)
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             if card_id == GOLD_SHAREHOLDER_VALUE_CARD_ID:
@@ -6960,7 +6962,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if int(self.Cquantity or 0) > 0:
             owned_markets.append(2)
 
-        chance = min(100, 50 + self._get_probability_amplifier_bonus())
+        chance = min(100, 70 + self._get_probability_amplifier_bonus())
         applied = False
         for slot in breakout_slots:
             if not owned_markets:
@@ -8221,7 +8223,18 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
 
             bankruptcy_animation.draw(self, market_layout)
-            parity_animation.draw(self, parity_labels)
+            payout = (self.parity_animation or {}).get("payout")
+            if payout is not None:
+                bonus = self.font_medium.render(f"{payout:+}", True, PAPER_COLOR)
+                bonus_rect = bonus.get_rect(midleft=(
+                    money_value_x + money_value.get_width() + value_spacing,
+                    money_value_y + money_value.get_height() // 2,
+                ))
+                if bonus_rect.right > SCREEN_WIDTH - min_right_margin:
+                    bonus_rect.midright = (money_label_x - value_spacing, bonus_rect.centery)
+                parity_animation.draw(self, [(bonus, bonus_rect)])
+            else:
+                parity_animation.draw(self, parity_labels)
             self._draw_market_clear_animations()
             condition_coins.draw(self, market_layout)
 
