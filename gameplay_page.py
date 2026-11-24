@@ -4941,18 +4941,25 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             card_id, mouse_pos = self.card_report_tooltip
             self._draw_card_tooltip(card_id, mouse_pos)
 
-    def _draw_result_stamp(self, stamp_center, approve_image=None):
+    def _advance_result_stamp(self, now):
+        state = getattr(self, "finance_stamp_state", "idle")
+        elapsed = now - getattr(self, "finance_stamp_started_at", now)
+        if state == "pressing" and elapsed >= 170:
+            self.finance_stamp_state = "flying"
+        elif state == "flying" and elapsed >= 300:
+            self.finance_stamp_state = "stamped"
+        elif state == "stamped" and elapsed >= 360:
+            self.finance_stamp_state = "closing"
+        else:
+            return
+        self.finance_stamp_started_at = now
+
+    def _draw_result_stamp(self, stamp_center):
         now = pygame.time.get_ticks()
         state = getattr(self, 'finance_stamp_state', 'idle')
         started = getattr(self, 'finance_stamp_started_at', now)
-        original = getattr(self, 'approve_stamp_rotated', None)
-        if approve_image is None:
-            approve_image = original
+        approve_image = getattr(self, 'approve_stamp_rotated', None)
         mark_image = getattr(self, 'stamp_on_paper_image', None)
-        if mark_image is not None and approve_image is not None and original is not None and approve_image is not original:
-            ratio = approve_image.get_width() / original.get_width()
-            mark_image = pygame.transform.smoothscale(mark_image, (max(1, round(mark_image.get_width()*ratio)),
-                                                                 max(1, round(mark_image.get_height()*ratio))))
         if state in ("flying", "stamped", "closing") and mark_image:
             mark_rect = mark_image.get_rect(center=stamp_center)
             self.screen.blit(mark_image, mark_rect.topleft)
@@ -5096,17 +5103,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 )
             else:
                 self._update_result_report_entrance(target_y, slide_speed, dt)
-            elapsed = now - int(self.finance_stamp_started_at or now)
-            if self.finance_stamp_state == "pressing" and elapsed >= 170:
-                self.finance_stamp_state = "flying"
-                self.finance_stamp_started_at = now
-            elif self.finance_stamp_state == "flying" and elapsed >= 300:
-                self.finance_stamp_state = "stamped"
-                self.finance_stamp_started_at = now
-            elif self.finance_stamp_state == "stamped" and elapsed >= 360:
-                self.finance_stamp_state = "closing"
-            elif self.finance_stamp_state == "closing" and self.finance_report_y <= target_y:
+            if self.finance_stamp_state == "closing" and self.finance_report_y <= target_y:
                 self._return_to_newspaper()
+            else:
+                self._advance_result_stamp(now)
             return
 
         if not self.win_lose_image:
@@ -7343,11 +7343,11 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         )
 
     def _get_disclosure_card_tooltip_content(self, card_id):
-        if not game_state.is_disclosure_active():
-            return None
         try:
             normalized = int(card_id)
         except (TypeError, ValueError):
+            return None
+        if normalized != 407 and not game_state.is_disclosure_active():
             return None
         content = DISCLOSURE_CARD_TOOLTIPS.get(normalized)
         if content is None:

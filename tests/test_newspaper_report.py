@@ -238,6 +238,44 @@ class NewspaperTests(unittest.TestCase):
         self.assertLess(buttons['continue'].bottom, buttons['market_report'].top)
         self.assertEqual(buttons['continue'].centerx, buttons['market_report'].centerx)
 
+    def test_newspaper_and_details_use_the_same_stamp_size_during_flight(self):
+        display_was_initialized = pygame.display.get_init()
+        if not display_was_initialized:
+            self.addCleanup(pygame.display.quit)
+        if pygame.display.get_surface() is None:
+            pygame.display.set_mode((1, 1))
+
+        page = make_page()
+        page.approve_stamp_rotated = pygame.Surface((240, 120), pygame.SRCALPHA)
+        page.stamp_on_paper_image = pygame.Surface((205, 123), pygame.SRCALPHA)
+        page.finance_report_image = pygame.Surface((600, 800))
+        page.card_report_image = page.finance_report_image
+        page.market_report_image = pygame.Surface((1200, 800))
+        page.finance_report_y = 125
+        page.newspaper_y = 12
+        page._newspaper_button = Mock()
+        for report in ('finance', 'card', 'market'):
+            setattr(page, f'_draw_{report}_report_rows', Mock())
+
+        for outcome in ('win', 'lose'):
+            page.win_lose_state = outcome
+            rect = page._newspaper_target_rect()
+            page._newspaper_surface_cache = (
+                (get_language(), rect.size, outcome, page.level_number), pygame.Surface(rect.size),
+            )
+            for phase, elapsed in (('idle', 0), ('pressing', 85), ('flying', 150)):
+                page.finance_stamp_state = phase
+                page.finance_stamp_started_at = 1000
+                with patch('pygame.time.get_ticks', return_value=1000 + elapsed):
+                    page.result_report_stage = 'newspaper'
+                    page._draw_newspaper()
+                    newspaper_size = page.finance_stamp_rect.size
+                    for stage in ('finance', 'card_report', 'market_report'):
+                        with self.subTest(outcome=outcome, phase=phase, stage=stage):
+                            page.result_report_stage = stage
+                            page._draw_newspaper_detail()
+                            self.assertEqual(page.finance_stamp_rect.size, newspaper_size)
+
     def test_newspaper_enters_from_above_and_ignores_clicks_during_slide(self):
         page = make_page()
         page._start_newspaper_entrance()

@@ -1462,7 +1462,7 @@ def clear_frugality():
 
 
 def is_price_cut_offer_available(level_number):
-    return 1 <= int(level_number or 0) <= 6
+    return 1 <= int(level_number or 0) <= 5
 
 
 def is_price_cut_random_offer_available(level_number):
@@ -1479,7 +1479,8 @@ def get_price_cut_assistance_milestone(losses):
 
 
 def get_price_cut_purchases(level_number):
-    if not is_price_cut_offer_available(level_number):
+    # Older versions sold permanent discounts on level 6.
+    if not 1 <= int(level_number or 0) <= 6:
         return 0
     return max(0, int(price_cut_purchases_by_level.get(int(level_number), 0)))
 

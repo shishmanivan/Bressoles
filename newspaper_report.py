@@ -291,16 +291,8 @@ class NewspaperReportMixin(OtherStatsMixin):
 
     def _update_newspaper_animation(self, dt):
         now = pygame.time.get_ticks()
-        state = getattr(self, 'finance_stamp_state', 'idle')
-        elapsed = now - getattr(self, 'finance_stamp_started_at', now)
-        if state == 'pressing' and elapsed >= 170:
-            self.finance_stamp_state = 'flying'
-            self.finance_stamp_started_at = now
-        elif state == 'flying' and elapsed >= 300:
-            self.finance_stamp_state = 'stamped'
-            self.finance_stamp_started_at = now
-        elif state == 'stamped' and elapsed >= 360:
-            self.finance_stamp_state = 'closing'
+        self._advance_result_stamp(now)
+        if getattr(self, "finance_stamp_state", "idle") == "closing":
             self.newspaper_closing = True
         rect = self._newspaper_target_rect()
         closing = getattr(self, 'newspaper_closing', False)
@@ -355,23 +347,11 @@ class NewspaperReportMixin(OtherStatsMixin):
             right = rect.left + round(rect.width * boundaries[index + 1])
             width = min(round(rect.width * .26), right - left - 28)
             buttons[stage] = pygame.Rect((left + right - width) // 2, rect.bottom - 53, width, 28)
-        stamp = self._newspaper_stamp_image()
+        stamp = getattr(self, 'approve_stamp_rotated', None)
         size = stamp.get_size() if stamp else (buttons['market_report'].width, 90)
         buttons['continue'] = pygame.Rect(0, 0, *size)
         buttons['continue'].midbottom = (buttons['market_report'].centerx, buttons['market_report'].top - 12)
         return buttons
-
-    def _newspaper_stamp_image(self):
-        original = getattr(self, 'approve_stamp_rotated', None)
-        if original is None:
-            return None
-        width = round(self._newspaper_target_rect().width * .26)
-        cache = getattr(self, '_newspaper_stamp_image_cache', None)
-        if not cache or cache[0] != (id(original), width):
-            height = max(1, round(original.get_height() * width / original.get_width()))
-            cache = ((id(original), width), pygame.transform.smoothscale(original, (width, height)))
-            self._newspaper_stamp_image_cache = cache
-        return cache[1]
 
     def _newspaper_font(self, size, bold=False):
         return newspaper_font(size, bold)
@@ -444,9 +424,9 @@ class NewspaperReportMixin(OtherStatsMixin):
         self.screen.blit(cache[1], rect.topleft)
         for stage, button in self._newspaper_button_layout().items():
             if stage == 'continue':
-                stamp = self._newspaper_stamp_image()
+                stamp = getattr(self, 'approve_stamp_rotated', None)
                 if active:
-                    self._draw_result_stamp(button.center, stamp)
+                    self._draw_result_stamp(button.center)
                 elif stamp:
                     self.screen.blit(stamp, button.topleft)
                 continue

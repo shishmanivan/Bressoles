@@ -7,6 +7,7 @@ import pygame
 import game_state
 from boss_logic import BOSS_LEVELS, apply_boss_functionality, apply_boss_reward
 from gameplay_layout import build_market_placeholders
+from gameplay_page import GameplayPage
 
 
 class RicardoBossTests(unittest.TestCase):
@@ -19,6 +20,13 @@ class RicardoBossTests(unittest.TestCase):
 
     def test_ricardo_is_a_category_two_boss(self):
         self.assertEqual(BOSS_LEVELS["12_Ricardo.png"], 2)
+
+    def test_gold_rebate_percentage_is_visible_without_disclosure(self):
+        page = GameplayPage.__new__(GameplayPage)
+        page._get_current_rebate_sale_percent = mock.Mock(return_value=146)
+        with mock.patch.object(game_state, "is_disclosure_active", return_value=False):
+            self.assertIn("146%", page._get_disclosure_card_tooltip_content(407)[1])
+            self.assertIsNone(page._get_disclosure_card_tooltip_content(302))
 
     def test_ricardo_reduces_each_market_from_three_slots_to_two(self):
         gameplay = SimpleNamespace(boss_market_slots_per_market=3)
@@ -34,16 +42,15 @@ class RicardoBossTests(unittest.TestCase):
         self.assertEqual([entry["slot"] for entry in placeholders], [0, 1])
         self.assertTrue(all(entry["market"] == 1 for entry in placeholders))
 
-    def test_reward_rolls_gold_pool_before_random_selection(self):
+    def test_reward_selects_from_rare_gold_pool(self):
         gameplay = SimpleNamespace(last_earned_cards=[])
         with (
-            mock.patch.object(game_state, "build_gold_cards_pool", return_value=[401, 405]) as build_pool,
-            mock.patch.object(game_state, "get_bought_shop_card_ids", return_value={405}),
+            mock.patch.object(game_state, "build_golden_stocks_reward_pool", return_value=[401]) as build_pool,
             mock.patch.object(game_state.random, "choice", return_value=401) as choose,
         ):
             apply_boss_reward("RandomGoldCard", gameplay)
 
-        build_pool.assert_called_once_with()
+        build_pool.assert_called_once_with(None)
         choose.assert_called_once_with([401])
         self.assertEqual(game_state.gold_cards, [401])
         self.assertEqual(gameplay.last_earned_cards, [401])

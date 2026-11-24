@@ -107,7 +107,7 @@ SPECIAL_DESCRIPTIONS = {
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
     "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
-    "price_cut": "Навсегда снижает цели этого уровня на 4%. Это предложение можно получить в магазине только до 6-го уровня.",
+    "price_cut": "Навсегда снижает цели этого уровня на 4%. Предложение доступно в магазине на уровнях 1–5.",
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
     "derivative": "Увеличивает руку на одну карту до конца забега.",
     "junk_bond": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
@@ -416,9 +416,7 @@ class ShopPage(AdaptivePage):
         run_state = game_state.boss_progress.setdefault(self.level_number, game_state.new_boss_progress_state())
         self._shop_history = run_state.setdefault("shop_history", [])
         if visit is not None and "offers" in visit:
-            self.offers = [dict(offer) for offer in visit["offers"]]
-            self.sold_offer_indexes = set(visit["sold_offer_indexes"])
-            self._price_cut_assistance_pending = visit.get("price_cut_assistance_pending", False)
+            self._restore_visit_offers(visit)
             pending = visit.get("pending_assortment")
             self._pending_assortment = (0, pending) if pending else None
         else:
@@ -503,6 +501,19 @@ class ShopPage(AdaptivePage):
                 price_cut_assistance_pending=self._price_cut_assistance_pending,
             )
         profile_manager.save_progress_from_game_state(self.profile_slot)
+
+    def _restore_visit_offers(self, visit):
+        price_cut_available = game_state.is_price_cut_offer_available(self.level_number)
+        self._price_cut_assistance_pending = price_cut_available and visit.get("price_cut_assistance_pending", False)
+        self.offers = []
+        self.sold_offer_indexes = set()
+        sold = set(visit["sold_offer_indexes"])
+        for old_index, offer in enumerate(visit["offers"]):
+            if not price_cut_available and offer.get("special_id") == "price_cut":
+                continue
+            if old_index in sold:
+                self.sold_offer_indexes.add(len(self.offers))
+            self.offers.append(dict(offer))
 
     def _can_reroll(self):
         return (game_state.are_shop_rerolls_available(self.level_number)

@@ -42,7 +42,7 @@ class PriceCutTests(unittest.TestCase):
     def test_assistance_waits_for_four_losses_and_affordable_price(self):
         for level, losses, balance, discount, expected in (
             (5, 3, 10, 0, False), (5, 4, 4, 0, False), (5, 4, 5, 0, True),
-            (6, 8, 5, 0, True), (7, 8, 5, 0, False), (2, 4, 2.5, 50, True),
+            (6, 8, 5, 0, False), (7, 8, 5, 0, False), (2, 4, 2.5, 50, True),
         ):
             with self.subTest(level=level, losses=losses, balance=balance):
                 page = self.assistance_shop(level, losses, balance, discount)
@@ -142,16 +142,29 @@ class PriceCutTests(unittest.TestCase):
     def test_level_limits_and_twenty_percent_pool_chance(self):
         game_state.price_cut_assistance_shown_levels = set(range(1, 7))
         self.assertEqual(game_state.get_shop_special_cost("price_cut", 1), 5)
-        for level in (1, 2, 6, 7, 8):
+        for level in range(1, 9):
             for roll in (20, 21):
                 with mock.patch.object(game_state.random, "randint", return_value=roll):
                     pool = game_state.build_shop_special_offer_pool(level, max_offers=100)
-                self.assertEqual("price_cut" in pool, level <= 6 and roll <= 20)
-            self.assertEqual("price_cut" in game_state._available_screening_offer_ids(level), level <= 6)
+                self.assertEqual("price_cut" in pool, level <= 5 and roll <= 20)
+            self.assertEqual("price_cut" in game_state._available_screening_offer_ids(level), level <= 5)
+        self.assertFalse(game_state.buy_price_cut(6))
         self.assertFalse(game_state.buy_price_cut(7))
 
+    def test_level_six_restored_shop_drops_offer_and_honors_prior_purchase(self):
+        page = self.assistance_shop(level=6)
+        page.offers[1]["special_id"] = "price_cut"
+        visit = {"offers": page.offers, "sold_offer_indexes": [2], "price_cut_assistance_pending": True}
+        page._restore_visit_offers(visit)
+        self.assertEqual(page.offers, [visit["offers"][0], visit["offers"][2]])
+        self.assertEqual(page.sold_offer_indexes, {1})
+        self.assertFalse(page._price_cut_assistance_pending)
+        game_state.price_cut_purchases_by_level[6] = 1
+        self.assertFalse(game_state.buy_price_cut(6))
+        self.assertEqual(game_state.apply_price_cut_goal_modifier(100, 6), 96)
+
     def test_random_offers_stay_locked_even_with_legacy_purchases(self):
-        for level in range(1, 7):
+        for level in range(1, 6):
             game_state.buy_price_cut(level)
             with mock.patch.object(game_state.random, "randint", return_value=1):
                 pool = game_state.build_shop_special_offer_pool(level, max_offers=100)
@@ -236,7 +249,7 @@ class PriceCutTests(unittest.TestCase):
         game_state.clear_bailout_bonus()
         game_state.clear_loan_offers()
         game_state.clear_insurance_goal_debt()
-        for level in range(1, 7):
+        for level in range(1, 6):
             with self.subTest(level=level):
                 page = RoundPage.__new__(RoundPage)
                 page.level_number = level

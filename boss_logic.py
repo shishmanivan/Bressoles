@@ -552,7 +552,8 @@ def apply_boss_reward(reward_string, gameplay_instance):
             return
 
         if normalized_reward in ("randomgoldcard", "goldcard"):
-            gold_card = game_state.add_random_gold_card(getattr(gameplay_instance, "level_number", None))
+            pool = game_state.build_golden_stocks_reward_pool(getattr(gameplay_instance, "level_number", None))
+            gold_card = game_state.add_gold_card(random.choice(pool)) if pool else None
             if gold_card is None:
                 print("WARNING: Random Gold Card reward found no available card in its rolled pool.")
                 return
