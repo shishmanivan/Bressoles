@@ -1,5 +1,5 @@
 import disk_storage
-from runtime_diagnostics import event, finish_session, logger, run_page, start_session
+from runtime_diagnostics import begin_game_log, event, finish_session, logger, run_page, start_session
 
 # Install diagnostics before importing pygame or game modules.
 if __name__ == "__main__":
@@ -258,6 +258,7 @@ def _run_game(session):
         saved_state = dict((active_game or {}).get("state") or {})
         if not context:
             return None
+        begin_game_log(context.get("level_number", 1), selected_slot, context.get("test_mode"), resume=True)
         gameplay_page = GameplayPage(
             screen,
             font_path,
@@ -632,6 +633,7 @@ def _run_game(session):
             if result == "start" and selected_slot:
                 for level, state in game_state.boss_progress.items():
                     if state.get("shop_visit") is not None:
+                        begin_game_log(level, selected_slot, False, resume=True)
                         open_shop(level, state["shop_visit"])
                         pending_level_number = level
                         break
@@ -827,6 +829,7 @@ def _run_game(session):
                     or infer_legacy_current_boss(level_num, bp_state) is not None
                 )
 
+                begin_game_log(level_num, selected_slot, test_mode, resume=continuing_attempt)
                 if not continuing_attempt:
                     game_state.reset_run_bonuses()
                     game_state.reset_golden_stocks_for_run()

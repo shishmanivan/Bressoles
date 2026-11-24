@@ -1,6 +1,6 @@
 """Independent cover background and fitted, interactive foreground layer."""
 from functools import wraps
-from runtime_diagnostics import event
+from runtime_diagnostics import event, game_action
 
 import pygame
 
@@ -115,6 +115,12 @@ class AdaptivePage:
                     attributes["rel"] = (event.rel[0] * LOGICAL_SCREEN_SIZE[0] / rect.width,
                                          event.rel[1] * LOGICAL_SCREEN_SIZE[1] / rect.height)
                 event = pygame.event.Event(event.type, attributes)
+            if type(self).__module__ in {"gameplay_page", "shop_page", "boss_page", "round_page", "silver_black_page"}:
+                if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                    game_action("input.pointer", screen=type(self).__name__, pos=getattr(event, "pos", None),
+                                button=event.button, pressed=event.type == pygame.MOUSEBUTTONDOWN)
+                elif event.type == pygame.KEYDOWN:
+                    game_action("input.key", screen=type(self).__name__, key=pygame.key.name(event.key))
             yield event
 
     def present(self):

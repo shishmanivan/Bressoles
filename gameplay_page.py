@@ -1,4 +1,4 @@
-from runtime_diagnostics import event, gameplay_event
+from runtime_diagnostics import event, game_action, gameplay_event
 from adaptive_page import AdaptivePage, adaptive_draw, draw_modal_shade
 from app_settings import card_information_enabled
 from localization import translate as _tr
@@ -3055,6 +3055,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                         self._cancel_accumulation_charge(card_id, src_slot)
                                         self.hand_cards[slot] = card_id
                                         self.side_cards_top[src_slot] = None
+                                        game_action("card.move", card=card_id, origin=('side', src_slot), target=('hand', slot))
                                         self.side_card_origins_top.pop(src_slot, None)
                                         self.side_cards_locked_top.pop(src_slot, None)
                                         if self.pending_draws > 0:
@@ -3084,6 +3085,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                 if not self._can_play_dragged_hand_card_on_side_top(card_id):
                                     continue
                                 self.side_cards_top[slot] = card_id
+                                game_action("card.move", card=card_id, origin=('hand', self.dragged_card_index), target=('side', slot))
                                 if card_id in (113, 114, 115, 117):
                                     bankruptcy_audio.preload(self)
                                 if card_id == 110:
@@ -3132,6 +3134,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                             if not self._can_play_dragged_hand_card_on_market(card_id, market):
                                                 continue
                                             self.market_cards[market][slot] = card_id
+                                            game_action("card.move", card=card_id, origin=('hand', self.dragged_card_index), target=(market, slot))
                                             # Remember original hand slot for this market card
                                             self.market_card_origins[market][slot] = self.dragged_card_index
                                             # Новая сыгранная карта пока НЕ заблокирована
@@ -3173,6 +3176,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                                 and market + MARKET_COPY_OFFSETS[card_id] not in (0, 1, 2)):
                                             continue
                                         self.market_cards[market][slot] = card_id
+                                        game_action("card.move", card=card_id, origin=(src_market, src_slot), target=(market, slot))
                                         self.market_cards[src_market][src_slot] = None
                                         # Move origin info along with the card
                                         origin_slot = self.market_card_origins[src_market].pop(src_slot, None)
@@ -3220,6 +3224,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                                         if card_id is not None:
                                             self.hand_cards[slot] = card_id
                                             self.market_cards[src_market][src_slot] = None
+                                            game_action("card.move", card=card_id, origin=(src_market, src_slot), target=('hand', slot))
                                             # Clear origin mapping
                                             self.market_card_origins[src_market].pop(src_slot, None)
                                             # Слот на рынке освобождается и больше не заблокирован
@@ -3615,13 +3620,20 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         )
         return self._protect_put_prices(previous_prices, prices)
 
-    def _protect_put_prices(self, previous_prices, proposed_prices):
+    def _protect_put_prices(self, previous_prices, proposed_prices, source='after Blue Chips'):
         prices = list(proposed_prices)
         owned = self._price_support_markets()
+        charges = game_state.get_protective_put_charges()
+        blocked = []
         for market, previous in enumerate(previous_prices):
             if market in owned and prices[market] < previous and game_state.consume_protective_put():
+                blocked.append('ABC'[market])
                 prices[market] = previous
                 self.protective_put_pending = getattr(self, "protective_put_pending", 0) + 1
+        game_action("protective_put.check", source=source, day=getattr(self, "Day", None),
+                    owned=["ABC"[i] for i in sorted(owned)], previous=previous_prices,
+                    proposed=proposed_prices, final=prices, blocked=blocked,
+                    charges_before=charges, charges_after=game_state.get_protective_put_charges())
         return tuple(prices)
 
     def _is_protective_put_animating(self):
@@ -3631,6 +3643,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if not self._is_protective_put_animating():
             return
         self.protective_put_pending -= 1
+        game_action('protective_put.acknowledged', remaining_notifications=self.protective_put_pending)
         self.protective_put_ok_rect = None
         now = pygame.time.get_ticks()
         if getattr(self, "current_price_animation", None):
@@ -6307,7 +6320,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                         protected_markets=self._get_blue_chip_markets(),
                     )
                     self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
-                        previous_prices, (self.Aprice, self.BPrice, self.CPrice)
+                        previous_prices, (self.Aprice, self.BPrice, self.CPrice), card_id
                     )
                     if (self.Aprice, self.BPrice, self.CPrice) != previous_prices:
                         sound = getattr(self, "gain_sound", None)
@@ -6733,6 +6746,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         previous_prices = (self.Aprice, self.BPrice, self.CPrice)
         proposed_prices = list(previous_prices)
         proposed_prices[market] = 2
+        game_action("market.minimum", market=market)
         protected_prices = self._protect_blue_chip_prices(previous_prices, proposed_prices)
         if market == 0:
             previous_a_price = self.Aprice
@@ -6812,6 +6826,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if not crash_slots:
             return False
         applied = False
+        game_action("market.crash", slots=crash_slots)
         for slot in crash_slots:
             previous_prices = (self.Aprice, self.BPrice, self.CPrice)
             previous_a_price = previous_prices[0]
@@ -6862,7 +6877,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 protected_markets=self._get_blue_chip_markets(),
             )
             self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
-                previous_prices, (self.Aprice, self.BPrice, self.CPrice)
+                previous_prices, (self.Aprice, self.BPrice, self.CPrice), f'BID {bid_value}'
             )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, f"BID {bid_value}")
             self._record_c_price_fall(previous_c_price, self.CPrice, f"BID {bid_value}")
@@ -6904,7 +6919,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 protected_markets=self._get_blue_chip_markets(),
             )
             self.Aprice, self.BPrice, self.CPrice = self._protect_put_prices(
-                previous_prices, (self.Aprice, self.BPrice, self.CPrice)
+                previous_prices, (self.Aprice, self.BPrice, self.CPrice), 'Parity'
             )
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Parity")
             self._record_c_price_fall(previous_c_price, self.CPrice, "Parity")

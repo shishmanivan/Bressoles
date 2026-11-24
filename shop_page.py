@@ -366,6 +366,9 @@ def format_napoleondors(value):
     return f"{amount:.1f}".rstrip("0").rstrip(".")
 
 
+from runtime_diagnostics import game_action
+
+
 class ShopPage(AdaptivePage):
     """Intermediate shop screen shown after a completed round."""
 
@@ -554,6 +557,7 @@ class ShopPage(AdaptivePage):
             history[-1] = sorted(set(history[-1]) | {
                 game_state.shop_offer_key(offer) for offer in self.offers
                 if game_state.shop_offer_key(offer) is not None})
+        game_action("shop.reroll", offers=offers, remaining=game_state.get_shop_rerolls())
         self.offers = offers
         self._shop_history = history
         self._remember_shop()
@@ -1117,6 +1121,8 @@ class ShopPage(AdaptivePage):
         offer = self.offers[index]
         self._purchase_paid = False
         self._perform_buy_offer(index, refresh_assortment=False)
+        game_action("shop.purchase", offer=offer, paid=self._purchase_paid, balance=game_state.napoleondors,
+                    protective_put_charges=game_state.get_protective_put_charges())
         if self._purchase_paid:
             now = pygame.time.get_ticks()
             self._purchase_stamps[id(offer)] = None

@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 import json
 import disk_storage
+from runtime_diagnostics import game_action
 
 import native_render as pygame
 import game_state
@@ -209,6 +210,7 @@ class NewspaperReportMixin(OtherStatsMixin):
     def _newspaper_event(self, kind, **data):
         if not hasattr(self, 'newspaper_events'):
             self.newspaper_events = []
+        game_action("round." + kind, day=getattr(self, "Day", 1), details=data)
         self.newspaper_events.append({'kind': kind, 'day': getattr(self, 'Day', 1), **deepcopy(data)})
         self._newspaper_surface_cache = None
         self._newspaper_market_cache = None

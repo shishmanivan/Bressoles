@@ -23,7 +23,53 @@ def logs_directory():
     return Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local" / "state")) / "Bressoles" / "Logs"
 
 
+_last_game = None
+
+
+def begin_game_log(level, slot, test_mode, resume=False):
+    global _last_game
+    if _session is None:
+        return
+    path = _session.path.parent / "last-game.jsonl"
+    context = {"level": int(level), "slot": slot, "test_mode": bool(test_mode)}
+    _last_game = None
+    try:
+        same = False
+        if resume and path.exists():
+            with path.open(encoding="utf-8") as stream:
+                try:
+                    same = json.loads(stream.readline()).get("context") == context
+                except (ValueError, AttributeError):
+                    pass
+        if not same:
+            header = {"event": "game.start", "utc": datetime.now(timezone.utc).isoformat(),
+                      "context": context, "already_in_progress": bool(resume)}
+            temporary = path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(header) + "\n", encoding="utf-8")
+            temporary.replace(path)
+        _last_game = path
+        if resume:
+            game_action("game.resume")
+    except OSError:
+        logger.warning("Could not start last-game journal", exc_info=True)
+
+
+def game_action(stage, **details):
+    global _last_game
+    if _last_game is None:
+        return
+    try:
+        with _last_game.open("a", encoding="utf-8") as stream:
+            record = {"utc": datetime.now(timezone.utc).isoformat(), "event": stage, **details}
+            stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except (OSError, ValueError, TypeError):
+        _last_game = None
+        logger.warning("Could not write last-game journal", exc_info=True)
+
+
 def event(stage, **details):
+    if stage.startswith(("gameplay.", "turn.")):
+        game_action(stage, **details)
     logger.info("%s %s", stage, json.dumps(details, ensure_ascii=False, default=str))
 
 
@@ -37,7 +83,15 @@ def gameplay_event(stage, page):
 def run_page(page):
     name = type(page).__name__
     event("screen.enter", screen=name)
+    in_game = name not in {"StartPage", "LevelPage", "ProfilePage", "LanguagesPage", "SettingsPage"}
+    if in_game:
+        game_action("screen.enter", screen=name)
+        if name == "ShopPage":
+            game_action("shop.open", offers=page.offers)
     result = page.run()
+    if in_game:
+        game_action("screen.leave", screen=name, result=result if isinstance(result, (str, int)) else None,
+                    outcome=getattr(page, "win_lose_state", None))
     # Do not record profiles, names or entire save states returned by screens.
     event("screen.leave", screen=name, result=result if isinstance(result, (str, int, type(None))) else type(result).__name__)
     return result
