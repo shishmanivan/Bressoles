@@ -670,6 +670,43 @@ class UiLayoutTests(unittest.TestCase):
         self.assertEqual(page.card_placing_sound.play.call_count, 3)
         self.assertEqual(page.selected_entries, [None] * page.active_slot_count)
 
+    def test_level_six_reward_slot_accepts_only_silver_including_swaps(self):
+        with (
+            mock.patch.object(game_state, "level_5_boss_defeated", True),
+            mock.patch.object(game_state, "level_6_boss_defeated", True),
+            mock.patch.object(game_state, "issuer_bought_count", 0),
+            mock.patch.object(game_state, "boss_lifecycle_slot_bonus", 0),
+            mock.patch.object(game_state, "flash_issue_slots", 0),
+        ):
+            page = SilverBlackPage(self.screen, self.font_path, [201, 202], [301], [401])
+            self.assertEqual(page.general_slot_count, 4)
+            self.assertEqual(page.active_slot_count, 5)
+            self.assertGreater(page.active_rects[4].left - page.active_rects[3].right,
+                               page.active_rects[1].left - page.active_rects[0].right)
+            for source in (page.black_rects[0], page.gold_rects[0]):
+                page._begin_drag(source.center)
+                page._finish_drag(page.active_rects[4].center)
+                self.assertIsNone(page.selected_entries[4])
+            page._begin_drag(page.silver_rects[0].center)
+            page._finish_drag(page.active_rects[4].center)
+            page._begin_drag(page.gold_rects[0].center)
+            page._finish_drag(page.active_rects[0].center)
+            expected = list(page.selected_entries)
+            for start, end in ((0, 4), (4, 0)):
+                page._begin_drag(page.active_rects[start].center)
+                page._finish_drag(page.active_rects[end].center)
+                self.assertEqual(page.selected_entries, expected)
+            page._begin_drag(page.silver_rects[1].center)
+            page._finish_drag(page.active_rects[1].center)
+            page._begin_drag(page.active_rects[4].center)
+            page._finish_drag(page.active_rects[1].center)
+            self.assertEqual(page.selected_entries[4], ("silver", 1))
+            payload = page._selected_payload()
+            self.assertEqual(payload["active_lifecycle_card_order"][-1],
+                             {"kind": "silver", "card_id": 202, "silver_only": True})
+            self.assertEqual(payload["active_silver_cards"], [201, 202])
+            page.draw()
+
     def test_lifecycle_removal_keeps_other_slots_and_allows_refilling_the_gap(self):
         page = SilverBlackPage(
             self.screen, self.font_path, [201, 202, 203], [301], [401],

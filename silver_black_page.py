@@ -386,7 +386,8 @@ class SilverBlackPage(AdaptivePage):
         self.difficulty = difficulty
         self.lang = lang_dict or {}
         self.selected_entries = []
-        self.active_slot_count = game_state.get_lifecycle_card_slot_limit()
+        self.general_slot_count = game_state.get_lifecycle_card_slot_limit()
+        self.active_slot_count = self.general_slot_count + game_state.get_silver_only_slot_count()
 
         round_page_assets = load_round_page_static_assets()
         self.round_background = round_page_assets["background"]
@@ -408,6 +409,10 @@ class SilverBlackPage(AdaptivePage):
         self.continue_button_font = pygame.font.Font(self.font_path, 32)
 
         self.active_rects = self._build_row_rects(self.active_slot_count, y=ACTIVE_ROW_Y, gap=ACTIVE_ROW_GAP)
+        if self.active_slot_count > self.general_slot_count:
+            for rect in self.active_rects:
+                rect.x -= 14
+            self.active_rects[-1].x += 28
         self.silver_rects = self._build_row_rects(CARD_ROW_SLOTS, y=SILVER_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.black_rects = self._build_row_rects(CARD_ROW_SLOTS, y=BLACK_ROW_Y, gap=INVENTORY_ROW_GAP)
         self.gold_rects = self._build_row_rects(CARD_ROW_SLOTS, y=GOLD_ROW_Y, gap=INVENTORY_ROW_GAP)
@@ -503,7 +508,7 @@ class SilverBlackPage(AdaptivePage):
         entries = []
         used_by_kind = {"black": set(), "gold": set()}
         for order_entry in active_lifecycle_card_order or []:
-            if len(entries) >= self.active_slot_count:
+            if len(entries) >= getattr(self, "general_slot_count", self.active_slot_count):
                 break
             if isinstance(order_entry, dict):
                 kind = str(order_entry.get("kind") or "").lower()
@@ -525,7 +530,7 @@ class SilverBlackPage(AdaptivePage):
         ):
             used_indices = used_by_kind[kind]
             for active_card_id in active_cards or []:
-                if len(entries) >= self.active_slot_count:
+                if len(entries) >= getattr(self, "general_slot_count", self.active_slot_count):
                     break
                 entry = self._entry_for_card(kind, active_card_id, used_indices)
                 if entry is None or entry in entries:
@@ -581,7 +586,7 @@ class SilverBlackPage(AdaptivePage):
         ]
 
     def _selected_payload(self):
-        return {
+        payload = {
             "active_silver_cards": self._selected_cards_by_kind("silver"),
             "active_black_cards": self._selected_cards_by_kind("black"),
             "active_gold_cards": self._selected_cards_by_kind("gold"),
@@ -594,6 +599,19 @@ class SilverBlackPage(AdaptivePage):
                 )
             ],
         }
+        if self.active_slot_count > getattr(self, "general_slot_count", self.active_slot_count):
+            payload["active_lifecycle_card_order"] = [
+                {"kind": entry[0], "card_id": self._card_id_for_entry(entry)}
+                if entry and not self._is_card_disabled(self._card_id_for_entry(entry))
+                else {"kind": "empty", "card_id": None}
+                for entry in self.selected_entries
+            ]
+            payload["active_lifecycle_card_order"][-1]["silver_only"] = True
+        return payload
+
+    def _slot_accepts(self, slot, entry):
+        return (entry is None or slot < getattr(self, "general_slot_count", self.active_slot_count)
+                or entry[0] == "silver")
 
     def _handle_mouse_down(self, position):
         if self.continue_button_rect.collidepoint(position):
@@ -666,6 +684,7 @@ class SilverBlackPage(AdaptivePage):
                 and self.drag_entry is not None
                 and self.drag_entry not in self.selected_entries
                 and self.selected_entries[target_slot] is None
+                and self._slot_accepts(target_slot, self.drag_entry)
             ):
                 self.selected_entries[target_slot] = self.drag_entry
                 placed = True
@@ -676,9 +695,11 @@ class SilverBlackPage(AdaptivePage):
             if self.drag_active_slot is not None and 0 <= self.drag_active_slot < len(self.selected_entries):
                 moving_entry = self.selected_entries[self.drag_active_slot]
                 if target_slot is not None:
-                    self.selected_entries[self.drag_active_slot] = self.selected_entries[target_slot]
-                    self.selected_entries[target_slot] = moving_entry
-                    placed = True
+                    if (self._slot_accepts(target_slot, moving_entry)
+                            and self._slot_accepts(self.drag_active_slot, self.selected_entries[target_slot])):
+                        self.selected_entries[self.drag_active_slot] = self.selected_entries[target_slot]
+                        self.selected_entries[target_slot] = moving_entry
+                        placed = True
                 else:
                     self.selected_entries[self.drag_active_slot] = None
                     if self._inventory_entry_at(pos) == moving_entry:
@@ -904,6 +925,10 @@ class SilverBlackPage(AdaptivePage):
         for slot, rect in enumerate(self.active_rects):
             entry = self.selected_entries[slot] if slot < len(self.selected_entries) else None
             self._draw_placeholder(rect, self._active_border_color(entry))
+            if slot >= getattr(self, "general_slot_count", self.active_slot_count):
+                pygame.draw.rect(self.screen, SILVER, rect, 3, border_radius=5)
+                label = self.row_label_font.render(self._get_text("LifecycleSilverOnly", "Только серебро"), True, PAPER_COLOR)
+                self.screen.blit(label, label.get_rect(midbottom=(rect.centerx, rect.top - 6)))
             if entry and not (self.drag_source == "active" and self.drag_active_slot == slot):
                 card_id = self._card_id_for_entry(entry)
                 if card_id is not None:

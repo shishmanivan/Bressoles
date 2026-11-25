@@ -64,17 +64,20 @@ def adaptive_draw(draw):
         if depth == 0:
             self.screen.configure(content_rect(self.viewport.get_size()).size)
             self.screen.modal_layers.clear()
-            self.screen.fill((0, 0, 0, 0))
             composition = getattr(self.screen, 'composition', None)
             if composition is not None:
                 composition.begin(self.screen.pixels.get_size())
+            else:
+                self.screen.fill((0, 0, 0, 0))
         try:
             result = draw(self, *args, **kwargs)
         finally:
             self._draw_depth = depth
         if depth == 0:
             if composition is not None:
-                composition.flush(self.screen.pixels)
+                composition.flush(self.screen.pixels, incremental=(
+                    getattr(self, '_last_foreground', None) is composition))
+            self._last_foreground = composition if not self.screen.modal_layers else None
             self.present()
         return result
     return wrapped
@@ -131,6 +134,7 @@ class AdaptivePage:
             return
         size = self.viewport.get_size()
         if size != self._background_size:
+            self._table_frame = None
             self._shade = self._shade_key = None
             self._shaded_table = self._shaded_table_key = None
             self._background = pygame.Surface(size)
@@ -143,6 +147,21 @@ class AdaptivePage:
         rect = content_rect(size)
         composition = getattr(self.screen, 'composition', None)
         layers = self.screen.modal_layers
+        if composition is not None and not layers:
+            self._shaded_table = self._shaded_table_key = None
+            if self._table_frame is None:
+                self._table_frame = self._background.copy()
+                self._table_frame.blit(self.screen.pixels, rect)
+            else:
+                for area in composition.dirty:
+                    destination = area.move(rect.topleft)
+                    self._table_frame.blit(self._background, destination, destination)
+                    self._table_frame.blit(self.screen.pixels, destination, area)
+            # Other screens can overwrite the shared viewport between draws.
+            self.viewport.blit(self._table_frame, (0, 0))
+            pygame.display.flip()
+            return
+        self._table_frame = None
         if (composition is not None and len(layers) == 1
                 and layers[0][0] is composition.pixels):
             color = layers[0][1]

@@ -85,6 +85,9 @@ class GameScreen:
             for level in range(1, 7)
         } if self.levelcard_image else {}
 
+        if self.level_styles:
+            self.level_styles[UPCOMING_LEVEL] = self.level_styles[6]
+
         self.stamp_image = None
         self._rotated_stamps = {}
         if self.levelcard_image:
@@ -255,7 +258,8 @@ class GameScreen:
                 self.arrow6_rect,
             ]
 
-        for level_num, style in self.level_styles.items():
+        for level_num in PLAYABLE_LEVELS:
+            style = self.level_styles.get(level_num)
             index = level_num - 1
             if style is None or self.startarrow_image is None:
                 continue
@@ -564,7 +568,7 @@ class GameScreen:
         style = getattr(self, "level_styles", {}).get(level_num)
         if style is not None:
             style.draw(self.screen, card_position, level_picture,
-                       self._get_text(f"Level{level_num}Year", {1: "1815", 2: "1825", 3: "1830", 4: "1845", 5: "1847", 6: "1850"}[level_num]),
+                       self._get_text(f"Level{level_num}Year", {1: "1815", 2: "1825", 3: "1830", 4: "1845", 5: "1847", 6: "1850", 7: "1857"}[level_num]),
                        self._get_text(f"Level{level_num}Cond", ""))
         else:
             self._draw_standard_card_content(card_position, level_num, level_picture, show_start_arrow)

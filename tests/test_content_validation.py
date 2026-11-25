@@ -32,7 +32,7 @@ class ContentValidationTests(unittest.TestCase):
         self.assertEqual(goals["E"][("boss", 1)], 900)
         self.assertEqual(goals["E"][("boss", 2)], 1500)
         self.assertEqual(goals["E"][("boss", 3)], 2000)
-        self.assertEqual(goals["E"][("boss", 4)], 900)
+        self.assertEqual(goals["E"][("boss", 4)], 3000)
 
         with mock.patch("boss_logic.random.shuffle", side_effect=lambda values: None):
             roster = _ensure_level6_roster({}, 4)

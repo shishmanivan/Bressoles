@@ -94,3 +94,20 @@ class FlashIssueTests(unittest.TestCase):
         game_state.buy_flash_issue(4)
         game_state.reset_level_attempt(4)
         self.assertEqual(game_state.flash_issue_slots, 0)
+
+    def test_dedicated_silver_slot_survives_flash_issue_expiration(self):
+        with mock.patch.object(game_state, "level_6_boss_defeated", True):
+            game_state.buy_flash_issue(7)
+            order = [{"kind": "empty", "card_id": None}] * 3 + [
+                {"kind": "gold", "card_id": 401},
+                {"kind": "silver", "card_id": 201, "silver_only": True},
+            ]
+            retained = game_state.expire_flash_issue(order)
+            self.assertEqual(retained, order[:3] + [order[-1]])
+            self.assertEqual(game_state.silver_cards, [201, 201])
+            page = GameplayPage.__new__(GameplayPage)
+            page.active_silver_cards = [201]
+            page.active_black_cards = []
+            page.active_gold_cards = []
+            self.assertEqual(page._normalize_active_lifecycle_card_order(
+                json.loads(json.dumps(retained))), retained)

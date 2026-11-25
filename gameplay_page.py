@@ -1745,7 +1745,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "active_black_cards": list(self.active_black_cards or []),
             "active_gold_cards": list(self.active_gold_cards or []),
             "active_lifecycle_card_order": [
-                {"kind": entry["kind"], "card_id": entry["card_id"]}
+                dict(entry)
                 for entry in self.active_lifecycle_card_order
             ],
         }
@@ -3493,7 +3493,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         ordered = []
         for entry in selected_order or []:
             if isinstance(entry, dict) and entry.get("kind") == "empty" and entry.get("card_id") is None:
-                ordered.append({"kind": "empty", "card_id": None})
+                ordered.append(dict(entry))
                 continue
             if isinstance(entry, dict):
                 kind = str(entry.get("kind") or "").lower()
@@ -3514,6 +3514,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             except ValueError:
                 continue
             ordered.append({"kind": kind, "card_id": normalized_id})
+            if isinstance(entry, dict) and entry.get("silver_only") and kind == "silver":
+                ordered[-1]["silver_only"] = True
 
         if not ordered:
             for kind in ("silver", "black", "gold"):
@@ -7829,7 +7831,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 SCREEN_HEIGHT,
                 side_ph,
                 bottom_frame=self.bottom_frame,
-                bottom_slots=game_state.get_lifecycle_card_slot_limit(),
+                bottom_slots=game_state.get_lifecycle_card_slot_limit() + game_state.get_silver_only_slot_count(),
             )
             right_frame_x = right_panel_layout["x"]
             right_frame_w = right_panel_layout["width"]
@@ -7894,7 +7896,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 side_ph,
                 bottom_frame=self.bottom_frame,
                 desired_top_y=desired_top_y,
-                bottom_slots=game_state.get_lifecycle_card_slot_limit(),
+                bottom_slots=game_state.get_lifecycle_card_slot_limit() + game_state.get_silver_only_slot_count(),
             )
             right_top_y = right_panel_layout["top_y"]
             right_top_h = right_panel_layout["top_height"]

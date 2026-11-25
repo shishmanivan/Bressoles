@@ -30,7 +30,7 @@ class GameplayComposition:
     def add(self, key, bounds, paint):
         self.pending.append((key, bounds.copy(), paint))
 
-    def flush(self, target):
+    def flush(self, target, *, incremental=False):
         if not self.active:
             return
         self.active = False
@@ -74,8 +74,12 @@ class GameplayComposition:
         # Copy exact RGBA pixels, not alpha-blend onto last frame's foreground.
         # PixelArray assignment preserves transparent edges bit for bit.
         target.set_clip(None)
-        with pygame.PixelArray(target) as dest, pygame.PixelArray(self.pixels) as source:
-            dest[:] = source
+        regions = merged if incremental else [target.get_rect()]
+        if regions:
+            with pygame.PixelArray(target) as dest, pygame.PixelArray(self.pixels) as source:
+                for rect in regions:
+                    area = (slice(rect.left, rect.right), slice(rect.top, rect.bottom))
+                    dest[area] = source[area]
         self.previous = pending
         self.pending = []
         self.dirty = merged

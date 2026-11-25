@@ -2582,9 +2582,11 @@ def get_lifecycle_card_slot_limit():
     except (TypeError, ValueError):
         boss_bonus = 0
     completion_bonus = LEVEL_5_COMPLETION_LIFECYCLE_SLOT_BONUS if level_5_boss_defeated else 0
-    if level_6_boss_defeated:
-        completion_bonus += 1
     return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus + flash_issue_slots
+
+
+def get_silver_only_slot_count():
+    return int(bool(level_6_boss_defeated))
 
 
 def buy_flash_issue(level_number):
@@ -2602,9 +2604,15 @@ def expire_flash_issue(selected_order, silver_already_spent=False):
         return None
     flash_issue_slots = 0
     limit = get_lifecycle_card_slot_limit()
-    retained = list(selected_order or [])[:limit]
+    order = list(selected_order or [])
+    dedicated = [entry for entry in order if entry.get("silver_only") and entry.get("kind") in ("silver", "empty")]
+    general = [entry for entry in order if not entry.get("silver_only")]
+    retained = general[:limit]
+    if dedicated and get_silver_only_slot_count():
+        retained += [{"kind": "empty", "card_id": None}] * max(0, limit - len(retained))
+        retained += dedicated[:1]
     if not silver_already_spent:
-        spend_silver_cards([entry["card_id"] for entry in list(selected_order or [])[limit:]
+        spend_silver_cards([entry["card_id"] for entry in general[limit:]
                            if entry.get("kind") == "silver"])
     set_active_black_cards([entry["card_id"] for entry in retained if entry.get("kind") == "black"])
     set_active_gold_cards([entry["card_id"] for entry in retained if entry.get("kind") == "gold"])

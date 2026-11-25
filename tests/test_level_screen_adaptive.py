@@ -135,8 +135,9 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
                                   page.level_pictures[level - 1], show_start_arrow=False)
             page.level_styles[level].draw.assert_called_once()
         page._draw_standard_card_content.assert_not_called()
-        page._draw_level_card(page.card_position, 7, None, show_start_arrow=False)
-        page._draw_standard_card_content.assert_called_once()
+        self.assertIsNotNone(page.level_pictures[6])
+        page._draw_level_card(page.card_position, 7, page.level_pictures[6], show_start_arrow=False)
+        page._draw_standard_card_content.assert_not_called()
 
     def test_rotated_button_hits_follow_both_tilts_and_scroll(self):
         page = self.make_page(test_mode=True)

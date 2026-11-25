@@ -61,6 +61,9 @@ class RenderRebuildTests(unittest.TestCase):
         with patch('adaptive_page.load_scaled_image', return_value=None):
             page = Page()
             page.init_viewport(pygame.Surface((731, 457)))
+            reference = Page()
+            reference.init_viewport(pygame.Surface((731, 457)))
+            reference.screen.composition = None
         page.card = native.Surface((260, 320), pygame.SRCALPHA)
         page.card.fill((255, 50, 60, 130))
         page.label = native.Font(None, 38).render('Turns: 3', True, 'white')
@@ -73,12 +76,12 @@ class RenderRebuildTests(unittest.TestCase):
                 page.card.fill((20, 80, 230, 180))
             if i == 15:
                 page.viewport = pygame.Surface((1031, 644))
-            page.screen.composition = cache
+                reference.viewport = pygame.Surface((1031, 644))
+            reference.x, reference.modal = page.x, page.modal
+            reference.card, reference.label = page.card, page.label
             page.draw()
-            retained = self.pixels(page.viewport)
-            page.screen.composition = None
-            page.draw()
-            self.assertEqual(retained, self.pixels(page.viewport), f'frame {i}')
+            reference.draw()
+            self.assertEqual(self.pixels(page.viewport), self.pixels(reference.viewport), f'frame {i}')
         self.assertGreater(cache.partial_redraws, 0)
 
     def test_plain_surface_is_not_cached_by_identity_and_wrap_owns_source(self):
