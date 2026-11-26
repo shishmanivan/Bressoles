@@ -960,6 +960,14 @@
     "FR": "Ajoute immédiatement une carte à vendre dans la boutique actuelle et chaque boutique suivante jusqu’à la fin de la partie."
   },
   {
+    "Source": "До конца забега в серебряный слот можно ставить также чёрные и золотые карты.",
+    "RU": "До конца забега в серебряный слот можно ставить также чёрные и золотые карты.",
+    "ENG": "The silver-only slot also accepts black and gold cards until the end of the run.",
+    "DE": "Der Silberplatz nimmt bis zum Ende des Durchlaufs auch schwarze und goldene Karten auf.",
+    "HU": "A menet végéig fekete és arany kártyákat is tehetsz az ezüst kártyahelyre.",
+    "FR": "L’emplacement argent accepte aussi les cartes noires et dorées jusqu’à la fin de la partie."
+  },
+  {
     "Source": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
     "RU": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
     "ENG": "Immediately adds one more offer to the current shop and every subsequent shop.",

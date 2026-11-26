@@ -1,3 +1,4 @@
+from game_data import get_level_rounds_required
 from adaptive_page import AdaptivePage, adaptive_draw
 from localization import translate as _tr
 import sys
@@ -122,7 +123,10 @@ class RoundPage(AdaptivePage):
             rounds_cfg_value = level_cfg.get("Rounds")
         self.rounds_required = rounds_cfg_value if rounds_cfg_value and rounds_cfg_value > 0 else 1
 
-        if self.boss_number:
+        if self.level_number == 7:
+            self.rounds_required = get_level_rounds_required(self.level_number, self.rounds_config, levels_cfg)
+
+        if self.boss_number and self.level_number != 7:
             boss_rewards = self._load_boss_rewards()
             boss_entry = boss_rewards.get(self.boss_number)
             if boss_entry and isinstance(boss_entry, dict):
@@ -354,7 +358,7 @@ class RoundPage(AdaptivePage):
         self.screen.blit(img, rect.topleft)
 
     def _refresh_button_goals(self):
-        if self.level_number in (2, 3, 4, 5, 6):
+        if self.level_number in (2, 3, 4, 5, 6, 7):
             current_round = self.get_current_active_round()
             if current_round is not None:
                 self.base_button_goals = refresh_button_goals_for_round(

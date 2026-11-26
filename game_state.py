@@ -144,6 +144,7 @@ multibagger_bought = False
 loan_boss_positions_by_level = {}
 diversification_bought = False
 expansion_bought = False
+opportunity_bought = False
 bill_of_exchange_offer_bought = False
 compounding_bought = False
 capital_preservation_bought = False
@@ -173,6 +174,7 @@ SHOP_SPECIAL_COSTS = {
     "correction": 2,
     "diversification": 4,
     "expansion": 3,
+    "opportunity": 4,
     "bill_of_exchange": 4,
     "disclosure": 2,
     "price_support": 2,
@@ -2137,6 +2139,7 @@ def new_boss_progress_state():
 
 def reset_run_bonuses():
     """Reset temporary bonus values and their purchase flags together."""
+    global opportunity_bought
     global global_dobor, global_start_money_bonus, global_last_turn_bonus
     global global_hand_bonus, global_start_c_shares_bonus, profit_reward_bonus
     global updown_probability_bonus, variance_offer_bought_count, derivative_bought
@@ -2162,6 +2165,7 @@ def reset_run_bonuses():
     multibagger_bought = False
     diversification_bought = False
     expansion_bought = False
+    opportunity_bought = False
     bill_of_exchange_offer_bought = False
     compounding_bought = False
 
@@ -2582,11 +2586,24 @@ def get_lifecycle_card_slot_limit():
     except (TypeError, ValueError):
         boss_bonus = 0
     completion_bonus = LEVEL_5_COMPLETION_LIFECYCLE_SLOT_BONUS if level_5_boss_defeated else 0
-    return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus + flash_issue_slots
+    upgraded_slot = int(bool(level_6_boss_defeated and opportunity_bought))
+    return LIFECYCLE_CARD_BASE_SLOTS + completion_bonus + get_issuer_bought_count() + boss_bonus + flash_issue_slots + upgraded_slot
 
 
 def get_silver_only_slot_count():
-    return int(bool(level_6_boss_defeated))
+    return int(bool(level_6_boss_defeated and not opportunity_bought))
+
+
+def is_opportunity_offer_available(level_number):
+    return level_number >= 7 and get_silver_only_slot_count() > 0
+
+
+def buy_opportunity(level_number):
+    global opportunity_bought
+    if not is_opportunity_offer_available(level_number):
+        return False
+    opportunity_bought = True
+    return True
 
 
 def buy_flash_issue(level_number):
@@ -2981,6 +2998,8 @@ def get_active_shop_offer_effects(level_number=None, defeated_count=None):
         add("diversification")
     if expansion_bought:
         add("expansion")
+    if opportunity_bought:
+        add("opportunity")
     if bill_of_exchange_offer_bought:
         add("bill_of_exchange")
     if compounding_bought:
@@ -3376,6 +3395,7 @@ def _available_screening_offer_ids(
         "correction": is_correction_offer_available(),
         "diversification": level >= 3 and is_diversification_offer_available(),
         "expansion": is_expansion_offer_available(level),
+        "opportunity": is_opportunity_offer_available(level),
         "bill_of_exchange": is_bill_of_exchange_offer_available(level),
         "disclosure": is_disclosure_offer_available(),
         "price_support": is_price_support_offer_available(),
@@ -3635,6 +3655,8 @@ def build_shop_special_offer_pool(
         rolled.append("market_refresh")
     if is_moratorium_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(10):
         rolled.append("moratorium")
+    if is_opportunity_offer_available(level) and random.randint(1, 100) <= get_shop_special_offer_chance(10):
+        rolled.append("opportunity")
 
     try:
         offer_limit = max(0, int(max_offers or 0))
@@ -3673,7 +3695,7 @@ def build_shop_special_offer_pool(
 SINGLE_ACTIVE_SHOP_OFFERS = frozenset({
     "bailout", "bank", "derivative", "multibagger", "diversification",
     "expansion", "bill_of_exchange", "disclosure", "compounding",
-    "capital_preservation", "retention", "loan",
+    "capital_preservation", "retention", "loan", "opportunity",
 })
 
 

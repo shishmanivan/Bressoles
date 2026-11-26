@@ -46,6 +46,8 @@ def get_boss_stage_rise(level_number, bosses_required):
         boss_count = int(bosses_required or 0)
     except (TypeError, ValueError):
         return DEFAULT_BOSS_STAGE_RISE
+    if level == 7:
+        return 112
     if level == 5 and boss_count >= 4:
         return LEVEL5_BOSS_STAGE_RISE
     return DEFAULT_BOSS_STAGE_RISE
@@ -111,6 +113,7 @@ def rebuild_boss_route_layout(
     stage_rise=None,
     origin=ROUND_GRAPH_ORIGIN,
     first_center=(400, 700),
+    horizontal_step=200,
 ):
     """Rebuild saved route geometry using the current spacing rules."""
     normalized_bosses = []
@@ -133,6 +136,7 @@ def rebuild_boss_route_layout(
                 choice_spacing,
                 stage_rise,
                 first_center=first_center,
+                horizontal_step=horizontal_step,
             )
             line_start = origin if previous_rect is None else previous_rect.center
         elif previous_rect is None:
@@ -142,6 +146,7 @@ def rebuild_boss_route_layout(
                 choice_spacing,
                 0,
                 first_center=first_center,
+                horizontal_step=horizontal_step,
             )
             line_start = origin
         else:
@@ -372,13 +377,16 @@ class BossPage(AdaptivePage):
             self.level_number,
             self.bosses_required,
         )
-        if self.level_number == 5 and self.defeated_count > 0:
+        self.fixed_stages = self.level_number == 7 or (self.level_number == 5 and self.bosses_required >= 4)
+        self.boss_horizontal_step = 150 if self.level_number == 7 else 200
+        if self.fixed_stages and self.defeated_count > 0:
             route_layout = rebuild_boss_route_layout(
                 bosses_for_round,
                 self.defeated_bosses[: self.defeated_count],
                 self.boss_vertical_spacing,
                 SCREEN_HEIGHT,
                 stage_rise=self.boss_stage_rise,
+                horizontal_step=self.boss_horizontal_step,
             )
             if route_layout and len(route_layout["defeated_bosses"]) == self.defeated_count:
                 self.defeated_bosses = route_layout["defeated_bosses"]
@@ -447,12 +455,13 @@ class BossPage(AdaptivePage):
         start_x = 350
         start_y = SCREEN_HEIGHT - 400
 
-        if self.level_number == 5 and self.bosses_required >= 4:
+        if self.fixed_stages:
             positions = build_boss_stage_positions(
                 self.defeated_count,
                 len(self.bosses),
                 self.boss_vertical_spacing,
                 self.boss_stage_rise,
+                horizontal_step=self.boss_horizontal_step,
             )
             for cx, cy in positions:
                 self.boss_rects.append(pygame.Rect(cx - 50, cy - 50, 100, 100))

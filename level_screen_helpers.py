@@ -3,7 +3,7 @@ import os
 import pygame
 
 from asset_loaders import load_fitted_image
-from level_routes import PLAYABLE_LEVELS
+from level_routes import TEST_LEVELS
 
 
 LEVEL_CONTENT_SIZE = (1680, 1050)
@@ -104,7 +104,7 @@ def load_test_level_pictures(num_levels):
 
 def build_test_mode_layout(levelcard_image, startarrow_image, screen_width, screen_height, padding_y):
     """Build positions, click rects, and scroll bounds for test mode."""
-    num_levels = len(PLAYABLE_LEVELS)
+    num_levels = len(TEST_LEVELS)
     cards_per_row = 2
     cards_per_col = (num_levels + cards_per_row - 1) // cards_per_row
     if not levelcard_image:

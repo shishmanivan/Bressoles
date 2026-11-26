@@ -407,6 +407,7 @@ def _empty_progress():
         "multibagger_bought": False,
         "diversification_bought": False,
         "expansion_bought": False,
+        "opportunity_bought": False,
         "bill_of_exchange_offer_bought": False,
         "compounding_bought": False,
         "capital_preservation_bought": False,
@@ -932,6 +933,7 @@ def apply_profile_to_game_state(profile_or_slot):
     game_state.multibagger_bought = bool(progress.get("multibagger_bought", False))
     game_state.diversification_bought = bool(progress.get("diversification_bought", False))
     game_state.expansion_bought = bool(progress.get("expansion_bought", False))
+    game_state.opportunity_bought = bool(progress.get("opportunity_bought", False))
     game_state.bill_of_exchange_offer_bought = bool(
         progress.get("bill_of_exchange_offer_bought", False)
     )
@@ -1298,6 +1300,7 @@ def _capture_progress():
         "multibagger_bought": bool(game_state.multibagger_bought),
         "diversification_bought": bool(game_state.diversification_bought),
         "expansion_bought": bool(game_state.expansion_bought),
+        "opportunity_bought": bool(game_state.opportunity_bought),
         "bill_of_exchange_offer_bought": bool(game_state.bill_of_exchange_offer_bought),
         "compounding_bought": bool(game_state.compounding_bought),
         "capital_preservation_bought": bool(game_state.capital_preservation_bought),

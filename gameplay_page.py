@@ -638,6 +638,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
             self._configure_boss_stock_bot()
 
+        self.turn_bonus_queue = []
+        self.turn_bonus_animation = None
         self._apply_frugality_turn_bonus()
         self._apply_silver_last_turn_bonuses()
 
@@ -2363,6 +2365,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.market_clear_animations = []
         self.bankruptcy_animations = {}
         self.parity_animation = None
+        self.turn_bonus_queue = []
+        self.turn_bonus_animation = None
         self._reset_drag_state()
         self._start_lifecycle_turn_reminder()
 
@@ -3959,16 +3963,34 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             203: 2,
             301: 1,
         }
-        bonus = 0
-        for card_id in self._active_lifecycle_cards():
+        for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                bonus += turn_bonuses.get(int(card_id), 0)
+                bonus = turn_bonuses.get(int(card_id), 0)
             except (TypeError, ValueError):
                 continue
-        if bonus <= 0:
-            return
+            if bonus:
+                self._add_card_turns(bonus, (slot,))
+
+    def _add_card_turns(self, bonus, lifecycle_slots=()):
         self.LastTurn += bonus
-        print(f"Active lifecycle cards increased LastTurn by {bonus}: LastTurn={self.LastTurn}")
+        if not hasattr(self, "turn_bonus_queue"):
+            self.turn_bonus_queue = []
+        self.turn_bonus_queue.append((bonus, lifecycle_slots))
+
+    def _update_turn_bonus_animation(self):
+        animation = getattr(self, "turn_bonus_animation", None)
+        if animation:
+            animation["elapsed"] = pygame.time.get_ticks() - animation["start_time"]
+            if animation["elapsed"] < parity_animation.DURATION_MS:
+                return
+            self.turn_bonus_animation = None
+        if getattr(self, "turn_bonus_queue", None):
+            bonus, slots = self.turn_bonus_queue.pop(0)
+            self.turn_bonus_animation = {
+                "bonus": bonus, "start_time": pygame.time.get_ticks(), "elapsed": 0,
+            }
+            for slot in slots:
+                self._start_card_jump_animation(self.lifecycle_card_jump_animations, slot)
 
     def _apply_frugality_turn_bonus(self):
         """Apply and immediately clear turns banked for this round."""
@@ -3980,7 +4002,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if getattr(self, "boss_block_card_turn_extensions", False):
             print(f"Boss blocked Frugality from adding {bonus} turn(s).")
             return 0
-        self.LastTurn += bonus
+        self._add_card_turns(bonus)
         print(f"Frugality added {bonus} turn(s): LastTurn={self.LastTurn}")
         if self.profile_slot and not self.test_mode:
             profile_manager.save_progress_from_game_state(self.profile_slot)
@@ -5639,6 +5661,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.market_clear_animations)
             or bool(getattr(self, "bankruptcy_animations", {}))
             or bool(getattr(self, "parity_animation", None))
+            or bool(getattr(self, "turn_bonus_animation", None))
+            or bool(getattr(self, "turn_bonus_queue", None))
         )
 
     def _start_turn_resolution(self):
@@ -6448,6 +6472,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             or bool(self.market_clear_animations)
             or bool(getattr(self, "bankruptcy_animations", {}))
             or bool(getattr(self, "parity_animation", None))
+            or bool(getattr(self, "turn_bonus_animation", None))
+            or bool(getattr(self, "turn_bonus_queue", None))
         )
 
     def _maybe_finalize_after_effect_animations(self):
@@ -6714,6 +6740,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         has_silver_forward = self._count_active_silver_card(207) > 0
         gold_forward_count = self._count_active_silver_card(402)
 
+        forward_slots = tuple(slot for slot, card in enumerate(self._active_lifecycle_cards())
+                              if card in (207, 402))
         if has_silver_forward:
             self.forward_trading_shareholder_count += shareholder_count
             pairs = self.forward_trading_shareholder_count // 2
@@ -6727,7 +6755,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
             bonus_per_pair = 4 * gold_forward_count if gold_forward_count > 0 else 1
             bonus = pairs * bonus_per_pair
-            self.LastTurn += bonus
+            self._add_card_turns(bonus, forward_slots)
             source = "207+402 Forward Trading" if gold_forward_count > 0 else "207 Forward Trading"
             print(
                 f"Active card {source} extended LastTurn by {bonus} "
@@ -6739,7 +6767,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return False
 
         bonus = shareholder_count * gold_forward_count
-        self.LastTurn += bonus
+        self._add_card_turns(bonus, forward_slots)
         print(
             f"Active card 402 Forward Trading extended LastTurn by {bonus} "
             f"({shareholder_count} Shareholder, {gold_forward_count} Forward Trading): LastTurn={self.LastTurn}"
@@ -6810,7 +6838,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         bonus = self._count_fresh_side_card(116, slots=slots)
         if bonus <= 0:
             return False
-        self.LastTurn += bonus
+        self._add_card_turns(bonus)
         print(f"Card 116 increased LastTurn by {bonus}: LastTurn={self.LastTurn}")
         return True
 
@@ -8539,6 +8567,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             day_text_x = self.end_button_rect.x - day_text.get_width() - 20  # 20px spacing from button
             day_text_y = self.end_button_rect.y + (self.end_button_rect.height - day_text.get_height()) // 2  # Vertically centered with button
             self.screen.blit(day_text, (day_text_x, day_text_y))
+            turn_bonus = getattr(self, "turn_bonus_animation", None)
+            if turn_bonus:
+                label = self.font_medium.render(f"+{turn_bonus['bonus']}", True, PAPER_COLOR)
+                rect = label.get_rect(midright=(day_text_x - 10, day_text_y + day_text.get_height() // 2))
+                parity_animation.draw_labels(self, [(label, rect)], turn_bonus)
+
 
 
             if int(getattr(self, "boss_turn_time_limit_seconds", 0) or 0) > 0:
@@ -8722,6 +8756,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         bankruptcy_animation.update(self)
         self._update_probability_drop_sound()
         parity_animation.update(self)
+        self._update_turn_bonus_animation()
 
         # Update arrow animation timing
         self.update_arrow_animation()

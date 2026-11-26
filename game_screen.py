@@ -19,7 +19,7 @@ from level_screen_helpers import (
     load_test_level_pictures,
 )
 from level_card_style import LevelCardStyle
-from level_routes import PLAYABLE_LEVELS, UPCOMING_LEVEL
+from level_routes import PLAYABLE_LEVELS, TEST_LEVELS, UPCOMING_LEVEL
 from shared_utils import wrap_text
 from sound_assets import load_button_sound, load_sound
 
@@ -258,7 +258,7 @@ class GameScreen:
                 self.arrow6_rect,
             ]
 
-        for level_num in PLAYABLE_LEVELS:
+        for level_num in (TEST_LEVELS if self.test_mode else PLAYABLE_LEVELS):
             style = self.level_styles.get(level_num)
             index = level_num - 1
             if style is None or self.startarrow_image is None:
@@ -287,7 +287,7 @@ class GameScreen:
 
     def _is_level_unlocked(self, level_num):
         if self.test_mode:
-            return level_num in PLAYABLE_LEVELS
+            return level_num in TEST_LEVELS
         return {
             1: True,
             2: self._is_unlocked("level_1_boss_defeated"),
@@ -306,7 +306,8 @@ class GameScreen:
         return self._is_level_unlocked(UPCOMING_LEVEL)
 
     def _start_level(self, level_num):
-        if level_num not in PLAYABLE_LEVELS or getattr(self, "_pending_level", None) is not None:
+        allowed_levels = TEST_LEVELS if self.test_mode else PLAYABLE_LEVELS
+        if level_num not in allowed_levels or getattr(self, "_pending_level", None) is not None:
             return None
         sound = getattr(self, "button_sound", None)
         if sound:

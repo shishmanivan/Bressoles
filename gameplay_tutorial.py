@@ -140,7 +140,7 @@ INK = (83, 76, 70)
 
 class TutorialHint:
     def __init__(self, screen_size, frame, font_path, ok_image=None,
-                 hint_id=FIRST_HINT_ID, text=FIRST_HINT_TEXT, placement="center"):
+                 hint_id=FIRST_HINT_ID, text=FIRST_HINT_TEXT, placement="center", button_label="OK"):
         self.hint_id = hint_id
         self.has_checkbox = hint_id not in (FIRST_HINT_ID, CONDITIONS_ROUND_HINT_ID, CONDITIONS_GAME_HINT_ID)
         self.dont_show_again = False
@@ -165,7 +165,7 @@ class TutorialHint:
         size = (140, round(140 * artwork.get_height() / artwork.get_width()))
         self.ok_image = pygame.transform.smoothscale(artwork, size)
         label = pygame.font.Font(str(Path(__file__).parent / "Fonts" / "OldStandard-Bold.ttf"), 24).render(
-            "OK", True, (57, 29, 12))
+            translate(button_label), True, (57, 29, 12))
         self.ok_image.blit(label, label.get_rect(center=self.ok_image.get_rect().center))
         self.pressed_image = pygame.transform.smoothscale(
             self.ok_image, (round(size[0] * .96), round(size[1] * .96)))
@@ -231,6 +231,9 @@ class TutorialHint:
                     (self.checkbox.right - 5, self.checkbox.top + 6),
                 ], 3)
             screen.blit(self.checkbox_label, (self.checkbox.right + 14, self.checkbox_row.top))
+        self.draw_button(screen)
+
+    def draw_button(self, screen):
         if self.ok_image is not None:
             if self.pressing and self.press_until is None:
                 self.press_until = pygame.time.get_ticks() + 110

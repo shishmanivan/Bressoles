@@ -160,6 +160,26 @@ class ShopEconomyTestCase(unittest.TestCase):
 
 
 class ShopTransactionTests(ShopEconomyTestCase):
+    def test_opportunity_converts_silver_slot_and_does_not_add_a_slot(self):
+        game_state.napoleondors = 10
+        page = self._shop({"kind": "special", "special_id": "opportunity", "cost": 4})
+        with mock.patch.multiple(game_state, level_6_boss_defeated=True, opportunity_bought=False):
+            general_slots = game_state.get_lifecycle_card_slot_limit()
+            self.assertEqual(game_state.get_silver_only_slot_count(), 1)
+            self.assertFalse(game_state.is_opportunity_offer_available(6))
+            for roll, expected in ((10, True), (11, False)):
+                with mock.patch.object(game_state.random, "randint", return_value=roll):
+                    pool = game_state.build_shop_special_offer_pool(7, max_offers=100)
+                self.assertEqual("opportunity" in pool, expected)
+            page.level_number = 7
+            page._buy_offer(0)
+            self.assertEqual(game_state.napoleondors, 6)
+            self.assertEqual(page.sold_offer_indexes, {0})
+            self.assertEqual(game_state.get_lifecycle_card_slot_limit(), general_slots + 1)
+            self.assertEqual(game_state.get_silver_only_slot_count(), 0)
+            self.assertFalse(game_state.is_opportunity_offer_available(7))
+            self.assertTrue(profile_manager._capture_progress()["opportunity_bought"])
+
     def test_trader_stamp_starts_with_sound_only_after_return_to_shop(self):
         page = self._shop({"kind": "special", "special_id": "trader", "cost": 0})
         page._purchase_stamps = {}

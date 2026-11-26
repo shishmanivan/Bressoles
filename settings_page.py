@@ -9,7 +9,9 @@ from localization import translate as tr, get_language
 from game_data import load_language
 from sound_assets import load_card_hover_sound, set_effects_volume, play_action_click
 from start_page import MASTER_BACKGROUND_PATH, MENU_FONT_PATH
-from shared_utils import wrap_text
+from asset_loaders import find_font_path_or_exit, load_scaled_image
+from gameplay_tutorial import TutorialHint, INK as HINT_INK
+from sound_assets import load_button_sound
 
 ALWAYS_LOSE_LABEL = "Всегда проигрывать"
 ALWAYS_LOSE_QUESTIONS = (
@@ -72,8 +74,8 @@ class SettingsPage:
         }
         self.focus = 'music'
         self.joke_dialog = None
-        self.joke_yes = pygame.Rect(600, 610, 180, 55)
-        self.joke_no = pygame.Rect(900, 610, 180, 55)
+        self.joke_views = {}
+        self.joke_press = None
         if self.values['always_lose_unlocked']:
             self.controls['always_lose'] = pygame.Rect(1160, 330, 415, 55)
         self.dragging_volume = False
@@ -245,8 +247,29 @@ class SettingsPage:
             self.values['show_card_info'] = not self.values['show_card_info']
         return None
 
+    def _joke_view(self):
+        stage = self.joke_dialog
+        if stage not in self.joke_views:
+            frame = load_scaled_image("GameplayPage/Frame.png", target_size=(378, 548))
+            args = (self.canvas.get_size(), frame, find_font_path_or_exit())
+            hint = TutorialHint(*args, text=ALWAYS_LOSE_QUESTIONS[stage],
+                                button_label="OK" if stage == 2 else "Да")
+            no = None
+            if stage != 2:
+                no = TutorialHint(*args, text="", button_label="Нет")
+                hint.button.centerx -= 90
+                no.button.centerx += 90
+            self.joke_views[stage] = hint, no
+        return self.joke_views[stage]
+
+    def _press_joke(self, yes):
+        if self.joke_press is None:
+            hint, no = self._joke_view()
+            button = hint if yes or no is None else no
+            button.start_press(load_button_sound())
+            self.joke_press = (button, yes)
+
     def _answer_joke(self, yes):
-        self._play_menu_sound()
         if not yes or self.joke_dialog == 2:
             self.joke_dialog = None
         elif self.joke_dialog == 0:
@@ -269,15 +292,16 @@ class SettingsPage:
             if getattr(self, 'joke_dialog', None) is not None:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        self._answer_joke(False)
+                        self._press_joke(False)
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        self._answer_joke(True)
+                        self._press_joke(True)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     pos = self._point(event.pos)
-                    if self.joke_yes.collidepoint(pos):
-                        self._answer_joke(True)
-                    elif self.joke_dialog != 2 and self.joke_no.collidepoint(pos):
-                        self._answer_joke(False)
+                    hint, no = self._joke_view()
+                    if hint.button.collidepoint(pos):
+                        self._press_joke(True)
+                    elif no is not None and no.button.collidepoint(pos):
+                        self._press_joke(False)
                 continue
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -370,7 +394,7 @@ class SettingsPage:
         self._box(self.info_rect, self.values['show_card_info'])
         if self.values.get('always_lose_unlocked'):
             self._text(ALWAYS_LOSE_LABEL, (1160, 330, 360, 55), 25)
-            self._box(pygame.Rect(1540, 342, 30, 30), False)
+            pygame.draw.rect(self.canvas, HINT_INK, (1540, 342, 28, 28), 2)
         self._text('Сохранить', self.save_rect, 32, True, ink_centered=True)
         if self.error:
             self._text(self.error, (1090, 924, 510, 40), 21, color=(110, 42, 22))
@@ -385,21 +409,16 @@ class SettingsPage:
                 pygame.draw.rect(self.canvas, BORDER, row, 1)
                 self._text(f'{resolution[0]} × {resolution[1]}', row, 25, True)
         if self.joke_dialog is not None:
-            shade = pygame.Surface((1680, 1050), pygame.SRCALPHA)
-            shade.fill((0, 0, 0, 140))
-            self.canvas.blit(shade, (0, 0))
-            panel = pygame.Rect(400, 350, 880, 370)
-            pygame.draw.rect(self.canvas, PAPER, panel, border_radius=8)
-            pygame.draw.rect(self.canvas, BORDER, panel, 4, border_radius=8)
-            font = pygame.font.Font(MENU_FONT_PATH, 30)
-            lines = wrap_text(tr(ALWAYS_LOSE_QUESTIONS[self.joke_dialog]), font, 760)
-            for index, line in enumerate(lines):
-                self.canvas.blit(font.render(line, True, INK), (460, 400 + index * 42))
-            self._box(self.joke_yes)
-            self._text("OK" if self.joke_dialog == 2 else "Да", self.joke_yes, 28, True)
-            if self.joke_dialog != 2:
-                self._box(self.joke_no)
-                self._text("Нет", self.joke_no, 28, True)
+            hint, no = self._joke_view()
+            hint.draw(self.canvas)
+            if no is not None:
+                no.draw_button(self.canvas)
+            if self.joke_press is not None:
+                button, yes = self.joke_press
+                if button.ready_to_close():
+                    self.joke_press = None
+                    del self.joke_views[self.joke_dialog]
+                    self._answer_joke(yes)
         self.screen.blit(self.background, self.bg_pos)
         self.screen.blit(pygame.transform.smoothscale(self.canvas, self.panel_rect.size), self.panel_rect)
         pygame.display.flip()

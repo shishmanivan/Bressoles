@@ -86,16 +86,9 @@ def _build_level5_default_roster():
     ]
 
 
-def _build_level6_default_roster():
-    """Build a deterministic fallback for the four positions of level 6."""
-    level_one_bosses = get_bosses_for_boss_level(1)
-    level_two_bosses = get_bosses_for_boss_level(2)
-    return [
-        [level_one_bosses[0]],
-        [level_one_bosses[1]],
-        [level_two_bosses[0]],
-        [level_two_bosses[1]],
-    ]
+def _single_boss_default_roster(first_tier_count):
+    bosses = get_bosses_for_boss_level(1)[:first_tier_count] + get_bosses_for_boss_level(2)[:2]
+    return [[filename] for filename in bosses]
 
 
 # Boss roster per level and boss rounds
@@ -104,7 +97,8 @@ LEVEL_BOSS_ROUNDS = {
     2: [["2_AdamSmith.png", "3_RobertFulton.png"],
         ["4_NicolasApper.png", "5_SamuelSlater.png"]],
     5: _build_level5_default_roster(),
-    6: _build_level6_default_roster(),
+    6: _single_boss_default_roster(2),
+    7: _single_boss_default_roster(3),
 }
 
 # -------------------------------
@@ -221,8 +215,8 @@ def _ensure_level5_roster(bp_state: dict, bosses_required: int, *, rng=random):
     return roster
 
 
-def _generate_level6_boss_roster(bosses_required: int, *, rng=random):
-    """Level 6 assigns bosses randomly without offering a player choice."""
+def _generate_single_boss_roster(bosses_required: int, *, first_tier_count=2, rng=random):
+    """Assign one random boss per position."""
     pools = {
         1: get_bosses_for_boss_level(1),
         2: get_bosses_for_boss_level(2),
@@ -236,7 +230,7 @@ def _generate_level6_boss_roster(bosses_required: int, *, rng=random):
 
     roster = []
     for position in range(required):
-        category = 1 if position < 2 else 2
+        category = 1 if position < first_tier_count else 2
         pool = pools[category]
         if not pool:
             break
@@ -244,15 +238,15 @@ def _generate_level6_boss_roster(bosses_required: int, *, rng=random):
     return roster
 
 
-def _ensure_level6_roster(bp_state: dict, bosses_required: int, *, rng=random):
-    """Ensure level 6 has a stable roster of four bosses."""
+def _ensure_level6_roster(bp_state: dict, bosses_required: int, *, first_tier_count=2, rng=random):
+    """Keep the saved single-boss route when its tiers and length match."""
     roster = bp_state.get("roster")
     expected_len = max(1, int(bosses_required or 1))
     level_one_bosses = set(get_bosses_for_boss_level(1))
     level_two_bosses = set(get_bosses_for_boss_level(2))
     if isinstance(roster, list) and len(roster) == expected_len:
-        first_steps = roster[: min(2, expected_len)]
-        second_steps = roster[min(2, expected_len):]
+        first_steps = roster[: min(first_tier_count, expected_len)]
+        second_steps = roster[min(first_tier_count, expected_len):]
         first_choices = [filename for step in first_steps if isinstance(step, list) for filename in step]
         second_choices = [filename for step in second_steps if isinstance(step, list) for filename in step]
         if (
@@ -263,7 +257,7 @@ def _ensure_level6_roster(bp_state: dict, bosses_required: int, *, rng=random):
             and set(second_choices).issubset(level_two_bosses)
         ):
             return roster
-    roster = _generate_level6_boss_roster(bosses_required, rng=rng)
+    roster = _generate_single_boss_roster(bosses_required, first_tier_count=first_tier_count, rng=rng)
     bp_state["roster"] = roster
     return roster
 
@@ -274,8 +268,8 @@ def get_level_boss_roster(level, bp_state, bosses_required, *, rng=random):
         return _ensure_level3_roster(bp_state, bosses_required, rng=rng)
     if level == 5:
         return _ensure_level5_roster(bp_state, bosses_required, rng=rng)
-    if level == 6:
-        return _ensure_level6_roster(bp_state, bosses_required, rng=rng)
+    if level in (6, 7):
+        return _ensure_level6_roster(bp_state, bosses_required, first_tier_count=3 if level == 7 else 2, rng=rng)
     return LEVEL_BOSS_ROUNDS.get(level, [])
 
 

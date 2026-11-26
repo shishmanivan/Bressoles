@@ -14,6 +14,7 @@ _goals_level3_cache = None
 _goals_level4_cache = None
 _goals_level5_cache = None
 _goals_level6_cache = None
+_goals_level7_cache = None
 _rewards_config_cache = None
 _boss_rewards_cache = None
 
@@ -164,6 +165,8 @@ def load_levels_config():
 
 def get_level_rounds_required(level_num, rounds_config=None, levels_config=None):
     """Return rounds required before boss for a level."""
+    if level_num == 7:
+        return 4
     levels_config = levels_config if levels_config is not None else load_levels_config()
     cfg_val = (levels_config.get(level_num, {}) or {}).get("Rounds")
     if cfg_val is not None and cfg_val >= 0:
@@ -461,6 +464,14 @@ def load_goals_level6():
 
     _goals_level6_cache = goals
     return goals
+
+
+def get_level7_goal(round_num, button, defeated_count, is_boss_round=False):
+    """Read the configured goals for the current position of level 7."""
+    global _goals_level7_cache
+    if _goals_level7_cache is None:
+        _goals_level7_cache = _load_staged_goals("GoalsLevel7.csv")
+    return _get_staged_goal(_goals_level7_cache, round_num, button, defeated_count, is_boss_round)
 
 
 def get_level6_goal(round_num, button, defeated_count, is_boss_round=False):

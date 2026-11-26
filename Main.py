@@ -56,7 +56,7 @@ from card_acquisition_stats import configure_card_acquisition_stats
 from boss_page import BossPage
 from game_screen import GameScreen
 from gameplay_page import GameplayPage
-from level_routes import PLAYABLE_LEVELS
+from level_routes import PLAYABLE_LEVELS, TEST_LEVELS
 from profile_page import ProfilePage
 from round_page import RoundPage
 from settings_page import SettingsPage
@@ -811,7 +811,7 @@ def _run_game(session):
                     level_num = int(level_result.split("_")[1])
                 except (AttributeError, IndexError, TypeError, ValueError):
                     continue
-                if level_num not in PLAYABLE_LEVELS:
+                if level_num not in (TEST_LEVELS if test_mode else PLAYABLE_LEVELS):
                     continue
                 bosses_required = get_bosses_required(level_num, rounds_config)
                 if not test_mode and game_state.is_level_completed(level_num):
@@ -1128,6 +1128,9 @@ def _run_game(session):
                                 True,
                             )
                             complete_boss_position(bp_state, current_boss, boss_page=boss_page)
+                            if test_mode and boss_level == 7:
+                                reset_level_attempt(boss_level)
+                                break
                             if bp_state["defeated"] >= bosses_required:
                                 award_napoleondors_and_open_shop(
                                     boss_level,

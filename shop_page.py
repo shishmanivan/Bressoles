@@ -78,6 +78,7 @@ SPECIAL_ASSETS = {
     "correction": ("Коррекция", os.path.join("Shop", "Correction.png")),
     "diversification": ("Диверсификация", os.path.join("Shop", "Diversification.png")),
     "expansion": ("Экспансия", os.path.join("Shop", "Expansion.png")),
+    "opportunity": ("Opportunity", os.path.join("Shop", "Opportunity.png")),
     "bill_of_exchange": (
         "Вексель",
         os.path.join("Shop", "Bill of Exchange.png"),
@@ -119,6 +120,7 @@ SPECIAL_DESCRIPTIONS = {
     "correction": "Позволяет продать до трёх карт: серебряные по 2, золотые по 4 наполеондора. Чёрные карты продать нельзя.",
     "diversification": "Сразу добавляет одну карту на продажу в текущий и каждый следующий магазин до конца забега.",
     "expansion": "Сразу добавляет ещё одно предложение в текущий и каждый следующий магазин.",
+    "opportunity": "До конца забега в серебряный слот можно ставить также чёрные и золотые карты.",
     "bill_of_exchange": "Сразу снижает цены в текущем магазине и до конца забега даёт скидку 25% на карты, предложения, лицензии и инвестиции. Цены округляются до 0,5 наполеондора.",
     "disclosure": "Показывает игровые вероятности в течение следующих 5 раундов.",
     "price_support": "Немного увеличивает вероятность роста тех акций, в которые вы вложились. Действует 5 раундов. Можно иметь не более трёх таких предложений одновременно",
@@ -1410,6 +1412,15 @@ class ShopPage(AdaptivePage):
             self.message = "В магазине теперь больше предложений"
             if refresh_assortment:
                 self._add_expansion_offer()
+            return
+
+        if special_id == "opportunity":
+            if not game_state.buy_opportunity(self.level_number):
+                return
+            self._charge_offer(cost)
+            self._sync_balance()
+            self.sold_offer_indexes.add(index)
+            self.message = SPECIAL_DESCRIPTIONS["opportunity"]
             return
 
         if special_id == "bill_of_exchange":

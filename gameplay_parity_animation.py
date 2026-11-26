@@ -22,6 +22,10 @@ def draw(page, labels):
     animation = getattr(page, 'parity_animation', None)
     if not animation:
         return
+    draw_labels(page, labels, animation)
+
+
+def draw_labels(page, labels, animation):
     progress = max(0, min(1, animation['elapsed'] / DURATION_MS))
     expansion = 1 - (1 - progress) ** 2
     scale = 1 + 3.5 * expansion

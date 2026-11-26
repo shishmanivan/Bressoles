@@ -312,6 +312,13 @@ class RedCardEffectTests(unittest.TestCase):
         self.assertEqual((page.Aprice, page.BPrice), (2, 2))
         self.assertEqual(page.LastTurn, 8)
         page.bankruptcy_animations.clear()
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        page._update_turn_bonus_animation()
+        self.assertEqual(page.turn_bonus_animation["bonus"], 1)
+        self.assertFalse(page._apply_red_card_effects_if_needed())
+        with mock.patch("gameplay_page.pygame.time.get_ticks",
+                        return_value=page.turn_bonus_animation["start_time"] + 550):
+            page._update_turn_bonus_animation()
         self.assertTrue(page._apply_red_card_effects_if_needed())
         self.assertEqual(page.LastTurn, 9)
         page._apply_forward_trading_effect_if_needed.assert_not_called()
