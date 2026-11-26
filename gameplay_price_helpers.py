@@ -77,6 +77,7 @@ def build_market_probabilities(
     copy_snapshots=None,
     price_support_markets=(),
     price_support_bonus=0,
+    amplification=None,
 ):
     """Return per-market probabilities after applying Upside/Downside cards."""
     if force_flat:
@@ -119,19 +120,20 @@ def build_market_probabilities(
             if slot <= copied_through_slot:
                 continue
             card_id = slots.get(slot)
+            card_bonus = probability_card_bonus + (amplification or {}).get((market, slot), 0)
             if card_id in UPSIDE_CARD_BONUSES:
                 _apply_probability_shift(
                     probs,
                     "rise",
                     ("flat", "fall"),
-                    UPSIDE_CARD_BONUSES[card_id] + probability_card_bonus,
+                    UPSIDE_CARD_BONUSES[card_id] + card_bonus,
                 )
             elif card_id in DOWNSIDE_CARD_BONUSES:
                 _apply_probability_shift(
                     probs,
                     "fall",
                     ("flat", "rise"),
-                    DOWNSIDE_CARD_BONUSES[card_id] + probability_card_bonus,
+                    DOWNSIDE_CARD_BONUSES[card_id] + card_bonus,
                 )
 
     for market in doubled_fall:
@@ -230,6 +232,7 @@ def build_stock_price_animation_queue(
     copy_snapshots=None,
     price_support_markets=(),
     price_support_bonus=0,
+    amplification=None,
 ):
     """Build price animation queue from the stock probability rules."""
     forced_rise_markets = _normalize_market_set(forced_rise_markets)
@@ -252,6 +255,7 @@ def build_stock_price_animation_queue(
     probabilities = build_market_probabilities(
         market_cards,
         probability_card_bonus=probability_card_bonus,
+        amplification=amplification,
         force_flat_markets=force_flat_markets,
         prevent_fall_markets=prevent_fall_markets,
         double_fall_markets=double_fall_markets,

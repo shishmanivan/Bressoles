@@ -54,6 +54,9 @@ from card_catalog import (
     GOLD_SHAREHOLDER_VALUE_CARD_ID,
     GOLD_STANDARDIZATION_CARD_ID,
     GOLD_OVERVALUATION_CARD_ID,
+    GOLD_STRATEGIC_DEFAULT_CARD_ID,
+    GOLD_DIVIDEND_CARD_ID,
+    PRICE_CARD_ACTIONS,
     GOLD_WATERLOO_BASE_CHANCE,
     GOLD_WATERLOO_CARD_ID,
     PRICE_CARD_IDS,
@@ -99,6 +102,7 @@ from gameplay_deck import (
     restore_card_instance,
     restore_legacy_deck_origins,
     serialize_card_instance,
+    InvestedCard,
     setup_starting_deck_and_hand,
 )
 from gameplay_drag import (
@@ -780,6 +784,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             if card_id is not None:
                 self._newspaper_event('deal', card_id=card_id)
         bankruptcy_condition.restore(self, {})
+        self.dividend_multiplier = self._get_starting_dividend_multiplier(self.deck + self.hand_cards)
         self.shareholder_effect_count = sum(
             1 for card_id in list(self.deck or []) + list(self.hand_cards or []) if card_id == 100
         )
@@ -1855,6 +1860,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         return build_market_probabilities(
             self.market_cards,
             probability_card_bonus=self._get_probability_card_bonus(),
+            amplification=self._amplification_by_slot(),
             force_flat=self._is_flat_random_active(),
             force_flat_markets=self._get_regulation_flat_markets(),
             prevent_fall_markets=self._get_blue_chip_markets(),
@@ -2101,6 +2107,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             "active_silver_cards_spent": bool(self.active_silver_cards_spent),
             "forward_trading_shareholder_count": int(self.forward_trading_shareholder_count),
             "bankruptcy_condition": bankruptcy_condition.serialize(self),
+            "dividend_multiplier": getattr(self, "dividend_multiplier", 1),
             "shareholder_effect_count": int(self.shareholder_effect_count or 0),
             "shareholder_blocked_market": self.shareholder_blocked_market,
             "stock_bot_enabled": bool(self.stock_bot_enabled),
@@ -2312,6 +2319,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             state.get("forward_trading_shareholder_count", self.forward_trading_shareholder_count) or 0
         )
         bankruptcy_condition.restore(self, state.get("bankruptcy_condition") or {})
+        self.dividend_multiplier = state.get("dividend_multiplier", getattr(self, "dividend_multiplier", 1))
         self.shareholder_effect_count = int(
             state.get("shareholder_effect_count", self.shareholder_effect_count) or 0
         )
@@ -3586,6 +3594,28 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
     def _get_downside_risk_guaranteed_drop_count(self):
         return 2 * self._count_active_card_safely(GOLD_DOWNSIDE_RISK_CARD_ID)
 
+    def _amplification_by_slot(self, *, commit=False):
+        bonuses = {}
+        copies = (getattr(self, "active_gold_cards", None) or []).count(447)
+        for market, slots in (getattr(self, "market_cards", {}) or {}).items():
+            locks = getattr(self, "market_cards_locked", {}).get(market, {})
+            for slot, card in slots.items():
+                if card not in (1, 2, 3, 4):
+                    continue
+                key = getattr(card, "amplification_key", None)
+                bonus = game_state.amplification_bonuses.get(key, getattr(card, "amplification_bonus", 0))
+                if copies and not locks.get(slot):
+                    bonus += copies
+                    if commit:
+                        if key:
+                            game_state.amplification_bonuses[key] = bonus
+                        else:
+                            if not isinstance(card, InvestedCard):
+                                card = slots[slot] = InvestedCard(card)
+                            card.amplification_bonus = bonus
+                bonuses[market, slot] = bonus
+        return bonuses
+
     def _get_probability_card_bonus(self):
         return (
             self._get_disclosure_probability_bonus()
@@ -4043,7 +4073,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             self.final_auto_liquidation_applied = True
             return False
 
-        proceeds = (gross_value * sale_percent) // 100
+        proceeds = int((gross_value * sale_percent) // 100)
         source = f"Rebate auto-liquidation ({sale_percent}%)"
 
         self._start_final_auto_liquidation_animation(
@@ -4132,6 +4162,15 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         self.efficiency_last_recorded_day = day
         return bonus
 
+    @staticmethod
+    def _get_starting_dividend_multiplier(cards):
+        qualifying = 0
+        for card in cards:
+            bonus = get_card_investment_bonus(card)
+            if bonus and game_state.is_investment_eligible_card(card) and abs(PRICE_CARD_ACTIONS[card]) + bonus >= 10:
+                qualifying += 1
+        return 3 ** qualifying
+
     def _get_current_rebate_sale_percent(self):
         full_price = self._has_active_silver_card(201)
         gold_rebate_count = self._count_active_card_safely(407)
@@ -4140,7 +4179,8 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         if gold_rebate_count <= 0 and not full_price and not discounted:
             return None
         if (305 in (getattr(self, "active_black_cards", []) or [])
-                or GOLD_OVERVALUATION_CARD_ID in (getattr(self, "active_gold_cards", []) or [])):
+                or any(card in (GOLD_OVERVALUATION_CARD_ID, GOLD_STRATEGIC_DEFAULT_CARD_ID, GOLD_DIVIDEND_CARD_ID)
+                       for card in (getattr(self, "active_gold_cards", []) or []))):
             return self._get_ordered_rebate_sale_percent(full_price, discounted, gold_rebate_count)
         return calculate_rebate_sale_percent(
             full_price=full_price,
@@ -4178,6 +4218,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 modifiers.append(("multiply", 3))
             elif card == GOLD_OVERVALUATION_CARD_ID:
                 modifiers.append(("multiply", game_state.get_overvaluation_multiplier()))
+            elif card == GOLD_STRATEGIC_DEFAULT_CARD_ID:
+                modifiers.append(("multiply", 1 + game_state.strategic_default_plays / 2))
+            elif card == GOLD_DIVIDEND_CARD_ID:
+                modifiers.append(("multiply", self.dividend_multiplier))
             elif card in totals:
                 modifiers.append(("add", totals[card] // cards.count(card)))
             elif gold_rebate_count and card in (210, 414):
@@ -4213,7 +4257,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
         for slot, card_id in enumerate(self._active_lifecycle_cards()):
             try:
-                is_rebate = int(card_id) in (201, 407, 305, GOLD_OVERVALUATION_CARD_ID)
+                is_rebate = int(card_id) in (201, 407, 305, GOLD_OVERVALUATION_CARD_ID, GOLD_STRATEGIC_DEFAULT_CARD_ID, GOLD_DIVIDEND_CARD_ID)
             except (TypeError, ValueError):
                 is_rebate = False
             if is_rebate:
@@ -5201,6 +5245,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             forced_rise_markets=forced_rise_markets,
             forced_fall_markets=forced_fall_markets,
             probability_card_bonus=self._get_probability_card_bonus(),
+            amplification=self._amplification_by_slot(),
             force_flat=is_flat_random_active,
             force_flat_markets=regulation_flat_markets,
             prevent_fall_markets=blue_chip_markets,
@@ -6519,6 +6564,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
 
     def _lock_market_cards(self):
         """Помечает все текущие карты на рынке как сыгранные и заблокированные до конца игры."""
+        self._amplification_by_slot(commit=True)
         lock_market_cards(self.market_cards, self.market_cards_locked)
         self.market_copy_turn_state = {}
         self.accumulation_stephenson_card_played_this_turn = False
@@ -6774,12 +6820,29 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         )
         return True
 
+    def _apply_stop_loss_before_collapse(self, previous_prices, next_prices):
+        """Sell player holdings at their old price before Bankruptcy/Crash."""
+        if not self._has_active_silver_card(225):
+            return 0
+        proceeds = 0
+        for market, quantity_key in enumerate(("Aquantity", "Bquantity", "Cquantity")):
+            if next_prices[market] != 2 or previous_prices[market] <= next_prices[market]:
+                continue
+            quantity = getattr(self, quantity_key, 0)
+            if quantity > 0:
+                proceeds += quantity * previous_prices[market]
+                setattr(self, quantity_key, 0)
+        if proceeds:
+            self.Money += proceeds
+        return proceeds
+
     def _set_market_price_to_minimum(self, market):
         previous_prices = (self.Aprice, self.BPrice, self.CPrice)
         proposed_prices = list(previous_prices)
         proposed_prices[market] = 2
         game_action("market.minimum", market=market)
         protected_prices = self._protect_blue_chip_prices(previous_prices, proposed_prices)
+        self._apply_stop_loss_before_collapse(previous_prices, protected_prices)
         if market == 0:
             previous_a_price = self.Aprice
             self.Aprice = protected_prices[0]
@@ -6802,6 +6865,10 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             return changed
         return False
 
+    def _record_strategic_default_play(self):
+        if GOLD_STRATEGIC_DEFAULT_CARD_ID in (getattr(self, "active_gold_cards", []) or []):
+            game_state.strategic_default_plays += 1
+
     def _apply_bankruptcy_effects_if_needed(self, slots=None):
         """Cards 113-115: set A/B/C stock prices to 2."""
         applied = False
@@ -6817,6 +6884,7 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
             market = market_by_card.get(card_id)
             if market is None:
                 continue
+            self._record_strategic_default_play()
             changed = self._set_market_price_to_minimum(market)
             if changed:
                 bankruptcy_animation.start(self, market)
@@ -6860,13 +6928,16 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
         applied = False
         game_action("market.crash", slots=crash_slots)
         for slot in crash_slots:
+            self._record_strategic_default_play()
             previous_prices = (self.Aprice, self.BPrice, self.CPrice)
             previous_a_price = previous_prices[0]
             previous_c_price = previous_prices[2]
-            self.Aprice, self.BPrice, self.CPrice = self._protect_blue_chip_prices(
+            protected_prices = self._protect_blue_chip_prices(
                 previous_prices,
                 (2, 2, 2),
             )
+            self._apply_stop_loss_before_collapse(previous_prices, protected_prices)
+            self.Aprice, self.BPrice, self.CPrice = protected_prices
             changed = (self.Aprice, self.BPrice, self.CPrice) != previous_prices
             self._record_rebate_a_fall(previous_a_price, self.Aprice, "Market Crash")
             self._record_c_price_fall(previous_c_price, self.CPrice, "Market Crash")
@@ -7436,6 +7507,12 @@ class GameplayPage(NewspaperReportMixin, AdaptivePage):
                 remaining = max(1, min(4, 4 - completed))
                 detail = f"(Осталось {remaining} ходов) до активации."
             return title, f"{description} {detail}"
+        if normalized == GOLD_DIVIDEND_CARD_ID:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            return title, f"{description} Сейчас {self.dividend_multiplier}"
+        if normalized == GOLD_STRATEGIC_DEFAULT_CARD_ID:
+            title, description = FIELD_CARD_TOOLTIPS[normalized]
+            return title, f"{description} Сейчас {1 + game_state.strategic_default_plays / 2:g}"
         if normalized == GOLD_OVERVALUATION_CARD_ID:
             title, description = FIELD_CARD_TOOLTIPS[normalized]
             detail = f"Сейчас {game_state.get_overvaluation_multiplier()}"

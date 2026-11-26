@@ -1650,11 +1650,11 @@ class ShopTransactionTests(ShopEconomyTestCase):
             with self.subTest(level=level):
                 self.assertEqual(game_state.get_multibagger_shop_chance(level), 10)
 
-    def test_multibagger_cost_is_3_on_level3_and_5_elsewhere(self):
+    def test_multibagger_cost_is_3_at_every_level(self):
         self.assertEqual(game_state.get_multibagger_shop_cost(3), 3)
         for level in (1, 2, 4, 5):
             with self.subTest(level=level):
-                self.assertEqual(game_state.get_multibagger_shop_cost(level), 5)
+                self.assertEqual(game_state.get_multibagger_shop_cost(level), 3)
 
         with mock.patch.object(game_state, "build_shop_special_offer_pool", return_value=["multibagger"]):
             discounted_offer = game_state.generate_shop_offers(

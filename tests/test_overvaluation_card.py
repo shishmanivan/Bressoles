@@ -75,6 +75,24 @@ class OvervaluationTests(unittest.TestCase):
                 self.assertEqual(game_state.get_overvaluation_multiplier(), 2)
                 self.assertTrue(page.overvaluation_triggered_this_round)
 
+    def test_strategic_default_counts_each_play_even_at_minimum_prices(self):
+        game_state.strategic_default_plays = 0
+        page = self.page(gold=(445,), silver=(201,))
+        for index, card in enumerate((117, 113, 114, 115), 1):
+            page.side_cards_top[0] = card
+            page._side_card_next_slot = 0
+            page._apply_red_card_effects_if_needed()
+            page._apply_red_card_effects_if_needed()
+            self.assertEqual(page._get_current_rebate_sale_percent(), 100 + 50 * index)
+        saved = profile_manager._capture_progress()
+        game_state.strategic_default_plays = 0
+        profile_manager.apply_profile_to_game_state({"progress": saved})
+        self.assertEqual(game_state.strategic_default_plays, 4)
+        self.assertNotIn(445, game_state.build_all_available_shop_cards(6))
+        self.assertIn(445, game_state.build_all_available_shop_cards(7))
+        self.assertEqual(game_state.load_cards_config()[445]["Variable"], "4")
+        self.assertEqual(game_state.SHOP_CARD_COSTS[445], 5)
+
     def test_total_rebate_multiplier_and_slot_order(self):
         game_state.overvaluation_multiplier = 2
         game_state.napoleondors = 10

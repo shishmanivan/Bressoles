@@ -1,5 +1,53 @@
 [
   {
+    "Source": "Amplification",
+    "RU": "Amplification",
+    "ENG": "Amplification",
+    "DE": "Amplification",
+    "HU": "Amplification",
+    "FR": "Amplification"
+  },
+  {
+    "Source": "Каждая сыгранная карта Upside или Downside усиливает собственный эффект на 1 процентный пункт до конца забега.",
+    "RU": "Каждая сыгранная карта Upside или Downside усиливает собственный эффект на 1 процентный пункт до конца забега.",
+    "ENG": "Each time an Upside or Downside card is played, its own effect gains 1 percentage point for the rest of the run.",
+    "DE": "Jede gespielte Upside- oder Downside-Karte verstärkt ihren eigenen Effekt für den restlichen Durchlauf um 1 Prozentpunkt.",
+    "HU": "Minden kijátszott Upside vagy Downside kártya saját hatása 1 százalékponttal nő a menet végéig.",
+    "FR": "Chaque carte Upside ou Downside jouée renforce son propre effet de 1 point de pourcentage pour le reste de la partie."
+  },
+  {
+    "Source": "Dividend",
+    "RU": "Dividend",
+    "ENG": "Dividend",
+    "DE": "Dividend",
+    "HU": "Dividend",
+    "FR": "Dividende"
+  },
+  {
+    "Source": "За каждую карту Gain или Drop, усиленную инвестициями до +10 или −10 и выше по модулю, утраивает эффект Rebate.",
+    "RU": "За каждую карту Gain или Drop, усиленную инвестициями до +10 или −10 и выше по модулю, утраивает эффект Rebate.",
+    "ENG": "Triples the Rebate effect for each Gain or Drop card invested to +10 or −10 or beyond.",
+    "DE": "Verdreifacht den Rebate-Effekt für jede Gain- oder Drop-Karte, deren Betrag durch Investitionen mindestens 10 erreicht.",
+    "HU": "Minden olyan Gain vagy Drop kártya után megháromszorozza a Rebate hatását, amelynek abszolút értéke befektetéssel elérte a 10-et.",
+    "FR": "Triple l’effet de Rebate pour chaque carte Gain ou Drop dont la valeur absolue atteint au moins 10 grâce aux investissements."
+  },
+  {
+    "Source": "Strategic Default",
+    "RU": "Strategic Default",
+    "ENG": "Strategic Default",
+    "DE": "Strategic Default",
+    "HU": "Strategic Default",
+    "FR": "Défaut stratégique"
+  },
+  {
+    "Source": "Каждая сыгранная карта Crash или Bankruptcy увеличивает множитель эффекта Rebate на 0,5.",
+    "RU": "Каждая сыгранная карта Crash или Bankruptcy увеличивает множитель эффекта Rebate на 0,5.",
+    "ENG": "Each Crash or Bankruptcy card played adds 0.5 to the Rebate multiplier.",
+    "DE": "Jede gespielte Crash- oder Bankruptcy-Karte erhöht den Rebate-Multiplikator um 0,5.",
+    "HU": "Minden kijátszott Crash vagy Bankruptcy kártya 0,5-del növeli a Rebate szorzóját.",
+    "FR": "Chaque carte Krach ou Faillite jouée augmente le multiplicateur de Rebate de 0,5."
+  },
+  {
     "Source": "Market Refresh",
     "RU": "Обновление рынка",
     "ENG": "Market Refresh",

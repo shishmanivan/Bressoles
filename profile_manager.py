@@ -450,6 +450,8 @@ def _empty_progress():
         "active_lifecycle_card_order": [],
         "bear_goal_reduction_steps": 0,
         "windfall_boss_victories": 0,
+        "amplification_bonuses": {},
+        "strategic_default_plays": 0,
         "overvaluation_multiplier": 1,
         "risk_premium_h_rounds": 0,
         "golden_stake_shareholder_parity": 0,
@@ -1087,6 +1089,14 @@ def apply_profile_to_game_state(profile_or_slot):
         game_state.overvaluation_multiplier = max(1, int(progress.get("overvaluation_multiplier", 1) or 1))
     except (TypeError, ValueError):
         game_state.overvaluation_multiplier = 1
+    game_state.amplification_bonuses = {
+        key: bonus for key, bonus in (progress.get("amplification_bonuses") or {}).items()
+        if isinstance(bonus, int) and bonus > 0
+    }
+    try:
+        game_state.strategic_default_plays = max(0, int(progress.get('strategic_default_plays', 0)))
+    except (ValueError, TypeError):
+        game_state.strategic_default_plays = 0
     try:
         game_state.windfall_boss_victories = max(
             0,
@@ -1354,6 +1364,8 @@ def _capture_progress():
         "active_lifecycle_card_order": _serialize_lifecycle_card_order(game_state.active_lifecycle_card_order),
         "bear_goal_reduction_steps": int(game_state.bear_goal_reduction_steps or 0),
         "windfall_boss_victories": game_state.get_windfall_boss_victories(),
+        "amplification_bonuses": dict(game_state.amplification_bonuses),
+        "strategic_default_plays": game_state.strategic_default_plays,
         "overvaluation_multiplier": game_state.get_overvaluation_multiplier(),
         "risk_premium_h_rounds": game_state.get_risk_premium_h_rounds(),
         "golden_stake_shareholder_parity": game_state.get_golden_stake_shareholder_parity(),

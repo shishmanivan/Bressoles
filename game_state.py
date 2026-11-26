@@ -168,7 +168,7 @@ SHOP_SPECIAL_COSTS = {
     "issuer": 8,
     "flash_issue": 2,
     "bank": 1,
-    "multibagger": 5,
+    "multibagger": 3,
     "variance": 1,
     "loan": 0,
     "correction": 2,
@@ -254,8 +254,11 @@ GOLD_CARD_MIN_LEVELS = {
     442: 6,
     443: 3,
     444: 5,
+    445: 7,
+    446: 7,
+    447: 7,
 }
-SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6}
+SILVER_CARD_MIN_LEVELS = {213: 5, 221: 6, 225: 7}
 RED_CARD_MIN_LEVELS = {126: 6}
 
 SHOP_CARD_COSTS = {
@@ -311,6 +314,9 @@ SHOP_CARD_COSTS = {
     442: 5,
     443: 4,
     444: 5,
+    445: 5,
+    446: 6,
+    447: 4,
 }
 
 DEFAULT_LICENSED_CARDS = {110, 111, 116, 201, 202, 206, 208, 222, 223, 224}
@@ -345,12 +351,14 @@ LICENSE_COSTS = {
     218: 7,
     219: 8,
     220: 10,
+    225: 5,
 }
 LICENSES_BY_LEVEL = {
     3: [112, 113, 114, 115, 123, 124, 125, 203, 204, 207, 209, 210, 212, 214, 215, 217, 218, 219, 220],
     4: [205, 211],
     5: [118, 119, 120, 121, 122, 213, 216],
     6: [126, 221],
+    7: [225],
 }
 # Licenses normally remain available from their unlock level onward until bought.
 LICENSE_LEVEL_RESTRICTIONS = {}
@@ -403,6 +411,8 @@ active_gold_cards = []
 active_lifecycle_card_order = []
 bear_goal_reduction_steps = 0
 windfall_boss_victories = 0
+amplification_bonuses = {}
+strategic_default_plays = 0
 overvaluation_multiplier = 1
 risk_premium_h_rounds = 0
 golden_stake_shareholder_parity = 0
@@ -743,11 +753,7 @@ def get_multibagger_shop_chance(level_number):
 
 
 def get_multibagger_shop_cost(level_number):
-    try:
-        level = int(level_number or 0)
-    except (TypeError, ValueError):
-        level = 0
-    return 3 if level == 3 else 5
+    return SHOP_SPECIAL_COSTS["multibagger"]
 
 
 def build_multibagger_gold_fallback_pool(level_number=None):
@@ -1071,6 +1077,9 @@ def has_selectable_lifecycle_cards():
 
 
 def clear_gold_cards(reason="defeat"):
+    amplification_bonuses.clear()
+    global strategic_default_plays
+    strategic_default_plays = 0
     global overvaluation_multiplier
     overvaluation_multiplier = 1
     global bear_goal_reduction_steps, windfall_boss_victories, risk_premium_h_rounds
@@ -1114,6 +1123,9 @@ def consume_capital_preservation():
     global golden_stake_shareholder_parity
     if not capital_preservation_bought:
         return False
+    amplification_bonuses.clear()
+    global strategic_default_plays
+    strategic_default_plays = 0
     global overvaluation_multiplier
     overvaluation_multiplier = 1
     capital_preservation_bought = False

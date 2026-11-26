@@ -16,6 +16,8 @@ class InvestedCard(int):
         instance.investment_bonus = max(0, int(investment_bonus or 0))
         instance.deck_origin = deck_origin or getattr(card_id, "deck_origin", None)
         instance.shop_purchase = bool(getattr(card_id, "shop_purchase", False) if shop_purchase is None else shop_purchase)
+        instance.amplification_key = getattr(card_id, "amplification_key", None)
+        instance.amplification_bonus = getattr(card_id, "amplification_bonus", 0)
         return instance
 
 
@@ -32,12 +34,16 @@ def serialize_card_instance(card_id):
     bonus = get_card_investment_bonus(card_id)
     origin = getattr(card_id, "deck_origin", None)
     shop_purchase = getattr(card_id, "shop_purchase", False)
-    if bonus <= 0 and not origin and not shop_purchase:
+    if bonus <= 0 and not origin and not shop_purchase and not getattr(card_id, "amplification_bonus", 0) and not getattr(card_id, "amplification_key", None):
         return int(card_id)
     result = {
         "card_id": int(card_id),
         "investment_bonus": bonus,
     }
+    if getattr(card_id, "amplification_key", None):
+        result["amplification_key"] = card_id.amplification_key
+    if getattr(card_id, "amplification_bonus", 0):
+        result["amplification_bonus"] = card_id.amplification_bonus
     if origin:
         result["deck_origin"] = origin
     if shop_purchase:
@@ -56,7 +62,10 @@ def restore_card_instance(value):
         if origin not in ("permanent", "temporary", "purchased"):
             origin = None
         shop_purchase = bool(value.get("shop_purchase", False))
-        return InvestedCard(normalize_card_id(card_id), bonus, origin, shop_purchase) if bonus > 0 or origin or shop_purchase else normalize_card_id(card_id)
+        card = InvestedCard(normalize_card_id(card_id), bonus, origin, shop_purchase)
+        card.amplification_key = value.get("amplification_key")
+        card.amplification_bonus = max(0, int(value.get("amplification_bonus", 0)))
+        return card
     if value is None:
         return None
     try:
@@ -83,6 +92,8 @@ def restore_legacy_deck_origins(zones, template):
                 continue
             for index, source in enumerate(pool):
                 if source == card and source.deck_origin == card.deck_origin:
+                    if not getattr(card, "amplification_key", None):
+                        card.amplification_key = getattr(source, "amplification_key", None)
                     pool.pop(index)
                     break
     for zone in zones:
@@ -91,11 +102,14 @@ def restore_legacy_deck_origins(zones, template):
             if card is None or getattr(card, "deck_origin", None):
                 continue
             origin = "permanent"
+            instance_key = None
             for index, source in enumerate(pool):
                 if source == card:
+                    instance_key = getattr(source, "amplification_key", None)
                     origin = pool.pop(index).deck_origin
                     break
             zone[key] = InvestedCard(card, get_card_investment_bonus(card), origin)
+            zone[key].amplification_key = instance_key
 
 
 def is_red_card(card_id):
@@ -151,30 +165,40 @@ def build_initial_deck(
     concentration_removes_starting_shareholder=True,
 ):
     """Build initial deck composition for a given level."""
-    def tagged(cards, origin, shop_purchase=False):
-        return [InvestedCard(card, get_card_investment_bonus(card), origin, shop_purchase) for card in cards]
+    def tagged(cards, origin, shop_purchase=False, source=None):
+        instances = []
+        counts = {}
+        for card in cards:
+            instance = InvestedCard(card, get_card_investment_bonus(card), origin, shop_purchase)
+            if card in (1, 2, 3, 4):
+                counts[card] = counts.get(card, 0) + 1
+                instance.amplification_key = (
+                    f"{source}:{int(card)}:{counts[card]}" if source else None
+                )
+            instances.append(instance)
+        return instances
 
-    base_deck = tagged(BASE_STARTING_DECK, "permanent")
+    base_deck = tagged(BASE_STARTING_DECK, "permanent", source="base")
     if concentration_active and concentration_removes_starting_shareholder:
         base_deck.remove(100)
 
     completion_cards = dedupe_red_cards(level_completion_reward_cards or [])
     if completion_cards:
-        base_deck.extend(tagged(completion_cards, "permanent"))
+        base_deck.extend(tagged(completion_cards, "permanent", source="completion"))
         print(f"Added {len(completion_cards)} completed-level reward card(s) to starting deck: {completion_cards}")
 
     earned_cards = dedupe_red_cards(
         card_id for card_id in earned_reward_cards.get(level_number, []) if not is_silver_reward_card(card_id)
     )
     if earned_cards:
-        base_deck.extend(tagged(earned_cards, "purchased"))
+        base_deck.extend(tagged(earned_cards, "purchased", source=f"reward-{level_number}"))
         print(f"Added {len(earned_cards)} earned reward card(s) to level {level_number} deck: {earned_cards}")
 
     bought_cards = dedupe_red_cards(
         card_id for card_id in (shop_deck_cards or []) if not is_silver_reward_card(card_id)
     )
     if bought_cards:
-        base_deck.extend(tagged(bought_cards, "purchased", shop_purchase=True))
+        base_deck.extend(tagged(bought_cards, "purchased", shop_purchase=True, source="shop"))
         print(f"Added {len(bought_cards)} shop-bought card(s) to the run deck: {bought_cards}")
 
     # Delisting and Investment operate only on permanent cards. Apply both
@@ -215,7 +239,7 @@ def build_initial_deck(
     ]
     mirrored_instances = [card_id for card_id in mirrored_instances if card_id is not None]
     if mirrored_instances:
-        deck.extend(tagged(mirrored_instances, "purchased"))
+        deck.extend(tagged(mirrored_instances, "purchased", source="mirror"))
         print(f"Added {len(mirrored_instances)} mirrored card(s) to the run deck: {mirrored_instances}")
 
     if concentration_active:
