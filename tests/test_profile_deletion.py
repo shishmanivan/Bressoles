@@ -89,6 +89,25 @@ class ProfileDeletionTests(unittest.TestCase):
             pm.delete_profile(1)
             self.assertEqual(pm.load_profile(1), pm._default_profile(1))
 
+    def test_deleted_round_cannot_return_before_or_after_slot_reuse(self):
+        path = Path(pm.get_profile_path(1))
+        old = pm.load_profile(1)
+        old["active_game"] = {"context": {"level_number": 1}, "state": {"Day": 3}}
+        pm.save_profile(old)
+        saved_bytes = path.read_bytes()
+        pm.delete_profile(1)
+        Path(str(path) + ".bak").write_bytes(saved_bytes)
+        self.assertIsNone(pm.get_active_game(1))
+        with self.assertRaises(pm.ProfileLoadError):
+            pm.save_profile(old)
+        with mock.patch.object(pm, "apply_profile_to_game_state"):
+            fresh = pm.select_profile(1, "New")
+        with self.assertRaises(pm.ProfileLoadError):
+            pm.save_profile(old)
+        self.assertIsNone(fresh["active_game"])
+        self.assertFalse(fresh["progress"]["level_1_boss_defeated"])
+        self.assertEqual(pm.load_profile(1)["name"], "New")
+
     def test_reused_slot_continues_existing_win_loss_counters(self):
         with mock.patch.object(game_stats, "STATS_FILE", pm.get_stats_file(1)), mock.patch.object(
             game_stats, "_ACTIVE_STATS_FILE", None

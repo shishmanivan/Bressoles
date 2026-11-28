@@ -160,7 +160,7 @@ class UiLayoutTests(unittest.TestCase):
         with mock.patch.object(page, "_draw_level_card") as draw_card:
             page.draw()
         self.assertEqual(draw_card.call_args.args[1], 7)
-        self.assertFalse(draw_card.call_args.kwargs["show_start_arrow"])
+        self.assertTrue(draw_card.call_args.kwargs["show_start_arrow"])
 
     def test_fresh_profile_cannot_open_the_locked_second_page(self):
         page = GameScreen(

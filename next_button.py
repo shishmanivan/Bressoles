@@ -35,7 +35,7 @@ def create_ornate_button(font_path, label, button_width=167):
     return button, pressed
 
 
-def draw_ornate_action(page, rect, label, enabled=True):
+def draw_ornate_action(page, rect, label, enabled=True, *, pressed=False):
     """Shared shop action buttons, with the same artwork as Next/End Turn."""
     cache = getattr(page, "_ornate_action_cache", None)
     if cache is None:
@@ -43,13 +43,13 @@ def draw_ornate_action(page, rect, label, enabled=True):
     key = (get_language(), label)
     if key not in cache:
         cache[key] = create_ornate_button(page.font_path, translate(label))
-    normal, pressed = cache[key]
+    normal, pressed_image = cache[key]
     center = rect.center
     rect.size = normal.get_size()
     rect.center = center
     hovered = enabled and rect.collidepoint(page.mouse_pos())
-    down = hovered and pygame.mouse.get_pressed()[0]
-    image = pressed if down else normal
+    down = enabled and (pressed or (hovered and pygame.mouse.get_pressed()[0]))
+    image = pressed_image if down else normal
     if not enabled or hovered:
         image = image.copy()
         image.fill((170, 170, 170, 255) if not enabled else (230, 230, 230, 255),

@@ -168,12 +168,12 @@
     "FR": "Réduction des objectifs"
   },
   {
-    "Source": "Навсегда снижает цели этого уровня на 4%. Предложение доступно в магазине на уровнях 1–5.",
-    "RU": "Навсегда снижает цели этого уровня на 4%. Предложение доступно в магазине на уровнях 1–5.",
-    "ENG": "Permanently reduces this level's targets by 4%. This offer is available in shops on levels 1–5.",
-    "DE": "Senkt die Ziele dieses Levels dauerhaft um 4%. Dieses Angebot ist auf den Leveln 1–5 im Laden erhältlich.",
-    "HU": "Véglegesen 4%-kal csökkenti ennek a szintnek a céljait. Ez az ajánlat az 1–5. szinten érhető el a boltban.",
-    "FR": "Réduit définitivement les objectifs de ce niveau de 4 %. Cette offre est disponible en boutique du niveau 1 au niveau 5 inclus."
+    "Source": "Навсегда снижает цель этого уровня на 4%.",
+    "RU": "Навсегда снижает цель этого уровня на 4%.",
+    "ENG": "Permanently reduces this level's target by 4%.",
+    "DE": "Senkt das Ziel dieses Levels dauerhaft um 4%.",
+    "HU": "Véglegesen 4%-kal csökkenti ennek a szintnek a célját.",
+    "FR": "Réduit définitivement l’objectif de ce niveau de 4 %."
   },
   {
     "Source": "(Осталось {v0} ходов) до активации.",

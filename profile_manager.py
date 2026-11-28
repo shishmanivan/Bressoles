@@ -7,6 +7,8 @@ import os
 import shutil
 import tempfile
 import time
+import uuid
+from pathlib import Path
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
 from threading import local
@@ -278,10 +280,28 @@ def _archive_corrupt_profile(path):
     return archive_path
 
 
+def _slot_generation(path):
+    try:
+        with disk_storage.open_text(path + ".generation", encoding="utf-8") as source:
+            return str(uuid.UUID(json.load(source)))
+    except FileNotFoundError:
+        return None  # Existing slots from before deletion tracking.
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ProfileLoadError(f"Invalid slot generation: {path}") from error
+
+
+def _read_current_profile(path, generation):
+    data = _read_profile_data(path)
+    if data.get("generation") != generation:
+        raise FileNotFoundError(path)  # This copy belongs to a deleted profile.
+    return data
+
+
 def _load_profile_data_with_recovery(path):
+    generation = _slot_generation(path)
     missing = False
     try:
-        return _read_profile_data(path)
+        return _read_current_profile(path, generation)
     except FileNotFoundError:
         missing = True
     except (ValueError, UnicodeError):
@@ -291,7 +311,7 @@ def _load_profile_data_with_recovery(path):
         raise ProfileLoadError(f"Cannot read profile: {path}") from error
 
     try:
-        backup = _read_profile_data(path + ".bak")
+        backup = _read_current_profile(path + ".bak", generation)
     except FileNotFoundError as error:
         if missing:
             return None
@@ -763,10 +783,19 @@ def _save_profile_once(profile):
         if profile["progress"].get(f"level_{level}_boss_defeated"):
             checkpoint["completed_progress"] = copy.deepcopy(profile["progress"])
     path = get_profile_path(slot)
+    generation = _slot_generation(path)
+    if profile.get("generation") != generation:
+        raise ProfileLoadError(f"Cannot save a deleted profile: {path}")
     try:
-        previous = _read_profile_data(path)
+        previous = _read_current_profile(path, generation)
     except FileNotFoundError:
-        if disk_storage.exists(path + ".bak"):
+        try:
+            _read_current_profile(path + ".bak", generation)
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError, UnicodeError) as error:
+            raise ProfileLoadError(f"Unreadable backup: {path}") from error
+        else:
             raise ProfileLoadError(f"Load the backup before saving profile: {path}")
         previous = profile
     except (OSError, ValueError, UnicodeError) as error:
@@ -805,12 +834,20 @@ def _delete_profile(slot, path):
     with _file_lock(INDEX_FILE, wait=True):
         if get_selected_slot() == slot:
             save_index({"selected_slot": None})
-    # Remove the recovery copy first so the deleted save cannot reappear.
-    for target in (path + ".bak", path):
-        try:
-            disk_storage.disk_operation(lambda: os.remove(target), missing_ok=True)
-        except FileNotFoundError:
-            pass
+    for pattern in (Path(path).name + ".corrupt-*.bak", f"profile_{slot}.pending-*.json"):
+        for snapshot in Path(path).parent.glob(pattern):
+            snapshot.unlink()
+    try:
+        disk_storage.disk_operation(lambda: os.remove(path + ".bak"), missing_ok=True)
+    except FileNotFoundError:
+        pass
+    # Commit the deletion before removing the last playable copy. Even if an
+    # old backup returns to disk, its generation can never be selected again.
+    _write_json_atomically(path + ".generation", str(uuid.uuid4()))
+    try:
+        disk_storage.disk_operation(lambda: os.remove(path), missing_ok=True)
+    except FileNotFoundError:
+        pass
     _recovered_profile_paths.discard(os.path.abspath(path))
 
 
@@ -821,6 +858,9 @@ def select_profile(slot, name=None):
 
 def _select_profile(slot, name):
     profile = load_profile(slot)
+    generation = _slot_generation(get_profile_path(slot))
+    if generation is not None:
+        profile["generation"] = generation
     if name is not None:
         cleaned_name = str(name).strip()
         if cleaned_name:

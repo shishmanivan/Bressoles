@@ -217,8 +217,11 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         page._update_page_animation(started + 3 * PAGE_ARROW_FRAME_MS)
         self.assertEqual(page.level_page_index, 1)
         page._update_page_animation(started + 4 * PAGE_ARROW_FRAME_MS)
-        self.assertIsNone(self.click(page, self.viewport_point(page, page._card_point_to_content(page.normal_arrow_rects[0].center, 7))))
-        self.assertIsNone(page._pending_level)
+        point = self.viewport_point(page, page._card_point_to_content(page.second_page_start_rect.center, 7))
+        page._update_level_hover(point)
+        self.assertEqual(page._hovered_level, 7)
+        self.assertIsNone(self.click(page, point))
+        self.assertEqual(self.finish_level_press(page), "level_7")
         self.assertIsNone(self.click(page, self.viewport_point(page, page.previous_page_rect.center)))
         self.assertEqual(page.level_page_index, 1)
         page._update_page_animation(page._page_animation_started_at + 3 * PAGE_ARROW_FRAME_MS)
@@ -298,7 +301,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
         self.assertEqual(args[3], "1850")
         self.assertEqual(args[4], page.lang["Level6Cond"])
 
-        self.assertEqual(list(PLAYABLE_LEVELS), list(range(1, 7)))
+        self.assertIn(7, PLAYABLE_LEVELS)
         self.assertEqual(load_levels_config()[6], {"Rounds": 3, "Bosses": 4})
         self.assertEqual(get_level6_goal(1, "E", 0), 80)
         page.progress_flags["level_6_boss_defeated"] = True
@@ -316,10 +319,7 @@ class AdaptiveLevelScreenTests(unittest.TestCase):
             page.draw()
         draw_card.assert_called_once()
         self.assertEqual(draw_card.call_args.args[1], 7)
-        self.assertFalse(draw_card.call_args.kwargs["show_start_arrow"])
-        point = page._card_point_to_content(page.normal_arrow_rects[0].center, 7)
-        self.assertIsNone(self.click(page, self.viewport_point(page, point)))
-        self.assertIsNone(page._pending_level)
+        self.assertTrue(draw_card.call_args.kwargs["show_start_arrow"])
 
     def test_fifth_level_requires_fourth_level_completion(self):
         page = self.make_page(

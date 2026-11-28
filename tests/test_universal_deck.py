@@ -79,6 +79,20 @@ class UniversalDeckTests(unittest.TestCase):
         self.assertEqual(len(page._handle_click(page.confirm_rect.center)), 3)
         page.draw()
 
+    def test_trader_sale_click_sounds_and_displays_press_before_returning(self):
+        page = TraderDeckPage(self.screen, self.font, 1, deck=[11])
+        page._handle_click(page.card_rects[0].center)
+        click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=page.confirm_rect.center)
+        page.button_sound = mock.Mock()
+        with (
+            mock.patch.object(page, "events", side_effect=[[click, click], []]),
+            mock.patch("shop_page.pygame.time.get_ticks", side_effect=[100, 210]),
+            mock.patch("shop_page.draw_ornate_action") as draw_action,
+        ):
+            self.assertEqual(page.run(), 11)
+        page.button_sound.play.assert_called_once_with()
+        draw_action.assert_any_call(page, page.confirm_rect, page.confirm_text, pressed=True)
+
     def test_retention_cannot_be_dismissed(self):
         page = RetentionDeckPage(self.screen, self.font, [11])
         self.assertIsNone(page._handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE)))

@@ -108,7 +108,7 @@ SPECIAL_DESCRIPTIONS = {
     "profit": "Увеличивает награду за каждую следующую победу на 1 наполеондор.",
     "underwriter": "Даёт две разные случайные редкие серебряные карты.",
     "bailout": "Снижает цель следующих 5 раундов на 20%. Пока действует, не появляется в магазине.",
-    "price_cut": "Навсегда снижает цели этого уровня на 4%. Предложение доступно в магазине на уровнях 1–5.",
+    "price_cut": "Навсегда снижает цель этого уровня на 4%.",
     "long": "Вложите 2 наполеондора сейчас и получите 6 наполеондоров через 4 раунда.",
     "derivative": "Увеличивает руку на одну карту до конца забега.",
     "junk_bond": "Вложите 2 наполеондора: 60% получить 6, 30% потерять ставку, 10% вернуть 2.",
@@ -2035,6 +2035,9 @@ class DeckCardPage(AdaptivePage):
         self.card_rects = self._build_card_rects()
         self.confirm_rect = pygame.Rect(self.panel_rect.centerx - 220, self.panel_rect.bottom - 130, 190, 70)
         self.cancel_rect = pygame.Rect(self.panel_rect.centerx + 30, self.panel_rect.bottom - 130, 190, 70)
+        self._pressed_action = None
+        self._action_press_until = None
+        self.button_sound = load_button_sound()
 
     def _load_image(self, path, size=None):
         if not os.path.exists(path):
@@ -2062,7 +2065,7 @@ class DeckCardPage(AdaptivePage):
         self.screen.blit(surface, surface.get_rect(center=center))
 
     def _draw_button(self, rect, text):
-        draw_ornate_action(self, rect, text)
+        draw_ornate_action(self, rect, text, pressed=self._pressed_action is rect)
 
     def _card_image(self, card_id):
         try:
@@ -2202,6 +2205,8 @@ class DeckCardPage(AdaptivePage):
         self._draw_centered_text(self.prompt, self.small_font, (self.panel_rect.centerx, self.panel_rect.y + 93))
         if self.allow_back:
             close = self.close_rect
+            if self._pressed_action is close:
+                close = close.inflate(-2, -2).move(0, 3)
             pygame.draw.line(self.screen, PAPER_COLOR, (close.x + 12, close.y + 12), (close.right - 12, close.bottom - 12), 2)
             pygame.draw.line(self.screen, PAPER_COLOR, (close.right - 12, close.y + 12), (close.x + 12, close.bottom - 12), 2)
         if not self.deck:
@@ -2271,16 +2276,45 @@ class DeckCardPage(AdaptivePage):
                 return self._handle_click(event.pos)
         return None
 
+    def _action_button_at(self, pos):
+        if self.allow_back and self.close_rect.collidepoint(pos):
+            return self.close_rect
+        selecting = self._selection_message() is not None
+        if selecting and self.confirm_rect.collidepoint(pos):
+            return self.confirm_rect
+        if (selecting or self.allow_back) and self.cancel_rect.collidepoint(pos):
+            return self.cancel_rect
+        return None
+
     def run(self):
         while True:
             for event in self.events():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                result = self._handle_event(event)
+                if self._pressed_action is not None:
+                    continue
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    self._pressed_action = self._action_button_at(event.pos)
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and self.allow_back:
+                    self._pressed_action = self.close_rect
+                if self._pressed_action is not None:
+                    if self.button_sound:
+                        self.button_sound.play()
+                else:
+                    result = self._handle_event(event)
+                    if result is not None:
+                        return None if result == "back" else result
+            if self._action_press_until is not None and pygame.time.get_ticks() >= self._action_press_until:
+                button = self._pressed_action
+                self._pressed_action = None
+                self._action_press_until = None
+                result = self._handle_click(button.center)
                 if result is not None:
                     return None if result == "back" else result
             self.draw()
+            if self._pressed_action is not None and self._action_press_until is None:
+                self._action_press_until = pygame.time.get_ticks() + 110
             self.clock.tick(FPS)
 
 
